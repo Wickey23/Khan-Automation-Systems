@@ -14,6 +14,8 @@ export type Lead = {
   status: LeadStatus;
   tags: string;
   notes: string | null;
+  source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
+  dnc?: boolean;
   createdAt: string;
   updatedAt: string;
   ip: string | null;
@@ -36,7 +38,16 @@ export type LeadPayload = {
 };
 
 export type ClientStatus = "NEEDS_CONFIGURATION" | "LIVE" | "PAUSED" | "CANCELED";
-export type OrgStatus = "NEW" | "ONBOARDING" | "READY_FOR_REVIEW" | "PROVISIONING" | "LIVE" | "PAUSED";
+export type OrgStatus =
+  | "NEW"
+  | "ONBOARDING"
+  | "SUBMITTED"
+  | "NEEDS_CHANGES"
+  | "APPROVED"
+  | "PROVISIONING"
+  | "TESTING"
+  | "LIVE"
+  | "PAUSED";
 
 export type Client = {
   id: string;
@@ -110,6 +121,8 @@ export type Organization = {
   industry: string | null;
   status: OrgStatus;
   live: boolean;
+  onboardingApprovedAt?: string | null;
+  goLiveAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -119,6 +132,7 @@ export type OnboardingSubmission = {
   orgId: string;
   status: "DRAFT" | "SUBMITTED" | "REVIEWED" | "NEEDS_CHANGES" | "APPROVED";
   answersJson: string;
+  configPackageJson?: string;
   submittedAt: string | null;
   reviewedAt: string | null;
   notesFromAdmin: string | null;
@@ -161,6 +175,27 @@ export type OrgCallRecord = {
   transcript: string | null;
   outcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
   summary: string;
+  aiProvider?: "VAPI" | "OPENAI" | "OTHER" | null;
+  aiSummary?: string | null;
+  appointmentRequested?: boolean;
+  leadId?: string | null;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type BusinessSettings = {
+  id: string;
+  orgId: string;
+  hoursJson: string;
+  afterHoursMode: "TAKE_MESSAGE" | "TRANSFER" | "VOICEMAIL";
+  transferNumbersJson: string;
+  notificationEmailsJson: string;
+  notificationPhonesJson: string;
+  languagesJson: string;
+  recordingConsentEnabled: boolean;
+  smsConsentText: string;
+  timezone: string;
+  servicesJson: string;
+  policiesJson: string;
   updatedAt: string;
 };

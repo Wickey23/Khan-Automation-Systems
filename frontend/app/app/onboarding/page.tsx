@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchOrgOnboarding, saveOrgOnboarding, submitOrgOnboarding } from "@/lib/api";
+import { fetchOrgOnboarding, previewOrgOnboarding, saveOrgOnboarding, submitOrgOnboarding } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +64,7 @@ export default function AppOnboardingPage() {
   const [state, setState] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<string>("DRAFT");
   const [saving, setSaving] = useState(false);
+  const [previewJson, setPreviewJson] = useState<string>("");
 
   useEffect(() => {
     void fetchOrgOnboarding()
@@ -190,6 +191,19 @@ export default function AppOnboardingPage() {
     }
   }
 
+  async function onPreview() {
+    setSaving(true);
+    try {
+      const res = await previewOrgOnboarding(answers);
+      setPreviewJson(JSON.stringify(res.configPackage, null, 2));
+      showToast({ title: "Configuration package preview generated" });
+    } catch (error) {
+      showToast({ title: "Preview failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -227,8 +241,17 @@ export default function AppOnboardingPage() {
       </Card>
       <div className="flex gap-3">
         <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
+        <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
         <Button variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
       </div>
+      {previewJson ? (
+        <Card>
+          <CardHeader><CardTitle>AI Configuration Package Preview</CardTitle></CardHeader>
+          <CardContent>
+            <pre className="max-h-96 overflow-auto rounded bg-muted p-3 text-xs">{previewJson}</pre>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

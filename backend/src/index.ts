@@ -7,7 +7,7 @@ import morgan from "morgan";
 import { UserRole } from "@prisma/client";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
-import { leadRateLimit } from "./middleware/rate-limit";
+import { leadRateLimit, webhookRateLimit } from "./middleware/rate-limit";
 import { adminRouter } from "./modules/admin/admin.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { billingRouter } from "./modules/billing/billing.routes";
@@ -18,6 +18,8 @@ import { leadRouter } from "./modules/leads/lead.routes";
 import { smsRouter } from "./modules/sms/sms.routes";
 import { stripeRouter } from "./modules/stripe/stripe.routes";
 import { orgRouter } from "./modules/org/org.routes";
+import { toolsRouter } from "./modules/tools/tools.routes";
+import { vapiRouter } from "./modules/voice/vapi/vapi.routes";
 import { voiceRouter } from "./modules/voice/voice.routes";
 
 const app = express();
@@ -55,8 +57,10 @@ app.use("/api/org", orgRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/stripe", stripeRouter);
 app.use("/api/billing", billingRouter);
-app.use("/api/twilio/voice", voiceRouter);
-app.use("/api/twilio/sms", smsRouter);
+app.use("/api/twilio/voice", webhookRateLimit, voiceRouter);
+app.use("/api/twilio/sms", webhookRateLimit, smsRouter);
+app.use("/api/vapi", webhookRateLimit, vapiRouter);
+app.use("/api/tools", webhookRateLimit, toolsRouter);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   // eslint-disable-next-line no-console

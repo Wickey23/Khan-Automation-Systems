@@ -91,3 +91,17 @@ export const updateOrgProfileSchema = z.object({
   name: z.string().min(2).optional(),
   industry: z.string().optional().nullable()
 });
+
+export const updateBusinessSettingsSchema = z.object({
+  hoursJson: z.string().optional(),
+  afterHoursMode: z.enum(["TAKE_MESSAGE", "TRANSFER", "VOICEMAIL"]).optional(),
+  transferNumbersJson: z.string().optional(),
+  notificationEmailsJson: z.string().optional(),
+  notificationPhonesJson: z.string().optional(),
+  languagesJson: z.string().optional(),
+  recordingConsentEnabled: z.boolean().optional(),
+  smsConsentText: z.string().optional(),
+  timezone: z.string().optional(),
+  servicesJson: z.string().optional(),
+  policiesJson: z.string().optional()
+});

@@ -2,6 +2,7 @@ import { siteConfig } from "@/lib/config";
 import type {
   AIConfig,
   AuthUser,
+  BusinessSettings,
   CallRecord,
   Client,
   Lead,
@@ -241,6 +242,13 @@ export async function saveOrgOnboarding(answers: Record<string, unknown>) {
   });
 }
 
+export async function previewOrgOnboarding(answers: Record<string, unknown>) {
+  return request<{ configPackage: Record<string, unknown> }>("/api/org/onboarding/preview", {
+    method: "POST",
+    body: JSON.stringify({ answers })
+  });
+}
+
 export async function submitOrgOnboarding(answers?: Record<string, unknown>) {
   return request<{ submission: OnboardingSubmission }>("/api/org/onboarding/submit", {
     method: "POST",
@@ -254,6 +262,17 @@ export async function fetchOrgLeads() {
 
 export async function fetchOrgCalls() {
   return request<{ calls: OrgCallRecord[] }>("/api/org/calls");
+}
+
+export async function fetchOrgSettings() {
+  return request<{ settings: BusinessSettings }>("/api/org/settings");
+}
+
+export async function updateOrgSettings(body: Partial<BusinessSettings>) {
+  return request<{ settings: BusinessSettings }>("/api/org/settings", {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
 }
 
 export async function fetchAdminOrgs() {
@@ -301,6 +320,39 @@ export async function goLiveOrg(id: string) {
 
 export async function pauseOrg(id: string) {
   return request<{ org: Organization }>(`/api/admin/orgs/${id}/pause`, { method: "POST" });
+}
+
+export async function updateProvisioningStep(
+  orgId: string,
+  stepKey: string,
+  status: "TODO" | "DONE" | "BLOCKED",
+  notes?: string
+) {
+  return request<{ checklist: Record<string, unknown> }>(`/api/admin/orgs/${orgId}/provisioning/checklist-step`, {
+    method: "POST",
+    body: JSON.stringify({ stepKey, status, notes })
+  });
+}
+
+export async function approveOnboarding(orgId: string) {
+  return request<Record<string, never>>(`/api/admin/orgs/${orgId}/provisioning/approve-onboarding`, { method: "POST" });
+}
+
+export async function generateAiConfigFromPackage(orgId: string) {
+  return request<{ ai: Record<string, unknown> }>(`/api/admin/orgs/${orgId}/provisioning/generate-ai-config`, {
+    method: "POST"
+  });
+}
+
+export async function setOrgTesting(orgId: string) {
+  return request<{ org: Organization }>(`/api/admin/orgs/${orgId}/provisioning/testing`, { method: "POST" });
+}
+
+export async function completeOrgTesting(orgId: string, notes: string) {
+  return request<Record<string, never>>(`/api/admin/orgs/${orgId}/provisioning/test-complete`, {
+    method: "POST",
+    body: JSON.stringify({ notes })
+  });
 }
 
 export async function resetOrgUserPassword(orgId: string, userId: string, password: string) {

@@ -28,7 +28,9 @@ const envSchema = z.object({
   AUTO_LIVE_ON_SETUP: z.string().default("false"),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
-  TWILIO_PHONE_SID: z.string().optional()
+  TWILIO_PHONE_SID: z.string().optional(),
+  VAPI_API_KEY: z.string().optional(),
+  VAPI_TOOL_SECRET: z.string().optional()
 });
 
 const parsed = envSchema.safeParse(process.env);

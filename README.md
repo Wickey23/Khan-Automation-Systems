@@ -306,3 +306,77 @@ stripe listen --forward-to http://localhost:4000/api/billing/webhook
 - `POST /api/twilio/sms`
 
 Twilio routing is org-aware by inbound `To` number lookup (`PhoneNumber.e164Number`).
+
+## Client-Ready Operations v1
+
+### Provisioning Pipeline Statuses
+- `NEW`
+- `ONBOARDING`
+- `SUBMITTED`
+- `NEEDS_CHANGES`
+- `APPROVED`
+- `PROVISIONING`
+- `TESTING`
+- `LIVE`
+- `PAUSED`
+
+### New Operational Models
+- `ProvisioningChecklist` (step-by-step go-live controls)
+- `AuditLog` (admin/operator action trace)
+- `BusinessSettings` (org-level behavior settings for call routing)
+- Expanded `AiAgentConfig` with Vapi fields (`vapiAgentId`, `vapiPhoneNumberId`, prompt/tools/intake schema)
+- Expanded `CallLog` (`aiProvider`, `aiSummary`, `appointmentRequested`, `leadId`)
+- Expanded `OnboardingSubmission` with `configPackageJson`
+
+### New Backend Endpoints
+- Client/org:
+  - `GET /api/org/settings`
+  - `PATCH /api/org/settings`
+  - `POST /api/org/onboarding/preview`
+- Admin provisioning:
+  - `POST /api/admin/orgs/:id/provisioning/approve-onboarding`
+  - `POST /api/admin/orgs/:id/provisioning/generate-ai-config`
+  - `POST /api/admin/orgs/:id/provisioning/checklist-step`
+  - `POST /api/admin/orgs/:id/provisioning/testing`
+  - `POST /api/admin/orgs/:id/provisioning/test-complete`
+- Vapi runtime + tools:
+  - `POST /api/vapi/webhook`
+  - `POST /api/tools/create-lead-from-call`
+  - `POST /api/tools/send-sms`
+  - `POST /api/tools/notify-manager`
+  - `POST /api/tools/request-appointment`
+  - `POST /api/tools/transfer-call`
+
+### Security Enhancements
+- Twilio webhook signature validation (enabled when `TWILIO_AUTH_TOKEN` is set)
+- Vapi tool/webhook secret validation via `VAPI_TOOL_SECRET`
+- Rate limiting applied to public webhook routes
+
+### Vapi + Twilio Setup Checklist
+1. Set backend env:
+   - `VAPI_API_KEY`
+   - `VAPI_TOOL_SECRET`
+   - `TWILIO_ACCOUNT_SID`
+   - `TWILIO_AUTH_TOKEN`
+   - `API_BASE_URL`
+2. In admin org detail:
+   - approve onboarding
+   - generate AI config package
+   - assign Twilio number
+   - set `vapiAgentId` and `vapiPhoneNumberId` in AI config
+   - move org to testing, then go live
+3. Configure Vapi tool calls to use:
+   - `${API_BASE_URL}/api/tools/*`
+   - include `x-vapi-tool-secret: <VAPI_TOOL_SECRET>`
+4. Configure Vapi webhook to:
+   - `${API_BASE_URL}/api/vapi/webhook`
+   - include `x-vapi-tool-secret: <VAPI_TOOL_SECRET>`
+
+### Render/Prod Schema Workflow
+Render free tier usually requires manual schema sync for major model updates:
+```bash
+cd backend
+npx prisma db push
+```
+
+Then redeploy backend.

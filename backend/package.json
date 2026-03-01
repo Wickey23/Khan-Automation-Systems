@@ -9,6 +9,7 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "db:migrate:dev": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:push:prod": "prisma db push",
     "seed:admin": "ts-node --transpile-only prisma/seed.ts"

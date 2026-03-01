@@ -4,12 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
+  approveOnboarding,
   assignOrgTwilioNumber,
+  completeOrgTesting,
   fetchAdminOrgById,
+  generateAiConfigFromPackage,
   goLiveOrg,
   pauseOrg,
   resetOrgUserPassword,
+  setOrgTesting,
   saveAdminOrgNotes,
+  updateProvisioningStep,
   updateAdminOrgStatus,
   updateOrgAiConfig
 } from "@/lib/api";
@@ -23,12 +28,23 @@ import { Textarea } from "@/components/ui/textarea";
 type OrgDetail = {
   id: string;
   name: string;
-  status: "NEW" | "ONBOARDING" | "READY_FOR_REVIEW" | "PROVISIONING" | "LIVE" | "PAUSED";
+  status: "NEW" | "ONBOARDING" | "SUBMITTED" | "NEEDS_CHANGES" | "APPROVED" | "PROVISIONING" | "TESTING" | "LIVE" | "PAUSED";
   live: boolean;
   onboardingSubmissions?: Array<{ answersJson: string; status: string; notesFromAdmin?: string | null }>;
   phoneNumbers?: Array<{ e164Number: string; status: string }>;
-  aiAgentConfigs?: Array<{ provider: string; agentId?: string | null; status: string; updatedAt: string }>;
+  aiAgentConfigs?: Array<{
+    provider: string;
+    agentId?: string | null;
+    vapiAgentId?: string | null;
+    vapiPhoneNumberId?: string | null;
+    voice?: string | null;
+    model?: string | null;
+    systemPrompt?: string | null;
+    status: string;
+    updatedAt: string;
+  }>;
   users?: Array<{ id: string; email: string; role: string; createdAt: string }>;
+  checklistSteps?: Array<{ key: string; label: string; status: string; notes?: string }>;
 };
 
 export default function AdminOrgDetailPage() {
@@ -40,10 +56,12 @@ export default function AdminOrgDetailPage() {
   const [e164Number, setE164Number] = useState("");
   const [twilioPhoneSid, setTwilioPhoneSid] = useState("");
   const [agentId, setAgentId] = useState("");
+  const [vapiPhoneNumberId, setVapiPhoneNumberId] = useState("");
   const [voice, setVoice] = useState("");
   const [model, setModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
+  const [testNotes, setTestNotes] = useState("");
 
   async function load() {
     const data = await fetchAdminOrgById(id);
@@ -51,7 +69,11 @@ export default function AdminOrgDetailPage() {
     setOrg(next);
     setStatus(next.status);
     const latestAi = next.aiAgentConfigs?.[0];
-    setAgentId(latestAi?.agentId || "");
+    setAgentId(latestAi?.vapiAgentId || latestAi?.agentId || "");
+    setVapiPhoneNumberId(latestAi?.vapiPhoneNumberId || "");
+    setVoice(latestAi?.voice || "");
+    setModel(latestAi?.model || "");
+    setSystemPrompt(latestAi?.systemPrompt || "");
   }
 
   useEffect(() => {
@@ -90,7 +112,8 @@ export default function AdminOrgDetailPage() {
   async function saveAiConfig() {
     await updateOrgAiConfig(id, {
       provider: "VAPI",
-      agentId,
+      vapiAgentId: agentId,
+      vapiPhoneNumberId,
       voice,
       model,
       systemPrompt,
@@ -109,6 +132,11 @@ export default function AdminOrgDetailPage() {
     await resetOrgUserPassword(id, userId, password);
     showToast({ title: "Password reset", description: "Client user password updated." });
     setPasswordDrafts((current) => ({ ...current, [userId]: "" }));
+  }
+
+  async function setStep(key: string, stepStatus: "TODO" | "DONE" | "BLOCKED", stepNotes?: string) {
+    await updateProvisioningStep(id, key, stepStatus, stepNotes);
+    await load();
   }
 
   return (
@@ -138,8 +166,11 @@ export default function AdminOrgDetailPage() {
                 >
                   <option value="NEW">NEW</option>
                   <option value="ONBOARDING">ONBOARDING</option>
-                  <option value="READY_FOR_REVIEW">READY_FOR_REVIEW</option>
+                  <option value="SUBMITTED">SUBMITTED</option>
+                  <option value="NEEDS_CHANGES">NEEDS_CHANGES</option>
+                  <option value="APPROVED">APPROVED</option>
                   <option value="PROVISIONING">PROVISIONING</option>
+                  <option value="TESTING">TESTING</option>
                   <option value="LIVE">LIVE</option>
                   <option value="PAUSED">PAUSED</option>
                 </select>
@@ -162,6 +193,26 @@ export default function AdminOrgDetailPage() {
 
           <section className="rounded-lg border bg-white p-4">
             <h2 className="text-lg font-semibold">Provisioning</h2>
+            <div className="mb-3 grid gap-2 rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">Checklist</p>
+              {(org?.checklistSteps || []).map((step) => (
+                <div key={step.key} className="flex items-center justify-between gap-2">
+                  <span>{step.label}</span>
+                  <span className="rounded bg-white px-2 py-0.5 text-xs">{step.status}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void approveOnboarding(id).then(load)}>
+                Approve onboarding
+              </Button>
+              <Button variant="outline" onClick={() => void generateAiConfigFromPackage(id).then(load)}>
+                Generate AI package
+              </Button>
+              <Button variant="outline" onClick={() => void setOrgTesting(id).then(load)}>
+                Set testing mode
+              </Button>
+            </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>E164 Number</Label>
@@ -175,6 +226,9 @@ export default function AdminOrgDetailPage() {
             <Button className="mt-3" onClick={() => void assignNumber()}>
               Assign Twilio number
             </Button>
+            <Button className="mt-3 ml-2" variant="outline" onClick={() => void setStep("twilio_number_assigned", "DONE")}>
+              Mark number assigned
+            </Button>
             <p className="mt-2 text-xs text-muted-foreground">
               Assigned: {org?.phoneNumbers?.[0]?.e164Number || "none"}
             </p>
@@ -184,14 +238,28 @@ export default function AdminOrgDetailPage() {
             <h2 className="text-lg font-semibold">AI Agent Config</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div><Label>Vapi Agent ID</Label><Input value={agentId} onChange={(e) => setAgentId(e.target.value)} /></div>
+              <div><Label>Vapi Phone Bridge (E164)</Label><Input value={vapiPhoneNumberId} onChange={(e) => setVapiPhoneNumberId(e.target.value)} /></div>
               <div><Label>Voice</Label><Input value={voice} onChange={(e) => setVoice(e.target.value)} /></div>
               <div><Label>Model</Label><Input value={model} onChange={(e) => setModel(e.target.value)} /></div>
               <div className="sm:col-span-2"><Label>System Prompt</Label><Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} /></div>
             </div>
             <div className="mt-3 flex gap-2">
-              <Button onClick={() => void saveAiConfig()}>Save AI config</Button>
-              <Button variant="outline" onClick={() => void goLiveOrg(id)}>Go Live</Button>
-              <Button variant="outline" onClick={() => void pauseOrg(id)}>Pause</Button>
+              <Button onClick={() => void saveAiConfig().then(() => setStep("vapi_agent_configured", "DONE"))}>Save AI config</Button>
+              <Button variant="outline" onClick={() => void setStep("webhooks_verified", "DONE")}>Mark webhooks verified</Button>
+            </div>
+            <div className="mt-3 space-y-2">
+              <Label>Test completion notes</Label>
+              <Textarea value={testNotes} onChange={(e) => setTestNotes(e.target.value)} />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => void completeOrgTesting(id, testNotes).then(load)}>
+                  Mark test completed
+                </Button>
+                <Button variant="outline" onClick={() => void setStep("notifications_verified", "DONE")}>
+                  Mark notifications verified
+                </Button>
+                <Button onClick={() => void goLiveOrg(id).then(() => setStep("go_live", "DONE").then(load))}>Go Live</Button>
+                <Button variant="outline" onClick={() => void pauseOrg(id).then(load)}>Pause</Button>
+              </div>
             </div>
           </section>
 

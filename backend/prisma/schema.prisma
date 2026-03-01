@@ -33,8 +33,11 @@ enum UserRole {
 enum OrganizationStatus {
   NEW
   ONBOARDING
-  READY_FOR_REVIEW
+  SUBMITTED
+  NEEDS_CHANGES
+  APPROVED
   PROVISIONING
+  TESTING
   LIVE
   PAUSED
 }
@@ -116,6 +119,8 @@ model Organization {
   industry             String?
   status               OrganizationStatus     @default(NEW)
   live                 Boolean                @default(false)
+  onboardingApprovedAt DateTime?
+  goLiveAt             DateTime?
   users                User[]
   subscriptions        Subscription[]
   onboardingSubmissions OnboardingSubmission[]
@@ -123,6 +128,9 @@ model Organization {
   aiAgentConfigs       AiAgentConfig[]
   callLogs             CallLog[]
   leads                Lead[]
+  provisioningChecklist ProvisioningChecklist?
+  auditLogs            AuditLog[]
+  businessSettings     BusinessSettings?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -161,6 +169,7 @@ model OnboardingSubmission {
   organization   Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   status         OnboardingStatus @default(DRAFT)
   answersJson    String           @default("{}")
+  configPackageJson String        @default("{}")
   submittedAt    DateTime?
   reviewedAt     DateTime?
   notesFromAdmin String?
@@ -186,12 +195,16 @@ model AiAgentConfig {
   orgId             String            @unique
   organization      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   provider          AiProvider        @default(VAPI)
+  vapiAgentId       String?
+  vapiPhoneNumberId String?
   agentId           String?
   apiKeyRef         String?
   voice             String?
   model             String?
   temperature       Float?
   systemPrompt      String?
+  toolsJson         String?
+  intakeSchemaJson  String?
   toolsEnabledJson  String?
   transferRulesJson String?
   status            AgentConfigStatus @default(DRAFT)
@@ -206,6 +219,11 @@ model CallLog {
   providerCallId String?
   fromNumber     String
   toNumber       String
+  aiProvider     AiProvider?
+  aiSummary      String?
+  appointmentRequested Boolean   @default(false)
+  leadId         String?
+  lead           Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
   startedAt      DateTime       @default(now())
   endedAt        DateTime?
   durationSec    Int?
@@ -292,8 +310,50 @@ model Lead {
   tags             String     @default("")
   notes            String?
   source           LeadSource @default(WEB_FORM)
+  dnc              Boolean    @default(false)
   ip               String?
   userAgent        String?
+  callLogs         CallLog[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+}
+
+model ProvisioningChecklist {
+  id            String   @id @default(cuid())
+  orgId         String   @unique
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stepsJson     String   @default("[]")
+  derivedStatus String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  orgId       String?
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  actorUserId String
+  actorRole   String
+  action      String
+  metadataJson String  @default("{}")
+  createdAt   DateTime @default(now())
+}
+
+model BusinessSettings {
+  id                      String   @id @default(cuid())
+  orgId                   String   @unique
+  organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  hoursJson               String   @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
+  afterHoursMode          String   @default("TAKE_MESSAGE")
+  transferNumbersJson     String   @default("[]")
+  notificationEmailsJson  String   @default("[]")
+  notificationPhonesJson  String   @default("[]")
+  languagesJson           String   @default("[\"English\"]")
+  recordingConsentEnabled Boolean  @default(false)
+  smsConsentText          String   @default("")
+  timezone                String   @default("America/New_York")
+  servicesJson            String   @default("[]")
+  policiesJson            String   @default("{}")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }

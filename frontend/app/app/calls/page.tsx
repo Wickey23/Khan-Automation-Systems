@@ -26,6 +26,7 @@ export default function AppCallsPage() {
               <th className="p-3">From</th>
               <th className="p-3">To</th>
               <th className="p-3">Outcome</th>
+              <th className="p-3">AI</th>
               <th className="p-3">Summary</th>
               <th className="p-3">Recording</th>
               <th className="p-3">Call SID</th>
@@ -39,9 +40,13 @@ export default function AppCallsPage() {
                 <td className="p-3">{call.fromNumber}</td>
                 <td className="p-3">{call.toNumber}</td>
                 <td className="p-3">{call.outcome.replaceAll("_", " ")}</td>
+                <td className="p-3 text-xs text-muted-foreground">
+                  {call.aiProvider || "-"}
+                  {call.appointmentRequested ? " | appointment" : ""}
+                </td>
                 <td className="p-3">
                   <div className="max-w-sm whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                    {call.summary || "-"}
+                    {call.aiSummary || call.summary || "-"}
                     {call.transcript ? `\n\nTranscript: ${call.transcript}` : ""}
                   </div>
                 </td>
@@ -64,7 +69,7 @@ export default function AppCallsPage() {
             ))}
             {!calls.length ? (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={8}>
+                <td className="p-3 text-muted-foreground" colSpan={9}>
                   No calls logged yet.
                 </td>
               </tr>

@@ -1,0 +1,57 @@
+type JsonMap = Record<string, unknown>;
+
+export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: JsonMap) {
+  const business = (configPackage.businessProfile || {}) as JsonMap;
+  const services = Array.isArray(configPackage.services) ? configPackage.services : [];
+  const transferRules = (configPackage.transferRules || {}) as JsonMap;
+  const policies = (configPackage.policies || {}) as JsonMap;
+  const timezone = String((businessSettings.timezone as string) || "America/New_York");
+
+  return [
+    "You are the AI receptionist for a local service business.",
+    `Business: ${String(business.displayName || business.legalBusinessName || "Service Shop")}`,
+    `Industry: ${String(business.industry || "Service")}`,
+    `Timezone: ${timezone}`,
+    `Services: ${services.join(", ") || "General service work"}`,
+    "Goals: collect caller details, determine urgency, offer next steps, escalate when rules match.",
+    `Transfer numbers: ${JSON.stringify(transferRules.transferNumbers || [])}`,
+    `Transfer when: ${JSON.stringify(transferRules.whenToTransfer || [])}`,
+    `Policies: ${JSON.stringify(policies)}`,
+    "Always be concise, practical, and clear. If unsure, take a message and notify the manager."
+  ].join("\n");
+}
+
+export function buildVapiTools(apiBaseUrl: string) {
+  return [
+    { name: "create_lead_from_call", url: `${apiBaseUrl}/api/tools/create-lead-from-call`, method: "POST" },
+    { name: "send_sms", url: `${apiBaseUrl}/api/tools/send-sms`, method: "POST" },
+    { name: "notify_manager", url: `${apiBaseUrl}/api/tools/notify-manager`, method: "POST" },
+    { name: "request_appointment", url: `${apiBaseUrl}/api/tools/request-appointment`, method: "POST" },
+    { name: "transfer_call", url: `${apiBaseUrl}/api/tools/transfer-call`, method: "POST" }
+  ];
+}
+
+export async function upsertVapiAgentIfConfigured(input: {
+  apiKey?: string;
+  agentId?: string | null;
+  payload: Record<string, unknown>;
+}) {
+  if (!input.apiKey) return { skipped: true as const, reason: "VAPI_API_KEY not configured" };
+  const baseUrl = input.agentId ? `https://api.vapi.ai/assistant/${input.agentId}` : "https://api.vapi.ai/assistant";
+  const method = input.agentId ? "PATCH" : "POST";
+  const response = await fetch(baseUrl, {
+    method,
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input.payload)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Vapi API error (${response.status}): ${text}`);
+  }
+
+  return (await response.json()) as Record<string, unknown>;
+}

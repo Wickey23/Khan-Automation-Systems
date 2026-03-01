@@ -22,6 +22,8 @@ export default function AppLeadsPage() {
               <th className="p-3">Created</th>
               <th className="p-3">Name</th>
               <th className="p-3">Business</th>
+              <th className="p-3">Source</th>
+              <th className="p-3">DNC</th>
               <th className="p-3">Status</th>
             </tr>
           </thead>
@@ -31,12 +33,14 @@ export default function AppLeadsPage() {
                 <td className="p-3">{new Date(lead.createdAt).toLocaleString()}</td>
                 <td className="p-3">{lead.name}</td>
                 <td className="p-3">{lead.business}</td>
+                <td className="p-3">{lead.source || "-"}</td>
+                <td className="p-3">{lead.dnc ? "Yes" : "No"}</td>
                 <td className="p-3">{lead.status}</td>
               </tr>
             ))}
             {!leads.length ? (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={4}>
+                <td className="p-3 text-muted-foreground" colSpan={6}>
                   No leads yet.
                 </td>
               </tr>

@@ -1,8 +1,9 @@
 import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
-import { requireAuth, requireAnyRole, type AuthenticatedRequest } from "../../middleware/require-auth";
-import { saveOnboardingSchema, submitOnboardingSchema, updateOrgProfileSchema } from "./org.schema";
+import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { buildConfigPackage } from "./config-package";
+import { saveOnboardingSchema, submitOnboardingSchema, updateBusinessSettingsSchema, updateOrgProfileSchema } from "./org.schema";
 
 export const orgRouter = Router();
 
@@ -26,6 +27,46 @@ orgRouter.patch("/profile", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { organization } });
 });
 
+orgRouter.get("/settings", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const settings = await prisma.businessSettings.upsert({
+    where: { orgId: req.auth.orgId },
+    update: {},
+    create: { orgId: req.auth.orgId }
+  });
+  return res.json({ ok: true, data: { settings } });
+});
+
+orgRouter.patch("/settings", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = updateBusinessSettingsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid settings payload.", errors: parsed.error.flatten() });
+
+  const settings = await prisma.businessSettings.upsert({
+    where: { orgId: req.auth.orgId },
+    update: parsed.data,
+    create: {
+      orgId: req.auth.orgId,
+      ...parsed.data
+    }
+  });
+
+  const organization = await prisma.organization.findUnique({ where: { id: req.auth.orgId }, select: { status: true, live: true } });
+  if (organization?.live) {
+    await prisma.auditLog.create({
+      data: {
+        orgId: req.auth.orgId,
+        actorUserId: req.auth.userId,
+        actorRole: req.auth.role,
+        action: "BUSINESS_SETTINGS_UPDATED_WHILE_LIVE",
+        metadataJson: JSON.stringify({ sensitiveReviewRecommended: true })
+      }
+    });
+  }
+
+  return res.json({ ok: true, data: { settings } });
+});
+
 orgRouter.get("/onboarding", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const submission = await prisma.onboardingSubmission.findFirst({
@@ -40,15 +81,18 @@ orgRouter.put("/onboarding", async (req: AuthenticatedRequest, res) => {
   const parsed = saveOnboardingSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid onboarding payload.", errors: parsed.error.flatten() });
 
+  const configPackage = buildConfigPackage(parsed.data.answers as Record<string, unknown>);
   const submission = await prisma.onboardingSubmission.upsert({
     where: { orgId: req.auth.orgId },
     update: {
       answersJson: JSON.stringify(parsed.data.answers),
+      configPackageJson: JSON.stringify(configPackage),
       status: OnboardingStatus.DRAFT
     },
     create: {
       orgId: req.auth.orgId,
       answersJson: JSON.stringify(parsed.data.answers),
+      configPackageJson: JSON.stringify(configPackage),
       status: OnboardingStatus.DRAFT
     }
   });
@@ -61,24 +105,35 @@ orgRouter.put("/onboarding", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { submission } });
 });
 
+orgRouter.post("/onboarding/preview", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = saveOnboardingSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid onboarding payload.", errors: parsed.error.flatten() });
+  const configPackage = buildConfigPackage(parsed.data.answers as Record<string, unknown>);
+  return res.json({ ok: true, data: { configPackage } });
+});
+
 orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = submitOnboardingSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid onboarding submit payload.", errors: parsed.error.flatten() });
 
   const current = await prisma.onboardingSubmission.findFirst({ where: { orgId: req.auth.orgId } });
-  const answersJson = parsed.data.answers ? JSON.stringify(parsed.data.answers) : current?.answersJson || "{}";
+  const answersObj = parsed.data.answers || (current?.answersJson ? (JSON.parse(current.answersJson) as Record<string, unknown>) : {});
+  const configPackage = buildConfigPackage(answersObj as Record<string, unknown>);
 
   const submission = await prisma.onboardingSubmission.upsert({
     where: { orgId: req.auth.orgId },
     update: {
-      answersJson,
+      answersJson: JSON.stringify(answersObj),
+      configPackageJson: JSON.stringify(configPackage),
       status: OnboardingStatus.SUBMITTED,
       submittedAt: new Date()
     },
     create: {
       orgId: req.auth.orgId,
-      answersJson,
+      answersJson: JSON.stringify(answersObj),
+      configPackageJson: JSON.stringify(configPackage),
       status: OnboardingStatus.SUBMITTED,
       submittedAt: new Date()
     }
@@ -86,10 +141,28 @@ orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
 
   await prisma.organization.update({
     where: { id: req.auth.orgId },
-    data: { status: OrganizationStatus.READY_FOR_REVIEW }
+    data: { status: OrganizationStatus.SUBMITTED }
   });
 
-  return res.json({ ok: true, data: { submission } });
+  await prisma.businessSettings.upsert({
+    where: { orgId: req.auth.orgId },
+    update: {
+      timezone: String((configPackage.hours as Record<string, unknown>)?.timezone || "America/New_York"),
+      servicesJson: JSON.stringify(configPackage.services || []),
+      policiesJson: JSON.stringify(configPackage.policies || {}),
+      notificationEmailsJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerEmails || []),
+      notificationPhonesJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerPhones || [])
+    },
+    create: {
+      orgId: req.auth.orgId,
+      servicesJson: JSON.stringify(configPackage.services || []),
+      policiesJson: JSON.stringify(configPackage.policies || {}),
+      notificationEmailsJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerEmails || []),
+      notificationPhonesJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerPhones || [])
+    }
+  });
+
+  return res.json({ ok: true, data: { submission, configPackage } });
 });
 
 orgRouter.get("/subscription", async (req: AuthenticatedRequest, res) => {
@@ -118,10 +191,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   });
   const enrichedCalls = calls.map((call) => ({
     ...call,
-    summary:
-      call.transcript?.trim()
-        ? call.transcript.trim().slice(0, 240)
-        : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`
+    summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
   }));
   return res.json({ ok: true, data: { calls: enrichedCalls } });
 });
