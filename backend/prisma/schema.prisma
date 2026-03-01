@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+enum ClientStatus {
+  NEEDS_CONFIGURATION
+  LIVE
+  PAUSED
+  CANCELED
+}
+
+enum UserRole {
+  CLIENT
+  ADMIN
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PRO
+}
+
+enum CallOutcome {
+  AI_HANDLED
+  TRANSFERRED
+  MISSED
+  UNKNOWN
+}
+
+model Client {
+  id            String         @id @default(cuid())
+  name          String
+  industry      String?
+  status        ClientStatus   @default(NEEDS_CONFIGURATION)
+  users         User[]
+  subscriptions Subscription[]
+  setting       Setting?
+  aiConfig      AIConfig?
+  calls         Call[]
+  leads         Lead[]
+  phoneLine     PhoneLine?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(CLIENT)
+  clientId     String?
+  client       Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Subscription {
+  id                   String           @id @default(cuid())
+  clientId             String
+  client               Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan
+  stripeCustomerId     String           @unique
+  stripeSubscriptionId String           @unique
+  status               String
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model Setting {
+  id                 String   @id @default(cuid())
+  clientId           String   @unique
+  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  businessHoursJson  String   @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
+  transferNumber     String   @default("")
+  servicesJson       String?
+  bookingLink        String?
+  paused             Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model AIConfig {
+  id                  String   @id @default(cuid())
+  clientId            String   @unique
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  greetingText        String?
+  systemPrompt        String?
+  intakeQuestionsJson String?
+  transferRulesJson   String?
+  afterHoursMessage   String?
+  smsEnabled          Boolean  @default(false)
+  testMode            Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+}
+
+model Call {
+  id           String      @id @default(cuid())
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fromNumber   String
+  toNumber     String
+  startedAt    DateTime    @default(now())
+  endedAt      DateTime?
+  outcome      CallOutcome @default(UNKNOWN)
+  recordingUrl String?
+  transcript   String?
+  summary      String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model PhoneLine {
+  id              String   @id @default(cuid())
+  clientId        String   @unique
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider        String   @default("TWILIO")
+  phoneNumber     String?
+  twilioIncomingPhoneSid String?
+  voiceWebhookUrl String?
+  smsWebhookUrl   String?
+  capabilitiesJson String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Lead {
+  id               String     @id @default(cuid())
+  clientId         String?
+  client           Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  name             String
+  business         String
+  email            String
+  phone            String
+  industry         String?
+  message          String?
+  preferredContact String?
+  urgency          String?
+  sourcePage       String?
+  status           LeadStatus @default(NEW)
+  tags             String     @default("")
+  notes            String?
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
