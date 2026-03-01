@@ -16,6 +16,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/site/toast-provider";
 
 const industries = ["Truck Repair", "Auto Repair", "HVAC", "Equipment Service", "Local Manufacturing Services"];
+const urgencyOptions = [
+  { value: "this_week", label: "This week" },
+  { value: "this_month", label: "This month" },
+  { value: "exploring", label: "Just exploring" }
+] as const;
+const preferredContactOptions = [
+  { value: "call", label: "Call" },
+  { value: "text", label: "Text" },
+  { value: "email", label: "Email" }
+] as const;
 
 export function LeadCaptureForm({
   sourcePage,
@@ -66,11 +76,19 @@ export function LeadCaptureForm({
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { ok?: boolean; message?: string; data?: { leadId?: string } }
+        | {
+            ok?: boolean;
+            message?: string;
+            data?: { leadId?: string };
+            errors?: { fieldErrors?: Record<string, string[] | undefined> };
+          }
         | null;
 
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.message || "Could not submit lead. Please try again.");
+        const firstFieldError = payload?.errors?.fieldErrors
+          ? Object.values(payload.errors.fieldErrors).flat().find(Boolean)
+          : null;
+        throw new Error(firstFieldError || payload?.message || "Could not submit lead. Please try again.");
       }
 
       trackEvent("lead_submitted", {
@@ -175,9 +193,11 @@ export function LeadCaptureForm({
                   <SelectValue placeholder="Call" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="call">Call</SelectItem>
-                  <SelectItem value="text">Text</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
+                  {preferredContactOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -188,9 +208,11 @@ export function LeadCaptureForm({
                   <SelectValue placeholder="This month" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="this_week">This week</SelectItem>
-                  <SelectItem value="this_month">This month</SelectItem>
-                  <SelectItem value="exploring">Just exploring</SelectItem>
+                  {urgencyOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
