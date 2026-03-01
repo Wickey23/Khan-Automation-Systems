@@ -10,18 +10,19 @@ import { loginSchema, signupSchema } from "./auth.schema";
 export const authRouter = Router();
 
 authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) => {
-  const parsed = signupSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid signup payload." });
+  try {
+    const parsed = signupSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid signup payload." });
 
-  const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return res.status(409).json({ ok: false, message: "Email already exists. Please log in." });
-  }
+    const email = parsed.data.email.toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ ok: false, message: "Email already exists. Please log in." });
+    }
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
-  const organization = await prisma.organization.create({
+    const organization = await prisma.organization.create({
     data: {
       name: parsed.data.businessName,
       industry: parsed.data.industry || null,
@@ -30,7 +31,7 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     }
   });
 
-  const client = await prisma.client.create({
+    const client = await prisma.client.create({
     data: {
       name: parsed.data.businessName,
       industry: parsed.data.industry || null,
@@ -38,7 +39,7 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     }
   });
 
-  const user = await prisma.user.create({
+    const user = await prisma.user.create({
     data: {
       email,
       passwordHash,
@@ -48,14 +49,14 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     }
   });
 
-  await prisma.setting.create({
+    await prisma.setting.create({
     data: {
       clientId: client.id,
       transferNumber: ""
     }
   });
 
-  await prisma.aIConfig.create({
+    await prisma.aIConfig.create({
     data: {
       clientId: client.id,
       testMode: true,
@@ -63,7 +64,7 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     }
   });
 
-  await prisma.onboardingSubmission.create({
+    await prisma.onboardingSubmission.create({
     data: {
       orgId: organization.id,
       status: "DRAFT",
@@ -71,7 +72,7 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     }
   });
 
-  const token = signAuthToken({
+    const token = signAuthToken({
     userId: user.id,
     email: user.email,
     role: user.role,
@@ -79,56 +80,67 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     orgId: user.orgId
   });
 
-  res.cookie("kas_auth_token", token, {
+    res.cookie("kas_auth_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
 
-  return res.status(201).json({
-    ok: true,
-    data: {
-      token,
-      user: { userId: user.id, email: user.email, role: user.role, clientId: user.clientId, orgId: user.orgId }
-    }
-  });
+    return res.status(201).json({
+      ok: true,
+      data: {
+        token,
+        user: { userId: user.id, email: user.email, role: user.role, clientId: user.clientId, orgId: user.orgId }
+      }
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Signup failed", error);
+    return res.status(500).json({ ok: false, message: "Signup failed. Please try again." });
+  }
 });
 
 authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => {
-  const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid login payload." });
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid login payload." });
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email.toLowerCase() }
-  });
-  if (!user) return res.status(401).json({ ok: false, message: "Invalid credentials." });
+    const user = await prisma.user.findUnique({
+      where: { email: parsed.data.email.toLowerCase() }
+    });
+    if (!user) return res.status(401).json({ ok: false, message: "Invalid credentials." });
 
-  const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
-  if (!valid) return res.status(401).json({ ok: false, message: "Invalid credentials." });
+    const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+    if (!valid) return res.status(401).json({ ok: false, message: "Invalid credentials." });
 
-  const token = signAuthToken({
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-    clientId: user.clientId,
-    orgId: user.orgId
-  });
+    const token = signAuthToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      clientId: user.clientId,
+      orgId: user.orgId
+    });
 
-  res.cookie("kas_auth_token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  });
+    res.cookie("kas_auth_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
-  return res.json({
-    ok: true,
-    data: {
-      token,
-      user: { userId: user.id, email: user.email, role: user.role, clientId: user.clientId, orgId: user.orgId }
-    }
-  });
+    return res.json({
+      ok: true,
+      data: {
+        token,
+        user: { userId: user.id, email: user.email, role: user.role, clientId: user.clientId, orgId: user.orgId }
+      }
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Login failed", error);
+    return res.status(500).json({ ok: false, message: "Login failed. Database schema may be out of date." });
+  }
 });
 
 authRouter.post("/logout", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
