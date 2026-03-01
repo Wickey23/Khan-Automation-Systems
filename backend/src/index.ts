@@ -53,10 +53,10 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ ok: false, message: error.message || "Unexpected server error." });
 });
 
-const port = Number(env.PORT);
-app.listen(port, () => {
+const PORT = process.env.PORT || "3001";
+app.listen(Number(PORT), "0.0.0.0", () => {
   // eslint-disable-next-line no-console
-  console.log(`API server listening on ${port}`);
+  console.log(`Server running on ${PORT}`);
 });
 
 const shutdown = async () => {
