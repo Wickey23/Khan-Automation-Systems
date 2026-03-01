@@ -5,8 +5,51 @@ import { sendClientWelcomeEmail, sendLeadNotificationEmail } from "../../service
 import bcrypt from "bcryptjs";
 import { ClientStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { env } from "../../config/env";
+import { randomUUID } from "crypto";
 
 export const leadRouter = Router();
+
+async function createLeadResilient(data: {
+  name: string;
+  business: string;
+  email: string;
+  phone: string;
+  industry?: string;
+  message?: string;
+  preferredContact?: "call" | "text" | "email";
+  urgency?: "this_week" | "this_month" | "exploring";
+  sourcePage?: string;
+  orgId?: string | null;
+  source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
+  ip?: string | null;
+  userAgent?: string | null;
+}) {
+  try {
+    return await prisma.lead.create({
+      data: {
+        ...data,
+        orgId: data.orgId || null,
+        source: data.source || "WEB_FORM",
+        ip: data.ip || null,
+        userAgent: data.userAgent || null
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    const isSchemaDrift =
+      message.includes("column") || message.includes("p2022") || message.includes("invalid `prisma.lead.create()`");
+    if (!isSchemaDrift) throw error;
+
+    const legacyId = `lead_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    await prisma.$executeRaw`
+      INSERT INTO "Lead"
+      ("id","name","business","email","phone","industry","message","preferredContact","urgency","sourcePage","ip","userAgent","createdAt","updatedAt")
+      VALUES
+      (${legacyId},${data.name},${data.business},${data.email},${data.phone},${data.industry || null},${data.message || null},${data.preferredContact || null},${data.urgency || null},${data.sourcePage || null},${data.ip || null},${data.userAgent || null},NOW(),NOW())
+    `;
+    return { id: legacyId };
+  }
+}
 
 leadRouter.post("/", async (req: Request, res: Response) => {
   const parsed = createLeadSchema.safeParse(req.body);
@@ -113,24 +156,22 @@ leadRouter.post("/", async (req: Request, res: Response) => {
       }
     }
 
-    const lead = await prisma.lead.create({
-      data: {
-        ...parsed.data,
-        orgId: resolvedOrgId,
-        source: parsed.data.source || "WEB_FORM",
-        ip,
-        userAgent
-      }
+    const lead = await createLeadResilient({
+      ...parsed.data,
+      orgId: resolvedOrgId,
+      source: parsed.data.source || "WEB_FORM",
+      ip,
+      userAgent
     });
 
     try {
       await sendLeadNotificationEmail({
         leadId: lead.id,
-        name: lead.name,
-        business: lead.business,
-        phone: lead.phone,
-        email: lead.email,
-        sourcePage: lead.sourcePage,
+        name: parsed.data.name,
+        business: parsed.data.business,
+        phone: parsed.data.phone,
+        email: parsed.data.email,
+        sourcePage: parsed.data.sourcePage,
         adminUrl: process.env.ALLOWED_ORIGIN || "http://localhost:3000"
       });
     } catch (notifyError) {
