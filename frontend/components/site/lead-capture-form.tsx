@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { submitLead } from "@/lib/api";
 import { trackEvent } from "@/lib/tracking";
 import type { LeadFormInput } from "@/lib/validation";
 import { leadFormSchema } from "@/lib/validation";
@@ -52,16 +51,44 @@ export function LeadCaptureForm({
 
   async function onSubmit(values: LeadFormInput) {
     try {
-      const payload = { ...values, sourcePage };
-      const result = await submitLead(payload);
-      trackEvent("lead_submitted", { sourcePage, leadId: result.leadId });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...values,
+          sourcePage: window.location.pathname
+        })
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; message?: string; data?: { leadId?: string } }
+        | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.message || "Could not submit lead. Please try again.");
+      }
+
+      trackEvent("lead_submitted", {
+        sourcePage: window.location.pathname,
+        leadId: payload.data?.leadId
+      });
       showToast({
         title: "Lead captured",
         description: "Your request is in. We will reach out shortly.",
         variant: "success"
       });
       setSubmitted(true);
-      reset({ sourcePage });
+      reset({
+        name: "",
+        business: "",
+        email: "",
+        phone: "",
+        industry: "",
+        message: "",
+        preferredContact: "call",
+        urgency: "this_month",
+        sourcePage: window.location.pathname
+      });
     } catch (error) {
       showToast({
         title: "Could not submit",
