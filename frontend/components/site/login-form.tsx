@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm() {
+export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
   const router = useRouter();
   const { showToast } = useToast();
   const {
@@ -21,7 +21,7 @@ export function LoginForm() {
     formState: { errors, isSubmitting }
   } = useForm<AdminLoginInput>({
     resolver: zodResolver(adminLoginSchema),
-    defaultValues: { email: "", password: "" }
+    defaultValues: { email: defaultEmail, password: "" }
   });
 
   async function onSubmit(values: AdminLoginInput) {

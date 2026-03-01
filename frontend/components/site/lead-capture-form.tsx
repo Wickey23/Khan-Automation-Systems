@@ -38,6 +38,7 @@ export function LeadCaptureForm({
 }) {
   const { showToast } = useToast();
   const [submitted, setSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
   const {
     register,
     setValue,
@@ -99,10 +100,11 @@ export function LeadCaptureForm({
         sourcePage: window.location.pathname,
         leadId: payload.data?.leadId
       });
+      setSubmittedEmail(values.email);
       showToast({
         title: "Lead captured",
         description: payload?.data?.accountCreated
-          ? "Your request is in and your account was created. You can now log in."
+          ? "Your request is in and your account was created. Log in with the email + password you just entered."
           : "Your request is in. We will reach out shortly.",
         variant: "success"
       });
@@ -138,9 +140,18 @@ export function LeadCaptureForm({
         {submitted ? (
           <div className="space-y-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             <p className="font-semibold">Thanks, your lead was submitted.</p>
-            <p>Next step: check your email for account login, then book your discovery call.</p>
+            <p>Next step: log in with the same email and password you created in this form.</p>
+            <p className="text-xs text-emerald-800">
+              Login URL: <span className="font-medium">/auth/login</span>
+              {submittedEmail ? ` (email: ${submittedEmail})` : ""}
+            </p>
             <div className="flex gap-3">
               <Button asChild size="sm">
+                <Link href={`/auth/login${submittedEmail ? `?email=${encodeURIComponent(submittedEmail)}` : ""}`}>
+                  Log In
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
                 <Link href="/book">Book a Call</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
@@ -182,6 +193,7 @@ export function LeadCaptureForm({
             <div className="space-y-1.5">
               <Label htmlFor={`${sourcePage}-accountPassword`}>Create account password</Label>
               <Input id={`${sourcePage}-accountPassword`} type="password" {...register("accountPassword")} />
+              <p className="text-xs text-muted-foreground">You will use this password to log in at /auth/login.</p>
               {errors.accountPassword ? <p className="text-xs text-red-600">{errors.accountPassword.message}</p> : null}
             </div>
             <div className="space-y-1.5">
