@@ -17,19 +17,23 @@ import { stripeRouter } from "./modules/stripe/stripe.routes";
 import { voiceRouter } from "./modules/voice/voice.routes";
 
 const app = express();
-const allowedOrigins = ["http://localhost:3000", env.ALLOWED_ORIGIN].filter(Boolean);
+const allowedOrigins = new Set(["http://localhost:3000", env.ALLOWED_ORIGIN].filter(Boolean) as string[]);
+const originRegex = env.ALLOWED_ORIGIN_REGEX ? new RegExp(env.ALLOWED_ORIGIN_REGEX) : null;
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.has(origin)) return cb(null, true);
+    if (originRegex && originRegex.test(origin)) return cb(null, true);
+    return cb(new Error(`CORS blocked: ${origin}`));
+  },
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+};
 
 app.use(helmet());
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("Origin not allowed by CORS"));
-    },
-    credentials: true
-  })
-);
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(morgan("combined"));
 app.use(cookieParser());
 app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));

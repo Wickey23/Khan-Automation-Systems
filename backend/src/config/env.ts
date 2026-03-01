@@ -5,6 +5,7 @@ const envSchema = z.object({
   PORT: z.string().default("4000"),
   DATABASE_URL: z.string().min(1),
   ALLOWED_ORIGIN: z.string().default("http://localhost:3000"),
+  ALLOWED_ORIGIN_REGEX: z.string().optional(),
   JWT_SECRET: z.string().min(16),
   JWT_EXPIRES_IN: z.string().default("7d"),
   SMTP_HOST: z.string().optional(),
