@@ -88,3 +88,18 @@ export async function sendClientWelcomeEmail(payload: {
   ].join("\n");
   await sendOrLog(subject, text, payload.email);
 }
+
+export async function sendLoginOtpEmail(payload: {
+  email: string;
+  code: string;
+  expiresMinutes: number;
+}) {
+  const subject = "Your Khan Automation login verification code";
+  const text = [
+    "Use this one-time code to finish logging in:",
+    `${payload.code}`,
+    `This code expires in ${payload.expiresMinutes} minutes.`,
+    "If you did not request this login, you can ignore this email."
+  ].join("\n");
+  await sendOrLog(subject, text, payload.email);
+}

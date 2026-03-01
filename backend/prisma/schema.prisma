@@ -146,6 +146,7 @@ model User {
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  loginChallenges LoginChallenge[]
 }
 
 model Subscription {
@@ -356,4 +357,21 @@ model BusinessSettings {
   policiesJson            String   @default("{}")
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+}
+
+model LoginChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       String
+  codeHash    String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
 }

@@ -5,6 +5,17 @@ export const loginSchema = z.object({
   password: z.string().min(8)
 });
 
+export const verifyLoginOtpSchema = z.object({
+  email: z.string().email(),
+  challengeId: z.string().min(10),
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits.")
+});
+
+export const resendLoginOtpSchema = z.object({
+  email: z.string().email(),
+  challengeId: z.string().min(10)
+});
+
 export const signupSchema = z.object({
   name: z.string().min(2),
   businessName: z.string().min(2),

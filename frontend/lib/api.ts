@@ -75,9 +75,26 @@ export async function submitLead(body: LeadPayload) {
 }
 
 export async function authLogin(email: string, password: string) {
-  return request<{ token: string; user: AuthUser }>("/api/auth/login", {
+  return request<
+    | { requiresTwoFactor: true; challengeId: string; email: string }
+    | { requiresTwoFactor: false; token: string; user: AuthUser }
+  >("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password })
+  });
+}
+
+export async function authVerifyLoginOtp(email: string, challengeId: string, code: string) {
+  return request<{ token: string; user: AuthUser }>("/api/auth/login/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ email, challengeId, code })
+  });
+}
+
+export async function authResendLoginOtp(email: string, challengeId: string) {
+  return request<{ challengeId: string; email: string }>("/api/auth/login/resend-otp", {
+    method: "POST",
+    body: JSON.stringify({ email, challengeId })
   });
 }
 
