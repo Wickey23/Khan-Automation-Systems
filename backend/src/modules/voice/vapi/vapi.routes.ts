@@ -22,11 +22,41 @@ function normalizeToE164(input: string) {
   return `+${normalized}`;
 }
 
+function asObject(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function toBoolean(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
+function parseNumeric(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeOutcome(value: string) {
+  const upper = value.trim().toUpperCase();
+  if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"].includes(upper)) {
+    return upper as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  }
+  return null;
+}
+
 vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
-  const body = (req.body || {}) as Record<string, unknown>;
-  const call = (body.call || {}) as Record<string, unknown>;
-  const customer = (body.customer || {}) as Record<string, unknown>;
-  const phoneNumber = (body.phoneNumber || {}) as Record<string, unknown>;
+  const body = asObject(req.body);
+  const call = asObject(body.call);
+  const customer = asObject(body.customer);
+  const phoneNumber = asObject(body.phoneNumber);
+  const analysis = asObject(body.analysis);
+  const artifact = asObject(body.artifact);
+  const eventType = pickString(body.type, body.event, body.messageType).toLowerCase() || "unknown";
 
   const callSid = pickString(
     body.callSid,
@@ -36,15 +66,16 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     call.sid,
     call.callSid
   );
-  const summary = String(req.body?.summary || "").trim() || null;
-  const transcript = String(req.body?.transcript || "").trim() || null;
-  const recordingUrl = String(req.body?.recordingUrl || "").trim() || null;
-  const outcomeRaw = String(req.body?.outcome || "").trim().toUpperCase();
-  const outcome = ["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"].includes(outcomeRaw)
-    ? outcomeRaw
-    : undefined;
-  const appointmentRequested = Boolean(req.body?.appointmentRequested);
-  const leadId = String(req.body?.leadId || "").trim() || null;
+  const summary = pickString(body.summary, analysis.summary) || null;
+  const transcript = pickString(body.transcript, artifact.transcript) || null;
+  const recordingUrl = pickString(body.recordingUrl, artifact.recordingUrl) || null;
+  const outcome = normalizeOutcome(pickString(body.outcome, analysis.outcome, call.outcome));
+  const appointmentRequested = toBoolean(body.appointmentRequested ?? analysis.appointmentRequested);
+  const leadId = pickString(body.leadId, analysis.leadId) || null;
+  const callStatus = pickString(body.status, call.status).toLowerCase();
+  const endedByStatus = ["ended", "completed", "failed", "canceled", "cancelled", "busy", "no-answer", "timeout"].includes(callStatus);
+  const successEvaluation = parseNumeric(analysis.successEvaluation ?? analysis.score ?? body.successEvaluation);
+  const structuredData = asObject(analysis.structuredData);
 
   if (!callSid) return res.status(400).json({ ok: false, message: "callSid/providerCallId is required." });
 
@@ -99,19 +130,39 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     });
   }
 
+  const updateData: Record<string, unknown> = {
+    aiProvider: AiProvider.VAPI
+  };
+
+  if (summary !== null) updateData.aiSummary = summary;
+  if (transcript !== null) updateData.transcript = transcript;
+  if (recordingUrl !== null) updateData.recordingUrl = recordingUrl;
+  if (leadId !== null) updateData.leadId = leadId;
+  if (appointmentRequested !== null) updateData.appointmentRequested = appointmentRequested;
+  if (outcome) updateData.outcome = outcome;
+  if (eventType === "end-of-call-report" || endedByStatus) updateData.endedAt = new Date();
+
   await prisma.callLog.update({
     where: { id: log.id },
+    data: updateData
+  });
+
+  await prisma.auditLog.create({
     data: {
-      aiProvider: AiProvider.VAPI,
-      aiSummary: summary,
-      transcript,
-      recordingUrl,
-      appointmentRequested,
-      leadId,
-      endedAt: new Date(),
-      outcome: outcome as any
+      orgId: log.orgId,
+      actorUserId: "vapi-webhook",
+      actorRole: "SYSTEM",
+      action: "VAPI_WEBHOOK_EVENT",
+      metadataJson: JSON.stringify({
+        eventType,
+        callSid,
+        status: callStatus || null,
+        successEvaluation,
+        structuredData,
+        toolCallList: body.toolCallList || body.toolCalls || null
+      })
     }
   });
 
-  return res.json({ ok: true });
+  return res.json({ ok: true, data: { eventType, callSid } });
 });
