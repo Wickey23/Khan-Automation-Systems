@@ -158,7 +158,9 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
     const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
     if (!valid) return res.status(401).json({ ok: false, message: "Invalid credentials." });
 
-    const requiresTwoFactor = user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN;
+    const requiresTwoFactor =
+      process.env.ADMIN_2FA_ENABLED === "true" &&
+      (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN);
     if (requiresTwoFactor) {
       const challenge = await createAndSendLoginChallenge(user);
       return res.json({
