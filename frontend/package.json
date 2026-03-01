@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "set:release-tag": "node scripts/set-release-tag.js",
+    "dev": "npm run set:release-tag && next dev",
+    "build": "npm run set:release-tag && next build",
     "start": "next start",
     "lint": "next lint"
   },

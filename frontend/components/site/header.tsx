@@ -7,7 +7,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="text-sm font-semibold tracking-wide">
-          {siteConfig.name} <span className="text-xs text-muted-foreground">v__</span>
+          {siteConfig.name} <span className="text-xs text-muted-foreground">{siteConfig.version}</span>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {navLinks.map((item) => (

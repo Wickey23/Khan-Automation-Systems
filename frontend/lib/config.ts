@@ -1,5 +1,8 @@
+import { RELEASE_TAG } from "@/lib/release-tag";
+
 export const siteConfig = {
   name: "Khan Automation Systems",
+  version: RELEASE_TAG,
   description:
     "AI Reception + Follow-Up System for service shops. Miss fewer calls, quote faster, and book more jobs.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
