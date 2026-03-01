@@ -1,8 +1,10 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import bcrypt from "bcryptjs";
 import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import { UserRole } from "@prisma/client";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
 import { leadRateLimit } from "./middleware/rate-limit";
@@ -58,10 +60,30 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const PORT = process.env.PORT || "3001";
-app.listen(Number(PORT), "0.0.0.0", () => {
-  // eslint-disable-next-line no-console
-  console.log(`Server running on ${PORT}`);
-});
+async function ensureAdminUser() {
+  try {
+    const email = env.ADMIN_EMAIL.toLowerCase();
+    const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 12);
+    await prisma.user.upsert({
+      where: { email },
+      update: { passwordHash, role: UserRole.ADMIN },
+      create: { email, passwordHash, role: UserRole.ADMIN }
+    });
+    // eslint-disable-next-line no-console
+    console.log(`Admin ensured for ${email}`);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to ensure admin user", error);
+  }
+}
+
+void (async () => {
+  await ensureAdminUser();
+  app.listen(Number(PORT), "0.0.0.0", () => {
+    // eslint-disable-next-line no-console
+    console.log(`Server running on ${PORT}`);
+  });
+})();
 
 const shutdown = async () => {
   await prisma.$disconnect();
