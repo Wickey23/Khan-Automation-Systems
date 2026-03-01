@@ -51,7 +51,12 @@ export function LeadCaptureForm({
 
   async function onSubmit(values: LeadFormInput) {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/leads`, {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      if (!apiBase) {
+        throw new Error("Lead API is not configured. Set NEXT_PUBLIC_API_BASE.");
+      }
+
+      const response = await fetch(`${apiBase}/api/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
