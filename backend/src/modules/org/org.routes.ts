@@ -116,5 +116,12 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     where: { orgId: req.auth.orgId },
     orderBy: { startedAt: "desc" }
   });
-  return res.json({ ok: true, data: { calls } });
+  const enrichedCalls = calls.map((call) => ({
+    ...call,
+    summary:
+      call.transcript?.trim()
+        ? call.transcript.trim().slice(0, 240)
+        : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`
+  }));
+  return res.json({ ok: true, data: { calls: enrichedCalls } });
 });

@@ -8,6 +8,7 @@ import type {
   LeadPayload,
   OnboardingSubmission,
   Organization,
+  OrgCallRecord,
   OrgSubscription,
   PhoneLine,
   Setting
@@ -230,7 +231,7 @@ export async function fetchOrgLeads() {
 }
 
 export async function fetchOrgCalls() {
-  return request<{ calls: CallRecord[] }>("/api/org/calls");
+  return request<{ calls: OrgCallRecord[] }>("/api/org/calls");
 }
 
 export async function fetchAdminOrgs() {

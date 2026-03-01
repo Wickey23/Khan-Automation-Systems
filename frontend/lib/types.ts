@@ -147,3 +147,20 @@ export type CallRecord = {
   transcript: string | null;
   summary: string | null;
 };
+
+export type OrgCallRecord = {
+  id: string;
+  orgId: string;
+  providerCallId: string | null;
+  fromNumber: string;
+  toNumber: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationSec: number | null;
+  recordingUrl: string | null;
+  transcript: string | null;
+  outcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  summary: string;
+  createdAt: string;
+  updatedAt: string;
+};
