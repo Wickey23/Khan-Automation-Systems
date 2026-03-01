@@ -28,15 +28,20 @@ leadRouter.post("/", async (req: Request, res: Response) => {
       }
     });
 
-    await sendLeadNotificationEmail({
-      leadId: lead.id,
-      name: lead.name,
-      business: lead.business,
-      phone: lead.phone,
-      email: lead.email,
-      sourcePage: lead.sourcePage,
-      adminUrl: process.env.ALLOWED_ORIGIN || "http://localhost:3000"
-    });
+    try {
+      await sendLeadNotificationEmail({
+        leadId: lead.id,
+        name: lead.name,
+        business: lead.business,
+        phone: lead.phone,
+        email: lead.email,
+        sourcePage: lead.sourcePage,
+        adminUrl: process.env.ALLOWED_ORIGIN || "http://localhost:3000"
+      });
+    } catch (notifyError) {
+      // eslint-disable-next-line no-console
+      console.error("Lead notification failed", notifyError);
+    }
 
     return res.status(201).json({
       ok: true,
