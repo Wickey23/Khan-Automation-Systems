@@ -71,7 +71,8 @@ export function LeadCaptureForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
-          sourcePage: window.location.pathname
+          sourcePage: window.location.pathname,
+          createAccount: true
         })
       });
 
@@ -79,7 +80,7 @@ export function LeadCaptureForm({
         | {
             ok?: boolean;
             message?: string;
-            data?: { leadId?: string };
+            data?: { leadId?: string; accountCreated?: boolean };
             errors?: { fieldErrors?: Record<string, string[] | undefined> };
           }
         | null;
@@ -97,7 +98,9 @@ export function LeadCaptureForm({
       });
       showToast({
         title: "Lead captured",
-        description: "Your request is in. We will reach out shortly.",
+        description: payload?.data?.accountCreated
+          ? "Your request is in and your account was created. Check your email for login details."
+          : "Your request is in. We will reach out shortly.",
         variant: "success"
       });
       setSubmitted(true);
@@ -130,7 +133,7 @@ export function LeadCaptureForm({
         {submitted ? (
           <div className="space-y-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             <p className="font-semibold">Thanks, your lead was submitted.</p>
-            <p>Next step: book your 15-minute discovery call and download the AI Reception Checklist.</p>
+            <p>Next step: check your email for account login, then book your discovery call.</p>
             <div className="flex gap-3">
               <Button asChild size="sm">
                 <Link href="/book">Book a Call</Link>

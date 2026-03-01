@@ -32,6 +32,7 @@ export type LeadPayload = {
   sourcePage: string;
   orgId?: string;
   source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
+  createAccount?: boolean;
 };
 
 export type ClientStatus = "NEEDS_CONFIGURATION" | "LIVE" | "PAUSED" | "CANCELED";

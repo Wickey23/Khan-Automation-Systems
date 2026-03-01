@@ -83,7 +83,7 @@ export async function sendClientWelcomeEmail(payload: {
     "Your workspace is created.",
     `Login email: ${payload.email}`,
     `Temporary password: ${payload.tempPassword}`,
-    `Login URL: ${payload.appUrl}/admin/login`,
+    `Login URL: ${payload.appUrl}/auth/login`,
     "Please change credentials after first login."
   ].join("\n");
   await sendOrLog(subject, text, payload.email);

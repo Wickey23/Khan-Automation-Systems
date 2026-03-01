@@ -11,7 +11,8 @@ export const createLeadSchema = z.object({
   urgency: z.enum(["this_week", "this_month", "exploring"]).optional(),
   sourcePage: z.string().optional(),
   orgId: z.string().optional(),
-  source: z.enum(["WEB_FORM", "PHONE_CALL", "SMS"]).optional()
+  source: z.enum(["WEB_FORM", "PHONE_CALL", "SMS"]).optional(),
+  createAccount: z.boolean().optional()
 });
 
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
