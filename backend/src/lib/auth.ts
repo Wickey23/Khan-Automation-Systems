@@ -7,6 +7,7 @@ export type AuthPayload = {
   email: string;
   role: UserRole;
   clientId?: string | null;
+  orgId?: string | null;
 };
 
 export function signAuthToken(payload: AuthPayload) {

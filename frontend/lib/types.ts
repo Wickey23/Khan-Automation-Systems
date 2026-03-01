@@ -30,9 +30,12 @@ export type LeadPayload = {
   preferredContact?: "call" | "text" | "email";
   urgency?: "this_week" | "this_month" | "exploring";
   sourcePage: string;
+  orgId?: string;
+  source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
 };
 
 export type ClientStatus = "NEEDS_CONFIGURATION" | "LIVE" | "PAUSED" | "CANCELED";
+export type OrgStatus = "NEW" | "ONBOARDING" | "READY_FOR_REVIEW" | "PROVISIONING" | "LIVE" | "PAUSED";
 
 export type Client = {
   id: string;
@@ -95,8 +98,40 @@ export type AIConfig = {
 export type AuthUser = {
   userId: string;
   email: string;
-  role: "ADMIN" | "CLIENT";
+  role: "SUPER_ADMIN" | "CLIENT_ADMIN" | "CLIENT_STAFF" | "ADMIN" | "CLIENT";
   clientId?: string | null;
+  orgId?: string | null;
+};
+
+export type Organization = {
+  id: string;
+  name: string;
+  industry: string | null;
+  status: OrgStatus;
+  live: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OnboardingSubmission = {
+  id: string;
+  orgId: string;
+  status: "DRAFT" | "SUBMITTED" | "REVIEWED" | "NEEDS_CHANGES" | "APPROVED";
+  answersJson: string;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  notesFromAdmin: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrgSubscription = {
+  id: string;
+  status: string;
+  plan: "STARTER" | "PRO";
+  currentPeriodEnd: string | null;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
 };
 
 export type CallRecord = {

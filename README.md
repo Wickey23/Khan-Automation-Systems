@@ -188,9 +188,9 @@ Render service settings:
 Important:
 - Backend is independently deployable from `backend/` and does not require the monorepo root or frontend build.
 - `postinstall` runs `prisma generate` automatically.
-- Run migrations against Render Postgres before/after first deploy:
-  - One-off in Render Shell: `npx prisma migrate deploy`
-  - Or add a Pre-Deploy command: `npx prisma migrate deploy`
+- Render free plan does not support robust predeploy hooks. Use:
+  - First production setup: `npm run db:push:prod` (or `npx prisma db push`) from backend shell/context
+  - Ongoing schema changes with migrations: `npx prisma migrate deploy`
 
 Required backend environment variables on Render:
 - `DATABASE_URL` (Render Postgres connection string)
@@ -243,3 +243,66 @@ Set `API_BASE_URL` to ngrok URL and assign number again (or reconfigure webhooks
 npm run build --workspace backend
 npm run build --workspace frontend
 ```
+
+## Multi-tenant Portals (v2 foundation)
+
+### Roles
+- `SUPER_ADMIN` (operator)
+- `CLIENT_ADMIN` (owner/manager)
+- `CLIENT_STAFF` (future support)
+
+### Client Portal Routes
+- `/auth/signup`
+- `/auth/login`
+- `/auth/logout`
+- `/app`
+- `/app/onboarding`
+- `/app/settings`
+- `/app/calls`
+- `/app/leads`
+
+### Operator/Admin Routes
+- `/admin/login`
+- `/admin/orgs`
+- `/admin/orgs/[id]`
+- `/admin/leads`
+
+### Core Backend APIs
+- Auth:
+  - `POST /api/auth/signup`
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/me`
+- Billing:
+  - `POST /api/billing/create-checkout-session`
+  - `POST /api/billing/webhook`
+  - `GET /api/billing/status`
+- Org scoped:
+  - `GET /api/org/profile`
+  - `PATCH /api/org/profile`
+  - `GET /api/org/onboarding`
+  - `PUT /api/org/onboarding`
+  - `POST /api/org/onboarding/submit`
+  - `GET /api/org/subscription`
+  - `GET /api/org/leads`
+  - `GET /api/org/calls`
+- Admin org operations:
+  - `GET /api/admin/orgs`
+  - `GET /api/admin/orgs/:id`
+  - `PATCH /api/admin/orgs/:id/status`
+  - `POST /api/admin/orgs/:id/notes`
+  - `POST /api/admin/orgs/:id/twilio/assign-number`
+  - `PATCH /api/admin/orgs/:id/ai/config`
+  - `POST /api/admin/orgs/:id/go-live`
+  - `POST /api/admin/orgs/:id/pause`
+
+### Stripe Local Webhook Testing
+```bash
+stripe listen --forward-to http://localhost:4000/api/billing/webhook
+```
+
+### Twilio Webhook Stubs
+- `POST /api/twilio/voice`
+- `POST /api/twilio/sms`
+
+Twilio routing is org-aware by inbound `To` number lookup (`PhoneNumber.e164Number`).

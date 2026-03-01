@@ -23,6 +23,8 @@ leadRouter.post("/", async (req: Request, res: Response) => {
     const lead = await prisma.lead.create({
       data: {
         ...parsed.data,
+        orgId: parsed.data.orgId || null,
+        source: parsed.data.source || "WEB_FORM",
         ip,
         userAgent
       }

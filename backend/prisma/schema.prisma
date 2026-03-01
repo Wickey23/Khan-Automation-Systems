@@ -25,6 +25,61 @@ enum ClientStatus {
 enum UserRole {
   CLIENT
   ADMIN
+  SUPER_ADMIN
+  CLIENT_ADMIN
+  CLIENT_STAFF
+}
+
+enum OrganizationStatus {
+  NEW
+  ONBOARDING
+  READY_FOR_REVIEW
+  PROVISIONING
+  LIVE
+  PAUSED
+}
+
+enum OnboardingStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  NEEDS_CHANGES
+  APPROVED
+}
+
+enum NumberProvider {
+  TWILIO
+}
+
+enum PhoneNumberStatus {
+  RESERVED
+  ACTIVE
+  RELEASED
+}
+
+enum AiProvider {
+  VAPI
+  OPENAI
+  OTHER
+}
+
+enum AgentConfigStatus {
+  DRAFT
+  ACTIVE
+}
+
+enum CallLogOutcome {
+  APPOINTMENT_REQUEST
+  MESSAGE_TAKEN
+  TRANSFERRED
+  MISSED
+  SPAM
+}
+
+enum LeadSource {
+  WEB_FORM
+  PHONE_CALL
+  SMS
 }
 
 enum SubscriptionPlan {
@@ -55,6 +110,23 @@ model Client {
   updatedAt     DateTime       @updatedAt
 }
 
+model Organization {
+  id                   String                 @id @default(cuid())
+  name                 String
+  industry             String?
+  status               OrganizationStatus     @default(NEW)
+  live                 Boolean                @default(false)
+  users                User[]
+  subscriptions        Subscription[]
+  onboardingSubmissions OnboardingSubmission[]
+  phoneNumbers         PhoneNumber[]
+  aiAgentConfigs       AiAgentConfig[]
+  callLogs             CallLog[]
+  leads                Lead[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -62,14 +134,18 @@ model User {
   role         UserRole  @default(CLIENT)
   clientId     String?
   client       Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  orgId        String?
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
 
 model Subscription {
   id                   String           @id @default(cuid())
-  clientId             String
-  client               Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId             String?
+  client               Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  orgId                String?
+  organization         Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   plan                 SubscriptionPlan
   stripeCustomerId     String           @unique
   stripeSubscriptionId String           @unique
@@ -77,6 +153,67 @@ model Subscription {
   currentPeriodEnd     DateTime?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
+}
+
+model OnboardingSubmission {
+  id             String           @id @default(cuid())
+  orgId          String           @unique
+  organization   Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  status         OnboardingStatus @default(DRAFT)
+  answersJson    String           @default("{}")
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+  notesFromAdmin String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model PhoneNumber {
+  id             String          @id @default(cuid())
+  orgId          String
+  organization   Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider       NumberProvider  @default(TWILIO)
+  twilioPhoneSid String?
+  e164Number     String          @unique
+  friendlyName   String?
+  status         PhoneNumberStatus @default(RESERVED)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model AiAgentConfig {
+  id                String            @id @default(cuid())
+  orgId             String            @unique
+  organization      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider          AiProvider        @default(VAPI)
+  agentId           String?
+  apiKeyRef         String?
+  voice             String?
+  model             String?
+  temperature       Float?
+  systemPrompt      String?
+  toolsEnabledJson  String?
+  transferRulesJson String?
+  status            AgentConfigStatus @default(DRAFT)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model CallLog {
+  id             String         @id @default(cuid())
+  orgId          String
+  organization   Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  providerCallId String?
+  fromNumber     String
+  toNumber       String
+  startedAt      DateTime       @default(now())
+  endedAt        DateTime?
+  durationSec    Int?
+  recordingUrl   String?
+  transcript     String?
+  outcome        CallLogOutcome @default(MESSAGE_TAKEN)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model Setting {
@@ -140,6 +277,8 @@ model Lead {
   id               String     @id @default(cuid())
   clientId         String?
   client           Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  orgId            String?
+  organization     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   name             String
   business         String
   email            String
@@ -152,6 +291,7 @@ model Lead {
   status           LeadStatus @default(NEW)
   tags             String     @default("")
   notes            String?
+  source           LeadSource @default(WEB_FORM)
   ip               String?
   userAgent        String?
   createdAt        DateTime   @default(now())

@@ -15,7 +15,7 @@ export function ClientGuard({ children }: { children: React.ReactNode }) {
       try {
         const data = await getMe();
         if (!active) return;
-        if (data.user.role !== "CLIENT") {
+        if (!["CLIENT", "CLIENT_ADMIN", "CLIENT_STAFF"].includes(data.user.role)) {
           setUser(null);
           return;
         }

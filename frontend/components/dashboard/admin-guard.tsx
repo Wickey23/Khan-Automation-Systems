@@ -13,7 +13,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       try {
         const data = await getMe();
         if (!active) return;
-        setAllowed(data.user.role === "ADMIN");
+        setAllowed(data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN");
       } catch {
         if (!active) return;
         setAllowed(false);

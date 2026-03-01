@@ -9,7 +9,9 @@ export const createLeadSchema = z.object({
   message: z.string().max(2000).optional(),
   preferredContact: z.enum(["call", "text", "email"]).optional(),
   urgency: z.enum(["this_week", "this_month", "exploring"]).optional(),
-  sourcePage: z.string().optional()
+  sourcePage: z.string().optional(),
+  orgId: z.string().optional(),
+  source: z.enum(["WEB_FORM", "PHONE_CALL", "SMS"]).optional()
 });
 
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;

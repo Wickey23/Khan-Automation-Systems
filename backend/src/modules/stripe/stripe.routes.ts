@@ -4,7 +4,7 @@ import { Router } from "express";
 import Stripe from "stripe";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
-import { requireAuth, requireRole, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { sendClientWelcomeEmail, sendNewSubscribedClientNotification } from "../../services/email";
 import { createCheckoutSchema } from "./stripe.schema";
 
@@ -35,7 +35,11 @@ stripeRouter.post("/create-checkout-session", async (req, res) => {
   return res.json({ ok: true, data: { url: session.url } });
 });
 
-stripeRouter.post("/customer-portal", requireAuth, requireRole(UserRole.CLIENT), async (req: AuthenticatedRequest, res) => {
+stripeRouter.post(
+  "/customer-portal",
+  requireAuth,
+  requireAnyRole([UserRole.CLIENT, UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF]),
+  async (req: AuthenticatedRequest, res) => {
   const clientId = req.auth?.clientId;
   if (!clientId) return res.status(400).json({ ok: false, message: "No client workspace assigned." });
 

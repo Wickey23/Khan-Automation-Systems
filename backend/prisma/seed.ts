@@ -16,8 +16,8 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: email.toLowerCase() },
-    update: { passwordHash, role: UserRole.ADMIN },
-    create: { email: email.toLowerCase(), passwordHash, role: UserRole.ADMIN }
+    update: { passwordHash, role: UserRole.SUPER_ADMIN },
+    create: { email: email.toLowerCase(), passwordHash, role: UserRole.SUPER_ADMIN }
   });
 
   // eslint-disable-next-line no-console

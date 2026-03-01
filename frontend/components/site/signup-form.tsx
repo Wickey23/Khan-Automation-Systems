@@ -23,7 +23,7 @@ export function SignupForm() {
     resolver: zodResolver(signupSchema),
     defaultValues: {
       name: "",
-      business: "",
+      businessName: "",
       email: "",
       password: "",
       industry: ""
@@ -34,7 +34,7 @@ export function SignupForm() {
     try {
       await authSignup(values);
       showToast({ title: "Account created" });
-      router.push("/dashboard/setup");
+      router.push("/app/onboarding");
     } catch (error) {
       showToast({
         title: "Signup failed",
@@ -59,8 +59,8 @@ export function SignupForm() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="business">Business</Label>
-              <Input id="business" {...register("business")} />
-              {errors.business ? <p className="text-xs text-red-600">{errors.business.message}</p> : null}
+              <Input id="business" {...register("businessName")} />
+              {errors.businessName ? <p className="text-xs text-red-600">{errors.businessName.message}</p> : null}
             </div>
           </div>
           <div className="space-y-1.5">

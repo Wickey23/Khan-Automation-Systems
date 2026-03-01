@@ -8,6 +8,7 @@ export type AuthenticatedRequest = Request & {
     email: string;
     role: UserRole;
     clientId?: string | null;
+    orgId?: string | null;
   };
 };
 
@@ -32,6 +33,14 @@ export function requireRole(role: UserRole) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.auth) return res.status(401).json({ ok: false, message: "Unauthorized" });
     if (req.auth.role !== role) return res.status(403).json({ ok: false, message: "Forbidden" });
+    return next();
+  };
+}
+
+export function requireAnyRole(roles: UserRole[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.auth) return res.status(401).json({ ok: false, message: "Unauthorized" });
+    if (!roles.includes(req.auth.role)) return res.status(403).json({ ok: false, message: "Forbidden" });
     return next();
   };
 }

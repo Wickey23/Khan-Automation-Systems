@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createStripeCheckoutSession } from "@/lib/api";
+import { useRouter } from "next/navigation";
 import { PricingCards } from "@/components/site/pricing-cards";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<"starter" | "pro" | null>(null);
   const { showToast } = useToast();
+  const router = useRouter();
 
   async function onStart(plan: "starter" | "pro") {
     setLoadingPlan(plan);
@@ -16,9 +18,14 @@ export default function PricingPage() {
       const data = await createStripeCheckoutSession(plan);
       window.location.href = data.url;
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Try again.";
+      if (message.toLowerCase().includes("unauthorized")) {
+        router.push("/auth/login");
+        return;
+      }
       showToast({
         title: "Checkout failed",
-        description: error instanceof Error ? error.message : "Try again.",
+        description: message,
         variant: "error"
       });
     } finally {

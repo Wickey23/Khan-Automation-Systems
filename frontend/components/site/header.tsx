@@ -18,10 +18,10 @@ export function Header() {
         </nav>
         <div className="flex items-center gap-2">
           <Button asChild size="sm" variant="ghost" className="hidden sm:inline-flex">
-            <Link href="/login">Login</Link>
+            <Link href="/auth/login">Login</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
-            <Link href="/signup">Sign Up</Link>
+            <Link href="/auth/signup">Sign Up</Link>
           </Button>
           <Button asChild size="sm">
             <Link href="/book">Book a 15-min Call</Link>

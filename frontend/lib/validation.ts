@@ -31,7 +31,7 @@ export type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;
 
 export const signupSchema = z.object({
   name: z.string().min(2, "Name is required."),
-  business: z.string().min(2, "Business name is required."),
+  businessName: z.string().min(2, "Business name is required."),
   email: z.string().email("Enter a valid email."),
   password: z.string().min(8, "Password must be at least 8 characters."),
   industry: z.string().optional()

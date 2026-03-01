@@ -2,7 +2,7 @@ import { Prisma, UserRole } from "@prisma/client";
 import { Router, type Response } from "express";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
-import { requireAuth, requireRole, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { toCsv } from "../../utils/csv";
 import {
   assignNumberSchema,
@@ -15,7 +15,7 @@ import { configureWebhooks, provisionNumber, releaseNumber } from "../twilio/twi
 
 export const adminRouter = Router();
 
-adminRouter.use(requireAuth, requireRole(UserRole.ADMIN));
+adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
 
 adminRouter.get("/leads", async (req: AuthenticatedRequest, res: Response) => {
   const parsed = leadFilterSchema.safeParse(req.query);
@@ -276,4 +276,147 @@ adminRouter.post("/clients/:id/twilio/configure-webhooks", async (req, res) => {
       message: error instanceof Error ? error.message : "Failed to configure webhooks."
     });
   }
+});
+
+adminRouter.get("/orgs", async (_req, res) => {
+  const orgs = await prisma.organization.findMany({
+    include: {
+      users: { select: { id: true, email: true, role: true } },
+      subscriptions: true,
+      onboardingSubmissions: { orderBy: { updatedAt: "desc" }, take: 1 },
+      phoneNumbers: true,
+      aiAgentConfigs: { orderBy: { updatedAt: "desc" }, take: 1 }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  return res.json({ ok: true, data: { orgs } });
+});
+
+adminRouter.get("/orgs/:id", async (req, res) => {
+  const org = await prisma.organization.findUnique({
+    where: { id: req.params.id },
+    include: {
+      users: { select: { id: true, email: true, role: true, createdAt: true } },
+      subscriptions: true,
+      onboardingSubmissions: { orderBy: { updatedAt: "desc" }, take: 1 },
+      phoneNumbers: true,
+      aiAgentConfigs: { orderBy: { updatedAt: "desc" }, take: 1 },
+      leads: { orderBy: { createdAt: "desc" }, take: 25 },
+      callLogs: { orderBy: { startedAt: "desc" }, take: 25 }
+    }
+  });
+  if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+  return res.json({ ok: true, data: { org } });
+});
+
+adminRouter.patch("/orgs/:id/status", async (req, res) => {
+  const status = String(req.body?.status || "");
+  if (!["NEW", "ONBOARDING", "READY_FOR_REVIEW", "PROVISIONING", "LIVE", "PAUSED"].includes(status)) {
+    return res.status(400).json({ ok: false, message: "Invalid status value." });
+  }
+  const org = await prisma.organization.update({
+    where: { id: req.params.id },
+    data: { status: status as any }
+  });
+  return res.json({ ok: true, data: { org } });
+});
+
+adminRouter.post("/orgs/:id/notes", async (req, res) => {
+  const notes = String(req.body?.notes || "").trim();
+  const statusValue = String(req.body?.status || "NEEDS_CHANGES");
+  if (!notes) return res.status(400).json({ ok: false, message: "Notes are required." });
+
+  const submission = await prisma.onboardingSubmission.upsert({
+    where: { orgId: req.params.id },
+    update: {
+      notesFromAdmin: notes,
+      status: (statusValue === "APPROVED" ? "APPROVED" : "NEEDS_CHANGES") as any,
+      reviewedAt: new Date()
+    },
+    create: {
+      orgId: req.params.id,
+      notesFromAdmin: notes,
+      status: (statusValue === "APPROVED" ? "APPROVED" : "NEEDS_CHANGES") as any,
+      reviewedAt: new Date(),
+      answersJson: "{}"
+    }
+  });
+  return res.json({ ok: true, data: { submission } });
+});
+
+adminRouter.post("/orgs/:id/twilio/assign-number", async (req, res) => {
+  const e164Number = String(req.body?.e164Number || "").trim();
+  const twilioPhoneSid = String(req.body?.twilioPhoneSid || "").trim() || null;
+  const friendlyName = String(req.body?.friendlyName || "").trim() || null;
+  if (!e164Number) return res.status(400).json({ ok: false, message: "e164Number is required." });
+
+  const phoneNumber = await prisma.phoneNumber.upsert({
+    where: { e164Number },
+    update: {
+      orgId: req.params.id,
+      twilioPhoneSid,
+      friendlyName,
+      status: "ACTIVE"
+    },
+    create: {
+      orgId: req.params.id,
+      e164Number,
+      twilioPhoneSid,
+      friendlyName,
+      status: "ACTIVE"
+    }
+  });
+
+  await prisma.organization.update({
+    where: { id: req.params.id },
+    data: { status: "PROVISIONING" }
+  });
+
+  return res.json({ ok: true, data: { phoneNumber } });
+});
+
+adminRouter.patch("/orgs/:id/ai/config", async (req, res) => {
+  const payload = {
+    provider: req.body?.provider || "VAPI",
+    agentId: req.body?.agentId || null,
+    apiKeyRef: req.body?.apiKeyRef || null,
+    voice: req.body?.voice || null,
+    model: req.body?.model || null,
+    temperature: typeof req.body?.temperature === "number" ? req.body.temperature : null,
+    systemPrompt: req.body?.systemPrompt || null,
+    toolsEnabledJson: req.body?.toolsEnabledJson ? JSON.stringify(req.body.toolsEnabledJson) : null,
+    transferRulesJson: req.body?.transferRulesJson ? JSON.stringify(req.body.transferRulesJson) : null,
+    status: req.body?.status || "DRAFT"
+  };
+  const existing = await prisma.aiAgentConfig.findFirst({ where: { orgId: req.params.id } });
+  const ai = existing
+    ? await prisma.aiAgentConfig.update({ where: { id: existing.id }, data: payload })
+    : await prisma.aiAgentConfig.create({ data: { orgId: req.params.id, ...payload } });
+  return res.json({ ok: true, data: { ai } });
+});
+
+adminRouter.post("/orgs/:id/go-live", async (req, res) => {
+  const [phone, ai] = await Promise.all([
+    prisma.phoneNumber.findFirst({ where: { orgId: req.params.id, status: "ACTIVE" } }),
+    prisma.aiAgentConfig.findFirst({ where: { orgId: req.params.id, status: "ACTIVE" } })
+  ]);
+  if (!phone || !ai) {
+    return res.status(400).json({
+      ok: false,
+      message: "Go-live checklist incomplete. Need active phone number and active AI config."
+    });
+  }
+  const org = await prisma.organization.update({
+    where: { id: req.params.id },
+    data: { live: true, status: "LIVE" }
+  });
+  return res.json({ ok: true, data: { org } });
+});
+
+adminRouter.post("/orgs/:id/pause", async (req, res) => {
+  const org = await prisma.organization.update({
+    where: { id: req.params.id },
+    data: { live: false, status: "PAUSED" }
+  });
+  return res.json({ ok: true, data: { org } });
 });

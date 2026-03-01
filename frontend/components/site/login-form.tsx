@@ -28,10 +28,10 @@ export function LoginForm() {
     try {
       const data = await authLogin(values.email, values.password);
       showToast({ title: "Logged in" });
-      if (data.user.role === "ADMIN") {
-        router.push("/admin/clients");
+      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+        router.push("/admin/orgs");
       } else {
-        router.push("/dashboard");
+        router.push("/app");
       }
     } catch (error) {
       showToast({

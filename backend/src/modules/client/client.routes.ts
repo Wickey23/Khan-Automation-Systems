@@ -1,13 +1,13 @@
 import { UserRole } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
-import { requireAuth, requireRole, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { sendLeadNotificationEmail } from "../../services/email";
 import { supportSchema, updateSettingSchema } from "./client.schema";
 
 export const clientRouter = Router();
 
-clientRouter.use(requireAuth, requireRole(UserRole.CLIENT));
+clientRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT, UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF]));
 
 clientRouter.get("/me", async (req: AuthenticatedRequest, res) => {
   const clientId = req.auth?.clientId;

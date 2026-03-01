@@ -1,5 +1,17 @@
 import { siteConfig } from "@/lib/config";
-import type { AIConfig, AuthUser, CallRecord, Client, Lead, LeadPayload, PhoneLine, Setting } from "@/lib/types";
+import type {
+  AIConfig,
+  AuthUser,
+  CallRecord,
+  Client,
+  Lead,
+  LeadPayload,
+  OnboardingSubmission,
+  Organization,
+  OrgSubscription,
+  PhoneLine,
+  Setting
+} from "@/lib/types";
 import type { LeadUpdateInput } from "@/lib/validation";
 
 type ApiResponse<T> = {
@@ -47,7 +59,7 @@ export async function authLogin(email: string, password: string) {
 
 export async function authSignup(body: {
   name: string;
-  business: string;
+  businessName: string;
   email: string;
   password: string;
   industry?: string;
@@ -65,14 +77,18 @@ export async function authLogout() {
 }
 
 export async function getMe() {
-  return request<{ user: AuthUser }>("/api/auth/me");
+  return request<{ user: AuthUser; org: Organization | null }>("/api/auth/me");
 }
 
 export async function createStripeCheckoutSession(plan: "starter" | "pro") {
-  return request<{ url: string }>("/api/stripe/create-checkout-session", {
+  return request<{ url: string }>("/api/billing/create-checkout-session", {
     method: "POST",
     body: JSON.stringify({ plan })
   });
+}
+
+export async function getBillingStatus() {
+  return request<{ subscription: OrgSubscription | null }>("/api/billing/status");
 }
 
 export async function createCustomerPortalSession() {
@@ -178,4 +194,88 @@ export async function sendSupportMessage(subject: string, message: string) {
     method: "POST",
     body: JSON.stringify({ subject, message })
   });
+}
+
+export async function fetchOrgProfile() {
+  return request<{ organization: Organization }>("/api/org/profile");
+}
+
+export async function updateOrgProfile(body: { name?: string; industry?: string | null }) {
+  return request<{ organization: Organization }>("/api/org/profile", {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function fetchOrgOnboarding() {
+  return request<{ submission: OnboardingSubmission | null }>("/api/org/onboarding");
+}
+
+export async function saveOrgOnboarding(answers: Record<string, unknown>) {
+  return request<{ submission: OnboardingSubmission }>("/api/org/onboarding", {
+    method: "PUT",
+    body: JSON.stringify({ answers })
+  });
+}
+
+export async function submitOrgOnboarding(answers?: Record<string, unknown>) {
+  return request<{ submission: OnboardingSubmission }>("/api/org/onboarding/submit", {
+    method: "POST",
+    body: JSON.stringify({ answers })
+  });
+}
+
+export async function fetchOrgLeads() {
+  return request<{ leads: Lead[] }>("/api/org/leads");
+}
+
+export async function fetchOrgCalls() {
+  return request<{ calls: CallRecord[] }>("/api/org/calls");
+}
+
+export async function fetchAdminOrgs() {
+  return request<{ orgs: Array<Organization & Record<string, unknown>> }>("/api/admin/orgs");
+}
+
+export async function fetchAdminOrgById(id: string) {
+  return request<{ org: Organization & Record<string, unknown> }>(`/api/admin/orgs/${id}`);
+}
+
+export async function updateAdminOrgStatus(id: string, status: Organization["status"]) {
+  return request<{ org: Organization }>(`/api/admin/orgs/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
+}
+
+export async function saveAdminOrgNotes(id: string, notes: string, status: "NEEDS_CHANGES" | "APPROVED") {
+  return request<{ submission: OnboardingSubmission }>(`/api/admin/orgs/${id}/notes`, {
+    method: "POST",
+    body: JSON.stringify({ notes, status })
+  });
+}
+
+export async function assignOrgTwilioNumber(
+  id: string,
+  payload: { e164Number: string; twilioPhoneSid?: string; friendlyName?: string }
+) {
+  return request<{ phoneNumber: Record<string, unknown> }>(`/api/admin/orgs/${id}/twilio/assign-number`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateOrgAiConfig(id: string, body: Record<string, unknown>) {
+  return request<{ ai: Record<string, unknown> }>(`/api/admin/orgs/${id}/ai/config`, {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function goLiveOrg(id: string) {
+  return request<{ org: Organization }>(`/api/admin/orgs/${id}/go-live`, { method: "POST" });
+}
+
+export async function pauseOrg(id: string) {
+  return request<{ org: Organization }>(`/api/admin/orgs/${id}/pause`, { method: "POST" });
 }

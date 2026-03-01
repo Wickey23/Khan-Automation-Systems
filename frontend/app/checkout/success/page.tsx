@@ -10,10 +10,10 @@ export default function CheckoutSuccessPage() {
       </p>
       <div className="mt-6 flex gap-3">
         <Button asChild>
-          <Link href="/login">Go to Login</Link>
+          <Link href="/auth/login">Go to Login</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href="/dashboard/setup">Go to Setup</Link>
+          <Link href="/app/onboarding">Go to Onboarding</Link>
         </Button>
       </div>
     </div>

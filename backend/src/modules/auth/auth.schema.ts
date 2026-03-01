@@ -7,7 +7,7 @@ export const loginSchema = z.object({
 
 export const signupSchema = z.object({
   name: z.string().min(2),
-  business: z.string().min(2),
+  businessName: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(8),
   industry: z.string().optional()
