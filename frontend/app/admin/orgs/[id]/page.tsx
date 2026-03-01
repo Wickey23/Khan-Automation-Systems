@@ -32,7 +32,8 @@ type OrgDetail = {
   status: "NEW" | "ONBOARDING" | "SUBMITTED" | "NEEDS_CHANGES" | "APPROVED" | "PROVISIONING" | "TESTING" | "LIVE" | "PAUSED";
   live: boolean;
   onboardingSubmissions?: Array<{ answersJson: string; status: string; notesFromAdmin?: string | null }>;
-  phoneNumbers?: Array<{ e164Number: string; status: string }>;
+  phoneNumbers?: Array<{ e164Number: string; status: string; provider?: "TWILIO" | "VAPI" }>;
+  subscriptions?: Array<{ plan: "STARTER" | "PRO"; status: string }>;
   aiAgentConfigs?: Array<{
     provider: string;
     agentId?: string | null;
@@ -55,6 +56,9 @@ export default function AdminOrgDetailPage() {
   const [status, setStatus] = useState<OrgDetail["status"]>("ONBOARDING");
   const [notes, setNotes] = useState("");
   const [e164Number, setE164Number] = useState("");
+  const [numberProvider, setNumberProvider] = useState<"TWILIO" | "VAPI">("VAPI");
+  const [autoPurchaseTwilio, setAutoPurchaseTwilio] = useState(false);
+  const [areaCode, setAreaCode] = useState("");
   const [twilioPhoneSid, setTwilioPhoneSid] = useState("");
   const [agentId, setAgentId] = useState("");
   const [vapiPhoneNumberId, setVapiPhoneNumberId] = useState("");
@@ -75,6 +79,10 @@ export default function AdminOrgDetailPage() {
     const latestAi = next.aiAgentConfigs?.[0];
     const activePhone = next.phoneNumbers?.find((phone) => phone.status === "ACTIVE");
     setE164Number(activePhone?.e164Number || next.phoneNumbers?.[0]?.e164Number || "");
+    setNumberProvider(
+      (activePhone?.provider as "TWILIO" | "VAPI" | undefined) ||
+        (next.subscriptions?.[0]?.plan === "PRO" ? "TWILIO" : "VAPI")
+    );
     setAgentId(latestAi?.vapiAgentId || latestAi?.agentId || "");
     setVapiPhoneNumberId(latestAi?.vapiPhoneNumberId || "");
     setVoice(latestAi?.voice || "");
@@ -145,7 +153,13 @@ export default function AdminOrgDetailPage() {
   }
 
   async function assignNumber() {
-    await assignOrgTwilioNumber(id, { e164Number, twilioPhoneSid: twilioPhoneSid || undefined });
+    await assignOrgTwilioNumber(id, {
+      provider: numberProvider,
+      e164Number: e164Number || undefined,
+      twilioPhoneSid: twilioPhoneSid || undefined,
+      autoPurchase: numberProvider === "TWILIO" ? autoPurchaseTwilio : false,
+      areaCode: numberProvider === "TWILIO" ? areaCode || undefined : undefined
+    });
     showToast({ title: "Phone number assigned" });
     await load();
   }
@@ -241,7 +255,7 @@ export default function AdminOrgDetailPage() {
                 <li>Confirm the client has an active paid subscription.</li>
                 <li>Review onboarding answers and click <span className="font-medium">Approve onboarding</span>.</li>
                 <li>Click <span className="font-medium">Generate AI package</span> to build prompt + intake schema.</li>
-                <li>Assign Twilio number and verify the number appears as assigned.</li>
+                <li>Assign number provider: <span className="font-medium">Vapi</span> (default for Starter) or <span className="font-medium">Twilio</span> (optional for area code control).</li>
                 <li>Save Vapi config: Agent ID + Phone Bridge number + model/voice + prompt.</li>
                 <li>Set Testing mode, place a real test call, record notes, then mark test complete.</li>
                 <li>Verify manager notifications and call summaries are being written.</li>
@@ -277,22 +291,49 @@ export default function AdminOrgDetailPage() {
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
-                <Label>E164 Number</Label>
-                <Input placeholder="+15165551234" value={e164Number} onChange={(e) => setE164Number(e.target.value)} />
+                <Label>Number Provider</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+                  value={numberProvider}
+                  onChange={(e) => setNumberProvider(e.target.value as "TWILIO" | "VAPI")}
+                >
+                  <option value="VAPI">Vapi (default for Starter)</option>
+                  <option value="TWILIO">Twilio (optional, area-code control)</option>
+                </select>
               </div>
               <div>
+                <Label>E164 Number {numberProvider === "TWILIO" && autoPurchaseTwilio ? "(optional)" : ""}</Label>
+                <Input placeholder="+15165551234" value={e164Number} onChange={(e) => setE164Number(e.target.value)} />
+              </div>
+              <div className={numberProvider === "TWILIO" ? "" : "opacity-50"}>
                 <Label>Twilio SID (optional)</Label>
-                <Input value={twilioPhoneSid} onChange={(e) => setTwilioPhoneSid(e.target.value)} />
+                <Input value={twilioPhoneSid} onChange={(e) => setTwilioPhoneSid(e.target.value)} disabled={numberProvider !== "TWILIO"} />
+              </div>
+              <div className={numberProvider === "TWILIO" ? "" : "opacity-50"}>
+                <Label>Twilio area code (optional)</Label>
+                <Input value={areaCode} onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, "").slice(0, 3))} disabled={numberProvider !== "TWILIO"} />
+              </div>
+              <div className={numberProvider === "TWILIO" ? "" : "opacity-50"}>
+                <Label className="mb-2 block">Twilio auto-purchase</Label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={autoPurchaseTwilio}
+                    onChange={(e) => setAutoPurchaseTwilio(e.target.checked)}
+                    disabled={numberProvider !== "TWILIO"}
+                  />
+                  Purchase a Twilio number automatically (uses area code if available)
+                </label>
               </div>
             </div>
             <Button className="mt-3" onClick={() => void assignNumber()}>
-              Assign Twilio number
+              Save number assignment
             </Button>
             <Button className="mt-3 ml-2" variant="outline" onClick={() => void setStep("twilio_number_assigned", "DONE")}>
               Mark number assigned
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
-              Assigned: {org?.phoneNumbers?.[0]?.e164Number || "none"}
+              Assigned: {org?.phoneNumbers?.[0]?.e164Number || "none"} ({org?.phoneNumbers?.[0]?.provider || "N/A"})
             </p>
           </section>
 

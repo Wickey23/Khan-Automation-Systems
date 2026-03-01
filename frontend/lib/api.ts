@@ -324,7 +324,14 @@ export async function saveAdminOrgNotes(id: string, notes: string, status: "NEED
 
 export async function assignOrgTwilioNumber(
   id: string,
-  payload: { e164Number: string; twilioPhoneSid?: string; friendlyName?: string }
+  payload: {
+    provider?: "TWILIO" | "VAPI";
+    e164Number?: string;
+    twilioPhoneSid?: string;
+    friendlyName?: string;
+    autoPurchase?: boolean;
+    areaCode?: string;
+  }
 ) {
   return request<{ phoneNumber: Record<string, unknown> }>(`/api/admin/orgs/${id}/twilio/assign-number`, {
     method: "POST",

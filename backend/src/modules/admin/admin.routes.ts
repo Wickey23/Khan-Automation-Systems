@@ -1,11 +1,12 @@
 import bcrypt from "bcryptjs";
-import { OrganizationStatus, Prisma, UserRole } from "@prisma/client";
+import { NumberProvider, OrganizationStatus, Prisma, UserRole } from "@prisma/client";
 import { Router, type Response } from "express";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { toCsv } from "../../utils/csv";
 import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } from "../voice/vapi/vapi.service";
+import { provisionNumber } from "../twilio/twilio.service";
 import {
   assignNumberSchema,
   leadFilterSchema,
@@ -321,15 +322,33 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
 });
 
 adminRouter.post("/orgs/:id/twilio/assign-number", async (req: AuthenticatedRequest, res) => {
-  const e164Number = String(req.body?.e164Number || "").trim();
-  const twilioPhoneSid = String(req.body?.twilioPhoneSid || "").trim() || null;
+  const providerRaw = String(req.body?.provider || "").trim().toUpperCase();
+  const provider = providerRaw === "VAPI" ? NumberProvider.VAPI : NumberProvider.TWILIO;
+  const autoPurchase = Boolean(req.body?.autoPurchase);
+  const areaCode = String(req.body?.areaCode || "").trim() || undefined;
+  let e164Number = String(req.body?.e164Number || "").trim();
+  let twilioPhoneSid = String(req.body?.twilioPhoneSid || "").trim() || null;
   const friendlyName = String(req.body?.friendlyName || "").trim() || null;
-  if (!e164Number) return res.status(400).json({ ok: false, message: "e164Number is required." });
+
+  if (provider === NumberProvider.TWILIO && autoPurchase && !e164Number) {
+    const voiceWebhookUrl = `${env.API_BASE_URL}/api/twilio/voice`;
+    const smsWebhookUrl = `${env.API_BASE_URL}/api/twilio/sms`;
+    const purchased = await provisionNumber({
+      areaCode,
+      sms: false,
+      voiceWebhookUrl,
+      smsWebhookUrl
+    });
+    e164Number = purchased.phoneNumber;
+    twilioPhoneSid = purchased.sid;
+  }
+
+  if (!e164Number) return res.status(400).json({ ok: false, message: "e164Number is required unless Twilio auto-purchase is enabled." });
 
   const phoneNumber = await prisma.phoneNumber.upsert({
     where: { e164Number },
-    update: { orgId: req.params.id, twilioPhoneSid, friendlyName, status: "ACTIVE" },
-    create: { orgId: req.params.id, e164Number, twilioPhoneSid, friendlyName, status: "ACTIVE" }
+    update: { orgId: req.params.id, provider, twilioPhoneSid, friendlyName, status: "ACTIVE" },
+    create: { orgId: req.params.id, provider, e164Number, twilioPhoneSid, friendlyName, status: "ACTIVE" }
   });
   await prisma.organization.update({ where: { id: req.params.id }, data: { status: "PROVISIONING" } });
   await upsertChecklistStep({
@@ -345,7 +364,7 @@ adminRouter.post("/orgs/:id/twilio/assign-number", async (req: AuthenticatedRequ
     actorUserId: req.auth!.userId,
     actorRole: req.auth!.role,
     action: "NUMBER_ASSIGNED",
-    metadata: { e164Number }
+    metadata: { e164Number, provider, autoPurchase, areaCode: areaCode || null }
   });
   return res.json({ ok: true, data: { phoneNumber } });
 });
