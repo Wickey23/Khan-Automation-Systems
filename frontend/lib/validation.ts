@@ -5,11 +5,16 @@ export const leadFormSchema = z.object({
   business: z.string().min(2, "Business is required."),
   email: z.string().email("Valid email is required."),
   phone: z.string().min(7, "Valid phone is required."),
+  accountPassword: z.string().min(8, "Password must be at least 8 characters."),
+  confirmPassword: z.string().min(8, "Confirm your password."),
   industry: z.string().optional(),
   message: z.string().max(1000, "Message must be under 1000 chars.").optional(),
   preferredContact: z.enum(["call", "text", "email"]).optional(),
   urgency: z.enum(["this_week", "this_month", "exploring"]).optional(),
   sourcePage: z.string().min(1)
+}).refine((data) => data.accountPassword === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"]
 });
 
 export type LeadFormInput = z.infer<typeof leadFormSchema>;

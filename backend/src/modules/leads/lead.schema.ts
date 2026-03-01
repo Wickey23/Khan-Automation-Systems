@@ -5,6 +5,7 @@ export const createLeadSchema = z.object({
   business: z.string().min(2),
   email: z.string().email(),
   phone: z.string().min(7),
+  accountPassword: z.string().min(8).optional(),
   industry: z.string().optional(),
   message: z.string().max(2000).optional(),
   preferredContact: z.enum(["call", "text", "email"]).optional(),

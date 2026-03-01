@@ -70,6 +70,14 @@ leadRouter.post("/", async (req: Request, res: Response) => {
 
     const shouldCreateAccount = parsed.data.createAccount !== false;
     if (shouldCreateAccount) {
+      if (!parsed.data.accountPassword) {
+        return res.status(400).json({
+          ok: false,
+          message: "Account password is required.",
+          errors: { fieldErrors: { accountPassword: ["Password is required to create an account."] } }
+        });
+      }
+
       const email = parsed.data.email.toLowerCase();
       const existingUser = await prisma.user.findUnique({ where: { email } });
 
@@ -128,8 +136,7 @@ leadRouter.post("/", async (req: Request, res: Response) => {
             }
           });
         } else {
-          const tempPassword = Math.random().toString(36).slice(-10) + "A1!";
-          const passwordHash = await bcrypt.hash(tempPassword, 12);
+          const passwordHash = await bcrypt.hash(parsed.data.accountPassword, 12);
           await prisma.user.create({
             data: {
               email,
@@ -139,16 +146,14 @@ leadRouter.post("/", async (req: Request, res: Response) => {
               clientId: client.id
             }
           });
-          try {
-            await sendClientWelcomeEmail({
-              email,
-              tempPassword,
-              appUrl: env.FRONTEND_APP_URL
-            });
-          } catch (welcomeError) {
+          void sendClientWelcomeEmail({
+            email,
+            tempPassword: "(set during signup)",
+            appUrl: env.FRONTEND_APP_URL
+          }).catch((welcomeError) => {
             // eslint-disable-next-line no-console
             console.error("Welcome email failed", welcomeError);
-          }
+          });
         }
 
         resolvedOrgId = org.id;

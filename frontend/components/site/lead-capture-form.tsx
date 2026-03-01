@@ -51,6 +51,8 @@ export function LeadCaptureForm({
       business: "",
       email: "",
       phone: "",
+      accountPassword: "",
+      confirmPassword: "",
       industry: "",
       message: "",
       preferredContact: "call",
@@ -71,6 +73,7 @@ export function LeadCaptureForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
+          accountPassword: values.accountPassword,
           sourcePage: window.location.pathname,
           createAccount: true
         })
@@ -99,7 +102,7 @@ export function LeadCaptureForm({
       showToast({
         title: "Lead captured",
         description: payload?.data?.accountCreated
-          ? "Your request is in and your account was created. Check your email for login details."
+          ? "Your request is in and your account was created. You can now log in."
           : "Your request is in. We will reach out shortly.",
         variant: "success"
       });
@@ -109,6 +112,8 @@ export function LeadCaptureForm({
         business: "",
         email: "",
         phone: "",
+        accountPassword: "",
+        confirmPassword: "",
         industry: "",
         message: "",
         preferredContact: "call",
@@ -173,6 +178,19 @@ export function LeadCaptureForm({
             </div>
           </div>
 
+          <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
+            <div className="space-y-1.5">
+              <Label htmlFor={`${sourcePage}-accountPassword`}>Create account password</Label>
+              <Input id={`${sourcePage}-accountPassword`} type="password" {...register("accountPassword")} />
+              {errors.accountPassword ? <p className="text-xs text-red-600">{errors.accountPassword.message}</p> : null}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`${sourcePage}-confirmPassword`}>Confirm password</Label>
+              <Input id={`${sourcePage}-confirmPassword`} type="password" {...register("confirmPassword")} />
+              {errors.confirmPassword ? <p className="text-xs text-red-600">{errors.confirmPassword.message}</p> : null}
+            </div>
+          </div>
+
           <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-3"}>
             <div className="space-y-1.5">
               <Label>Industry</Label>
@@ -227,7 +245,7 @@ export function LeadCaptureForm({
           </div>
 
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit Lead"}
+            {isSubmitting ? "Submitting..." : "Create Account & Submit Lead"}
           </Button>
         </form>
       </CardContent>
