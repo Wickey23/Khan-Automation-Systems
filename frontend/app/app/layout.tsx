@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, getBillingStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,10 @@ const navItems = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [accessWarning, setAccessWarning] = useState<string | null>(null);
 
   useEffect(() => {
+    setAccessWarning(null);
     if (pathname === "/app/onboarding") return;
     void Promise.all([fetchOrgOnboarding(), getBillingStatus()])
       .then(([onboarding, billing]) => {
@@ -27,9 +29,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
         const hasAccess = ["active", "trialing"].includes(subStatus) || !billing.subscription;
         const onboardingDone = ["SUBMITTED", "REVIEWED", "APPROVED"].includes(onboardingStatus);
-        if (!hasAccess || !onboardingDone) router.replace("/app/onboarding");
+        if (!hasAccess) {
+          router.replace("/app/onboarding");
+          return;
+        }
+        if (!onboardingDone) {
+          setAccessWarning("Finish onboarding to unlock live configuration and full automation features.");
+        }
       })
-      .catch(() => router.replace("/app/onboarding"));
+      .catch(() => {
+        setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
+      });
   }, [pathname, router]);
 
   return (
@@ -56,7 +66,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               Logout
             </Link>
           </aside>
-          <main>{children}</main>
+          <main>
+            {accessWarning ? (
+              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                {accessWarning} <Link href="/app/onboarding" className="font-medium underline">Go to onboarding</Link>
+              </div>
+            ) : null}
+            {children}
+          </main>
         </div>
       </div>
     </ClientGuard>

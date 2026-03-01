@@ -22,15 +22,37 @@ type ApiResponse<T> = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${siteConfig.apiBase}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {})
-    },
-    credentials: "include",
-    cache: "no-store"
-  });
+  if (!siteConfig.apiBase) {
+    throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${siteConfig.apiBase}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {})
+      },
+      credentials: "include",
+      cache: "no-store"
+    });
+  } catch (error) {
+    const isProdBrowser =
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
+    if (isProdBrowser && siteConfig.apiBase.includes("localhost")) {
+      throw new Error("API misconfigured: NEXT_PUBLIC_API_BASE points to localhost in production.");
+    }
+
+    throw new Error(
+      error instanceof Error
+        ? `Could not reach API (${siteConfig.apiBase}). ${error.message}`
+        : `Could not reach API (${siteConfig.apiBase}).`
+    );
+  }
 
   const contentType = response.headers.get("content-type") || "";
   const payload = contentType.includes("application/json")
