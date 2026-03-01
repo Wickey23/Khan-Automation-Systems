@@ -33,7 +33,10 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
 
   if (callId) {
     await prisma.callLog.updateMany({
-      where: { id: callId, orgId },
+      where: {
+        orgId,
+        OR: [{ id: callId }, { providerCallId: callId }]
+      },
       data: { leadId: lead.id }
     });
   }
@@ -76,7 +79,10 @@ toolsRouter.post("/request-appointment", async (req, res) => {
   if (!orgId) return res.status(400).json({ ok: false, message: "orgId is required." });
   if (callId) {
     await prisma.callLog.updateMany({
-      where: { id: callId, orgId },
+      where: {
+        orgId,
+        OR: [{ id: callId }, { providerCallId: callId }]
+      },
       data: { appointmentRequested: true, outcome: "APPOINTMENT_REQUEST" }
     });
   }
