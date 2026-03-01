@@ -279,3 +279,13 @@ export async function goLiveOrg(id: string) {
 export async function pauseOrg(id: string) {
   return request<{ org: Organization }>(`/api/admin/orgs/${id}/pause`, { method: "POST" });
 }
+
+export async function resetOrgUserPassword(orgId: string, userId: string, password: string) {
+  return request<{ user: { id: string; email: string; role: string } }>(
+    `/api/admin/orgs/${orgId}/users/${userId}/reset-password`,
+    {
+      method: "POST",
+      body: JSON.stringify({ password })
+    }
+  );
+}

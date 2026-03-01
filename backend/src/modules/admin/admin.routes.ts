@@ -7,11 +7,13 @@ import { toCsv } from "../../utils/csv";
 import {
   assignNumberSchema,
   leadFilterSchema,
+  resetUserPasswordSchema,
   updateAiConfigSchema,
   updateClientStatusSchema,
   updateLeadSchema
 } from "./admin.schema";
 import { configureWebhooks, provisionNumber, releaseNumber } from "../twilio/twilio.service";
+import bcrypt from "bcryptjs";
 
 export const adminRouter = Router();
 
@@ -419,4 +421,40 @@ adminRouter.post("/orgs/:id/pause", async (req, res) => {
     data: { live: false, status: "PAUSED" }
   });
   return res.json({ ok: true, data: { org } });
+});
+
+adminRouter.post("/orgs/:id/users/:userId/reset-password", async (req, res) => {
+  const parsed = resetUserPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      ok: false,
+      message: "Invalid password payload.",
+      errors: parsed.error.flatten()
+    });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      id: req.params.userId,
+      orgId: req.params.id
+    }
+  });
+
+  if (!user) return res.status(404).json({ ok: false, message: "User not found for this organization." });
+  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN) {
+    return res.status(403).json({ ok: false, message: "Cannot reset admin account password from org tools." });
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash }
+  });
+
+  return res.json({
+    ok: true,
+    data: {
+      user: { id: user.id, email: user.email, role: user.role }
+    }
+  });
 });

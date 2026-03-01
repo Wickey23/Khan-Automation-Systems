@@ -8,6 +8,7 @@ import {
   fetchAdminOrgById,
   goLiveOrg,
   pauseOrg,
+  resetOrgUserPassword,
   saveAdminOrgNotes,
   updateAdminOrgStatus,
   updateOrgAiConfig
@@ -27,6 +28,7 @@ type OrgDetail = {
   onboardingSubmissions?: Array<{ answersJson: string; status: string; notesFromAdmin?: string | null }>;
   phoneNumbers?: Array<{ e164Number: string; status: string }>;
   aiAgentConfigs?: Array<{ provider: string; agentId?: string | null; status: string; updatedAt: string }>;
+  users?: Array<{ id: string; email: string; role: string; createdAt: string }>;
 };
 
 export default function AdminOrgDetailPage() {
@@ -41,6 +43,7 @@ export default function AdminOrgDetailPage() {
   const [voice, setVoice] = useState("");
   const [model, setModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
 
   async function load() {
     const data = await fetchAdminOrgById(id);
@@ -95,6 +98,17 @@ export default function AdminOrgDetailPage() {
     });
     showToast({ title: "AI config saved" });
     await load();
+  }
+
+  async function resetUserPassword(userId: string) {
+    const password = passwordDrafts[userId] || "";
+    if (password.length < 8) {
+      showToast({ title: "Password too short", description: "Use at least 8 characters.", variant: "error" });
+      return;
+    }
+    await resetOrgUserPassword(id, userId, password);
+    showToast({ title: "Password reset", description: "Client user password updated." });
+    setPasswordDrafts((current) => ({ ...current, [userId]: "" }));
   }
 
   return (
@@ -178,6 +192,33 @@ export default function AdminOrgDetailPage() {
               <Button onClick={() => void saveAiConfig()}>Save AI config</Button>
               <Button variant="outline" onClick={() => void goLiveOrg(id)}>Go Live</Button>
               <Button variant="outline" onClick={() => void pauseOrg(id)}>Pause</Button>
+            </div>
+          </section>
+
+          <section className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Organization Users</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Passwords cannot be viewed. You can set a new password for any client user.
+            </p>
+            <div className="mt-4 grid gap-3">
+              {(org?.users || []).map((user) => (
+                <div key={user.id} className="rounded-md border p-3">
+                  <p className="text-sm font-medium">{user.email}</p>
+                  <p className="text-xs text-muted-foreground">{user.role}</p>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      type="password"
+                      placeholder="New password (min 8 chars)"
+                      value={passwordDrafts[user.id] || ""}
+                      onChange={(e) =>
+                        setPasswordDrafts((current) => ({ ...current, [user.id]: e.target.value }))
+                      }
+                    />
+                    <Button onClick={() => void resetUserPassword(user.id)}>Set new password</Button>
+                  </div>
+                </div>
+              ))}
+              {!org?.users?.length ? <p className="text-sm text-muted-foreground">No users found.</p> : null}
             </div>
           </section>
         </div>

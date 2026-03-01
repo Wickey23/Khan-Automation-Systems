@@ -35,3 +35,7 @@ export const updateAiConfigSchema = z.object({
   smsEnabled: z.boolean().optional(),
   testMode: z.boolean().optional()
 });
+
+export const resetUserPasswordSchema = z.object({
+  password: z.string().min(8).max(128)
+});

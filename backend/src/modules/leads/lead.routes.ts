@@ -80,85 +80,77 @@ leadRouter.post("/", async (req: Request, res: Response) => {
 
       const email = parsed.data.email.toLowerCase();
       const existingUser = await prisma.user.findUnique({ where: { email } });
-
-      if (existingUser?.orgId) {
-        resolvedOrgId = existingUser.orgId;
-      } else {
-        const org = await prisma.organization.create({
-          data: {
-            name: parsed.data.business,
-            industry: parsed.data.industry || null,
-            status: OrganizationStatus.ONBOARDING,
-            live: false
-          }
+      if (existingUser) {
+        return res.status(409).json({
+          ok: false,
+          message: "That email is already in use. Please log in at /auth/login.",
+          errors: { fieldErrors: { email: ["Email already used. Log in instead."] } }
         });
-
-        const client = await prisma.client.create({
-          data: {
-            name: parsed.data.business,
-            industry: parsed.data.industry || null,
-            status: ClientStatus.NEEDS_CONFIGURATION
-          }
-        });
-
-        await prisma.setting.create({
-          data: {
-            clientId: client.id,
-            transferNumber: ""
-          }
-        });
-
-        await prisma.aIConfig.create({
-          data: {
-            clientId: client.id,
-            testMode: true,
-            smsEnabled: false
-          }
-        });
-
-        await prisma.onboardingSubmission.upsert({
-          where: { orgId: org.id },
-          update: {},
-          create: {
-            orgId: org.id,
-            status: "DRAFT",
-            answersJson: "{}"
-          }
-        });
-
-        if (existingUser) {
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: {
-              role: UserRole.CLIENT_ADMIN,
-              orgId: org.id,
-              clientId: existingUser.clientId || client.id
-            }
-          });
-        } else {
-          const passwordHash = await bcrypt.hash(parsed.data.accountPassword, 12);
-          await prisma.user.create({
-            data: {
-              email,
-              passwordHash,
-              role: UserRole.CLIENT_ADMIN,
-              orgId: org.id,
-              clientId: client.id
-            }
-          });
-          void sendClientWelcomeEmail({
-            email,
-            tempPassword: "(set during signup)",
-            appUrl: env.FRONTEND_APP_URL
-          }).catch((welcomeError) => {
-            // eslint-disable-next-line no-console
-            console.error("Welcome email failed", welcomeError);
-          });
-        }
-
-        resolvedOrgId = org.id;
-        accountCreated = true;
       }
+
+      const accountPasswordHash = await bcrypt.hash(parsed.data.accountPassword, 12);
+      const org = await prisma.organization.create({
+        data: {
+          name: parsed.data.business,
+          industry: parsed.data.industry || null,
+          status: OrganizationStatus.ONBOARDING,
+          live: false
+        }
+      });
+
+      const client = await prisma.client.create({
+        data: {
+          name: parsed.data.business,
+          industry: parsed.data.industry || null,
+          status: ClientStatus.NEEDS_CONFIGURATION
+        }
+      });
+
+      await prisma.setting.create({
+        data: {
+          clientId: client.id,
+          transferNumber: ""
+        }
+      });
+
+      await prisma.aIConfig.create({
+        data: {
+          clientId: client.id,
+          testMode: true,
+          smsEnabled: false
+        }
+      });
+
+      await prisma.onboardingSubmission.upsert({
+        where: { orgId: org.id },
+        update: {},
+        create: {
+          orgId: org.id,
+          status: "DRAFT",
+          answersJson: "{}"
+        }
+      });
+
+      await prisma.user.create({
+        data: {
+          email,
+          passwordHash: accountPasswordHash,
+          role: UserRole.CLIENT_ADMIN,
+          orgId: org.id,
+          clientId: client.id
+        }
+      });
+      void sendClientWelcomeEmail({
+        email,
+        tempPassword: "(set during signup)",
+        appUrl: env.FRONTEND_APP_URL
+      }).catch((welcomeError) => {
+        // eslint-disable-next-line no-console
+        console.error("Welcome email failed", welcomeError);
+      });
+
+      resolvedOrgId = org.id;
+      accountCreated = true;
     }
 
     const lead = await createLeadResilient({
