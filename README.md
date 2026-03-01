@@ -173,19 +173,55 @@ API:
 - `GET /api/admin/clients/:id/ai-config`
 - `PATCH /api/admin/clients/:id/ai-config`
 
-## Render + Vercel Deployment
+## Deployment
 
-### Backend (Render)
-- Root: `backend`
-- Build: `npm install && npm run prisma:generate && npm run build`
-- Start: `npm run prisma:deploy && npm run start`
-- Health check: `/api/health`
-- Set all backend env vars including `API_BASE_URL` and Stripe/Twilio keys
+### Backend on Render (standalone)
 
-### Frontend (Vercel)
-- Root: `frontend`
-- Set `NEXT_PUBLIC_API_BASE` to Render backend URL
-- Set `NEXT_PUBLIC_SITE_URL` to Vercel domain
+Render service settings:
+- Root Directory: `backend`
+- Runtime: `Node`
+- Node version: `20.x`
+- Build Command: `npm ci && npm run build`
+- Start Command: `npm start`
+- Health Check Path: `/api/health`
+
+Important:
+- Backend is independently deployable from `backend/` and does not require the monorepo root or frontend build.
+- `postinstall` runs `prisma generate` automatically.
+- Run migrations against Render Postgres before/after first deploy:
+  - One-off in Render Shell: `npx prisma migrate deploy`
+  - Or add a Pre-Deploy command: `npx prisma migrate deploy`
+
+Required backend environment variables on Render:
+- `DATABASE_URL` (Render Postgres connection string)
+- `PORT` (Render sets this automatically; keep support in app)
+- `ALLOWED_ORIGIN` (your Vercel frontend URL)
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `API_BASE_URL` (public Render backend URL, e.g. `https://api.yourdomain.com`)
+- `FRONTEND_APP_URL`
+- `LEAD_NOTIFICATION_EMAIL`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_STARTER_PRICE_ID`
+- `STRIPE_PRO_PRICE_ID`
+- `STRIPE_SUCCESS_URL`
+- `STRIPE_CANCEL_URL`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+
+### Frontend on Vercel
+- Root Directory: `frontend`
+- Set `NEXT_PUBLIC_API_BASE` to your Render backend URL
+- Set `NEXT_PUBLIC_SITE_URL` to your Vercel URL
 
 ## Stripe Webhook Setup
 
