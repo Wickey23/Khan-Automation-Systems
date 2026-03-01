@@ -21,6 +21,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+function parseJsonValue<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function AdminClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { showToast } = useToast();
@@ -133,6 +142,85 @@ export default function AdminClientDetailPage() {
         <h1 className="text-3xl font-bold">{client?.name || "Client"}</h1>
 
         <div className="mt-6 grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Client Setup Intake</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Business Name</p>
+                  <p className="text-sm font-medium">{client?.name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Transfer Number</p>
+                  <p className="text-sm font-medium">{client?.setting?.transferNumber || "-"}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Booking Link</p>
+                {client?.setting?.bookingLink ? (
+                  <a
+                    href={client.setting.bookingLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    {client.setting.bookingLink}
+                  </a>
+                ) : (
+                  <p className="text-sm font-medium">-</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Services</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {parseJsonValue<string[]>(client?.setting?.servicesJson, []).length ? (
+                    parseJsonValue<string[]>(client?.setting?.servicesJson, []).map((service) => (
+                      <span key={service} className="rounded-full border px-2.5 py-1 text-xs">
+                        {service}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-sm font-medium">-</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Business Hours</p>
+                <div className="mt-2 rounded-md border p-3 text-sm">
+                  {(() => {
+                    const hours = parseJsonValue<{
+                      timezone?: string;
+                      schedule?: Record<string, { start: string; end: string }>;
+                    }>(client?.setting?.businessHoursJson, {});
+                    const entries = Object.entries(hours.schedule || {});
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Timezone: {hours.timezone || "America/New_York"}</p>
+                        {entries.length ? (
+                          entries.map(([day, range]) => (
+                            <div key={day} className="flex items-center justify-between border-b pb-1 text-xs last:border-0">
+                              <span className="capitalize">{day}</span>
+                              <span>
+                                {range.start} - {range.end}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm font-medium">No hours provided.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Client Status</CardTitle>
