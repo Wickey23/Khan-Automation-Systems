@@ -6,6 +6,7 @@
     "backend"
   ],
   "scripts": {
+    "setup:hooks": "powershell -ExecutionPolicy Bypass -File scripts/setup-githooks.ps1",
     "dev": "concurrently -n FRONTEND,BACKEND -c cyan,green \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace backend",

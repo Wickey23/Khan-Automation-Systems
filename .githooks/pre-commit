@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+
+npm run set:release-tag --workspace frontend >/dev/null 2>&1 || npm run set:release-tag --workspace frontend
+git add frontend/lib/release-tag.ts
