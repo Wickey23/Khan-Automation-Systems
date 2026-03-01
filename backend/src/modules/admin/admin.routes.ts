@@ -20,6 +20,15 @@ import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
 
+function normalizeVapiList(payload: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
+  if (payload && typeof payload === "object") {
+    const maybeData = (payload as Record<string, unknown>).data;
+    if (Array.isArray(maybeData)) return maybeData as Array<Record<string, unknown>>;
+  }
+  return [];
+}
+
 adminRouter.get("/leads", async (req: AuthenticatedRequest, res: Response) => {
   const parsed = leadFilterSchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
@@ -103,6 +112,59 @@ adminRouter.get("/orgs", async (_req, res) => {
     orderBy: { createdAt: "desc" }
   });
   return res.json({ ok: true, data: { orgs } });
+});
+
+adminRouter.get("/vapi/resources", async (_req, res) => {
+  if (!env.VAPI_API_KEY) {
+    return res.json({
+      ok: true,
+      data: {
+        configured: false,
+        assistants: [],
+        phoneNumbers: []
+      }
+    });
+  }
+
+  try {
+    const headers = { Authorization: `Bearer ${env.VAPI_API_KEY}` };
+    const [assistantsRes, phoneNumbersRes] = await Promise.all([
+      fetch("https://api.vapi.ai/assistant", { headers }),
+      fetch("https://api.vapi.ai/phone-number", { headers })
+    ]);
+
+    const assistantsJson = assistantsRes.ok ? await assistantsRes.json() : [];
+    const phoneNumbersJson = phoneNumbersRes.ok ? await phoneNumbersRes.json() : [];
+
+    const assistants = normalizeVapiList(assistantsJson)
+      .map((item) => ({
+        id: String(item.id || ""),
+        name: String(item.name || "Untitled Assistant")
+      }))
+      .filter((item) => item.id);
+
+    const phoneNumbers = normalizeVapiList(phoneNumbersJson)
+      .map((item) => ({
+        id: String(item.id || ""),
+        number: String(item.number || item.phoneNumber || ""),
+        provider: String(item.provider || "")
+      }))
+      .filter((item) => item.id || item.number);
+
+    return res.json({
+      ok: true,
+      data: {
+        configured: true,
+        assistants,
+        phoneNumbers
+      }
+    });
+  } catch (error) {
+    return res.status(502).json({
+      ok: false,
+      message: error instanceof Error ? `Failed to load Vapi resources: ${error.message}` : "Failed to load Vapi resources."
+    });
+  }
 });
 
 adminRouter.get("/orgs/:id", async (req, res) => {

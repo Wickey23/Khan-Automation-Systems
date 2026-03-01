@@ -11,6 +11,8 @@ type AdminOrg = {
   status: string;
   live: boolean;
   createdAt: string;
+  phoneNumbers?: Array<{ e164Number: string; status: string }>;
+  aiAgentConfigs?: Array<{ vapiAgentId?: string | null; status: string }>;
 };
 
 export default function AdminOrgsPage() {
@@ -31,8 +33,10 @@ export default function AdminOrgsPage() {
               <tr>
                 <th className="p-3">Organization</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Voice</th>
                 <th className="p-3">Live</th>
                 <th className="p-3">Created</th>
+                <th className="p-3">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -44,13 +48,22 @@ export default function AdminOrgsPage() {
                     </Link>
                   </td>
                   <td className="p-3">{org.status}</td>
+                  <td className="p-3">
+                    {org.phoneNumbers?.[0]?.e164Number ? "Number set" : "No number"} /{" "}
+                    {org.aiAgentConfigs?.[0]?.vapiAgentId ? "Agent set" : "No agent"}
+                  </td>
                   <td className="p-3">{org.live ? "Yes" : "No"}</td>
                   <td className="p-3">{new Date(org.createdAt).toLocaleDateString()}</td>
+                  <td className="p-3">
+                    <Link href={`/admin/orgs/${org.id}`} className="text-primary">
+                      Configure
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {!orgs.length ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={4}>
+                  <td className="p-3 text-muted-foreground" colSpan={6}>
                     No organizations yet.
                   </td>
                 </tr>

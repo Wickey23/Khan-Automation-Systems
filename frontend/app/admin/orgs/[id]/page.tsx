@@ -7,6 +7,7 @@ import {
   approveOnboarding,
   assignOrgTwilioNumber,
   completeOrgTesting,
+  fetchAdminVapiResources,
   fetchAdminOrgById,
   generateAiConfigFromPackage,
   goLiveOrg,
@@ -60,6 +61,9 @@ export default function AdminOrgDetailPage() {
   const [voice, setVoice] = useState("");
   const [model, setModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [vapiConfigured, setVapiConfigured] = useState(false);
+  const [vapiAssistants, setVapiAssistants] = useState<Array<{ id: string; name: string }>>([]);
+  const [vapiPhoneNumbers, setVapiPhoneNumbers] = useState<Array<{ id: string; number: string; provider: string }>>([]);
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [testNotes, setTestNotes] = useState("");
 
@@ -69,6 +73,8 @@ export default function AdminOrgDetailPage() {
     setOrg(next);
     setStatus(next.status);
     const latestAi = next.aiAgentConfigs?.[0];
+    const activePhone = next.phoneNumbers?.find((phone) => phone.status === "ACTIVE");
+    setE164Number(activePhone?.e164Number || next.phoneNumbers?.[0]?.e164Number || "");
     setAgentId(latestAi?.vapiAgentId || latestAi?.agentId || "");
     setVapiPhoneNumberId(latestAi?.vapiPhoneNumberId || "");
     setVoice(latestAi?.voice || "");
@@ -81,6 +87,20 @@ export default function AdminOrgDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    void fetchAdminVapiResources()
+      .then((data) => {
+        setVapiConfigured(Boolean(data.configured));
+        setVapiAssistants(data.assistants || []);
+        setVapiPhoneNumbers(data.phoneNumbers || []);
+      })
+      .catch(() => {
+        setVapiConfigured(false);
+        setVapiAssistants([]);
+        setVapiPhoneNumbers([]);
+      });
+  }, []);
+
   const onboardingAnswers = useMemo(() => {
     const raw = org?.onboardingSubmissions?.[0]?.answersJson;
     if (!raw) return {};
@@ -90,6 +110,27 @@ export default function AdminOrgDetailPage() {
       return {};
     }
   }, [org]);
+  const stepStatus = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const step of org?.checklistSteps || []) {
+      map.set(step.key, step.status);
+    }
+    return map;
+  }, [org]);
+  const nextAction = useMemo(() => {
+    const ordered = [
+      { key: "paid", label: "Confirm subscription is paid" },
+      { key: "onboarding_approved", label: "Approve onboarding submission" },
+      { key: "business_settings_confirmed", label: "Generate and confirm AI config package" },
+      { key: "twilio_number_assigned", label: "Assign Twilio phone number" },
+      { key: "webhooks_verified", label: "Mark webhooks verified" },
+      { key: "vapi_agent_configured", label: "Save Vapi agent configuration" },
+      { key: "test_calls_completed", label: "Run test call and mark complete" },
+      { key: "notifications_verified", label: "Verify notifications" },
+      { key: "go_live", label: "Enable Go Live" }
+    ];
+    return ordered.find((item) => stepStatus.get(item.key) !== "DONE")?.label || "All setup steps complete.";
+  }, [stepStatus]);
 
   async function updateStatus() {
     await updateAdminOrgStatus(id, status);
@@ -147,6 +188,7 @@ export default function AdminOrgDetailPage() {
         </Link>
         <h1 className="mt-3 text-3xl font-bold">{org?.name || "Organization"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">Live: {org?.live ? "Yes" : "No"}</p>
+        <p className="mt-1 text-sm text-amber-700">Next required action: {nextAction}</p>
 
         <div className="mt-6 grid gap-6">
           <section className="rounded-lg border bg-white p-4">
@@ -193,6 +235,26 @@ export default function AdminOrgDetailPage() {
 
           <section className="rounded-lg border bg-white p-4">
             <h2 className="text-lg font-semibold">Provisioning</h2>
+            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+              <p className="font-semibold">Admin Setup Runbook (do in order)</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>Confirm the client has an active paid subscription.</li>
+                <li>Review onboarding answers and click <span className="font-medium">Approve onboarding</span>.</li>
+                <li>Click <span className="font-medium">Generate AI package</span> to build prompt + intake schema.</li>
+                <li>Assign Twilio number and verify the number appears as assigned.</li>
+                <li>Save Vapi config: Agent ID + Phone Bridge number + model/voice + prompt.</li>
+                <li>Set Testing mode, place a real test call, record notes, then mark test complete.</li>
+                <li>Verify manager notifications and call summaries are being written.</li>
+                <li>Click <span className="font-medium">Go Live</span> and confirm org status becomes LIVE.</li>
+              </ol>
+              <div className="mt-3 rounded border border-blue-200 bg-white p-2 text-xs">
+                Required external setup:
+                <div>1. Twilio voice webhook: <span className="font-mono">{`/api/twilio/voice`}</span></div>
+                <div>2. Twilio SMS webhook: <span className="font-mono">{`/api/twilio/sms`}</span></div>
+                <div>3. Vapi tools: <span className="font-mono">{`/api/tools/*`}</span> with <span className="font-mono">x-vapi-tool-secret</span></div>
+                <div>4. Vapi webhook: <span className="font-mono">{`/api/vapi/webhook`}</span></div>
+              </div>
+            </div>
             <div className="mb-3 grid gap-2 rounded-md border bg-muted/30 p-3 text-sm">
               <p className="font-medium">Checklist</p>
               {(org?.checklistSteps || []).map((step) => (
@@ -236,6 +298,44 @@ export default function AdminOrgDetailPage() {
 
           <section className="rounded-lg border bg-white p-4">
             <h2 className="text-lg font-semibold">AI Agent Config</h2>
+            {vapiConfigured ? (
+              <div className="mt-3 grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-2">
+                <div>
+                  <Label>Pick Vapi Assistant</Label>
+                  <select
+                    className="mt-1 h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+                    value={agentId}
+                    onChange={(e) => setAgentId(e.target.value)}
+                  >
+                    <option value="">Select assistant</option>
+                    {vapiAssistants.map((assistant) => (
+                      <option key={assistant.id} value={assistant.id}>
+                        {assistant.name} ({assistant.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label>Pick Vapi Number</Label>
+                  <select
+                    className="mt-1 h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+                    value={vapiPhoneNumberId}
+                    onChange={(e) => setVapiPhoneNumberId(e.target.value)}
+                  >
+                    <option value="">Select number</option>
+                    {vapiPhoneNumbers.map((phone) => (
+                      <option key={`${phone.id}-${phone.number}`} value={phone.number || phone.id}>
+                        {phone.number || "No number"} ({phone.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                Vapi API key is not configured on the backend, so assistants/numbers cannot be listed automatically.
+              </p>
+            )}
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div><Label>Vapi Agent ID</Label><Input value={agentId} onChange={(e) => setAgentId(e.target.value)} /></div>
               <div><Label>Vapi Phone Bridge (E164)</Label><Input value={vapiPhoneNumberId} onChange={(e) => setVapiPhoneNumberId(e.target.value)} /></div>

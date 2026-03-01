@@ -296,6 +296,14 @@ export async function fetchAdminOrgs() {
   return request<{ orgs: Array<Organization & Record<string, unknown>> }>("/api/admin/orgs");
 }
 
+export async function fetchAdminVapiResources() {
+  return request<{
+    configured: boolean;
+    assistants: Array<{ id: string; name: string }>;
+    phoneNumbers: Array<{ id: string; number: string; provider: string }>;
+  }>("/api/admin/vapi/resources");
+}
+
 export async function fetchAdminOrgById(id: string) {
   return request<{ org: Organization & Record<string, unknown> }>(`/api/admin/orgs/${id}`);
 }
