@@ -25,7 +25,8 @@ leadRouter.post("/", async (req: Request, res: Response) => {
     let resolvedOrgId = parsed.data.orgId || null;
     let accountCreated = false;
 
-    if (parsed.data.createAccount) {
+    const shouldCreateAccount = parsed.data.createAccount !== false;
+    if (shouldCreateAccount) {
       const email = parsed.data.email.toLowerCase();
       const existingUser = await prisma.user.findUnique({ where: { email } });
 

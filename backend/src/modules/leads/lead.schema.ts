@@ -12,7 +12,7 @@ export const createLeadSchema = z.object({
   sourcePage: z.string().optional(),
   orgId: z.string().optional(),
   source: z.enum(["WEB_FORM", "PHONE_CALL", "SMS"]).optional(),
-  createAccount: z.boolean().optional()
+  createAccount: z.boolean().optional().default(true)
 });
 
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
