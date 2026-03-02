@@ -16,7 +16,8 @@ const adminTabs: AdminTab[] = [
   { label: "Leads", href: "/admin/leads", matches: ["/admin/leads"] },
   { label: "Prospects", href: "/admin/prospects", matches: ["/admin/prospects"] },
   { label: "Calls", href: "/admin/calls", matches: ["/admin/calls"] },
-  { label: "Clients", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"] }
+  { label: "Clients", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"] },
+  { label: "Events", href: "/admin/events", matches: ["/admin/events"] }
 ];
 
 type AdminTopTabsProps = {

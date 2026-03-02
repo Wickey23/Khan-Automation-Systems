@@ -111,3 +111,18 @@ export const discoverProspectsSchema = z.object({
   keywords: z.array(z.string().min(2).max(80)).optional(),
   limit: z.number().int().min(1).max(100).optional().default(30)
 });
+
+export const createTestRunSchema = z.object({
+  scenarioId: z.string().min(1),
+  status: z.enum(["PASS", "FAIL"]),
+  notes: z.string().max(5000).optional(),
+  providerCallId: z.string().max(200).optional()
+});
+
+export const eventsFilterSchema = z.object({
+  orgId: z.string().optional(),
+  action: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  limit: z.string().optional()
+});

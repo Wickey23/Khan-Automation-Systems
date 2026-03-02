@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import Link from "next/link";
 
 type FormState = {
   legalBusinessName: string;
@@ -242,6 +243,9 @@ export default function AppOnboardingPage() {
       <div className="flex gap-3">
         <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
         <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
+        <Link href="/app/onboarding/preview">
+          <Button type="button" variant="outline">Open build sheet page</Button>
+        </Link>
         <Button variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
       </div>
       {previewJson ? (

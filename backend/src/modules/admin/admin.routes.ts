@@ -7,13 +7,16 @@ import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../mi
 import { toCsv } from "../../utils/csv";
 import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } from "../voice/vapi/vapi.service";
 import { provisionNumber } from "../twilio/twilio.service";
+import { generateConfigPackage } from "../org/config-package";
 import {
   assignNumberSchema,
   callFilterSchema,
   clearAllDataSchema,
   createProspectSchema,
+  createTestRunSchema,
   deleteItemSchema,
   discoverProspectsSchema,
+  eventsFilterSchema,
   importProspectsSchema,
   leadFilterSchema,
   prospectFilterSchema,
@@ -26,6 +29,8 @@ import {
 } from "./admin.schema";
 import { backfillMissedVapiCalls } from "./backfill.service";
 import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./provisioning.service";
+import { computeReadinessReport } from "./readiness.service";
+import { ensureDefaultTestScenarios, getTestPassSummary } from "./testing.service";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
@@ -74,6 +79,12 @@ function parseCsvRows(input: string) {
 function toNullable(value: string | null | undefined) {
   const text = String(value || "").trim();
   return text ? text : null;
+}
+
+function parseIsoDate(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 type NominatimItem = {
@@ -195,6 +206,14 @@ adminRouter.patch("/leads/:id", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid update payload." });
   try {
     const lead = await prisma.lead.update({ where: { id: req.params.id }, data: parsed.data });
+    await writeAuditLog({
+      prisma,
+      orgId: lead.orgId || undefined,
+      actorUserId: (req as AuthenticatedRequest).auth!.userId,
+      actorRole: (req as AuthenticatedRequest).auth!.role,
+      action: "ADMIN_LEAD_UPDATED",
+      metadata: { leadId: lead.id, fields: Object.keys(parsed.data) }
+    });
     return res.json({ ok: true, data: { lead } });
   } catch {
     return res.status(404).json({ ok: false, message: "Lead not found." });
@@ -205,6 +224,14 @@ adminRouter.delete("/leads/:id", async (req, res) => {
   if (!verifyDeletePassword(req, res)) return;
   try {
     const lead = await prisma.lead.delete({ where: { id: req.params.id } });
+    await writeAuditLog({
+      prisma,
+      orgId: lead.orgId || undefined,
+      actorUserId: (req as AuthenticatedRequest).auth!.userId,
+      actorRole: (req as AuthenticatedRequest).auth!.role,
+      action: "ADMIN_LEAD_DELETED",
+      metadata: { leadId: lead.id }
+    });
     return res.json({ ok: true, data: { id: lead.id } });
   } catch {
     return res.status(404).json({ ok: false, message: "Lead not found." });
@@ -215,6 +242,14 @@ adminRouter.delete("/calls/:id", async (req, res) => {
   if (!verifyDeletePassword(req, res)) return;
   try {
     const call = await prisma.callLog.delete({ where: { id: req.params.id } });
+    await writeAuditLog({
+      prisma,
+      orgId: call.orgId,
+      actorUserId: (req as AuthenticatedRequest).auth!.userId,
+      actorRole: (req as AuthenticatedRequest).auth!.role,
+      action: "ADMIN_CALL_DELETED",
+      metadata: { callId: call.id, providerCallId: call.providerCallId }
+    });
     return res.json({ ok: true, data: { id: call.id } });
   } catch {
     return res.status(404).json({ ok: false, message: "Call not found." });
@@ -286,6 +321,14 @@ adminRouter.post("/prospects", async (req: AuthenticatedRequest, res) => {
       source: "MANUAL"
     }
   });
+  await writeAuditLog({
+    prisma,
+    orgId: prospect.orgId || undefined,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "ADMIN_PROSPECT_CREATED",
+    metadata: { prospectId: prospect.id, source: prospect.source }
+  });
   return res.status(201).json({ ok: true, data: { prospect } });
 });
 
@@ -313,6 +356,14 @@ adminRouter.patch("/prospects/:id", async (req: AuthenticatedRequest, res) => {
         scoreReason: parsed.data.scoreReason === undefined ? undefined : toNullable(parsed.data.scoreReason)
       }
     });
+    await writeAuditLog({
+      prisma,
+      orgId: prospect.orgId || undefined,
+      actorUserId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      action: "ADMIN_PROSPECT_UPDATED",
+      metadata: { prospectId: prospect.id, fields: Object.keys(parsed.data) }
+    });
     return res.json({ ok: true, data: { prospect } });
   } catch {
     return res.status(404).json({ ok: false, message: "Prospect not found." });
@@ -323,6 +374,14 @@ adminRouter.delete("/prospects/:id", async (req: AuthenticatedRequest, res) => {
   if (!verifyDeletePassword(req, res)) return;
   try {
     const prospect = await prisma.prospect.delete({ where: { id: req.params.id } });
+    await writeAuditLog({
+      prisma,
+      orgId: prospect.orgId || undefined,
+      actorUserId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      action: "ADMIN_PROSPECT_DELETED",
+      metadata: { prospectId: prospect.id }
+    });
     return res.json({ ok: true, data: { id: prospect.id } });
   } catch {
     return res.status(404).json({ ok: false, message: "Prospect not found." });
@@ -357,6 +416,14 @@ adminRouter.post("/prospects/import-csv", async (req: AuthenticatedRequest, res)
     });
     created.push(prospect.id);
   }
+  await writeAuditLog({
+    prisma,
+    orgId: parsed.data.orgId || undefined,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "ADMIN_PROSPECTS_IMPORTED",
+    metadata: { createdCount: created.length }
+  });
   return res.json({ ok: true, data: { createdCount: created.length } });
 });
 
@@ -453,6 +520,15 @@ adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) =
     if (createdCount >= parsed.data.limit) break;
   }
 
+  await writeAuditLog({
+    prisma,
+    orgId: parsed.data.orgId || undefined,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "ADMIN_PROSPECTS_DISCOVERED",
+    metadata: { createdCount, location, keywordCount: keywords.length }
+  });
+
   return res.json({
     ok: true,
     data: {
@@ -500,6 +576,14 @@ adminRouter.post("/prospects/:id/score", async (req: AuthenticatedRequest, res) 
       status: score >= 75 ? "QUALIFIED" : prospect.status
     }
   });
+  await writeAuditLog({
+    prisma,
+    orgId: updated.orgId || undefined,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "ADMIN_PROSPECT_SCORED",
+    metadata: { prospectId: updated.id, score: updated.score }
+  });
   return res.json({ ok: true, data: { prospect: updated } });
 });
 
@@ -530,6 +614,14 @@ adminRouter.post("/prospects/:id/convert-to-lead", async (req: AuthenticatedRequ
       notes: `${prospect.notes ? `${prospect.notes}\n` : ""}Converted to lead ${lead.id} on ${new Date().toISOString()}`
     }
   });
+  await writeAuditLog({
+    prisma,
+    orgId: updatedProspect.orgId || undefined,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "ADMIN_PROSPECT_CONVERTED",
+    metadata: { prospectId: updatedProspect.id, leadId: lead.id }
+  });
 
   return res.json({ ok: true, data: { lead, prospect: updatedProspect } });
 });
@@ -547,6 +639,28 @@ adminRouter.get("/orgs", async (_req, res) => {
     orderBy: { createdAt: "desc" }
   });
   return res.json({ ok: true, data: { orgs } });
+});
+
+adminRouter.get("/events", async (req, res) => {
+  const parsed = eventsFilterSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid event filters." });
+  const limit = Math.min(Number(parsed.data.limit || 150), 500);
+  const from = parseIsoDate(parsed.data.from);
+  const to = parseIsoDate(parsed.data.to);
+  const where: Prisma.AuditLogWhereInput = {};
+  if (parsed.data.orgId) where.orgId = parsed.data.orgId;
+  if (parsed.data.action) where.action = parsed.data.action;
+  if (from || to) {
+    where.createdAt = {};
+    if (from) where.createdAt.gte = from;
+    if (to) where.createdAt.lte = to;
+  }
+  const events = await prisma.auditLog.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit
+  });
+  return res.json({ ok: true, data: { events } });
 });
 
 adminRouter.get("/vapi/resources", async (_req, res) => {
@@ -632,6 +746,80 @@ adminRouter.get("/orgs/:id", async (req, res) => {
   return res.json({ ok: true, data: { org: { ...org, checklistSteps } } });
 });
 
+adminRouter.get("/orgs/:id/readiness", async (req, res) => {
+  const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const report = await computeReadinessReport({
+    prisma,
+    org,
+    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+  });
+  return res.json({ ok: true, data: report });
+});
+
+adminRouter.post("/orgs/:id/config-package/generate", async (req: AuthenticatedRequest, res) => {
+  const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const configPackage = await generateConfigPackage({
+    prisma,
+    orgId: req.params.id,
+    generatedByUserId: req.auth?.userId
+  });
+  await ensureDefaultTestScenarios(prisma, req.params.id);
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "CONFIG_PACKAGE_GENERATED",
+    metadata: { version: configPackage.version }
+  });
+  return res.json({ ok: true, data: { configPackage } });
+});
+
+adminRouter.get("/orgs/:id/config-package", async (req, res) => {
+  const configPackage = await prisma.configPackage.findUnique({ where: { orgId: req.params.id } });
+  return res.json({ ok: true, data: { configPackage } });
+});
+
+adminRouter.get("/orgs/:id/testing", async (req, res) => {
+  await ensureDefaultTestScenarios(prisma, req.params.id);
+  const scenarios = await prisma.testScenario.findMany({
+    where: { orgId: req.params.id },
+    include: { testRuns: { orderBy: { createdAt: "desc" } } },
+    orderBy: { createdAt: "asc" }
+  });
+  const summary = await getTestPassSummary(prisma, req.params.id);
+  return res.json({ ok: true, data: { scenarios, summary } });
+});
+
+adminRouter.post("/orgs/:id/testing/run", async (req: AuthenticatedRequest, res) => {
+  const parsed = createTestRunSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid test run payload.", errors: parsed.error.flatten() });
+  const scenario = await prisma.testScenario.findFirst({
+    where: { id: parsed.data.scenarioId, orgId: req.params.id }
+  });
+  if (!scenario) return res.status(404).json({ ok: false, message: "Scenario not found." });
+  const run = await prisma.testRun.create({
+    data: {
+      orgId: req.params.id,
+      scenarioId: parsed.data.scenarioId,
+      status: parsed.data.status,
+      notes: parsed.data.notes || null,
+      providerCallId: parsed.data.providerCallId || null
+    }
+  });
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "TEST_RUN_RECORDED",
+    metadata: { scenarioId: parsed.data.scenarioId, status: parsed.data.status, runId: run.id }
+  });
+  return res.json({ ok: true, data: { run } });
+});
+
 adminRouter.patch("/orgs/:id/status", async (req: AuthenticatedRequest, res) => {
   const status = String(req.body?.status || "");
   if (!["NEW", "ONBOARDING", "SUBMITTED", "NEEDS_CHANGES", "APPROVED", "PROVISIONING", "TESTING", "LIVE", "PAUSED"].includes(status)) {
@@ -695,6 +883,7 @@ adminRouter.post("/orgs/:id/provisioning/approve-onboarding", async (req: Authen
     status: "DONE",
     userId: req.auth!.userId
   });
+  await ensureDefaultTestScenarios(prisma, req.params.id);
   await writeAuditLog({
     prisma,
     orgId: req.params.id,
@@ -706,11 +895,16 @@ adminRouter.post("/orgs/:id/provisioning/approve-onboarding", async (req: Authen
 });
 
 adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: AuthenticatedRequest, res) => {
-  const [submission, settings] = await Promise.all([
-    prisma.onboardingSubmission.findUnique({ where: { orgId: req.params.id } }),
+  const [configPackageRecord, settings] = await Promise.all([
+    generateConfigPackage({
+      prisma,
+      orgId: req.params.id,
+      generatedByUserId: req.auth?.userId
+    }),
     prisma.businessSettings.findUnique({ where: { orgId: req.params.id } })
   ]);
-  const configPackage = submission?.configPackageJson ? JSON.parse(submission.configPackageJson) : {};
+  await ensureDefaultTestScenarios(prisma, req.params.id);
+  const configPackage = (configPackageRecord.json || {}) as Record<string, unknown>;
   const businessSettings = settings
     ? {
         timezone: settings.timezone,
@@ -720,7 +914,13 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
       }
     : {};
   const systemPrompt = buildVapiSystemPrompt(configPackage, businessSettings);
-  const tools = buildVapiTools(env.API_BASE_URL);
+  const tools = buildVapiTools(env.API_BASE_URL).map((tool) => ({
+    ...tool,
+    constraints: {
+      requireOrgId: true,
+      requireCallIdWhenAvailable: true
+    }
+  }));
   const intakeSchema = (configPackage as Record<string, unknown>).intakeSchema || [];
   const transferRules = (configPackage as Record<string, unknown>).transferRules || {};
 
@@ -758,7 +958,7 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
     actorUserId: req.auth!.userId,
     actorRole: req.auth!.role,
     action: "AI_PROMPT_GENERATED",
-    metadata: { aiConfigId: ai.id }
+    metadata: { aiConfigId: ai.id, configVersion: configPackageRecord.version }
   });
   return res.json({ ok: true, data: { ai } });
 });
@@ -901,12 +1101,22 @@ adminRouter.post("/orgs/:id/provisioning/test-complete", async (req: Authenticat
 });
 
 adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => {
-  const [phone, ai] = await Promise.all([
-    prisma.phoneNumber.findFirst({ where: { orgId: req.params.id, status: "ACTIVE" } }),
-    prisma.aiAgentConfig.findFirst({ where: { orgId: req.params.id, status: "ACTIVE" } })
-  ]);
-  if (!phone || !ai) {
-    return res.status(400).json({ ok: false, message: "Go-live checklist incomplete. Need active phone number and active AI config." });
+  const orgRow = await prisma.organization.findUnique({ where: { id: req.params.id } });
+  if (!orgRow) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const readiness = await computeReadinessReport({
+    prisma,
+    org: orgRow,
+    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+  });
+  if (!readiness.canGoLive) {
+    const missing = Object.entries(readiness.checks)
+      .filter(([, value]) => !value.ok)
+      .map(([key, value]) => ({ key, reason: value.reason, fixHint: value.fixHint }));
+    return res.status(400).json({
+      ok: false,
+      message: "Go-live readiness checks are incomplete.",
+      data: { missingChecks: missing, readiness }
+    });
   }
   const org = await prisma.organization.update({
     where: { id: req.params.id },

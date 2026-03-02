@@ -7,8 +7,11 @@ import {
   approveOnboarding,
   assignOrgTwilioNumber,
   completeOrgTesting,
+  fetchAdminConfigPackage,
+  fetchAdminOrgReadiness,
   fetchAdminVapiResources,
   fetchAdminOrgById,
+  generateAdminConfigPackage,
   generateAiConfigFromPackage,
   goLiveOrg,
   pauseOrg,
@@ -25,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { ConfigPackage, ReadinessReport } from "@/lib/types";
 
 type OrgDetail = {
   id: string;
@@ -75,11 +79,19 @@ export default function AdminOrgDetailPage() {
   const [vapiPhoneNumbers, setVapiPhoneNumbers] = useState<Array<{ id: string; number: string; provider: string }>>([]);
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [testNotes, setTestNotes] = useState("");
+  const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
+  const [configPackage, setConfigPackage] = useState<ConfigPackage | null>(null);
 
   async function load() {
-    const data = await fetchAdminOrgById(id);
-    const next = data.org as OrgDetail;
+    const [orgData, readinessData, configData] = await Promise.all([
+      fetchAdminOrgById(id),
+      fetchAdminOrgReadiness(id),
+      fetchAdminConfigPackage(id)
+    ]);
+    const next = orgData.org as OrgDetail;
     setOrg(next);
+    setReadiness(readinessData);
+    setConfigPackage(configData.configPackage);
     setStatus(next.status);
     const latestAi = next.aiAgentConfigs?.[0];
     const activePhone = next.phoneNumbers?.find((phone) => phone.status === "ACTIVE");
@@ -167,6 +179,18 @@ export default function AdminOrgDetailPage() {
     return ordered.find((item) => stepStatus.get(item.key) !== "DONE")?.label || "All setup steps complete.";
   }, [stepStatus]);
 
+  const readinessFixLinkMap: Record<string, string> = {
+    billingActive: "/app/billing",
+    onboardingSubmitted: "/app/onboarding",
+    onboardingApproved: `/admin/orgs/${id}`,
+    businessSettingsValid: "/app/settings",
+    providerLineAssigned: `/admin/orgs/${id}`,
+    toolSecretConfigured: `/admin/orgs/${id}`,
+    webhooksVerified: `/admin/orgs/${id}`,
+    notificationsVerified: `/admin/orgs/${id}`,
+    testCallsPassed: `/admin/orgs/${id}/testing`
+  };
+
   async function updateStatus() {
     await updateAdminOrgStatus(id, status);
     showToast({ title: "Organization status updated" });
@@ -244,8 +268,64 @@ export default function AdminOrgDetailPage() {
 
         <div className="mt-6 grid gap-6">
           <section className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Readiness</h2>
+              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${readiness?.canGoLive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                {readiness?.canGoLive ? "Ready to Go Live" : "Not Ready"}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {Object.entries(readiness?.checks || {}).map(([key, check]) => (
+                <div key={key} className="rounded-md border p-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{key}</p>
+                    <span className={`rounded px-2 py-0.5 text-xs ${check.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      {check.ok ? "OK" : "Missing"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{check.reason}</p>
+                  {!check.ok ? (
+                    <Link href={readinessFixLinkMap[key] || `/admin/orgs/${id}`} className="mt-1 inline-block text-xs font-medium text-primary underline">
+                      Fix
+                    </Link>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border bg-white p-4">
             <h2 className="text-lg font-semibold">Onboarding Answers</h2>
             <pre className="mt-3 max-h-72 overflow-auto rounded bg-muted p-3 text-xs">{JSON.stringify(onboardingAnswers, null, 2)}</pre>
+          </section>
+
+          <section className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Canonical AI Build Sheet</h2>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void generateAdminConfigPackage(id).then(async () => {
+                    showToast({ title: "Config package regenerated" });
+                    await load();
+                  })
+                }
+              >
+                Regenerate
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Version: {configPackage?.version || "-"} | Generated:{" "}
+              {configPackage?.generatedAt ? new Date(configPackage.generatedAt).toLocaleString() : "-"}
+            </p>
+            <pre className="mt-3 max-h-80 overflow-auto rounded bg-muted p-3 text-xs">
+              {JSON.stringify(configPackage?.json || {}, null, 2)}
+            </pre>
+            <div className="mt-3">
+              <Link href={`/admin/orgs/${id}/testing`} className="text-sm font-medium text-primary underline">
+                Open testing tab
+              </Link>
+            </div>
           </section>
 
           <section className="rounded-lg border bg-white p-4">
@@ -321,7 +401,7 @@ export default function AdminOrgDetailPage() {
                 Approve onboarding
               </Button>
               <Button variant="outline" onClick={() => void generateAiConfigFromPackage(id).then(load)}>
-                Generate AI package
+                Generate AI Prompt
               </Button>
               <Button variant="outline" onClick={() => void setOrgTesting(id).then(load)}>
                 Set testing mode
@@ -467,9 +547,17 @@ export default function AdminOrgDetailPage() {
                 <Button variant="outline" onClick={() => void setStep("notifications_verified", "DONE")}>
                   Mark notifications verified
                 </Button>
-                <Button onClick={() => void goLiveOrg(id).then(() => setStep("go_live", "DONE").then(load))}>Go Live</Button>
+                <Button
+                  disabled={!readiness?.canGoLive}
+                  onClick={() => void goLiveOrg(id).then(() => setStep("go_live", "DONE").then(load))}
+                >
+                  Go Live
+                </Button>
                 <Button variant="outline" onClick={() => void pauseOrg(id).then(load)}>Pause</Button>
               </div>
+              {!readiness?.canGoLive ? (
+                <p className="mt-2 text-xs text-amber-700">Go Live is disabled until all readiness checks pass.</p>
+              ) : null}
             </div>
           </section>
 

@@ -1,9 +1,13 @@
-import { AiProvider } from "@prisma/client";
+import { AiProvider, type Prisma } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../../lib/prisma";
 import { verifyVapiToolSecret } from "../../../middleware/webhook-security";
 
 export const vapiRouter = Router();
+
+function asObject(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
 
 function pickString(...values: Array<unknown>) {
   for (const value of values) {
@@ -20,10 +24,6 @@ function normalizeToE164(input: string) {
   if (normalized.length === 10) return `+1${normalized}`;
   if (normalized.length === 11 && normalized.startsWith("1")) return `+${normalized}`;
   return `+${normalized}`;
-}
-
-function asObject(value: unknown) {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function toBoolean(value: unknown) {
@@ -47,6 +47,36 @@ function normalizeOutcome(value: string) {
     return upper as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
   }
   return null;
+}
+
+function safePayloadSnippet(payload: unknown) {
+  try {
+    return JSON.stringify(payload).slice(0, 4000);
+  } catch {
+    return "{\"parseError\":true}";
+  }
+}
+
+async function logWebhookEvent(input: {
+  orgId?: string | null;
+  requestId?: string;
+  statusCode: number;
+  reason?: string;
+  headers: Record<string, unknown>;
+  payload: unknown;
+}) {
+  await prisma.webhookEventLog.create({
+    data: {
+      orgId: input.orgId || null,
+      provider: "VAPI",
+      endpoint: "/api/vapi/webhook",
+      requestId: input.requestId || null,
+      statusCode: input.statusCode,
+      reason: input.reason || null,
+      headersJson: JSON.stringify(input.headers || {}),
+      payloadSnippet: safePayloadSnippet(input.payload)
+    }
+  });
 }
 
 vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
@@ -80,50 +110,38 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const endedByStatus = ["ended", "completed", "failed", "canceled", "cancelled", "busy", "no-answer", "timeout"].includes(callStatus);
   const successEvaluation = parseNumeric(analysis.successEvaluation ?? analysis.score ?? body.successEvaluation);
   const structuredData = asObject(analysis.structuredData);
+  const orgIdFromPayload = pickString(body.orgId, call.orgId) || null;
 
-  if (!callSid) {
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: "vapi-webhook",
-        actorRole: "SYSTEM",
-        action: "VAPI_WEBHOOK_NO_CALL_ID",
-        metadataJson: JSON.stringify({
-          eventType,
-          receivedAt: new Date().toISOString(),
-          body
-        })
-      }
-    });
-    return res.status(202).json({ ok: true, data: { queuedBackfill: true, reason: "missing_call_id" } });
-  }
+  try {
+    if (!callSid) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: "VAPI_WEBHOOK_NO_CALL_ID",
+          metadataJson: JSON.stringify({ eventType, requestId: req.requestId || null })
+        }
+      });
 
-  const fromNumber = normalizeToE164(
-    pickString(
-      body.fromNumber,
-      body.from,
-      customer.number,
-      call.customerNumber
-    )
-  ) || "unknown";
-  const toNumber = normalizeToE164(
-    pickString(
-      body.toNumber,
-      body.to,
-      phoneNumber.number,
-      call.phoneNumber,
-      call.to
-    )
-  ) || "unknown";
+      await logWebhookEvent({
+        orgId: orgIdFromPayload,
+        requestId: req.requestId,
+        statusCode: 200,
+        reason: "missing_call_id",
+        headers: req.headers as Record<string, unknown>,
+        payload: body
+      });
+      return res.json({ ok: true, data: { queuedBackfill: true, reason: "missing_call_id" } });
+    }
 
-  const orgIdFromPayload = pickString(body.orgId, call.orgId);
+    const fromNumber = normalizeToE164(
+      pickString(body.fromNumber, body.from, customer.number, call.customerNumber)
+    ) || "unknown";
+    const toNumber = normalizeToE164(
+      pickString(body.toNumber, body.to, phoneNumber.number, call.phoneNumber, call.to)
+    ) || "unknown";
 
-  let log = await prisma.callLog.findFirst({
-    where: { providerCallId: callSid },
-    orderBy: { createdAt: "desc" }
-  });
-
-  if (!log) {
-    let resolvedOrgId = orgIdFromPayload;
+    let resolvedOrgId = orgIdFromPayload || "";
     if (!resolvedOrgId && toNumber !== "unknown") {
       const phone = await prisma.phoneNumber.findFirst({
         where: { e164Number: toNumber, status: { not: "RELEASED" } },
@@ -141,69 +159,101 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
           metadataJson: JSON.stringify({
             eventType,
             callSid,
-            orgIdFromPayload: orgIdFromPayload || null,
+            requestId: req.requestId || null,
             fromNumber,
-            toNumber,
-            summary,
-            transcript,
-            recordingUrl,
-            outcome,
-            appointmentRequested,
-            leadId,
-            callStatus: callStatus || null,
-            successEvaluation,
-            structuredData
+            toNumber
           })
         }
       });
-      return res.status(202).json({ ok: true, data: { queuedBackfill: true, eventType, callSid } });
+      await logWebhookEvent({
+        requestId: req.requestId,
+        orgId: null,
+        statusCode: 200,
+        reason: "unresolved_org",
+        headers: req.headers as Record<string, unknown>,
+        payload: body
+      });
+      return res.json({ ok: true, data: { queuedBackfill: true, eventType, callSid } });
     }
 
-    log = await prisma.callLog.create({
-      data: {
+    const updateData: Record<string, unknown> = {
+      fromNumber,
+      toNumber,
+      aiProvider: AiProvider.VAPI,
+      rawJson: body as Prisma.InputJsonValue
+    };
+    if (summary !== null) updateData.aiSummary = summary;
+    if (transcript !== null) updateData.transcript = transcript;
+    if (recordingUrl !== null) updateData.recordingUrl = recordingUrl;
+    if (leadId !== null) updateData.leadId = leadId;
+    if (appointmentRequested !== null) updateData.appointmentRequested = appointmentRequested;
+    if (outcome) updateData.outcome = outcome;
+    if (eventType === "end-of-call-report" || endedByStatus) updateData.endedAt = new Date();
+
+    await prisma.callLog.upsert({
+      where: {
+        orgId_providerCallId: {
+          orgId: resolvedOrgId,
+          providerCallId: callSid
+        }
+      },
+      update: updateData,
+      create: {
         orgId: resolvedOrgId,
         providerCallId: callSid,
         fromNumber,
         toNumber,
         aiProvider: AiProvider.VAPI,
-        outcome: "MESSAGE_TAKEN"
+        outcome: "MESSAGE_TAKEN",
+        rawJson: body as Prisma.InputJsonValue,
+        ...(summary ? { aiSummary: summary } : {}),
+        ...(transcript ? { transcript } : {}),
+        ...(recordingUrl ? { recordingUrl } : {}),
+        ...(leadId ? { leadId } : {}),
+        ...(outcome ? { outcome } : {}),
+        ...(appointmentRequested !== null ? { appointmentRequested } : {}),
+        ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
       }
     });
+
+    await prisma.auditLog.create({
+      data: {
+        orgId: resolvedOrgId,
+        actorUserId: "vapi-webhook",
+        actorRole: "SYSTEM",
+        action: "VAPI_WEBHOOK_EVENT",
+        metadataJson: JSON.stringify({
+          requestId: req.requestId || null,
+          eventType,
+          callSid,
+          status: callStatus || null,
+          successEvaluation,
+          structuredData,
+          toolCallList: body.toolCallList || body.toolCalls || null
+        })
+      }
+    });
+
+    await logWebhookEvent({
+      orgId: resolvedOrgId,
+      requestId: req.requestId,
+      statusCode: 200,
+      reason: "processed",
+      headers: req.headers as Record<string, unknown>,
+      payload: body
+    });
+
+    return res.json({ ok: true, data: { eventType, callSid } });
+  } catch (error) {
+    await logWebhookEvent({
+      orgId: orgIdFromPayload,
+      requestId: req.requestId,
+      statusCode: 200,
+      reason: error instanceof Error ? error.message : "unknown_error",
+      headers: req.headers as Record<string, unknown>,
+      payload: body
+    });
+    // Always acknowledge webhook to avoid retries storms.
+    return res.json({ ok: true, data: { accepted: true } });
   }
-
-  const updateData: Record<string, unknown> = {
-    aiProvider: AiProvider.VAPI
-  };
-
-  if (summary !== null) updateData.aiSummary = summary;
-  if (transcript !== null) updateData.transcript = transcript;
-  if (recordingUrl !== null) updateData.recordingUrl = recordingUrl;
-  if (leadId !== null) updateData.leadId = leadId;
-  if (appointmentRequested !== null) updateData.appointmentRequested = appointmentRequested;
-  if (outcome) updateData.outcome = outcome;
-  if (eventType === "end-of-call-report" || endedByStatus) updateData.endedAt = new Date();
-
-  await prisma.callLog.update({
-    where: { id: log.id },
-    data: updateData
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      orgId: log.orgId,
-      actorUserId: "vapi-webhook",
-      actorRole: "SYSTEM",
-      action: "VAPI_WEBHOOK_EVENT",
-      metadataJson: JSON.stringify({
-        eventType,
-        callSid,
-        status: callStatus || null,
-        successEvaluation,
-        structuredData,
-        toolCallList: body.toolCallList || body.toolCalls || null
-      })
-    }
-  });
-
-  return res.json({ ok: true, data: { eventType, callSid } });
 });

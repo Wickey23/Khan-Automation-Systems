@@ -80,6 +80,11 @@ enum CallLogOutcome {
   SPAM
 }
 
+enum TestRunStatus {
+  PASS
+  FAIL
+}
+
 enum LeadSource {
   WEB_FORM
   PHONE_CALL
@@ -148,6 +153,10 @@ model Organization {
   provisioningChecklist ProvisioningChecklist?
   auditLogs            AuditLog[]
   businessSettings     BusinessSettings?
+  configPackage        ConfigPackage?
+  testScenarios        TestScenario[]
+  testRuns             TestRun[]
+  webhookEventLogs     WebhookEventLog[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -270,8 +279,11 @@ model CallLog {
   recordingUrl   String?
   transcript     String?
   outcome        CallLogOutcome @default(MESSAGE_TAKEN)
+  rawJson        Json?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  @@unique([orgId, providerCallId])
 }
 
 model Setting {
@@ -413,4 +425,55 @@ model LoginChallenge {
 
   @@index([userId, createdAt])
   @@index([email, createdAt])
+}
+
+model ConfigPackage {
+  id                String       @id @default(cuid())
+  orgId             String       @unique
+  organization      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  version           Int          @default(1)
+  json              Json
+  generatedAt       DateTime     @default(now())
+  generatedByUserId String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model TestScenario {
+  id              String       @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name            String
+  script          String
+  expectedOutcome String
+  tagsJson        String       @default("[]")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  testRuns        TestRun[]
+}
+
+model TestRun {
+  id             String       @id @default(cuid())
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  scenarioId     String
+  scenario       TestScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  providerCallId String?
+  status         TestRunStatus
+  notes          String?
+  createdAt      DateTime     @default(now())
+}
+
+model WebhookEventLog {
+  id             String       @id @default(cuid())
+  orgId          String?
+  organization   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  provider       String
+  endpoint       String
+  requestId      String?
+  statusCode     Int
+  reason         String?
+  headersJson    String       @default("{}")
+  payloadSnippet String       @default("{}")
+  createdAt      DateTime     @default(now())
 }

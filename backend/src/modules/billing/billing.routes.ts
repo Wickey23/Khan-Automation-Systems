@@ -46,6 +46,25 @@ billingRouter.get("/status", requireAuth, async (req: AuthenticatedRequest, res)
   return res.json({ ok: true, data: { subscription } });
 });
 
+billingRouter.post("/customer-portal", requireAuth, async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+
+  const subscription = await prisma.subscription.findFirst({
+    where: { orgId: req.auth.orgId },
+    orderBy: { createdAt: "desc" }
+  });
+  if (!subscription?.stripeCustomerId) {
+    return res.status(404).json({ ok: false, message: "No Stripe customer found for this organization." });
+  }
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer: subscription.stripeCustomerId,
+    return_url: `${env.FRONTEND_APP_URL}/app/billing`
+  });
+
+  return res.json({ ok: true, data: { url: session.url } });
+});
+
 billingRouter.post("/webhook", async (req, res) => {
   const signature = req.headers["stripe-signature"] as string;
   if (!signature) return res.status(400).send("Missing signature");
@@ -93,7 +112,7 @@ billingRouter.post("/webhook", async (req, res) => {
 
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
     const subscription = event.data.object as Stripe.Subscription;
-    await prisma.subscription.updateMany({
+    const updateResult = await prisma.subscription.updateMany({
       where: { stripeSubscriptionId: subscription.id },
       data: {
         status: subscription.status,
@@ -102,6 +121,25 @@ billingRouter.post("/webhook", async (req, res) => {
           : null
       }
     });
+
+    if (updateResult.count > 0) {
+      const record = await prisma.subscription.findUnique({
+        where: { stripeSubscriptionId: subscription.id },
+        select: { orgId: true }
+      });
+      if (record?.orgId) {
+        const normalized = subscription.status.toLowerCase();
+        await prisma.organization.update({
+          where: { id: record.orgId },
+          data: {
+            status: ["active", "trialing", "past_due"].includes(normalized)
+              ? OrganizationStatus.ONBOARDING
+              : OrganizationStatus.PAUSED,
+            live: ["active", "trialing", "past_due"].includes(normalized) ? undefined : false
+          }
+        });
+      }
+    }
   }
 
   return res.json({ received: true });

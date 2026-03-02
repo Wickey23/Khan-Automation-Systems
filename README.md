@@ -320,25 +320,36 @@ Twilio routing is org-aware by inbound `To` number lookup (`PhoneNumber.e164Numb
 - `LIVE`
 - `PAUSED`
 
-### New Operational Models
+### Operational Models
 - `ProvisioningChecklist` (step-by-step go-live controls)
-- `AuditLog` (admin/operator action trace)
-- `BusinessSettings` (org-level behavior settings for call routing)
-- Expanded `AiAgentConfig` with Vapi fields (`vapiAgentId`, `vapiPhoneNumberId`, prompt/tools/intake schema)
-- Expanded `CallLog` (`aiProvider`, `aiSummary`, `appointmentRequested`, `leadId`)
-- Expanded `OnboardingSubmission` with `configPackageJson`
+- `ConfigPackage` (canonical AI build sheet, versioned per org)
+- `TestScenario` + `TestRun` (admin test harness with PASS/FAIL history)
+- `WebhookEventLog` (Vapi/Twilio webhook acceptance/rejection observability)
+- `AuditLog` (every admin mutation + key system actions)
+- `BusinessSettings` (org-level routing/notification behavior)
+- Expanded `CallLog`:
+  - idempotent key: `(orgId, providerCallId)`
+  - `rawJson` payload snapshot
+  - summary/transcript/recording/outcome fields
 
-### New Backend Endpoints
+### Backend Endpoints (Ops v1)
 - Client/org:
   - `GET /api/org/settings`
   - `PATCH /api/org/settings`
   - `POST /api/org/onboarding/preview`
+  - `GET /api/org/config-package`
 - Admin provisioning:
+  - `GET /api/admin/orgs/:id/readiness`
+  - `POST /api/admin/orgs/:id/config-package/generate`
+  - `GET /api/admin/orgs/:id/config-package`
+  - `GET /api/admin/orgs/:id/testing`
+  - `POST /api/admin/orgs/:id/testing/run`
   - `POST /api/admin/orgs/:id/provisioning/approve-onboarding`
   - `POST /api/admin/orgs/:id/provisioning/generate-ai-config`
   - `POST /api/admin/orgs/:id/provisioning/checklist-step`
   - `POST /api/admin/orgs/:id/provisioning/testing`
   - `POST /api/admin/orgs/:id/provisioning/test-complete`
+  - `GET /api/admin/events`
 - Vapi runtime + tools:
   - `POST /api/vapi/webhook`
   - `POST /api/tools/create-lead-from-call`
@@ -351,11 +362,52 @@ Twilio routing is org-aware by inbound `To` number lookup (`PhoneNumber.e164Numb
 - Twilio webhook signature validation (enabled when `TWILIO_AUTH_TOKEN` is set)
 - Vapi tool/webhook secret validation via `VAPI_TOOL_SECRET`
 - Rate limiting applied to public webhook routes
+- `app.set("trust proxy", 1)` for Render/proxy-safe IP detection
+- `x-request-id` request tracing on API logs and webhook diagnostics
+
+### Readiness Checks and Go-Live Gate
+`GET /api/admin/orgs/:id/readiness` returns:
+- `billingActive`
+- `onboardingSubmitted`
+- `onboardingApproved`
+- `businessSettingsValid`
+- `providerLineAssigned`
+- `toolSecretConfigured`
+- `webhooksVerified`
+- `notificationsVerified`
+- `testCallsPassed`
+
+`POST /api/admin/orgs/:id/go-live` is hard-gated:
+- Returns HTTP 400 with `missingChecks` if any readiness check is incomplete.
+- Org is only set `LIVE` when `canGoLive=true`.
+
+### Go Live Checklist
+1. Confirm subscription is active (`/app/billing` + readiness panel).
+2. Review onboarding and approve.
+3. Generate config package (`config-package/generate`).
+4. Generate AI prompt/policy from config package.
+5. Assign provider line (Vapi or Twilio).
+6. Verify webhooks + `VAPI_TOOL_SECRET` header wiring.
+7. Run test harness and record at least 5 PASS runs, including:
+   - after-hours scenario
+   - transfer scenario
+8. Verify manager notifications are delivered.
+9. Click Go Live (enabled only when readiness passes).
+
+### Ops Runbook
+1. Open `/admin/orgs/:id` and check readiness panel for blockers.
+2. Use `/admin/orgs/:id/testing` to run and log scenario outcomes.
+3. Use `/admin/events` to audit admin/system actions by org and time.
+4. If calls are missing, verify:
+   - Vapi webhook URL: `${API_BASE_URL}/api/vapi/webhook`
+   - Header `x-vapi-tool-secret` matches backend env
+   - `WebhookEventLog` entries for rejection reason and payload snippet
+5. Use periodic backfill worker (`VAPI_BACKFILL_ENABLED=true`) for missed Vapi events.
 
 ### Vapi + Twilio Setup Checklist
 1. Set backend env:
-   - `VAPI_API_KEY`
-   - `VAPI_TOOL_SECRET`
+  - `VAPI_API_KEY`
+  - `VAPI_TOOL_SECRET`
    - `TWILIO_ACCOUNT_SID`
    - `TWILIO_AUTH_TOKEN`
    - `API_BASE_URL`

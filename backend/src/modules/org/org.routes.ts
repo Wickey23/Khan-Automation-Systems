@@ -3,7 +3,7 @@ import { Router } from "express";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { backfillMissedVapiCalls } from "../admin/backfill.service";
-import { buildConfigPackage } from "./config-package";
+import { buildConfigPackage, generateConfigPackage } from "./config-package";
 import { saveOnboardingSchema, submitOnboardingSchema, updateBusinessSettingsSchema, updateOrgProfileSchema } from "./org.schema";
 
 export const orgRouter = Router();
@@ -77,6 +77,12 @@ orgRouter.get("/onboarding", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { submission } });
 });
 
+orgRouter.get("/config-package", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const configPackage = await prisma.configPackage.findUnique({ where: { orgId: req.auth.orgId } });
+  return res.json({ ok: true, data: { configPackage } });
+});
+
 orgRouter.put("/onboarding", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = saveOnboardingSchema.safeParse(req.body);
@@ -101,6 +107,12 @@ orgRouter.put("/onboarding", async (req: AuthenticatedRequest, res) => {
   await prisma.organization.update({
     where: { id: req.auth.orgId },
     data: { status: OrganizationStatus.ONBOARDING }
+  });
+
+  await generateConfigPackage({
+    prisma,
+    orgId: req.auth.orgId,
+    generatedByUserId: req.auth.userId
   });
 
   return res.json({ ok: true, data: { submission } });
@@ -161,6 +173,12 @@ orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
       notificationEmailsJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerEmails || []),
       notificationPhonesJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerPhones || [])
     }
+  });
+
+  await generateConfigPackage({
+    prisma,
+    orgId: req.auth.orgId,
+    generatedByUserId: req.auth.userId
   });
 
   return res.json({ ok: true, data: { submission, configPackage } });

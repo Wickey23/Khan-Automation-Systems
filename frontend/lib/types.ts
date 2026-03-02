@@ -229,3 +229,63 @@ export type Prospect = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ReadinessCheck = {
+  ok: boolean;
+  reason: string;
+  fixHint: string;
+};
+
+export type ReadinessReport = {
+  checks: {
+    billingActive: ReadinessCheck;
+    onboardingSubmitted: ReadinessCheck;
+    onboardingApproved: ReadinessCheck;
+    businessSettingsValid: ReadinessCheck;
+    providerLineAssigned: ReadinessCheck;
+    toolSecretConfigured: ReadinessCheck;
+    webhooksVerified: ReadinessCheck;
+    notificationsVerified: ReadinessCheck;
+    testCallsPassed: ReadinessCheck;
+  };
+  canGoLive: boolean;
+};
+
+export type ConfigPackage = {
+  id: string;
+  orgId: string;
+  version: number;
+  json: Record<string, unknown>;
+  generatedAt: string;
+  generatedByUserId: string | null;
+};
+
+export type TestRun = {
+  id: string;
+  orgId: string;
+  scenarioId: string;
+  providerCallId: string | null;
+  status: "PASS" | "FAIL";
+  notes: string | null;
+  createdAt: string;
+};
+
+export type TestScenario = {
+  id: string;
+  orgId: string;
+  name: string;
+  script: string;
+  expectedOutcome: string;
+  tagsJson: string;
+  testRuns: TestRun[];
+};
+
+export type AuditEvent = {
+  id: string;
+  orgId: string | null;
+  actorUserId: string;
+  actorRole: string;
+  action: string;
+  metadataJson: string;
+  createdAt: string;
+};

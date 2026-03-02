@@ -1,20 +1,24 @@
 import { siteConfig } from "@/lib/config";
 import type {
   AIConfig,
+  AuditEvent,
   AdminCallRecord,
   AuthUser,
   BusinessSettings,
   CallRecord,
   Client,
+  ConfigPackage,
   Lead,
   LeadPayload,
   OnboardingSubmission,
   Prospect,
+  ReadinessReport,
   Organization,
   OrgCallRecord,
   OrgSubscription,
   PhoneLine,
-  Setting
+  Setting,
+  TestScenario
 } from "@/lib/types";
 import type { LeadUpdateInput } from "@/lib/validation";
 
@@ -135,7 +139,7 @@ export async function getBillingStatus() {
 }
 
 export async function createCustomerPortalSession() {
-  return request<{ url: string }>("/api/stripe/customer-portal", {
+  return request<{ url: string }>("/api/billing/customer-portal", {
     method: "POST"
   });
 }
@@ -266,6 +270,10 @@ export async function fetchOrgOnboarding() {
   return request<{ submission: OnboardingSubmission | null }>("/api/org/onboarding");
 }
 
+export async function fetchOrgConfigPackage() {
+  return request<{ configPackage: ConfigPackage | null }>("/api/org/config-package");
+}
+
 export async function saveOrgOnboarding(answers: Record<string, unknown>) {
   return request<{ submission: OnboardingSubmission }>("/api/org/onboarding", {
     method: "PUT",
@@ -326,6 +334,37 @@ export async function fetchAdminVapiResources() {
 
 export async function fetchAdminOrgById(id: string) {
   return request<{ org: Organization & Record<string, unknown> }>(`/api/admin/orgs/${id}`);
+}
+
+export async function fetchAdminOrgReadiness(id: string) {
+  return request<ReadinessReport>(`/api/admin/orgs/${id}/readiness`);
+}
+
+export async function generateAdminConfigPackage(id: string) {
+  return request<{ configPackage: ConfigPackage }>(`/api/admin/orgs/${id}/config-package/generate`, {
+    method: "POST"
+  });
+}
+
+export async function fetchAdminConfigPackage(id: string) {
+  return request<{ configPackage: ConfigPackage | null }>(`/api/admin/orgs/${id}/config-package`);
+}
+
+export async function fetchAdminTesting(id: string) {
+  return request<{
+    scenarios: TestScenario[];
+    summary: { totalPassed: number; hasAfterHoursPass: boolean; hasTransferPass: boolean };
+  }>(`/api/admin/orgs/${id}/testing`);
+}
+
+export async function createAdminTestRun(
+  id: string,
+  payload: { scenarioId: string; status: "PASS" | "FAIL"; notes?: string; providerCallId?: string }
+) {
+  return request<{ run: Record<string, unknown> }>(`/api/admin/orgs/${id}/testing/run`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function updateAdminOrgStatus(id: string, status: Organization["status"]) {
@@ -506,4 +545,8 @@ export async function convertProspectToLead(id: string) {
   return request<{ lead: { id: string }; prospect: Prospect }>(`/api/admin/prospects/${id}/convert-to-lead`, {
     method: "POST"
   });
+}
+
+export async function fetchAdminEvents(query: string) {
+  return request<{ events: AuditEvent[] }>(`/api/admin/events${query}`);
 }

@@ -8,6 +8,7 @@ import { UserRole } from "@prisma/client";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
 import { leadRateLimit, webhookRateLimit } from "./middleware/rate-limit";
+import { requestContext } from "./middleware/request-context";
 import { adminRouter } from "./modules/admin/admin.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { billingRouter } from "./modules/billing/billing.routes";
@@ -42,7 +43,15 @@ const corsOptions: cors.CorsOptions = {
 app.use(helmet());
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(morgan("combined"));
+app.use(requestContext);
+morgan.token("request-id", (req) => (req as Request).requestId || "-");
+morgan.token("org-id", (req) => ((req as Request & { auth?: { orgId?: string } }).auth?.orgId || "-"));
+morgan.token("user-id", (req) => ((req as Request & { auth?: { userId?: string } }).auth?.userId || "-"));
+app.use(
+  morgan(
+    ':method :url :status :res[content-length] - :response-time ms reqId=:request-id orgId=:org-id userId=:user-id'
+  )
+);
 app.use(cookieParser());
 app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
