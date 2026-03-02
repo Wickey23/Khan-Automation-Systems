@@ -256,28 +256,45 @@ adminRouter.get("/messages", async (req: AuthenticatedRequest, res: Response) =>
 });
 
 adminRouter.get("/settings/demo", async (_req: AuthenticatedRequest, res: Response) => {
-  const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
-  return res.json({
-    ok: true,
-    data: {
-      demoNumber: config?.demoNumber || "",
-      demoVapiAssistantId: config?.demoVapiAssistantId || "",
-      demoVapiPhoneNumberId: config?.demoVapiPhoneNumberId || "",
-      demoTitle: config?.demoTitle || "",
-      demoSubtitle: config?.demoSubtitle || "",
-      demoQuestions:
-        config?.demoQuestionsJson && config.demoQuestionsJson.trim()
-          ? (() => {
-              try {
-                const parsed = JSON.parse(config.demoQuestionsJson) as unknown;
-                return Array.isArray(parsed) ? parsed.map((item) => String(item || "")) : [];
-              } catch {
-                return [];
-              }
-            })()
-          : []
-    }
-  });
+  try {
+    const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+    return res.json({
+      ok: true,
+      data: {
+        demoNumber: config?.demoNumber || "",
+        demoVapiAssistantId: config?.demoVapiAssistantId || "",
+        demoVapiPhoneNumberId: config?.demoVapiPhoneNumberId || "",
+        demoTitle: config?.demoTitle || "",
+        demoSubtitle: config?.demoSubtitle || "",
+        demoQuestions:
+          config?.demoQuestionsJson && config.demoQuestionsJson.trim()
+            ? (() => {
+                try {
+                  const parsed = JSON.parse(config.demoQuestionsJson) as unknown;
+                  return Array.isArray(parsed) ? parsed.map((item) => String(item || "")) : [];
+                } catch {
+                  return [];
+                }
+              })()
+            : []
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    // eslint-disable-next-line no-console
+    console.error("[admin-demo] load config failed, returning defaults", message);
+    return res.json({
+      ok: true,
+      data: {
+        demoNumber: "",
+        demoVapiAssistantId: "",
+        demoVapiPhoneNumberId: "",
+        demoTitle: "",
+        demoSubtitle: "",
+        demoQuestions: []
+      }
+    });
+  }
 });
 
 adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Response) => {
@@ -346,11 +363,18 @@ adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Respo
 adminRouter.get("/settings/demo/calls", async (req: AuthenticatedRequest, res: Response) => {
   const limitRaw = Number.parseInt(String(req.query.limit || "100"), 10);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 300)) : 100;
-  const calls = await prisma.demoCallLog.findMany({
-    orderBy: { startedAt: "desc" },
-    take: limit
-  });
-  return res.json({ ok: true, data: { calls } });
+  try {
+    const calls = await prisma.demoCallLog.findMany({
+      orderBy: { startedAt: "desc" },
+      take: limit
+    });
+    return res.json({ ok: true, data: { calls } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    // eslint-disable-next-line no-console
+    console.error("[admin-demo] load calls failed, returning empty", message);
+    return res.json({ ok: true, data: { calls: [] } });
+  }
 });
 
 adminRouter.get("/leads/:id", async (req, res) => {

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { siteConfig } from "@/lib/config";
 import { trackEvent } from "@/lib/tracking";
 import type { LeadFormInput } from "@/lib/validation";
 import { leadFormSchema } from "@/lib/validation";
@@ -26,6 +27,23 @@ const preferredContactOptions = [
   { value: "text", label: "Text" },
   { value: "email", label: "Email" }
 ] as const;
+
+async function submitLeadWithRetry(apiBase: string, payload: Record<string, unknown>) {
+  const run = async () =>
+    fetch(`${apiBase}/api/leads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+  try {
+    return await run();
+  } catch {
+    // Render cold starts or transient edge/network issues.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return run();
+  }
+}
 
 export function LeadCaptureForm({
   sourcePage,
@@ -64,20 +82,16 @@ export function LeadCaptureForm({
 
   async function onSubmit(values: LeadFormInput) {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || siteConfig.apiBase;
       if (!apiBase) {
         throw new Error("Lead API is not configured. Set NEXT_PUBLIC_API_BASE.");
       }
 
-      const response = await fetch(`${apiBase}/api/leads`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...values,
-          accountPassword: values.accountPassword,
-          sourcePage: window.location.pathname,
-          createAccount: true
-        })
+      const response = await submitLeadWithRetry(apiBase, {
+        ...values,
+        accountPassword: values.accountPassword,
+        sourcePage: window.location.pathname,
+        createAccount: true
       });
 
       const payload = (await response.json().catch(() => null)) as
@@ -93,7 +107,11 @@ export function LeadCaptureForm({
         const firstFieldError = payload?.errors?.fieldErrors
           ? Object.values(payload.errors.fieldErrors).flat().find(Boolean)
           : null;
-        throw new Error(firstFieldError || payload?.message || "Could not submit lead. Please try again.");
+        throw new Error(
+          firstFieldError ||
+            payload?.message ||
+            "Could not reach API. If this is a fresh deploy, wait 30-60 seconds and retry."
+        );
       }
 
       trackEvent("lead_submitted", {
@@ -125,7 +143,8 @@ export function LeadCaptureForm({
     } catch (error) {
       showToast({
         title: "Could not submit",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description:
+          error instanceof Error ? error.message : "Could not reach API. Wait a moment and try again.",
         variant: "error"
       });
     }
