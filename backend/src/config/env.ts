@@ -30,6 +30,7 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_SID: z.string().optional(),
   VAPI_API_KEY: z.string().optional(),
+  VAPI_PRIVATE_KEY: z.string().optional(),
   VAPI_TOOL_SECRET: z.string().optional(),
   VAPI_BACKFILL_ENABLED: z.string().default("true"),
   VAPI_BACKFILL_INTERVAL_MS: z.string().default("60000")
@@ -42,4 +43,8 @@ if (!parsed.success) {
   throw new Error("Invalid environment configuration.");
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  // Accept either name so existing deployments using VAPI_PRIVATE_KEY keep working.
+  VAPI_API_KEY: parsed.data.VAPI_API_KEY || parsed.data.VAPI_PRIVATE_KEY
+};
