@@ -17,7 +17,7 @@ function isTheme(value: string): value is ThemeValue {
 }
 
 export function ThemeSwitcher() {
-  const [value, setValue] = useState<ThemeValue>("core-dark");
+  const [value, setValue] = useState<ThemeValue>("enterprise-light");
 
   useEffect(() => {
     const stored = typeof window !== "undefined" ? window.localStorage.getItem("khan-theme") : null;
@@ -26,7 +26,7 @@ export function ThemeSwitcher() {
       document.documentElement.setAttribute("data-theme", stored);
       return;
     }
-    document.documentElement.setAttribute("data-theme", "core-dark");
+    document.documentElement.setAttribute("data-theme", "enterprise-light");
   }, []);
 
   return (
@@ -49,4 +49,3 @@ export function ThemeSwitcher() {
     </select>
   );
 }
-
