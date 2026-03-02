@@ -203,6 +203,58 @@ export default function AdminOrgDetailPage() {
     notificationsVerified: `/admin/orgs/${id}`,
     testCallsPassed: `/admin/orgs/${id}/testing`
   };
+  const readinessEntries = useMemo(
+    () =>
+      Object.entries(readiness?.checks || {}).sort((a, b) => {
+        if (a[1].ok === b[1].ok) return a[0].localeCompare(b[0]);
+        return a[1].ok ? 1 : -1;
+      }),
+    [readiness]
+  );
+  const missingReadinessCount = useMemo(() => readinessEntries.filter(([, check]) => !check.ok).length, [readinessEntries]);
+  const completedChecklistCount = useMemo(
+    () => (org?.checklistSteps || []).filter((step) => step.status === "DONE").length,
+    [org?.checklistSteps]
+  );
+  const onboardingSummary = useMemo(() => {
+    const businessProfile =
+      onboardingAnswers.businessProfile && typeof onboardingAnswers.businessProfile === "object"
+        ? (onboardingAnswers.businessProfile as Record<string, unknown>)
+        : {};
+    const notifications =
+      onboardingAnswers.notifications && typeof onboardingAnswers.notifications === "object"
+        ? (onboardingAnswers.notifications as Record<string, unknown>)
+        : {};
+    const services =
+      onboardingAnswers.servicesPricing && typeof onboardingAnswers.servicesPricing === "object"
+        ? (onboardingAnswers.servicesPricing as Record<string, unknown>)
+        : {};
+    const serviceCategories = Array.isArray(services.serviceCategories) ? services.serviceCategories : [];
+    const managerEmails = Array.isArray(notifications.managerEmails) ? notifications.managerEmails : [];
+    const managerPhones = Array.isArray(notifications.managerPhones) ? notifications.managerPhones : [];
+    return {
+      displayName: String(businessProfile.displayName || businessProfile.legalBusinessName || "-"),
+      industry: String(businessProfile.industry || "-"),
+      serviceCount: serviceCategories.length,
+      emailCount: managerEmails.length,
+      phoneCount: managerPhones.length
+    };
+  }, [onboardingAnswers]);
+
+  function formatReadinessKey(key: string) {
+    const map: Record<string, string> = {
+      billingActive: "Billing Active",
+      onboardingSubmitted: "Onboarding Submitted",
+      onboardingApproved: "Onboarding Approved",
+      businessSettingsValid: "Business Settings",
+      providerLineAssigned: "Provider Line Assigned",
+      toolSecretConfigured: "Tool Secret Configured",
+      webhooksVerified: "Webhooks Verified",
+      notificationsVerified: "Notifications Verified",
+      testCallsPassed: "Test Calls Passed"
+    };
+    return map[key] || key;
+  }
 
   async function updateStatus() {
     await updateAdminOrgStatus(id, status);
@@ -278,6 +330,26 @@ export default function AdminOrgDetailPage() {
         <h1 className="mt-3 text-3xl font-bold">{org?.name || "Organization"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">Live: {org?.live ? "Yes" : "No"}</p>
         <p className="mt-1 text-sm text-amber-700">Next required action: {nextAction}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-md border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+            <p className="mt-1 text-lg font-semibold">{org?.status || "-"}</p>
+          </div>
+          <div className="rounded-md border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Readiness Missing</p>
+            <p className="mt-1 text-lg font-semibold">{missingReadinessCount}</p>
+          </div>
+          <div className="rounded-md border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Checklist Done</p>
+            <p className="mt-1 text-lg font-semibold">
+              {completedChecklistCount}/{org?.checklistSteps?.length || 0}
+            </p>
+          </div>
+          <div className="rounded-md border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Client Users</p>
+            <p className="mt-1 text-lg font-semibold">{org?.users?.length || 0}</p>
+          </div>
+        </div>
 
         <div className="mt-6 grid gap-6">
           <section className="rounded-lg border bg-white p-4">
@@ -287,11 +359,16 @@ export default function AdminOrgDetailPage() {
                 {readiness?.canGoLive ? "Ready to Go Live" : "Not Ready"}
               </span>
             </div>
-            <div className="mt-3 grid gap-2">
-              {Object.entries(readiness?.checks || {}).map(([key, check]) => (
+            {missingReadinessCount > 0 ? (
+              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                {missingReadinessCount} blocking item{missingReadinessCount === 1 ? "" : "s"} must be fixed before Go Live.
+              </div>
+            ) : null}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {readinessEntries.map(([key, check]) => (
                 <div key={key} className="rounded-md border p-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium">{key}</p>
+                    <p className="font-medium">{formatReadinessKey(key)}</p>
                     <span className={`rounded px-2 py-0.5 text-xs ${check.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                       {check.ok ? "OK" : "Missing"}
                     </span>
@@ -309,7 +386,32 @@ export default function AdminOrgDetailPage() {
 
           <section className="rounded-lg border bg-white p-4">
             <h2 className="text-lg font-semibold">Onboarding Answers</h2>
-            <pre className="mt-3 max-h-72 overflow-auto rounded bg-muted p-3 text-xs">{JSON.stringify(onboardingAnswers, null, 2)}</pre>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="rounded border bg-muted/20 p-2 text-sm">
+                <p className="text-xs text-muted-foreground">Business</p>
+                <p className="font-medium">{onboardingSummary.displayName}</p>
+              </div>
+              <div className="rounded border bg-muted/20 p-2 text-sm">
+                <p className="text-xs text-muted-foreground">Industry</p>
+                <p className="font-medium">{onboardingSummary.industry}</p>
+              </div>
+              <div className="rounded border bg-muted/20 p-2 text-sm">
+                <p className="text-xs text-muted-foreground">Services</p>
+                <p className="font-medium">{onboardingSummary.serviceCount}</p>
+              </div>
+              <div className="rounded border bg-muted/20 p-2 text-sm">
+                <p className="text-xs text-muted-foreground">Notif Emails</p>
+                <p className="font-medium">{onboardingSummary.emailCount}</p>
+              </div>
+              <div className="rounded border bg-muted/20 p-2 text-sm">
+                <p className="text-xs text-muted-foreground">Notif Phones</p>
+                <p className="font-medium">{onboardingSummary.phoneCount}</p>
+              </div>
+            </div>
+            <details className="mt-3 rounded border">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium">View raw onboarding JSON</summary>
+              <pre className="max-h-72 overflow-auto border-t bg-muted p-3 text-xs">{JSON.stringify(onboardingAnswers, null, 2)}</pre>
+            </details>
           </section>
 
           <section className="rounded-lg border bg-white p-4">
@@ -331,9 +433,12 @@ export default function AdminOrgDetailPage() {
               Version: {configPackage?.version || "-"} | Generated:{" "}
               {configPackage?.generatedAt ? new Date(configPackage.generatedAt).toLocaleString() : "-"}
             </p>
-            <pre className="mt-3 max-h-80 overflow-auto rounded bg-muted p-3 text-xs">
-              {JSON.stringify(configPackage?.json || {}, null, 2)}
-            </pre>
+            <details className="mt-3 rounded border">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium">View full build sheet JSON</summary>
+              <pre className="max-h-80 overflow-auto border-t bg-muted p-3 text-xs">
+                {JSON.stringify(configPackage?.json || {}, null, 2)}
+              </pre>
+            </details>
             <div className="mt-3">
               <Link href={`/admin/orgs/${id}/testing`} className="text-sm font-medium text-primary underline">
                 Open testing tab
@@ -610,13 +715,13 @@ export default function AdminOrgDetailPage() {
               {(org?.messageThreads || []).map((thread) => (
                 <div key={thread.id} className="rounded-md border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{thread.contactName || "Unknown contact"} • {thread.contactPhone}</p>
+                    <p className="text-sm font-medium">{thread.contactName || "Unknown contact"} | {thread.contactPhone}</p>
                     <p className="text-xs text-muted-foreground">Last: {new Date(thread.lastMessageAt).toLocaleString()}</p>
                   </div>
                   <div className="mt-2 space-y-1">
                     {(thread.messages || []).slice(0, 4).map((message) => (
                       <div key={message.id} className="rounded border bg-muted/20 px-2 py-1 text-xs">
-                        <span className="font-medium">{message.direction}</span> • {message.status} • {new Date(message.createdAt).toLocaleTimeString()}
+                        <span className="font-medium">{message.direction}</span> | {message.status} | {new Date(message.createdAt).toLocaleTimeString()}
                         <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{message.body}</p>
                       </div>
                     ))}

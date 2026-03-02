@@ -57,6 +57,16 @@ function normalizeArrayString(value: string | null | undefined) {
   }
 }
 
+function normalizeObjectString(value: string | null | undefined) {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function computeReadinessReport(input: {
   prisma: PrismaClient;
   org: Organization;
@@ -84,8 +94,20 @@ export async function computeReadinessReport(input: {
   const billingActive = ["active", "trialing"].includes(String(subscription?.status || "").toLowerCase());
 
   const transferNumbers = normalizeArrayString(settings?.transferNumbersJson);
+  const notificationEmails = normalizeArrayString(settings?.notificationEmailsJson);
+  const notificationPhones = normalizeArrayString(settings?.notificationPhonesJson);
+  const hours = normalizeObjectString(settings?.hoursJson);
+  const schedule =
+    hours && typeof hours.schedule === "object" && hours.schedule !== null && !Array.isArray(hours.schedule)
+      ? (hours.schedule as Record<string, unknown>)
+      : {};
+  const hasHoursConfigured = Object.keys(schedule).length > 0;
   const businessSettingsValidCheck =
-    Boolean(settings) && String(settings?.timezone || "").trim().length > 0 && transferNumbers.length > 0;
+    Boolean(settings) &&
+    String(settings?.timezone || "").trim().length > 0 &&
+    hasHoursConfigured &&
+    transferNumbers.length > 0 &&
+    (notificationEmails.length > 0 || notificationPhones.length > 0);
 
   const providerLineAssigned = Boolean(phone?.e164Number && ai);
   const toolSecretConfigured = Boolean(input.env.VAPI_TOOL_SECRET && input.env.VAPI_TOOL_SECRET.trim().length >= 4);
@@ -103,8 +125,16 @@ export async function computeReadinessReport(input: {
         ? { ok: true, reason: `Organization status is ${input.org.status}`, fixHint: "/admin/orgs" }
         : { ok: false, reason: "Onboarding approval is pending", fixHint: "Use Approve onboarding in Provisioning" },
     businessSettingsValid: businessSettingsValidCheck
-      ? { ok: true, reason: "Business settings include timezone and transfer numbers", fixHint: "/app/settings" }
-      : { ok: false, reason: "Business settings are incomplete", fixHint: "/app/settings" },
+      ? {
+          ok: true,
+          reason: "Business settings include timezone, hours, transfer numbers, and notification routing",
+          fixHint: "/app/settings"
+        }
+      : {
+          ok: false,
+          reason: "Business settings are incomplete (need hours, transfer number, and notification email/phone)",
+          fixHint: "/app/settings"
+        },
     providerLineAssigned: providerLineAssigned
       ? { ok: true, reason: "Active line and AI config are assigned", fixHint: "Provisioning > Number + AI Config" }
       : { ok: false, reason: "Phone line or active AI config missing", fixHint: "Assign number and set AI config ACTIVE" },
@@ -112,12 +142,14 @@ export async function computeReadinessReport(input: {
       ? { ok: true, reason: "VAPI_TOOL_SECRET configured", fixHint: "Render env vars" }
       : { ok: false, reason: "VAPI_TOOL_SECRET missing", fixHint: "Set VAPI_TOOL_SECRET in backend env" },
     webhooksVerified: checkFromChecklist(checklist, "webhooks_verified", "Webhooks", "Provisioning > Mark webhooks verified"),
-    notificationsVerified: checkFromChecklist(
-      checklist,
-      "notifications_verified",
-      "Notifications",
-      "Provisioning > Mark notifications verified"
-    ),
+    notificationsVerified:
+      (notificationEmails.length > 0 || notificationPhones.length > 0) && (checklist.get("notifications_verified") || "TODO") !== "BLOCKED"
+        ? {
+            ok: true,
+            reason: "Notification routing contacts are configured",
+            fixHint: "Provisioning > Mark notifications verified"
+          }
+        : checkFromChecklist(checklist, "notifications_verified", "Notifications", "Provisioning > Mark notifications verified"),
     testCallsPassed:
       testSummary.totalPassed >= 5 && testSummary.hasAfterHoursPass && testSummary.hasTransferPass
         ? {
