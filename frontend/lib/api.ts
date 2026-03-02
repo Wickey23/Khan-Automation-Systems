@@ -464,6 +464,18 @@ export async function importProspectsCsv(csv: string, orgId?: string | null) {
   });
 }
 
+export async function discoverProspects(input: {
+  location: string;
+  keywords?: string[];
+  limit?: number;
+  orgId?: string | null;
+}) {
+  return request<{ createdCount: number; imported: Array<{ id: string; business: string }> }>("/api/admin/prospects/discover", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function scoreProspect(id: string) {
   return request<{ prospect: Prospect }>(`/api/admin/prospects/${id}/score`, {
     method: "POST"

@@ -92,3 +92,10 @@ export const importProspectsSchema = z.object({
   orgId: z.string().optional().nullable(),
   csv: z.string().min(1)
 });
+
+export const discoverProspectsSchema = z.object({
+  orgId: z.string().optional().nullable(),
+  location: z.string().min(2).max(200),
+  keywords: z.array(z.string().min(2).max(80)).optional(),
+  limit: z.number().int().min(1).max(100).optional().default(30)
+});

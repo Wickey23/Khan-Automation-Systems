@@ -6,6 +6,7 @@ import { AdminGuard } from "@/components/dashboard/admin-guard";
 import {
   convertProspectToLead,
   createProspect,
+  discoverProspects,
   fetchProspects,
   importProspectsCsv,
   scoreProspect,
@@ -30,7 +31,13 @@ export default function AdminProspectsPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [csvInput, setCsvInput] = useState("");
+  const [discoverLocation, setDiscoverLocation] = useState("");
+  const [discoverKeywords, setDiscoverKeywords] = useState(
+    "truck repair shop,auto repair shop,hvac contractor,equipment repair service,manufacturing service"
+  );
+  const [discoverLimit, setDiscoverLimit] = useState(30);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [discovering, setDiscovering] = useState(false);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -103,6 +110,36 @@ export default function AdminProspectsPage() {
         description: error instanceof Error ? error.message : "Request failed.",
         variant: "error"
       });
+    }
+  }
+
+  async function runDiscover() {
+    if (!discoverLocation.trim()) return;
+    setDiscovering(true);
+    try {
+      const keywords = discoverKeywords
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const result = await discoverProspects({
+        location: discoverLocation.trim(),
+        keywords,
+        limit: discoverLimit
+      });
+      const data = await fetchProspects(query);
+      setProspects(data.prospects);
+      showToast({
+        title: "Discovery completed",
+        description: `Imported ${result.createdCount} prospects from ${discoverLocation.trim()}.`
+      });
+    } catch (error) {
+      showToast({
+        title: "Discovery failed",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setDiscovering(false);
     }
   }
 
@@ -179,6 +216,36 @@ export default function AdminProspectsPage() {
             <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <Button className="mt-3" onClick={() => void addProspect()}>Add prospect</Button>
+        </section>
+
+        <section className="mt-4 rounded-lg border bg-white p-4">
+          <h2 className="text-sm font-semibold">Auto-discover businesses</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Finds local service companies likely to benefit from AI reception and imports them as prospects.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input
+              placeholder="Location (city, state)"
+              value={discoverLocation}
+              onChange={(e) => setDiscoverLocation(e.target.value)}
+            />
+            <Input
+              placeholder="Keywords (comma-separated)"
+              value={discoverKeywords}
+              onChange={(e) => setDiscoverKeywords(e.target.value)}
+              className="sm:col-span-2"
+            />
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={discoverLimit}
+              onChange={(e) => setDiscoverLimit(Math.max(1, Math.min(100, Number(e.target.value) || 30)))}
+            />
+          </div>
+          <Button className="mt-3" variant="outline" disabled={discovering} onClick={() => void runDiscover()}>
+            {discovering ? "Searching..." : "Auto-discover prospects"}
+          </Button>
         </section>
 
         <section className="mt-4 rounded-lg border bg-white p-4">
@@ -283,4 +350,3 @@ export default function AdminProspectsPage() {
     </AdminGuard>
   );
 }
-

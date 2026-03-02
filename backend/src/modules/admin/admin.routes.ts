@@ -11,6 +11,7 @@ import {
   assignNumberSchema,
   clearAllDataSchema,
   createProspectSchema,
+  discoverProspectsSchema,
   importProspectsSchema,
   leadFilterSchema,
   prospectFilterSchema,
@@ -58,6 +59,51 @@ function parseCsvRows(input: string) {
 function toNullable(value: string | null | undefined) {
   const text = String(value || "").trim();
   return text ? text : null;
+}
+
+type NominatimItem = {
+  display_name?: string;
+  name?: string;
+  lat?: string;
+  lon?: string;
+  type?: string;
+  class?: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    state?: string;
+  };
+  extratags?: Record<string, string>;
+};
+
+async function discoverViaNominatim(location: string, keyword: string, limit: number): Promise<NominatimItem[]> {
+  const query = `${keyword} near ${location}`;
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("extratags", "1");
+  url.searchParams.set("limit", String(limit));
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      "User-Agent": "Khan-Automation-Systems/1.0 (lead-discovery)"
+    }
+  });
+  if (!response.ok) return [];
+  const payload = (await response.json()) as unknown;
+  return Array.isArray(payload) ? (payload as NominatimItem[]) : [];
+}
+
+function deriveIndustry(keyword: string) {
+  const lower = keyword.toLowerCase();
+  if (lower.includes("truck")) return "Truck Repair";
+  if (lower.includes("auto")) return "Auto Repair";
+  if (lower.includes("hvac")) return "HVAC";
+  if (lower.includes("equipment")) return "Equipment Service";
+  if (lower.includes("manufactur")) return "Manufacturing Service";
+  return "Service Business";
 }
 
 adminRouter.get("/leads", async (req: AuthenticatedRequest, res: Response) => {
@@ -237,6 +283,97 @@ adminRouter.post("/prospects/import-csv", async (req: AuthenticatedRequest, res)
     created.push(prospect.id);
   }
   return res.json({ ok: true, data: { createdCount: created.length } });
+});
+
+adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) => {
+  const parsed = discoverProspectsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid discover payload.", errors: parsed.error.flatten() });
+  }
+
+  const defaultKeywords = [
+    "truck repair shop",
+    "auto repair shop",
+    "hvac contractor",
+    "equipment repair service",
+    "manufacturing service"
+  ];
+  const keywords = parsed.data.keywords?.length ? parsed.data.keywords : defaultKeywords;
+  const perKeywordLimit = Math.max(3, Math.min(15, Math.ceil(parsed.data.limit / Math.max(1, keywords.length))));
+  const seen = new Set<string>();
+  let createdCount = 0;
+  const imported: Array<{ id: string; business: string }> = [];
+
+  for (const keyword of keywords) {
+    const places = await discoverViaNominatim(parsed.data.location, keyword, perKeywordLimit);
+    for (const place of places) {
+      const business = (place.name || place.display_name || "").split(",")[0]?.trim();
+      if (!business) continue;
+      const city = place.address?.city || place.address?.town || place.address?.village || "";
+      const dedupeKey = `${business.toLowerCase()}|${city.toLowerCase()}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
+      const existing = await prisma.prospect.findFirst({
+        where: {
+          business: { equals: business, mode: "insensitive" },
+          ...(city ? { city: { equals: city, mode: "insensitive" } } : {})
+        },
+        select: { id: true }
+      });
+      if (existing) continue;
+
+      const website = place.extratags?.website || place.extratags?.["contact:website"] || null;
+      const phone = place.extratags?.phone || place.extratags?.["contact:phone"] || null;
+      const industry = deriveIndustry(keyword);
+
+      let score = 45;
+      const reasons: string[] = [];
+      if (phone) {
+        score += 20;
+        reasons.push("has phone");
+      }
+      if (website) {
+        score += 15;
+        reasons.push("has website");
+      }
+      if (industry) {
+        score += 10;
+        reasons.push("industry matched");
+      }
+      score = Math.max(0, Math.min(100, score));
+
+      const prospect = await prisma.prospect.create({
+        data: {
+          orgId: parsed.data.orgId || null,
+          name: business,
+          business,
+          phone,
+          website,
+          city: city || null,
+          state: place.address?.state || null,
+          industry,
+          source: "ENRICHED",
+          status: score >= 75 ? "QUALIFIED" : "NEW",
+          score,
+          scoreReason: reasons.join(", "),
+          notes: `Discovered from "${keyword}" near ${parsed.data.location}.`
+        }
+      });
+      createdCount += 1;
+      imported.push({ id: prospect.id, business: prospect.business });
+      if (createdCount >= parsed.data.limit) break;
+    }
+    if (createdCount >= parsed.data.limit) break;
+  }
+
+  return res.json({
+    ok: true,
+    data: {
+      createdCount,
+      imported
+    }
+  });
 });
 
 adminRouter.post("/prospects/:id/score", async (req: AuthenticatedRequest, res) => {
