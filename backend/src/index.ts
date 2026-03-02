@@ -19,6 +19,7 @@ import { leadRouter } from "./modules/leads/lead.routes";
 import { smsRouter } from "./modules/sms/sms.routes";
 import { stripeRouter } from "./modules/stripe/stripe.routes";
 import { orgRouter } from "./modules/org/org.routes";
+import { publicRouter } from "./modules/public/public.routes";
 import { toolsRouter } from "./modules/tools/tools.routes";
 import { vapiRouter } from "./modules/voice/vapi/vapi.routes";
 import { voiceRouter } from "./modules/voice/voice.routes";
@@ -60,6 +61,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/health", healthRouter);
+app.use("/api/public", publicRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/leads", leadRateLimit, leadRouter);

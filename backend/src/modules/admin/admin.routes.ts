@@ -233,6 +233,82 @@ adminRouter.get("/messages", async (req: AuthenticatedRequest, res: Response) =>
   return res.json({ ok: true, data: { threads } });
 });
 
+adminRouter.get("/settings/demo", async (_req: AuthenticatedRequest, res: Response) => {
+  const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+  return res.json({
+    ok: true,
+    data: {
+      demoNumber: config?.demoNumber || "",
+      demoTitle: config?.demoTitle || "",
+      demoSubtitle: config?.demoSubtitle || "",
+      demoQuestions:
+        config?.demoQuestionsJson && config.demoQuestionsJson.trim()
+          ? (() => {
+              try {
+                const parsed = JSON.parse(config.demoQuestionsJson) as unknown;
+                return Array.isArray(parsed) ? parsed.map((item) => String(item || "")) : [];
+              } catch {
+                return [];
+              }
+            })()
+          : []
+    }
+  });
+});
+
+adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Response) => {
+  const demoNumber = String(req.body?.demoNumber || "").trim();
+  const demoTitle = String(req.body?.demoTitle || "").trim();
+  const demoSubtitle = String(req.body?.demoSubtitle || "").trim();
+  const demoQuestionsRaw = Array.isArray(req.body?.demoQuestions) ? req.body.demoQuestions : [];
+  const demoQuestions = demoQuestionsRaw
+    .map((item: unknown) => String(item || "").trim())
+    .filter((item: string) => item.length > 0)
+    .slice(0, 12);
+
+  const config = await prisma.appConfig.upsert({
+    where: { id: "singleton" },
+    update: {
+      demoNumber: demoNumber || null,
+      demoTitle: demoTitle || null,
+      demoSubtitle: demoSubtitle || null,
+      demoQuestionsJson: JSON.stringify(demoQuestions),
+      updatedByUserId: req.auth!.userId
+    },
+    create: {
+      id: "singleton",
+      demoNumber: demoNumber || null,
+      demoTitle: demoTitle || null,
+      demoSubtitle: demoSubtitle || null,
+      demoQuestionsJson: JSON.stringify(demoQuestions),
+      updatedByUserId: req.auth!.userId
+    }
+  });
+
+  await writeAuditLog({
+    prisma,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "DEMO_CONFIG_UPDATED",
+    metadata: {
+      hasDemoNumber: Boolean(config.demoNumber),
+      hasTitle: Boolean(config.demoTitle),
+      hasSubtitle: Boolean(config.demoSubtitle),
+      questionCount: demoQuestions.length
+    }
+  });
+
+  return res.json({
+    ok: true,
+    data: {
+      demoNumber: config.demoNumber || "",
+      demoTitle: config.demoTitle || "",
+      demoSubtitle: config.demoSubtitle || "",
+      demoQuestions
+    }
+  });
+});
+
 adminRouter.get("/leads/:id", async (req, res) => {
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
   if (!lead) return res.status(404).json({ ok: false, message: "Lead not found." });

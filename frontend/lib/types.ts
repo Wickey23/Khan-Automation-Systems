@@ -333,3 +333,10 @@ export type AuditEvent = {
   metadataJson: string;
   createdAt: string;
 };
+
+export type DemoConfig = {
+  demoNumber: string;
+  demoTitle: string;
+  demoSubtitle: string;
+  demoQuestions: string[];
+};

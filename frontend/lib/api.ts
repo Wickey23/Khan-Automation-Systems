@@ -9,6 +9,7 @@ import type {
   CallRecord,
   Client,
   ConfigPackage,
+  DemoConfig,
   Lead,
   LeadPayload,
   OnboardingSubmission,
@@ -608,4 +609,24 @@ export async function convertProspectToLead(id: string) {
 
 export async function fetchAdminEvents(query: string) {
   return request<{ events: AuditEvent[] }>(`/api/admin/events${query}`);
+}
+
+export async function fetchAdminDemoConfig() {
+  return request<DemoConfig>("/api/admin/settings/demo");
+}
+
+export async function updateAdminDemoConfig(payload: DemoConfig) {
+  return request<DemoConfig>("/api/admin/settings/demo", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchPublicDemoConfig() {
+  return request<{
+    demoNumber: string | null;
+    demoTitle: string | null;
+    demoSubtitle: string | null;
+    demoQuestions: string[];
+  }>("/api/public/demo-config");
 }

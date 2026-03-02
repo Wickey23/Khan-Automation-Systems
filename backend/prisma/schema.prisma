@@ -559,3 +559,14 @@ model BillingWebhookEvent {
   @@index([orgId, createdAt])
   @@index([stripeSubscriptionId, createdAt])
 }
+
+model AppConfig {
+  id               String   @id @default("singleton")
+  demoNumber       String?
+  demoTitle        String?
+  demoSubtitle     String?
+  demoQuestionsJson String  @default("[]")
+  updatedByUserId  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
