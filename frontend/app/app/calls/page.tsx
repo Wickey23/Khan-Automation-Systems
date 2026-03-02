@@ -30,10 +30,29 @@ function getCallSuccessRating(call: OrgCallRecord) {
   return Math.max(0, Math.min(100, base));
 }
 
+function getNextAction(call: OrgCallRecord) {
+  if (call.outcome === "MISSED") return "Call back customer";
+  if (call.outcome === "TRANSFERRED") return "Confirm transfer resolved issue";
+  if (call.outcome === "APPOINTMENT_REQUEST") return "Confirm booking with customer";
+  if (!call.transcript) return "Review call and capture notes";
+  return "No immediate action";
+}
+
+function getSuccessBadgeClasses(score: number) {
+  if (score >= 85) {
+    return "border-emerald-300 bg-gradient-to-r from-emerald-50 to-lime-50 text-emerald-800";
+  }
+  if (score >= 65) {
+    return "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800";
+  }
+  return "border-rose-300 bg-gradient-to-r from-rose-50 to-red-50 text-rose-800";
+}
+
 function extractCallerName(call: OrgCallRecord) {
   const transcript = call.transcript || "";
   const summary = call.aiSummary || call.summary || "";
   const sources = [transcript, summary];
+  const bannedNames = new Set(["the user", "user", "caller", "unknown", "from", "customer"]);
 
   const patterns = [
     /my name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
@@ -45,7 +64,10 @@ function extractCallerName(call: OrgCallRecord) {
   for (const source of sources) {
     for (const pattern of patterns) {
       const match = source.match(pattern);
-      if (match?.[1]) return match[1].trim();
+      const candidate = match?.[1]?.trim() || "";
+      if (!candidate) continue;
+      if (bannedNames.has(candidate.toLowerCase())) continue;
+      return candidate;
     }
   }
 
@@ -57,6 +79,8 @@ export default function AppCallsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedCall, setSelectedCall] = useState<OrgCallRecord | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
 
   const loadCalls = useCallback(async () => {
     try {
@@ -139,6 +163,21 @@ export default function AppCallsPage() {
     };
   }, [calls]);
 
+  const filteredCalls = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return calls.filter((call) => {
+      if (outcomeFilter !== "ALL" && call.outcome !== outcomeFilter) return false;
+      if (!q) return true;
+      const callerName = extractCallerName(call).toLowerCase();
+      return (
+        callerName.includes(q) ||
+        call.fromNumber.toLowerCase().includes(q) ||
+        (call.aiSummary || "").toLowerCase().includes(q) ||
+        (call.providerCallId || "").toLowerCase().includes(q)
+      );
+    });
+  }, [calls, query, outcomeFilter]);
+
   const detectedQuestions = useMemo(() => {
     if (!selectedCall?.transcript) return [];
     const chunks = selectedCall.transcript
@@ -181,52 +220,72 @@ export default function AppCallsPage() {
           <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.transferRate)}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointment rate</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointments</p>
           <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.appointmentRate)}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Missed rate</p>
-          <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.missedRate)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Avg call duration</p>
-          <p className="mt-1 text-2xl font-semibold">{formatDuration(metrics.avgDurationSec)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Recording coverage</p>
-          <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.recordingCoverage)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Transcript coverage</p>
-          <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.transcriptCoverage)}</p>
-        </div>
       </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border bg-white p-3 text-sm"><span className="text-muted-foreground">Missed:</span> {formatPercent(metrics.missedRate)}</div>
+        <div className="rounded-lg border bg-white p-3 text-sm"><span className="text-muted-foreground">Avg duration:</span> {formatDuration(metrics.avgDurationSec)}</div>
+        <div className="rounded-lg border bg-white p-3 text-sm"><span className="text-muted-foreground">Recording coverage:</span> {formatPercent(metrics.recordingCoverage)}</div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {["ALL", "MISSED", "TRANSFERRED", "APPOINTMENT_REQUEST", "MESSAGE_TAKEN"].map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
+                outcomeFilter === value ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
+              }`}
+              onClick={() => setOutcomeFilter(value as "ALL" | OrgCallRecord["outcome"])}
+            >
+              {value === "ALL" ? "All" : value.replaceAll("_", " ")}
+            </button>
+          ))}
+        </div>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search name, phone, summary, call id..."
+          className="w-full rounded-md border px-3 py-2 text-sm sm:max-w-sm"
+        />
+      </div>
+
       <div className="mt-4 overflow-x-auto rounded-lg border bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/40">
             <tr>
               <th className="p-3">Started</th>
-              <th className="p-3">Duration</th>
-              <th className="p-3">From</th>
               <th className="p-3">Name</th>
-              <th className="p-3">To</th>
+              <th className="p-3">Caller</th>
               <th className="p-3">Outcome</th>
               <th className="p-3">Success</th>
+              <th className="p-3">Duration</th>
               <th className="p-3">Recording</th>
-              <th className="p-3">Call SID</th>
               <th className="p-3">Details</th>
             </tr>
           </thead>
           <tbody>
-            {calls.map((call) => (
+            {filteredCalls.map((call) => (
               <tr key={call.id} className="border-t hover:bg-muted/20">
+                {(() => {
+                  const success = getCallSuccessRating(call);
+                  return (
+                    <>
                 <td className="p-3">{new Date(call.startedAt).toLocaleString()}</td>
-                <td className="p-3">{call.durationSec ? `${call.durationSec}s` : "-"}</td>
-                <td className="p-3">{call.fromNumber}</td>
                 <td className="p-3">{extractCallerName(call) || "-"}</td>
-                <td className="p-3">{call.toNumber}</td>
+                <td className="p-3 font-mono text-xs">{call.fromNumber}</td>
                 <td className="p-3">{call.outcome.replaceAll("_", " ")}</td>
-                <td className="p-3">{formatPercent(getCallSuccessRating(call))}</td>
+                <td className="p-3">
+                  <span
+                    className={`inline-flex min-w-[72px] justify-center rounded-md border px-2 py-1 text-xs font-semibold ${getSuccessBadgeClasses(success)}`}
+                  >
+                    {formatPercent(success)}
+                  </span>
+                </td>
+                <td className="p-3">{call.durationSec ? `${call.durationSec}s` : "-"}</td>
                 <td className="p-3">
                   {call.recordingUrl ? (
                     <a
@@ -241,7 +300,6 @@ export default function AppCallsPage() {
                     <span className="text-muted-foreground">-</span>
                   )}
                 </td>
-                <td className="p-3 font-mono text-xs text-muted-foreground">{call.providerCallId || "-"}</td>
                 <td className="p-3">
                   <button
                     type="button"
@@ -251,12 +309,21 @@ export default function AppCallsPage() {
                     View
                   </button>
                 </td>
+                    </>
+                  );
+                })()}
               </tr>
             ))}
             {!calls.length ? (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={10}>
+                <td className="p-3 text-muted-foreground" colSpan={9}>
                   No calls logged yet.
+                </td>
+              </tr>
+            ) : !filteredCalls.length ? (
+              <tr>
+                <td className="p-3 text-muted-foreground" colSpan={9}>
+                  No calls match current filters.
                 </td>
               </tr>
             ) : null}
@@ -290,8 +357,18 @@ export default function AppCallsPage() {
             <div><span className="text-muted-foreground">Caller name:</span> {extractCallerName(selectedCall) || "-"}</div>
             <div><span className="text-muted-foreground">To:</span> {selectedCall.toNumber}</div>
             <div><span className="text-muted-foreground">Outcome:</span> {selectedCall.outcome.replaceAll("_", " ")}</div>
-            <div><span className="text-muted-foreground">Success rating:</span> {formatPercent(getCallSuccessRating(selectedCall))}</div>
+            <div>
+              <span className="text-muted-foreground">Success rating:</span>{" "}
+              <span
+                className={`inline-flex min-w-[72px] justify-center rounded-md border px-2 py-1 text-xs font-semibold ${getSuccessBadgeClasses(
+                  getCallSuccessRating(selectedCall)
+                )}`}
+              >
+                {formatPercent(getCallSuccessRating(selectedCall))}
+              </span>
+            </div>
             <div><span className="text-muted-foreground">Appointment:</span> {selectedCall.appointmentRequested ? "Yes" : "No"}</div>
+            <div><span className="text-muted-foreground">Next action:</span> {getNextAction(selectedCall)}</div>
             <div><span className="text-muted-foreground">Lead ID:</span> {selectedCall.leadId || "-"}</div>
             <div className="sm:col-span-2 lg:col-span-3">
               <span className="text-muted-foreground">Call SID:</span>{" "}
