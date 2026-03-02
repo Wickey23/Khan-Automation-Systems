@@ -89,7 +89,7 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
     const normalizedTo = normalizePhoneE164(toNumber);
     const last10 = normalizedTo.replace(/\D/g, "").slice(-10);
     const callSid = String(req.body.CallSid || "").trim();
-    const orgPhone = await prisma.phoneNumber.findFirst({
+    let orgPhone = await prisma.phoneNumber.findFirst({
       where: {
         status: { not: "RELEASED" },
         OR: [
@@ -107,6 +107,28 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
         }
       }
     });
+
+    // Fallback for legacy formatted numbers (e.g. "+1 516 350 5753").
+    if (!orgPhone && normalizedTo) {
+      const activeNumbers = await prisma.phoneNumber.findMany({
+        where: { status: { not: "RELEASED" } },
+        include: {
+          organization: {
+            include: {
+              aiAgentConfigs: { orderBy: { updatedAt: "desc" }, take: 1 },
+              businessSettings: true
+            }
+          }
+        },
+        take: 500
+      });
+      orgPhone =
+        activeNumbers.find((row) => normalizePhoneE164(row.e164Number) === normalizedTo) ||
+        (last10.length === 10
+          ? activeNumbers.find((row) => normalizePhoneE164(row.e164Number).replace(/\D/g, "").endsWith(last10))
+          : null) ||
+        null;
+    }
 
     if (!orgPhone?.organization) {
       response.say("This line is not configured yet.");
