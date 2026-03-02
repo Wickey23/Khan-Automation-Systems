@@ -61,8 +61,8 @@ npm run dev
 
 ```env
 PORT=4000
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/khan_automation?schema=public
-ALLOWED_ORIGIN=http://localhost:3000
+DATABASE_URL=postgresql://khan_automation_db_user:replace-password@dpg-d6i5fj6a2pns738t6v30-a.oregon-postgres.render.com:5432/khan_automation_db
+ALLOWED_ORIGIN=https://khan-automation-systems-frontend.vercel.app
 JWT_SECRET=change-this-to-a-long-random-secret
 JWT_EXPIRES_IN=7d
 ADMIN_EMAIL=admin@khanautomationsystems.com
@@ -78,10 +78,10 @@ STRIPE_SECRET_KEY=sk_test_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_STARTER_PRICE_ID=price_xxx
 STRIPE_PRO_PRICE_ID=price_xxx
-STRIPE_SUCCESS_URL=http://localhost:3000/checkout/success
-STRIPE_CANCEL_URL=http://localhost:3000/checkout/cancel
-FRONTEND_APP_URL=http://localhost:3000
-API_BASE_URL=http://localhost:4000
+STRIPE_SUCCESS_URL=https://khan-automation-systems-frontend.vercel.app/checkout/success
+STRIPE_CANCEL_URL=https://khan-automation-systems-frontend.vercel.app/checkout/cancel
+FRONTEND_APP_URL=https://khan-automation-systems-frontend.vercel.app
+API_BASE_URL=https://ai-auto-apply.onrender.com
 AUTO_LIVE_ON_SETUP=false
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
@@ -91,8 +91,8 @@ TWILIO_PHONE_SID=
 ## Frontend Env Vars
 
 ```env
-NEXT_PUBLIC_API_BASE=http://localhost:4000
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_API_BASE=https://ai-auto-apply.onrender.com
+NEXT_PUBLIC_SITE_URL=https://khan-automation-systems-frontend.vercel.app
 NEXT_PUBLIC_CALENDLY_URL=CALENDLY_LINK_HERE
 NEXT_PUBLIC_DEMO_NUMBER=DEMO_NUMBER_HERE
 ```
@@ -298,7 +298,7 @@ npm run build --workspace frontend
 
 ### Stripe Local Webhook Testing
 ```bash
-stripe listen --forward-to http://localhost:4000/api/billing/webhook
+stripe listen --forward-to https://ai-auto-apply.onrender.com/api/billing/webhook
 ```
 
 ### Twilio Webhook Stubs

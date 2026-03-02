@@ -1,5 +1,6 @@
 import { UserRole } from "@prisma/client";
 import { Router } from "express";
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { sendLeadNotificationEmail } from "../../services/email";
@@ -76,7 +77,7 @@ clientRouter.post("/support", async (req: AuthenticatedRequest, res) => {
     phone: "-",
     email: req.auth?.email || "",
     sourcePage: "/dashboard/support",
-    adminUrl: process.env.ALLOWED_ORIGIN || "http://localhost:3000"
+    adminUrl: env.FRONTEND_APP_URL
   });
 
   return res.json({ ok: true });

@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
-import { createCheckoutSessionSchema } from "./billing.schema";
+import { changePlanSchema, createCheckoutSessionSchema } from "./billing.schema";
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20"
@@ -17,6 +17,14 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
 function planFromPrice(priceId: string | null | undefined): SubscriptionPlan {
   if (priceId && priceId === env.STRIPE_PRO_PRICE_ID) return SubscriptionPlan.PRO;
   return SubscriptionPlan.STARTER;
+}
+
+function priceIdForPlan(plan: "starter" | "pro"): string {
+  return plan === "starter" ? env.STRIPE_STARTER_PRICE_ID : env.STRIPE_PRO_PRICE_ID;
+}
+
+function subscriptionPlanFromInput(plan: "starter" | "pro"): SubscriptionPlan {
+  return plan === "pro" ? SubscriptionPlan.PRO : SubscriptionPlan.STARTER;
 }
 
 function normalizeSubscriptionStatus(status: string | null | undefined): string {
@@ -200,7 +208,7 @@ billingRouter.post(
     try {
       const org = await ensureOrgContext(req);
 
-      const priceId = parsed.data.plan === "starter" ? env.STRIPE_STARTER_PRICE_ID : env.STRIPE_PRO_PRICE_ID;
+      const priceId = priceIdForPlan(parsed.data.plan);
       if (!priceId || priceId.includes("placeholder")) {
         return res.status(500).json({
           ok: false,
@@ -255,6 +263,132 @@ billingRouter.post(
       return res.status(500).json({
         ok: false,
         message: `Checkout failed: ${stripeMessage}`
+      });
+    }
+  }
+);
+
+billingRouter.post(
+  "/change-plan",
+  requireAuth,
+  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT]),
+  async (req: AuthenticatedRequest, res) => {
+    if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
+
+    const parsed = changePlanSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid billing payload." });
+
+    try {
+      const org = await ensureOrgContext(req);
+      const targetPriceId = priceIdForPlan(parsed.data.plan);
+      const targetPlan = subscriptionPlanFromInput(parsed.data.plan);
+
+      if (!targetPriceId || targetPriceId.includes("placeholder")) {
+        return res.status(500).json({
+          ok: false,
+          message: "Stripe price ID is not configured for this plan."
+        });
+      }
+
+      const currentSubscription = await prisma.subscription.findFirst({
+        where: { orgId: org.orgId },
+        orderBy: { createdAt: "desc" }
+      });
+      if (!currentSubscription?.stripeSubscriptionId) {
+        return res.status(404).json({
+          ok: false,
+          message: "No active subscription found. Start a plan first."
+        });
+      }
+
+      if (currentSubscription.plan === targetPlan) {
+        return res.json({
+          ok: true,
+          data: {
+            changed: false,
+            message: `Plan is already ${targetPlan}.`
+          }
+        });
+      }
+
+      const stripeSubscription = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId, {
+        expand: ["items.data.price"]
+      });
+      const itemId = stripeSubscription.items.data[0]?.id;
+      if (!itemId) {
+        return res.status(400).json({
+          ok: false,
+          message: "Subscription item missing. Open Stripe Billing Portal to update the plan."
+        });
+      }
+
+      const updated = await stripe.subscriptions.update(currentSubscription.stripeSubscriptionId, {
+        items: [{ id: itemId, price: targetPriceId }],
+        proration_behavior: "create_prorations",
+        metadata: {
+          ...(stripeSubscription.metadata || {}),
+          orgId: org.orgId,
+          updatedByUserId: req.auth.userId,
+          plan: parsed.data.plan
+        }
+      });
+
+      const stripeCustomerId =
+        typeof updated.customer === "string" ? updated.customer : updated.customer?.id || org.stripeCustomerId;
+      if (!stripeCustomerId) {
+        return res.status(400).json({
+          ok: false,
+          message: "Stripe customer is missing for this subscription."
+        });
+      }
+
+      const normalizedStatus = normalizeSubscriptionStatus(updated.status);
+      const currentPeriodEnd = updated.current_period_end ? new Date(updated.current_period_end * 1000) : null;
+
+      await upsertSubscriptionAndOrg({
+        orgId: org.orgId,
+        stripeCustomerId,
+        stripeSubscriptionId: updated.id,
+        status: normalizedStatus,
+        plan: targetPlan,
+        currentPeriodEnd
+      });
+
+      logBillingEvent("info", {
+        action: "plan_changed",
+        userId: req.auth.userId,
+        orgId: org.orgId,
+        stripeSubscriptionId: updated.id,
+        fromPlan: currentSubscription.plan,
+        toPlan: targetPlan,
+        status: normalizedStatus
+      });
+
+      return res.json({
+        ok: true,
+        data: {
+          changed: true,
+          subscriptionId: updated.id,
+          status: normalizedStatus,
+          plan: targetPlan
+        }
+      });
+    } catch (error) {
+      const stripeMessage =
+        error instanceof Stripe.errors.StripeError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "unknown_error";
+      logBillingEvent("error", {
+        action: "change_plan_failed",
+        userId: req.auth.userId,
+        orgId: req.auth.orgId || null,
+        message: stripeMessage
+      });
+      return res.status(500).json({
+        ok: false,
+        message: `Plan change failed: ${stripeMessage}`
       });
     }
   }

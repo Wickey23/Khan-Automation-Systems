@@ -5,9 +5,8 @@ export const siteConfig = {
   version: RELEASE_TAG,
   description:
     "AI Reception + Follow-Up System for service shops. Miss fewer calls, quote faster, and book more jobs.",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-  apiBase:
-    process.env.NEXT_PUBLIC_API_BASE || (process.env.NODE_ENV === "development" ? "http://localhost:4000" : ""),
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://khan-automation-systems-frontend.vercel.app",
+  apiBase: process.env.NEXT_PUBLIC_API_BASE || "https://ai-auto-apply.onrender.com",
   calendlyUrl: process.env.NEXT_PUBLIC_CALENDLY_URL || "CALENDLY_LINK_HERE",
   demoNumber: process.env.NEXT_PUBLIC_DEMO_NUMBER || "DEMO_NUMBER_HERE"
 };

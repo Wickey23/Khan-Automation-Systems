@@ -45,13 +45,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       cache: "no-store"
     });
   } catch (error) {
-    const isProdBrowser =
-      typeof window !== "undefined" &&
-      window.location.hostname !== "localhost" &&
-      window.location.hostname !== "127.0.0.1";
-
-    if (isProdBrowser && siteConfig.apiBase.includes("localhost")) {
-      throw new Error("API misconfigured: NEXT_PUBLIC_API_BASE points to localhost in production.");
+    const isProdBrowser = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
+    if (isProdBrowser && !siteConfig.apiBase.includes("ai-auto-apply.onrender.com")) {
+      throw new Error("API misconfigured: NEXT_PUBLIC_API_BASE is not pointing at the hosted backend.");
     }
 
     throw new Error(
@@ -142,6 +138,13 @@ export async function getMe() {
 
 export async function createStripeCheckoutSession(plan: "starter" | "pro") {
   return request<{ url: string }>("/api/billing/create-checkout-session", {
+    method: "POST",
+    body: JSON.stringify({ plan })
+  });
+}
+
+export async function changeStripePlan(plan: "starter" | "pro") {
+  return request<{ changed: boolean; message?: string }>("/api/billing/change-plan", {
     method: "POST",
     body: JSON.stringify({ plan })
   });

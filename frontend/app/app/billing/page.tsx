@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
-import { createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
+import { changeStripePlan, createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
 import type { OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ export default function AppBillingPage() {
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [startingPlan, setStartingPlan] = useState<"starter" | "pro" | null>(null);
+  const [changingPlan, setChangingPlan] = useState<"starter" | "pro" | null>(null);
 
   useEffect(() => {
     void getBillingStatus()
@@ -81,6 +82,29 @@ export default function AppBillingPage() {
       });
     } finally {
       setStartingPlan(null);
+    }
+  }
+
+  async function onChangePlan(plan: "starter" | "pro") {
+    setChangingPlan(plan);
+    try {
+      const result = await changeStripePlan(plan);
+      const latest = await getBillingStatus();
+      setSubscription(latest.subscription);
+      showToast({
+        title: result.changed ? "Plan updated" : "No changes made",
+        description: result.changed
+          ? `You are now on ${plan === "pro" ? "Pro" : "Starter"}.`
+          : result.message || "Plan is already set."
+      });
+    } catch (error) {
+      showToast({
+        title: "Plan change failed",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setChangingPlan(null);
     }
   }
 
@@ -126,12 +150,29 @@ export default function AppBillingPage() {
           {subscription ? (
             <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
               <p className="text-sm text-blue-900">
-                Manage payment method, invoices, and cancellation in Stripe’s customer portal.
+                Manage payment method, invoices, and cancellation in Stripe&apos;s customer portal.
               </p>
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Button onClick={onOpenPortal} disabled={openingPortal}>
                   {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
                 </Button>
+                {subscription.plan === "STARTER" ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => void onChangePlan("pro")}
+                    disabled={changingPlan !== null}
+                  >
+                    {changingPlan === "pro" ? "Upgrading..." : "Upgrade to Pro"}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => void onChangePlan("starter")}
+                    disabled={changingPlan !== null}
+                  >
+                    {changingPlan === "starter" ? "Switching..." : "Switch to Starter"}
+                  </Button>
+                )}
               </div>
             </div>
           ) : (

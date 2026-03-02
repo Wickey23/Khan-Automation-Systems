@@ -169,7 +169,7 @@ leadRouter.post("/", async (req: Request, res: Response) => {
         phone: parsed.data.phone,
         email: parsed.data.email,
         sourcePage: parsed.data.sourcePage,
-        adminUrl: process.env.ALLOWED_ORIGIN || "http://localhost:3000"
+        adminUrl: env.FRONTEND_APP_URL
       });
     } catch (notifyError) {
       // eslint-disable-next-line no-console
