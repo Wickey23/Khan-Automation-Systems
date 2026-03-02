@@ -28,7 +28,13 @@ export const onboardingAnswersSchema = z.object({
     .object({
       enableAppointments: z.boolean().optional(),
       bookingMethod: z.enum(["manual", "google_calendar", "manager_notify"]).optional(),
-      appointmentDurationMin: z.number().int().positive().optional()
+      appointmentDurationMin: z.number().int().positive().optional(),
+      usesBookingApp: z.enum(["yes", "no", "not_sure"]).optional(),
+      bookingAppName: z.string().optional(),
+      bookingAppMode: z.enum(["direct_booking", "staff_review", "link_only"]).optional(),
+      bookingLink: z.string().optional(),
+      bookingAccountEmail: z.string().optional(),
+      appointmentBufferMin: z.number().int().min(0).optional()
     })
     .optional(),
   callHandlingPreferences: z

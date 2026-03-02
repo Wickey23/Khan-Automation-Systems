@@ -99,6 +99,22 @@ export function buildConfigPackage(answers: JsonMap, businessSettings?: JsonMap)
       notOffered: [],
       pricingNotes: String(servicesPricing.pricingNotes || "")
     },
+    booking: {
+      usesBookingApp: String(bookingScheduling.usesBookingApp || "not_sure"),
+      appName: String(bookingScheduling.bookingAppName || ""),
+      mode: String(bookingScheduling.bookingAppMode || "staff_review"),
+      bookingMethod: String(bookingScheduling.bookingMethod || "manager_notify"),
+      bookingLink: String(bookingScheduling.bookingLink || ""),
+      accountEmail: String(bookingScheduling.bookingAccountEmail || ""),
+      appointmentDurationMin:
+        typeof bookingScheduling.appointmentDurationMin === "number"
+          ? bookingScheduling.appointmentDurationMin
+          : null,
+      appointmentBufferMin:
+        typeof bookingScheduling.appointmentBufferMin === "number"
+          ? bookingScheduling.appointmentBufferMin
+          : null
+    },
     policies: {
       estimates: String(policies.estimatesPolicy || policies.estimates || ""),
       diagnosticsFee: String(policies.diagnosticsPolicy || ""),

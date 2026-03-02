@@ -18,6 +18,7 @@ export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: 
     .map((rule) => asObject(rule).toNumber)
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
   const policies = asObject(configPackage.policies);
+  const booking = asObject(configPackage.booking);
   const timezone = String((businessSettings.timezone as string) || "America/New_York");
   const businessName = String(business.name || "Service Shop");
   const industry = String((businessSettings.industry as string) || "Service");
@@ -28,6 +29,9 @@ export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: 
     `Industry: ${industry}`,
     `Timezone: ${timezone}`,
     `Services: ${services.join(", ") || "General service work"}`,
+    `Booking app: ${String(booking.appName || "none")}`,
+    `Booking mode: ${String(booking.mode || "staff_review")}`,
+    `Booking link: ${String(booking.bookingLink || "")}`,
     "Goals: collect caller details, determine urgency, offer next steps, escalate when rules match.",
     `Transfer numbers: ${JSON.stringify(transferNumbers)}`,
     `Transfer rules: ${JSON.stringify(transferRules)}`,

@@ -21,6 +21,13 @@ type FormState = {
   afterHoursInstructions: string;
   services: string;
   bookingMethod: "manual" | "google_calendar" | "manager_notify";
+  usesBookingApp: "yes" | "no" | "not_sure";
+  bookingAppName: string;
+  bookingAppMode: "direct_booking" | "staff_review" | "link_only";
+  bookingLink: string;
+  bookingAccountEmail: string;
+  appointmentDurationMin: string;
+  appointmentBufferMin: string;
   transferNumbers: string;
   customQuestions: string;
   warrantyPolicy: string;
@@ -46,6 +53,13 @@ const defaultState: FormState = {
   afterHoursInstructions: "",
   services: "",
   bookingMethod: "manager_notify",
+  usesBookingApp: "not_sure",
+  bookingAppName: "",
+  bookingAppMode: "staff_review",
+  bookingLink: "",
+  bookingAccountEmail: "",
+  appointmentDurationMin: "",
+  appointmentBufferMin: "",
   transferNumbers: "",
   customQuestions: "",
   warrantyPolicy: "",
@@ -99,6 +113,21 @@ export default function AppOnboardingPage() {
             booking.bookingMethod === "manual" || booking.bookingMethod === "google_calendar" || booking.bookingMethod === "manager_notify"
               ? booking.bookingMethod
               : "manager_notify",
+          usesBookingApp:
+            booking.usesBookingApp === "yes" || booking.usesBookingApp === "no" || booking.usesBookingApp === "not_sure"
+              ? booking.usesBookingApp
+              : "not_sure",
+          bookingAppName: String(booking.bookingAppName || ""),
+          bookingAppMode:
+            booking.bookingAppMode === "direct_booking" ||
+            booking.bookingAppMode === "staff_review" ||
+            booking.bookingAppMode === "link_only"
+              ? booking.bookingAppMode
+              : "staff_review",
+          bookingLink: String(booking.bookingLink || ""),
+          bookingAccountEmail: String(booking.bookingAccountEmail || ""),
+          appointmentDurationMin: String(booking.appointmentDurationMin || ""),
+          appointmentBufferMin: String(booking.appointmentBufferMin || ""),
           transferNumbers: Array.isArray(callPrefs.transferNumbers) ? callPrefs.transferNumbers.join("\n") : "",
           customQuestions: Array.isArray(intake.customQuestions) ? intake.customQuestions.join("\n") : "",
           warrantyPolicy: String(policies.warrantyPolicy || ""),
@@ -136,7 +165,14 @@ export default function AppOnboardingPage() {
         serviceCategories: state.services.split("\n").map((x) => x.trim()).filter(Boolean)
       },
       bookingScheduling: {
-        bookingMethod: state.bookingMethod
+        bookingMethod: state.bookingMethod,
+        usesBookingApp: state.usesBookingApp,
+        bookingAppName: state.bookingAppName,
+        bookingAppMode: state.bookingAppMode,
+        bookingLink: state.bookingLink,
+        bookingAccountEmail: state.bookingAccountEmail,
+        appointmentDurationMin: state.appointmentDurationMin ? Number(state.appointmentDurationMin) : undefined,
+        appointmentBufferMin: state.appointmentBufferMin ? Number(state.appointmentBufferMin) : undefined
       },
       callHandlingPreferences: {
         transferNumbers: state.transferNumbers.split("\n").map((x) => x.trim()).filter(Boolean)
@@ -226,6 +262,88 @@ export default function AppOnboardingPage() {
         <CardHeader><CardTitle>Operations Preferences</CardTitle></CardHeader>
         <CardContent className="grid gap-3">
           <div><Label>Services (one per line)</Label><Textarea value={state.services} onChange={(e)=>setState((p)=>({...p,services:e.target.value}))} /></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Do you currently use a booking app?</Label>
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={state.usesBookingApp}
+                onChange={(e) => setState((p) => ({ ...p, usesBookingApp: e.target.value as FormState["usesBookingApp"] }))}
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+                <option value="not_sure">Not sure</option>
+              </select>
+            </div>
+            <div>
+              <Label>Booking app</Label>
+              <Input
+                value={state.bookingAppName}
+                onChange={(e) => setState((p) => ({ ...p, bookingAppName: e.target.value }))}
+                placeholder="Jobber, Housecall Pro, ServiceTitan, Calendly, etc."
+              />
+            </div>
+            <div>
+              <Label>How should AI handle bookings?</Label>
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={state.bookingAppMode}
+                onChange={(e) => setState((p) => ({ ...p, bookingAppMode: e.target.value as FormState["bookingAppMode"] }))}
+              >
+                <option value="staff_review">Create booking request for staff review</option>
+                <option value="direct_booking">Book directly in existing app/calendar</option>
+                <option value="link_only">Send booking link only</option>
+              </select>
+            </div>
+            <div>
+              <Label>Booking workflow</Label>
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={state.bookingMethod}
+                onChange={(e) => setState((p) => ({ ...p, bookingMethod: e.target.value as FormState["bookingMethod"] }))}
+              >
+                <option value="manager_notify">Manager notify</option>
+                <option value="manual">Manual booking</option>
+                <option value="google_calendar">Google Calendar</option>
+              </select>
+            </div>
+            <div>
+              <Label>Booking link (if applicable)</Label>
+              <Input
+                value={state.bookingLink}
+                onChange={(e) => setState((p) => ({ ...p, bookingLink: e.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <Label>Calendar/account email</Label>
+              <Input
+                value={state.bookingAccountEmail}
+                onChange={(e) => setState((p) => ({ ...p, bookingAccountEmail: e.target.value }))}
+                placeholder="scheduler@company.com"
+              />
+            </div>
+            <div>
+              <Label>Default appointment duration (minutes)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={state.appointmentDurationMin}
+                onChange={(e) => setState((p) => ({ ...p, appointmentDurationMin: e.target.value }))}
+                placeholder="60"
+              />
+            </div>
+            <div>
+              <Label>Buffer between appointments (minutes)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={state.appointmentBufferMin}
+                onChange={(e) => setState((p) => ({ ...p, appointmentBufferMin: e.target.value }))}
+                placeholder="15"
+              />
+            </div>
+          </div>
           <div><Label>After-hours instructions</Label><Textarea value={state.afterHoursInstructions} onChange={(e)=>setState((p)=>({...p,afterHoursInstructions:e.target.value}))} /></div>
           <div><Label>Transfer numbers (one per line)</Label><Textarea value={state.transferNumbers} onChange={(e)=>setState((p)=>({...p,transferNumbers:e.target.value}))} /></div>
           <div><Label>Custom intake questions (one per line)</Label><Textarea value={state.customQuestions} onChange={(e)=>setState((p)=>({...p,customQuestions:e.target.value}))} /></div>
