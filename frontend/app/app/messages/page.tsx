@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchOrgMessages, sendOrgMessage } from "@/lib/api";
+import { fetchOrgMessages, getBillingStatus, sendOrgMessage } from "@/lib/api";
 import type { OrgMessageThread } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 
@@ -19,10 +19,23 @@ export default function AppMessagesPage() {
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [canSendMessages, setCanSendMessages] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchOrgMessages();
+      const [messagesData, billingData] = await Promise.all([fetchOrgMessages(), getBillingStatus()]);
+      const subscription = billingData.subscription;
+      const plan = String(subscription?.plan || "").toUpperCase();
+      const status = String(subscription?.status || "").toLowerCase();
+      const proAllowed = plan === "PRO" && (status === "active" || status === "trialing");
+
+      setSubscriptionPlan(plan || null);
+      setSubscriptionStatus(status || null);
+      setCanSendMessages(proAllowed);
+
+      const data = messagesData;
       setThreads(data.threads);
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
@@ -31,6 +44,9 @@ export default function AppMessagesPage() {
       setThreads([]);
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
+      setSubscriptionPlan(null);
+      setSubscriptionStatus(null);
+      setCanSendMessages(false);
     }
   }, []);
 
@@ -41,6 +57,14 @@ export default function AppMessagesPage() {
   const selected = useMemo(() => threads.find((thread) => thread.id === selectedId) || null, [threads, selectedId]);
 
   async function onSend() {
+    if (!canSendMessages) {
+      showToast({
+        title: "Pro required",
+        description: "Outbound messaging is available on Pro with an active subscription.",
+        variant: "error"
+      });
+      return;
+    }
     if (!to.trim() || !body.trim()) {
       showToast({ title: "Missing fields", description: "Add recipient and message body.", variant: "error" });
       return;
@@ -84,8 +108,10 @@ export default function AppMessagesPage() {
       </div>
 
       <div className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-900">
-        Messaging automation is a <strong>Pro</strong> feature. If sending fails due to plan, upgrade from{" "}
-        <Link className="underline" href="/app/billing">Billing</Link>.
+        Messaging automation is a <strong>Pro</strong> feature.
+        {" "}Current plan: <strong>{subscriptionPlan || "NONE"}</strong>
+        {" "}({subscriptionStatus || "inactive"}).
+        {" "}If sending is disabled, upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
       </div>
       <div className="rounded-lg border bg-white p-3 text-sm">
         Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
@@ -128,6 +154,7 @@ export default function AppMessagesPage() {
                 value={to}
                 onChange={(event) => setTo(event.target.value)}
                 placeholder="+15163067876"
+                disabled={!canSendMessages || sending}
                 className="rounded-md border px-3 py-2 text-sm"
               />
               <label className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Message</label>
@@ -135,16 +162,17 @@ export default function AppMessagesPage() {
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 placeholder="Type an outbound message..."
+                disabled={!canSendMessages || sending}
                 className="min-h-[92px] rounded-md border px-3 py-2 text-sm"
               />
               <div>
                 <button
                   type="button"
                   onClick={() => void onSend()}
-                  disabled={sending}
+                  disabled={sending || !canSendMessages}
                   className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
                 >
-                  {sending ? "Sending..." : "Send message"}
+                  {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}
                 </button>
               </div>
             </div>
