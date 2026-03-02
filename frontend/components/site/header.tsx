@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/site/brand-mark";
+import { ThemeSwitcher } from "@/components/site/theme-switcher";
 import { navLinks, siteConfig } from "@/lib/config";
 import { getMe } from "@/lib/api";
 import type { AuthUser } from "@/lib/types";
@@ -59,11 +61,14 @@ export function Header() {
   }, [isAdmin, user]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
-        <Link href={homeHref} className="text-sm font-semibold tracking-wide">
-          {siteConfig.name} <span className="text-xs text-muted-foreground">{siteConfig.version}</span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <BrandMark href={homeHref} size="sm" />
+          <span className="hidden text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground lg:inline-flex">
+            v{siteConfig.version}
+          </span>
+        </div>
         <nav className="hidden items-center gap-6 md:flex">
           {portalNav.map((item) => (
             <Link key={item.href} href={item.href} className="text-sm text-muted-foreground hover:text-foreground">
@@ -72,6 +77,9 @@ export function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <div className="hidden lg:block">
+            <ThemeSwitcher />
+          </div>
           {!authResolved ? null : user ? (
             <>
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">

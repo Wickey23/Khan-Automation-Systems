@@ -3,20 +3,130 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --primary: 213 79% 34%;
+  --bg-primary-hex: #031f36;
+  --text-primary-hex: #f8fafc;
+  --text-secondary-hex: #a5b4c3;
+  --accent-hex: #2663eb;
+  --background: 210 89% 11%;
+  --foreground: 210 40% 98%;
+  --card: 210 60% 13%;
+  --card-foreground: 210 40% 98%;
+  --primary: 222 83% 54%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 20% 94%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 20% 94%;
+  --secondary: 214 43% 21%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 215 26% 19%;
+  --muted-foreground: 215 14% 74%;
+  --border: 215 28% 24%;
+  --input: 215 28% 24%;
+  --accent: 222 83% 54%;
+  --accent-foreground: 0 0% 100%;
+  --radius: 0.375rem;
+}
+
+html[data-theme="core-dark"] {
+  --bg-primary-hex: #031f36;
+  --text-primary-hex: #f8fafc;
+  --text-secondary-hex: #a5b4c3;
+  --accent-hex: #2663eb;
+  --background: 210 89% 11%;
+  --foreground: 210 40% 98%;
+  --card: 210 60% 13%;
+  --card-foreground: 210 40% 98%;
+  --primary: 222 83% 54%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 214 43% 21%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 215 26% 19%;
+  --muted-foreground: 215 14% 74%;
+  --border: 215 28% 24%;
+  --input: 215 28% 24%;
+  --accent: 222 83% 54%;
+  --accent-foreground: 0 0% 100%;
+}
+
+html[data-theme="enterprise-navy"] {
+  --bg-primary-hex: #081f2b;
+  --text-primary-hex: #f8fafc;
+  --text-secondary-hex: #a5b4c3;
+  --accent-hex: #2563eb;
+  --background: 206 70% 10%;
+  --foreground: 210 40% 98%;
+  --card: 206 57% 14%;
+  --card-foreground: 210 40% 98%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 214 35% 22%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 212 24% 20%;
+  --muted-foreground: 214 16% 73%;
+  --border: 213 29% 24%;
+  --input: 213 29% 24%;
+  --accent: 221 83% 53%;
+  --accent-foreground: 0 0% 100%;
+}
+
+html[data-theme="industrial-charcoal"] {
+  --bg-primary-hex: #1c1f24;
+  --text-primary-hex: #e5e7eb;
+  --text-secondary-hex: #a1a1aa;
+  --accent-hex: #3882f6;
+  --background: 225 8% 13%;
+  --foreground: 220 14% 92%;
+  --card: 225 8% 16%;
+  --card-foreground: 220 14% 92%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 225 7% 21%;
+  --secondary-foreground: 220 14% 92%;
+  --muted: 225 6% 20%;
+  --muted-foreground: 220 8% 71%;
+  --border: 225 7% 26%;
+  --input: 225 7% 26%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
+}
+
+html[data-theme="enterprise-light"] {
+  --bg-primary-hex: #ffffff;
+  --text-primary-hex: #111827;
+  --text-secondary-hex: #6b7280;
+  --accent-hex: #1f3a8a;
+  --background: 0 0% 100%;
+  --foreground: 221 39% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 221 39% 11%;
+  --primary: 224 64% 33%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 221 39% 11%;
+  --muted: 210 20% 96%;
   --muted-foreground: 215 16% 35%;
-  --border: 214 20% 88%;
-  --input: 214 20% 88%;
-  --accent: 210 20% 92%;
-  --accent-foreground: 222 47% 11%;
+  --border: 220 14% 87%;
+  --input: 220 14% 87%;
+  --accent: 224 64% 33%;
+  --accent-foreground: 0 0% 100%;
+}
+
+html[data-theme="premium-minimal"] {
+  --bg-primary-hex: #0a0a0a;
+  --text-primary-hex: #fafafa;
+  --text-secondary-hex: #a1a3a3;
+  --accent-hex: #2563eb;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 98%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 70%;
+  --border: 0 0% 17%;
+  --input: 0 0% 17%;
+  --accent: 221 83% 53%;
+  --accent-foreground: 0 0% 100%;
 }
 
 * {
@@ -25,6 +135,13 @@
 
 body {
   @apply bg-background text-foreground;
+  font-family:
+    "Inter",
+    "Neue Haas Grotesk Text Pro",
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
 }
 
 @keyframes accordion-down {
