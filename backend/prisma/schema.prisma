@@ -572,3 +572,24 @@ model AppConfig {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+model DemoCallLog {
+  id               String   @id @default(cuid())
+  providerCallId   String   @unique
+  assistantId      String?
+  phoneNumberId    String?
+  fromNumber       String
+  toNumber         String
+  status           String?
+  outcome          CallLogOutcome?
+  aiSummary        String?
+  transcript       String?
+  recordingUrl     String?
+  successEvaluation Float?
+  durationSec      Int?
+  startedAt        DateTime @default(now())
+  endedAt          DateTime?
+  rawJson          Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

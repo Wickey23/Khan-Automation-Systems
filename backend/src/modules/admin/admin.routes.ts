@@ -321,6 +321,16 @@ adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Respo
   });
 });
 
+adminRouter.get("/settings/demo/calls", async (req: AuthenticatedRequest, res: Response) => {
+  const limitRaw = Number.parseInt(String(req.query.limit || "100"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 300)) : 100;
+  const calls = await prisma.demoCallLog.findMany({
+    orderBy: { startedAt: "desc" },
+    take: limit
+  });
+  return res.json({ ok: true, data: { calls } });
+});
+
 adminRouter.get("/leads/:id", async (req, res) => {
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
   if (!lead) return res.status(404).json({ ok: false, message: "Lead not found." });

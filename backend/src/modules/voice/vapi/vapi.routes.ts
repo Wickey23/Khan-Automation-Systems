@@ -41,6 +41,11 @@ function parseNumeric(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseInteger(value: unknown) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function normalizeOutcome(value: string) {
   const upper = value.trim().toUpperCase();
   if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"].includes(upper)) {
@@ -88,6 +93,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const analysis = asObject(body.analysis);
   const artifact = asObject(body.artifact);
   const eventType = pickString(body.type, body.event, body.messageType).toLowerCase() || "unknown";
+  const assistant = asObject(call.assistant);
 
   const callSid = pickString(
     body.callSid,
@@ -111,6 +117,9 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const successEvaluation = parseNumeric(analysis.successEvaluation ?? analysis.score ?? body.successEvaluation);
   const structuredData = asObject(analysis.structuredData);
   const orgIdFromPayload = pickString(body.orgId, call.orgId) || null;
+  const assistantId = pickString(body.assistantId, call.assistantId, assistant.id, assistant.assistantId) || null;
+  const phoneNumberId = pickString(body.phoneNumberId, call.phoneNumberId, phoneNumber.id) || null;
+  const durationSec = parseInteger(body.durationSec ?? call.durationSec ?? call.duration);
 
   try {
     if (!callSid) {
@@ -140,6 +149,54 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     const toNumber = normalizeToE164(
       pickString(body.toNumber, body.to, phoneNumber.number, call.phoneNumber, call.to)
     ) || "unknown";
+
+    const demoConfig = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+    const demoNumber = normalizeToE164(String(demoConfig?.demoNumber || ""));
+    const hasDemoSelector = Boolean(demoConfig?.demoVapiAssistantId || demoConfig?.demoVapiPhoneNumberId || demoNumber);
+    const isDemoCall =
+      hasDemoSelector &&
+      ((Boolean(demoConfig?.demoVapiAssistantId) && assistantId === demoConfig?.demoVapiAssistantId) ||
+        (Boolean(demoConfig?.demoVapiPhoneNumberId) && phoneNumberId === demoConfig?.demoVapiPhoneNumberId) ||
+        (Boolean(demoNumber) && toNumber === demoNumber));
+
+    if (isDemoCall) {
+      const demoUpdateData: Record<string, unknown> = {
+        assistantId,
+        phoneNumberId,
+        fromNumber,
+        toNumber,
+        status: callStatus || null,
+        rawJson: body as Prisma.InputJsonValue
+      };
+      if (summary !== null) demoUpdateData.aiSummary = summary;
+      if (transcript !== null) demoUpdateData.transcript = transcript;
+      if (recordingUrl !== null) demoUpdateData.recordingUrl = recordingUrl;
+      if (outcome) demoUpdateData.outcome = outcome;
+      if (successEvaluation !== null) demoUpdateData.successEvaluation = successEvaluation;
+      if (durationSec !== null) demoUpdateData.durationSec = durationSec;
+      if (eventType === "end-of-call-report" || endedByStatus) demoUpdateData.endedAt = new Date();
+
+      await prisma.demoCallLog.upsert({
+        where: { providerCallId: callSid },
+        update: demoUpdateData,
+        create: {
+          providerCallId: callSid,
+          assistantId,
+          phoneNumberId,
+          fromNumber,
+          toNumber,
+          status: callStatus || null,
+          rawJson: body as Prisma.InputJsonValue,
+          ...(summary ? { aiSummary: summary } : {}),
+          ...(transcript ? { transcript } : {}),
+          ...(recordingUrl ? { recordingUrl } : {}),
+          ...(outcome ? { outcome } : {}),
+          ...(successEvaluation !== null ? { successEvaluation } : {}),
+          ...(durationSec !== null ? { durationSec } : {}),
+          ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
+        }
+      });
+    }
 
     let resolvedOrgId = orgIdFromPayload || "";
     if (!resolvedOrgId && toNumber !== "unknown") {

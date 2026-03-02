@@ -10,6 +10,7 @@ import type {
   Client,
   ConfigPackage,
   DemoConfig,
+  DemoCallLog,
   Lead,
   LeadPayload,
   OnboardingSubmission,
@@ -631,4 +632,8 @@ export async function fetchPublicDemoConfig() {
     demoSubtitle: string | null;
     demoQuestions: string[];
   }>("/api/public/demo-config");
+}
+
+export async function fetchAdminDemoCalls(limit = 100) {
+  return request<{ calls: DemoCallLog[] }>(`/api/admin/settings/demo/calls?limit=${Math.max(1, Math.min(limit, 300))}`);
 }

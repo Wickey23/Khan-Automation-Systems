@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/site/toast-provider";
-import { fetchAdminDemoConfig, fetchAdminVapiResources, updateAdminDemoConfig } from "@/lib/api";
+import { fetchAdminDemoCalls, fetchAdminDemoConfig, fetchAdminVapiResources, updateAdminDemoConfig } from "@/lib/api";
+import type { DemoCallLog } from "@/lib/types";
 
 export default function AdminDemoPage() {
   const { showToast } = useToast();
@@ -26,6 +27,8 @@ export default function AdminDemoPage() {
   const [demoQuestionsText, setDemoQuestionsText] = useState(
     "What services do you offer?\nWhat are your hours?\nCan I schedule an appointment?"
   );
+  const [callsLoading, setCallsLoading] = useState(true);
+  const [calls, setCalls] = useState<DemoCallLog[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -76,6 +79,22 @@ export default function AdminDemoPage() {
       active = false;
     };
   }, [showToast]);
+
+  async function loadDemoCalls() {
+    setCallsLoading(true);
+    try {
+      const data = await fetchAdminDemoCalls(120);
+      setCalls(data.calls || []);
+    } catch {
+      setCalls([]);
+    } finally {
+      setCallsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDemoCalls();
+  }, []);
 
   useEffect(() => {
     if (!demoVapiPhoneNumberId) return;
@@ -201,6 +220,55 @@ export default function AdminDemoPage() {
             <Button onClick={() => void onSave()} disabled={loading || saving}>
               {saving ? "Saving..." : "Save demo config"}
             </Button>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-lg border bg-white p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Demo Call Logs</h2>
+              <p className="text-sm text-muted-foreground">
+                Calls made to the demo assistant/number with summary, transcript, and call metadata.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => void loadDemoCalls()} disabled={callsLoading}>
+              {callsLoading ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {calls.map((call) => (
+              <div key={call.id} className="rounded-md border p-3">
+                <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <p><span className="text-muted-foreground">Started:</span> {new Date(call.startedAt).toLocaleString()}</p>
+                  <p><span className="text-muted-foreground">From:</span> {call.fromNumber}</p>
+                  <p><span className="text-muted-foreground">To:</span> {call.toNumber}</p>
+                  <p><span className="text-muted-foreground">Status:</span> {call.status || "-"}</p>
+                  <p><span className="text-muted-foreground">Outcome:</span> {call.outcome || "-"}</p>
+                  <p><span className="text-muted-foreground">Duration:</span> {call.durationSec ? `${call.durationSec}s` : "-"}</p>
+                  <p><span className="text-muted-foreground">Success:</span> {typeof call.successEvaluation === "number" ? `${call.successEvaluation}` : "-"}</p>
+                  <p className="truncate"><span className="text-muted-foreground">Call ID:</span> {call.providerCallId}</p>
+                </div>
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded-md border bg-muted/20 p-2">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</p>
+                    <p className="whitespace-pre-wrap text-sm">{call.aiSummary || "-"}</p>
+                  </div>
+                  <div className="rounded-md border bg-muted/20 p-2">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transcript</p>
+                    <p className="max-h-36 overflow-auto whitespace-pre-wrap text-sm">{call.transcript || "-"}</p>
+                  </div>
+                </div>
+                {call.recordingUrl ? (
+                  <a className="mt-2 inline-block text-sm text-primary underline" href={call.recordingUrl} target="_blank" rel="noreferrer">
+                    Open recording
+                  </a>
+                ) : null}
+              </div>
+            ))}
+            {!callsLoading && !calls.length ? (
+              <p className="text-sm text-muted-foreground">No demo calls logged yet.</p>
+            ) : null}
           </div>
         </div>
       </div>

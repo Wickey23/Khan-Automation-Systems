@@ -342,3 +342,23 @@ export type DemoConfig = {
   demoSubtitle: string;
   demoQuestions: string[];
 };
+
+export type DemoCallLog = {
+  id: string;
+  providerCallId: string;
+  assistantId: string | null;
+  phoneNumberId: string | null;
+  fromNumber: string;
+  toNumber: string;
+  status: string | null;
+  outcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM" | null;
+  aiSummary: string | null;
+  transcript: string | null;
+  recordingUrl: string | null;
+  successEvaluation: number | null;
+  durationSec: number | null;
+  startedAt: string;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
