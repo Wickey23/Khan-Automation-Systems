@@ -31,6 +31,15 @@ function classifySmsKeyword(input: string) {
   return null;
 }
 
+function mapTwilioMessageStatus(input: string) {
+  const normalized = input.trim().toLowerCase();
+  if (normalized === "delivered") return "DELIVERED" as const;
+  if (normalized === "sent") return "SENT" as const;
+  if (["failed", "undelivered", "canceled"].includes(normalized)) return "FAILED" as const;
+  if (["queued", "accepted", "sending", "scheduled"].includes(normalized)) return "QUEUED" as const;
+  return "QUEUED" as const;
+}
+
 function phoneVariants(input: string) {
   const normalized = normalizePhone(input);
   const digits = normalized.replace(/\D/g, "");
@@ -475,4 +484,49 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
 
   response.message(outboundBody);
   return res.type("text/xml").send(response.toString());
+});
+
+smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
+  const messageSid = String(req.body.MessageSid || "").trim();
+  const statusRaw = String(req.body.MessageStatus || "").trim();
+  const errorCode = String(req.body.ErrorCode || "").trim();
+  const errorMessage = String(req.body.ErrorMessage || "").trim();
+  const orgIdFromQuery = typeof req.query.orgId === "string" ? req.query.orgId.trim() : "";
+
+  if (!messageSid) return res.json({ ok: true, ignored: true });
+
+  let resolvedOrgId = orgIdFromQuery;
+  if (!resolvedOrgId) {
+    const candidate = await prisma.message.findFirst({
+      where: { providerMessageId: messageSid },
+      select: { orgId: true },
+      orderBy: { createdAt: "desc" }
+    });
+    resolvedOrgId = candidate?.orgId || "";
+  }
+
+  const nextStatus = mapTwilioMessageStatus(statusRaw);
+  const errorText = errorCode || errorMessage ? `Twilio ${errorCode} ${errorMessage}`.trim() : null;
+
+  if (resolvedOrgId) {
+    await prisma.message.updateMany({
+      where: { orgId: resolvedOrgId, providerMessageId: messageSid },
+      data: {
+        status: nextStatus,
+        errorText,
+        deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined
+      }
+    });
+  } else {
+    await prisma.message.updateMany({
+      where: { providerMessageId: messageSid },
+      data: {
+        status: nextStatus,
+        errorText,
+        deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined
+      }
+    });
+  }
+
+  return res.json({ ok: true });
 });

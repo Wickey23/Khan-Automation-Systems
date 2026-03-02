@@ -89,6 +89,7 @@ export async function sendSmsMessage(input: {
   from: string;
   to: string;
   body: string;
+  statusCallbackUrl?: string;
 }) {
   const client = getTwilioClient();
   if (!client) {
@@ -97,11 +98,14 @@ export async function sendSmsMessage(input: {
   const message = await client.messages.create({
     from: input.from,
     to: input.to,
-    body: input.body
+    body: input.body,
+    statusCallback: input.statusCallbackUrl
   });
 
   return {
     sid: message.sid,
-    status: message.status
+    status: message.status,
+    errorCode: message.errorCode,
+    errorMessage: message.errorMessage
   };
 }

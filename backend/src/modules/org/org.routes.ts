@@ -1,5 +1,6 @@
 import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { Router } from "express";
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { hasProMessaging } from "../billing/plan-features";
@@ -384,16 +385,26 @@ orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
   });
 
   let providerMessageId: string | null = null;
-  let status: "SENT" | "FAILED" = "SENT";
+  let status: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" = "QUEUED";
   let errorText: string | null = null;
 
   try {
+    const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(req.auth.orgId)}`;
     const sent = await sendSmsMessage({
       from: fromPhone.e164Number,
       to: toNumber,
-      body: parsed.data.body
+      body: parsed.data.body,
+      statusCallbackUrl
     });
     providerMessageId = sent.sid;
+    const twStatus = String(sent.status || "").toLowerCase();
+    if (twStatus === "delivered") status = "DELIVERED";
+    else if (twStatus === "sent") status = "SENT";
+    else if (["failed", "undelivered", "canceled"].includes(twStatus)) status = "FAILED";
+    else status = "QUEUED";
+    if (sent.errorCode || sent.errorMessage) {
+      errorText = `Twilio ${sent.errorCode || ""} ${sent.errorMessage || ""}`.trim();
+    }
   } catch (error) {
     status = "FAILED";
     errorText = error instanceof Error ? error.message : "sms_send_failed";
