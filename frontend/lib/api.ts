@@ -30,6 +30,15 @@ type ApiResponse<T> = {
   data?: T;
 };
 
+function redirectToLoginIfUnauthorized() {
+  if (typeof window === "undefined") return;
+  const currentPath = window.location.pathname || "";
+  if (currentPath.startsWith("/auth/login")) return;
+  const next = `${window.location.pathname}${window.location.search || ""}`;
+  const target = `/auth/login${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+  window.location.replace(target);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!siteConfig.apiBase) {
     throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
@@ -70,6 +79,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok || !payload?.ok) {
     if (response.status === 401) {
+      redirectToLoginIfUnauthorized();
       throw new Error("Session expired. Please log in again.");
     }
     if (payload?.message) {
