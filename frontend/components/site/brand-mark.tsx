@@ -53,7 +53,7 @@ function Lockup({
   iconTone?: "default" | "starter" | "pro";
 }) {
   const iconToneClass =
-    iconTone === "starter" ? "text-primary" : iconTone === "pro" ? "text-foreground" : "text-foreground";
+    iconTone === "starter" ? "text-muted-foreground" : iconTone === "pro" ? "text-primary" : "text-foreground";
 
   return (
     <span className={cn("inline-flex items-center gap-3 text-foreground", className)}>
@@ -68,7 +68,7 @@ function Lockup({
 
 export function BrandMark({ href, iconOnly = false, className, size = "md", iconTone = "default" }: BrandMarkProps) {
   const iconToneClass =
-    iconTone === "starter" ? "text-primary" : iconTone === "pro" ? "text-foreground" : "text-foreground";
+    iconTone === "starter" ? "text-muted-foreground" : iconTone === "pro" ? "text-primary" : "text-foreground";
 
   if (!href) {
     return iconOnly ? (
