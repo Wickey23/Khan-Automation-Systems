@@ -563,6 +563,8 @@ model BillingWebhookEvent {
 model AppConfig {
   id               String   @id @default("singleton")
   demoNumber       String?
+  demoVapiAssistantId String?
+  demoVapiPhoneNumberId String?
   demoTitle        String?
   demoSubtitle     String?
   demoQuestionsJson String  @default("[]")

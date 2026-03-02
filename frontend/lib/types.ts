@@ -336,6 +336,8 @@ export type AuditEvent = {
 
 export type DemoConfig = {
   demoNumber: string;
+  demoVapiAssistantId: string;
+  demoVapiPhoneNumberId: string;
   demoTitle: string;
   demoSubtitle: string;
   demoQuestions: string[];

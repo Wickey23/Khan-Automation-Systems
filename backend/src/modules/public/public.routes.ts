@@ -23,10 +23,11 @@ publicRouter.get("/demo-config", async (_req, res) => {
     ok: true,
     data: {
       demoNumber: config?.demoNumber || null,
+      demoVapiAssistantId: config?.demoVapiAssistantId || null,
+      demoVapiPhoneNumberId: config?.demoVapiPhoneNumberId || null,
       demoTitle: config?.demoTitle || null,
       demoSubtitle: config?.demoSubtitle || null,
       demoQuestions: parseQuestions(config?.demoQuestionsJson)
     }
   });
 });
-

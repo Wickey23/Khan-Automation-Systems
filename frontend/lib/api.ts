@@ -625,6 +625,8 @@ export async function updateAdminDemoConfig(payload: DemoConfig) {
 export async function fetchPublicDemoConfig() {
   return request<{
     demoNumber: string | null;
+    demoVapiAssistantId: string | null;
+    demoVapiPhoneNumberId: string | null;
     demoTitle: string | null;
     demoSubtitle: string | null;
     demoQuestions: string[];

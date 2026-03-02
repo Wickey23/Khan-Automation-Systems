@@ -239,6 +239,8 @@ adminRouter.get("/settings/demo", async (_req: AuthenticatedRequest, res: Respon
     ok: true,
     data: {
       demoNumber: config?.demoNumber || "",
+      demoVapiAssistantId: config?.demoVapiAssistantId || "",
+      demoVapiPhoneNumberId: config?.demoVapiPhoneNumberId || "",
       demoTitle: config?.demoTitle || "",
       demoSubtitle: config?.demoSubtitle || "",
       demoQuestions:
@@ -258,6 +260,8 @@ adminRouter.get("/settings/demo", async (_req: AuthenticatedRequest, res: Respon
 
 adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Response) => {
   const demoNumber = String(req.body?.demoNumber || "").trim();
+  const demoVapiAssistantId = String(req.body?.demoVapiAssistantId || "").trim();
+  const demoVapiPhoneNumberId = String(req.body?.demoVapiPhoneNumberId || "").trim();
   const demoTitle = String(req.body?.demoTitle || "").trim();
   const demoSubtitle = String(req.body?.demoSubtitle || "").trim();
   const demoQuestionsRaw = Array.isArray(req.body?.demoQuestions) ? req.body.demoQuestions : [];
@@ -270,6 +274,8 @@ adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Respo
     where: { id: "singleton" },
     update: {
       demoNumber: demoNumber || null,
+      demoVapiAssistantId: demoVapiAssistantId || null,
+      demoVapiPhoneNumberId: demoVapiPhoneNumberId || null,
       demoTitle: demoTitle || null,
       demoSubtitle: demoSubtitle || null,
       demoQuestionsJson: JSON.stringify(demoQuestions),
@@ -278,6 +284,8 @@ adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Respo
     create: {
       id: "singleton",
       demoNumber: demoNumber || null,
+      demoVapiAssistantId: demoVapiAssistantId || null,
+      demoVapiPhoneNumberId: demoVapiPhoneNumberId || null,
       demoTitle: demoTitle || null,
       demoSubtitle: demoSubtitle || null,
       demoQuestionsJson: JSON.stringify(demoQuestions),
@@ -292,6 +300,8 @@ adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Respo
     action: "DEMO_CONFIG_UPDATED",
     metadata: {
       hasDemoNumber: Boolean(config.demoNumber),
+      hasDemoAssistant: Boolean(config.demoVapiAssistantId),
+      hasDemoPhoneNumberId: Boolean(config.demoVapiPhoneNumberId),
       hasTitle: Boolean(config.demoTitle),
       hasSubtitle: Boolean(config.demoSubtitle),
       questionCount: demoQuestions.length
@@ -302,6 +312,8 @@ adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Respo
     ok: true,
     data: {
       demoNumber: config.demoNumber || "",
+      demoVapiAssistantId: config.demoVapiAssistantId || "",
+      demoVapiPhoneNumberId: config.demoVapiPhoneNumberId || "",
       demoTitle: config.demoTitle || "",
       demoSubtitle: config.demoSubtitle || "",
       demoQuestions
