@@ -41,8 +41,10 @@ export function LeadDetailForm({ lead }: { lead: Lead }) {
 
   async function onDelete() {
     if (!window.confirm("Delete this lead?")) return;
+    const password = window.prompt("Enter delete password:");
+    if (!password) return;
     try {
-      await deleteLead(lead.id);
+      await deleteLead(lead.id, password);
       showToast({ title: "Lead deleted" });
       router.push("/admin/leads");
     } catch (error) {

@@ -67,6 +67,10 @@ export const clearAllDataSchema = z.object({
   confirmationText: z.string().min(1)
 });
 
+export const deleteItemSchema = z.object({
+  password: z.string().min(1).max(128)
+});
+
 export const prospectFilterSchema = z.object({
   status: z.enum(["NEW", "QUALIFIED", "CONTACTED", "NURTURE", "WON", "LOST"]).optional(),
   search: z.string().optional(),

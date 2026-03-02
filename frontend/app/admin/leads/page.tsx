@@ -17,6 +17,7 @@ export default function AdminLeadsPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletePassword, setDeletePassword] = useState("123");
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -48,6 +49,11 @@ export default function AdminLeadsPage() {
       active = false;
     };
   }, [query]);
+
+  async function reloadLeads() {
+    const data = await fetchLeads(query);
+    setLeads(data.leads);
+  }
 
   if (error) {
     return (
@@ -100,8 +106,20 @@ export default function AdminLeadsPage() {
         <Input placeholder="Filter by industry" value={industry} onChange={(event) => setIndustry(event.target.value)} />
         <Input placeholder="Search name/business/email" value={search} onChange={(event) => setSearch(event.target.value)} />
       </div>
+      <div className="mb-4 max-w-sm">
+        <Input
+          type="password"
+          placeholder="Delete password"
+          value={deletePassword}
+          onChange={(event) => setDeletePassword(event.target.value)}
+        />
+      </div>
 
-      {loading ? <p className="text-sm text-muted-foreground">Loading leads...</p> : <LeadsTable leads={leads} />}
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading leads...</p>
+      ) : (
+        <LeadsTable leads={leads} deletePassword={deletePassword} onDeleted={reloadLeads} />
+      )}
     </div>
   );
 }

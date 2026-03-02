@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Copy, ExternalLink, Save } from "lucide-react";
-import { updateLead } from "@/lib/api";
+import { Copy, ExternalLink, Save, Trash2 } from "lucide-react";
+import { deleteLead, updateLead } from "@/lib/api";
 import type { Lead, LeadStatus } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,15 @@ const statusVariant: Record<LeadStatus, "default" | "secondary" | "outline"> = {
 
 const statusOptions: LeadStatus[] = ["NEW", "CONTACTED", "QUALIFIED", "WON", "LOST"];
 
-export function LeadsTable({ leads }: { leads: Lead[] }) {
+export function LeadsTable({
+  leads,
+  deletePassword,
+  onDeleted
+}: {
+  leads: Lead[];
+  deletePassword: string;
+  onDeleted: () => Promise<void>;
+}) {
   const { showToast } = useToast();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [statusById, setStatusById] = useState<Record<string, LeadStatus>>({});
@@ -59,6 +67,28 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
       showToast({
         title: "Update failed",
         description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function removeLead(lead: Lead) {
+    if (!deletePassword.trim()) {
+      showToast({ title: "Delete password required", description: "Enter delete password first.", variant: "error" });
+      return;
+    }
+    if (!window.confirm(`Delete lead for ${lead.business}?`)) return;
+    setSavingId(lead.id);
+    try {
+      await deleteLead(lead.id, deletePassword);
+      await onDeleted();
+      showToast({ title: "Lead deleted" });
+    } catch (error) {
+      showToast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Request failed.",
         variant: "error"
       });
     } finally {
@@ -159,6 +189,9 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
                   <Link href={`/admin/leads/${lead.id}`}>
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
+                </Button>
+                <Button variant="outline" size="sm" disabled={savingId === lead.id} onClick={() => void removeLead(lead)}>
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </TableCell>

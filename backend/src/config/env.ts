@@ -17,6 +17,7 @@ const envSchema = z.object({
   LEAD_NOTIFICATION_EMAIL: z.string().email(),
   ADMIN_EMAIL: z.string().email(),
   ADMIN_PASSWORD: z.string().min(8),
+  ADMIN_ACTION_PASSWORD: z.string().default("123"),
   STRIPE_SECRET_KEY: z.string().default("sk_test_placeholder"),
   STRIPE_WEBHOOK_SECRET: z.string().default("whsec_placeholder"),
   STRIPE_STARTER_PRICE_ID: z.string().default("price_starter_placeholder"),

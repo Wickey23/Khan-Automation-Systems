@@ -148,6 +148,13 @@ export async function fetchAdminCalls(query: string) {
   return request<{ calls: AdminCallRecord[]; total: number }>(`/api/admin/calls${query}`);
 }
 
+export async function deleteAdminCall(id: string, password: string) {
+  return request<{ id: string }>(`/api/admin/calls/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({ password })
+  });
+}
+
 export async function fetchLeadById(id: string) {
   return request<{ lead: Lead }>(`/api/admin/leads/${id}`);
 }
@@ -159,9 +166,10 @@ export async function updateLead(id: string, body: LeadUpdateInput) {
   });
 }
 
-export async function deleteLead(id: string) {
+export async function deleteLead(id: string, password: string) {
   return request<{ id: string }>(`/api/admin/leads/${id}`, {
-    method: "DELETE"
+    method: "DELETE",
+    body: JSON.stringify({ password })
   });
 }
 
@@ -459,6 +467,13 @@ export async function updateProspect(id: string, body: Partial<Prospect>) {
   return request<{ prospect: Prospect }>(`/api/admin/prospects/${id}`, {
     method: "PATCH",
     body: JSON.stringify(body)
+  });
+}
+
+export async function deleteProspect(id: string, password: string) {
+  return request<{ id: string }>(`/api/admin/prospects/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({ password })
   });
 }
 

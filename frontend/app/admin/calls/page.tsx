@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
-import { fetchAdminCalls } from "@/lib/api";
+import { deleteAdminCall, fetchAdminCalls } from "@/lib/api";
 import type { AdminCallRecord } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,9 @@ export default function AdminCallsPage() {
   const [selectedCall, setSelectedCall] = useState<AdminCallRecord | null>(null);
   const [search, setSearch] = useState("");
   const [outcome, setOutcome] = useState("ALL");
+  const [deletePassword, setDeletePassword] = useState("123");
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -57,6 +59,29 @@ export default function AdminCallsPage() {
       active = false;
     };
   }, [query, showToast]);
+
+  async function onDelete(call: AdminCallRecord) {
+    if (!deletePassword.trim()) {
+      showToast({ title: "Delete password required", description: "Enter delete password first.", variant: "error" });
+      return;
+    }
+    if (!window.confirm(`Delete call ${call.providerCallId || call.id}?`)) return;
+    setDeletingId(call.id);
+    try {
+      await deleteAdminCall(call.id, deletePassword);
+      setCalls((current) => current.filter((row) => row.id !== call.id));
+      if (selectedCall?.id === call.id) setSelectedCall(null);
+      showToast({ title: "Call deleted" });
+    } catch (error) {
+      showToast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <AdminGuard>
@@ -96,6 +121,12 @@ export default function AdminCallsPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
+          <Input
+            type="password"
+            placeholder="Delete password"
+            value={deletePassword}
+            onChange={(event) => setDeletePassword(event.target.value)}
+          />
         </div>
 
         <div className="overflow-x-auto rounded-lg border bg-white">
@@ -110,6 +141,7 @@ export default function AdminCallsPage() {
                 <th className="p-3">Duration</th>
                 <th className="p-3">Recording</th>
                 <th className="p-3">Details</th>
+                <th className="p-3">Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -135,11 +167,16 @@ export default function AdminCallsPage() {
                       View
                     </Button>
                   </td>
+                  <td className="p-3">
+                    <Button size="sm" variant="outline" disabled={deletingId === call.id} onClick={() => void onDelete(call)}>
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {!calls.length && !loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={8}>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>
                     No calls found.
                   </td>
                 </tr>
@@ -195,4 +232,3 @@ export default function AdminCallsPage() {
     </AdminGuard>
   );
 }
-

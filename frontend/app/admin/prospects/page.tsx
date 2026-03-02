@@ -6,6 +6,7 @@ import { AdminGuard } from "@/components/dashboard/admin-guard";
 import {
   convertProspectToLead,
   createProspect,
+  deleteProspect,
   discoverProspects,
   fetchProspects,
   importProspectsCsv,
@@ -36,6 +37,7 @@ export default function AdminProspectsPage() {
     "truck repair shop,auto repair shop,hvac contractor,equipment repair service,manufacturing service"
   );
   const [discoverLimit, setDiscoverLimit] = useState(30);
+  const [deletePassword, setDeletePassword] = useState("123");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
 
@@ -191,6 +193,28 @@ export default function AdminProspectsPage() {
     }
   }
 
+  async function runDelete(id: string) {
+    if (!deletePassword.trim()) {
+      showToast({ title: "Delete password required", description: "Enter delete password first.", variant: "error" });
+      return;
+    }
+    if (!window.confirm("Delete this prospect?")) return;
+    setBusyId(id);
+    try {
+      await deleteProspect(id, deletePassword);
+      setProspects((current) => current.filter((row) => row.id !== id));
+      showToast({ title: "Prospect deleted" });
+    } catch (error) {
+      showToast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <AdminGuard>
       <div className="container py-10">
@@ -281,6 +305,13 @@ export default function AdminProspectsPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
+            <Input
+              type="password"
+              placeholder="Delete password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              className="max-w-xs"
+            />
             <Button variant="outline" onClick={() => void fetchProspects(query).then((d) => setProspects(d.prospects))}>
               Refresh
             </Button>
@@ -331,6 +362,9 @@ export default function AdminProspectsPage() {
                         </Button>
                         <Button size="sm" disabled={busyId === prospect.id} onClick={() => void runConvert(prospect.id)}>
                           Convert
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={busyId === prospect.id} onClick={() => void runDelete(prospect.id)}>
+                          Delete
                         </Button>
                       </div>
                     </td>

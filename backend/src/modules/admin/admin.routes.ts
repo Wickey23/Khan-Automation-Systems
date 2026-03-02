@@ -12,6 +12,7 @@ import {
   callFilterSchema,
   clearAllDataSchema,
   createProspectSchema,
+  deleteItemSchema,
   discoverProspectsSchema,
   importProspectsSchema,
   leadFilterSchema,
@@ -28,6 +29,19 @@ import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
+
+function verifyDeletePassword(req: AuthenticatedRequest, res: Response) {
+  const parsed = deleteItemSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ ok: false, message: "Password is required for delete actions." });
+    return false;
+  }
+  if (parsed.data.password !== env.ADMIN_ACTION_PASSWORD) {
+    res.status(401).json({ ok: false, message: "Invalid delete password." });
+    return false;
+  }
+  return true;
+}
 
 function normalizeVapiList(payload: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
@@ -188,11 +202,22 @@ adminRouter.patch("/leads/:id", async (req, res) => {
 });
 
 adminRouter.delete("/leads/:id", async (req, res) => {
+  if (!verifyDeletePassword(req, res)) return;
   try {
     const lead = await prisma.lead.delete({ where: { id: req.params.id } });
     return res.json({ ok: true, data: { id: lead.id } });
   } catch {
     return res.status(404).json({ ok: false, message: "Lead not found." });
+  }
+});
+
+adminRouter.delete("/calls/:id", async (req, res) => {
+  if (!verifyDeletePassword(req, res)) return;
+  try {
+    const call = await prisma.callLog.delete({ where: { id: req.params.id } });
+    return res.json({ ok: true, data: { id: call.id } });
+  } catch {
+    return res.status(404).json({ ok: false, message: "Call not found." });
   }
 });
 
@@ -289,6 +314,16 @@ adminRouter.patch("/prospects/:id", async (req: AuthenticatedRequest, res) => {
       }
     });
     return res.json({ ok: true, data: { prospect } });
+  } catch {
+    return res.status(404).json({ ok: false, message: "Prospect not found." });
+  }
+});
+
+adminRouter.delete("/prospects/:id", async (req: AuthenticatedRequest, res) => {
+  if (!verifyDeletePassword(req, res)) return;
+  try {
+    const prospect = await prisma.prospect.delete({ where: { id: req.params.id } });
+    return res.json({ ok: true, data: { id: prospect.id } });
   } catch {
     return res.status(404).json({ ok: false, message: "Prospect not found." });
   }
