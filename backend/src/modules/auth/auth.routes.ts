@@ -311,7 +311,12 @@ authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Re
 });
 
 authRouter.post("/logout", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
-  res.clearCookie("kas_auth_token");
+  res.clearCookie("kas_auth_token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/"
+  });
   return res.json({ ok: true });
 });
 
