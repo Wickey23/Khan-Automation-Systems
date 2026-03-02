@@ -16,6 +16,13 @@ function normalizePhone(input: string) {
   return `+${digits}`;
 }
 
+function pickString(...values: Array<unknown>) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
 function classifySmsKeyword(input: string) {
   const normalized = input.trim().toUpperCase().replace(/[^A-Z]/g, "");
   if (["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"].includes(normalized)) return "STOP";
@@ -70,6 +77,7 @@ function extractAssistantReply(payload: unknown) {
 
 async function getVapiSmsReply(input: {
   assistantId: string;
+  orgId: string;
   orgName: string;
   fromNumber: string;
   toNumber: string;
@@ -85,6 +93,7 @@ async function getVapiSmsReply(input: {
 
   const conversationPrompt = [
     `Business: ${input.orgName}`,
+    `Organization ID: ${input.orgId}`,
     `Inbound SMS from: ${input.fromNumber}`,
     `Business SMS number: ${input.toNumber}`,
     history ? `Recent thread:\n${history}` : "",
@@ -97,15 +106,17 @@ async function getVapiSmsReply(input: {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   try {
-    const response = await fetch(`https://api.vapi.ai/assistant/${input.assistantId}/chat`, {
+    const response = await fetch("https://api.vapi.ai/chat", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.VAPI_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        assistantId: input.assistantId,
         input: conversationPrompt,
         metadata: {
+          orgId: input.orgId,
           channel: "sms",
           fromNumber: input.fromNumber,
           toNumber: input.toNumber
@@ -114,8 +125,31 @@ async function getVapiSmsReply(input: {
       signal: controller.signal
     });
 
-    if (!response.ok) return "";
-    const payload = (await response.json()) as unknown;
+    if (response.ok) {
+      const payload = (await response.json()) as unknown;
+      return extractAssistantReply(payload);
+    }
+
+    // Backward-compat fallback for older Vapi route shape.
+    const fallback = await fetch(`https://api.vapi.ai/assistant/${input.assistantId}/chat`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.VAPI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        input: conversationPrompt,
+        metadata: {
+          orgId: input.orgId,
+          channel: "sms",
+          fromNumber: input.fromNumber,
+          toNumber: input.toNumber
+        }
+      }),
+      signal: controller.signal
+    });
+    if (!fallback.ok) return "";
+    const payload = (await fallback.json()) as unknown;
     return extractAssistantReply(payload);
   } catch {
     return "";
@@ -125,14 +159,38 @@ async function getVapiSmsReply(input: {
 }
 
 smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
-  const toNumber = (req.body.To as string | undefined) || "";
-  const fromNumber = (req.body.From as string | undefined) || "";
+  const toNumberRaw = pickString(req.body.To, req.body.Called, req.body.Recipient, "");
+  const fromNumberRaw = pickString(req.body.From, req.body.WaId, "");
+  const toNumber = normalizePhone(toNumberRaw);
+  const fromNumber = normalizePhone(fromNumberRaw);
   const body = String((req.body.Body as string | undefined) || "").trim();
   const messageSid = String((req.body.MessageSid as string | undefined) || "");
-  const orgPhone = await prisma.phoneNumber.findFirst({
-    where: { e164Number: toNumber, status: { not: "RELEASED" } },
+  const toDigits = toNumber.replace(/\D/g, "");
+  const toLast10 = toDigits.slice(-10);
+  let orgPhone = await prisma.phoneNumber.findFirst({
+    where: {
+      status: { not: "RELEASED" },
+      OR: [
+        { e164Number: toNumber },
+        ...(toLast10.length === 10 ? [{ e164Number: { endsWith: toLast10 } }] : [])
+      ]
+    },
     include: { organization: { include: { businessSettings: true } } }
   });
+
+  if (!orgPhone && toNumber) {
+    const active = await prisma.phoneNumber.findMany({
+      where: { status: { not: "RELEASED" } },
+      include: { organization: { include: { businessSettings: true } } },
+      take: 500
+    });
+    orgPhone =
+      active.find((row) => normalizePhone(row.e164Number) === toNumber) ||
+      (toLast10.length === 10
+        ? active.find((row) => normalizePhone(row.e164Number).replace(/\D/g, "").endsWith(toLast10))
+        : null) ||
+      null;
+  }
   const response = new Twiml.MessagingResponse();
   if (!orgPhone?.organization) {
     response.message("This SMS line is not configured.");
@@ -140,7 +198,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   }
 
   const orgId = orgPhone.organization.id;
-  const normalizedFrom = normalizePhone(fromNumber);
+  const normalizedFrom = fromNumber;
   const incomingKeyword = classifySmsKeyword(body);
   const fromPhoneVariants = phoneVariants(fromNumber);
   const existingLead = await prisma.lead.findFirst({
@@ -294,7 +352,9 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   }
 
   const proMessagingEnabled = await hasProMessaging(prisma, orgId);
-  if (!orgPhone.organization.live || orgPhone.organization.status !== "LIVE") {
+  const orgStatus = String(orgPhone.organization.status || "").toUpperCase();
+  const runtimeEnabled = orgPhone.organization.live || orgStatus === "LIVE" || orgStatus === "TESTING";
+  if (!runtimeEnabled) {
     response.message(`Thanks for contacting ${orgPhone.organization.name}. Your account is in setup mode and we'll follow up soon.`);
     return res.type("text/xml").send(response.toString());
   }
@@ -325,6 +385,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     aiConfig?.vapiAgentId?.trim()
       ? await getVapiSmsReply({
           assistantId: aiConfig.vapiAgentId.trim(),
+          orgId,
           orgName: orgPhone.organization.name,
           fromNumber: normalizedFrom,
           toNumber: toNumber || "",
