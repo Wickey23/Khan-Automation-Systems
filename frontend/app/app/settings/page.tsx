@@ -22,6 +22,9 @@ type FormState = {
   warrantyPolicy: string;
   cancellationPolicy: string;
   diagnosticsPolicy: string;
+  smsWelcomeMessage: string;
+  smsMarketingEnabled: boolean;
+  smsMarketingBlurb: string;
   smsConsentText: string;
   recordingConsentEnabled: boolean;
   hours: Record<DayKey, HoursRow>;
@@ -58,6 +61,9 @@ const defaults: FormState = {
   warrantyPolicy: "",
   cancellationPolicy: "",
   diagnosticsPolicy: "",
+  smsWelcomeMessage: "",
+  smsMarketingEnabled: false,
+  smsMarketingBlurb: "",
   smsConsentText: "",
   recordingConsentEnabled: false,
   hours: defaultHours()
@@ -131,6 +137,9 @@ export default function AppSettingsPage() {
           warrantyPolicy: String(policies.warrantyPolicy || ""),
           cancellationPolicy: String(policies.cancellationPolicy || ""),
           diagnosticsPolicy: String(policies.diagnosticsPolicy || ""),
+          smsWelcomeMessage: String(policies.smsWelcomeMessage || ""),
+          smsMarketingEnabled: Boolean(policies.smsMarketingEnabled),
+          smsMarketingBlurb: String(policies.smsMarketingBlurb || ""),
           smsConsentText: settings.smsConsentText,
           recordingConsentEnabled: settings.recordingConsentEnabled,
           hours: parsedHours
@@ -200,7 +209,10 @@ export default function AppSettingsPage() {
         policiesJson: JSON.stringify({
           warrantyPolicy: state.warrantyPolicy.trim(),
           cancellationPolicy: state.cancellationPolicy.trim(),
-          diagnosticsPolicy: state.diagnosticsPolicy.trim()
+          diagnosticsPolicy: state.diagnosticsPolicy.trim(),
+          smsWelcomeMessage: state.smsWelcomeMessage.trim(),
+          smsMarketingEnabled: state.smsMarketingEnabled,
+          smsMarketingBlurb: state.smsMarketingBlurb.trim()
         }),
         smsConsentText: state.smsConsentText.trim(),
         recordingConsentEnabled: state.recordingConsentEnabled
@@ -346,6 +358,29 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
+        <Label>SMS First Message (sent on first inbound text)</Label>
+        <Textarea
+          placeholder="Thanks for texting {{businessName}}. Our team will ask a few quick questions to help you faster."
+          value={state.smsWelcomeMessage}
+          onChange={(e) => setState((p) => ({ ...p, smsWelcomeMessage: e.target.value }))}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Use <code>{"{{businessName}}"}</code> to insert your business name.
+        </p>
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.smsMarketingEnabled}
+            onChange={(e) => setState((p) => ({ ...p, smsMarketingEnabled: e.target.checked }))}
+          />
+          Enable marketing blurb on first inbound text
+        </label>
+        <Label className="mt-3">SMS Marketing Blurb (optional)</Label>
+        <Textarea
+          placeholder="Ask us about seasonal specials and maintenance plans."
+          value={state.smsMarketingBlurb}
+          onChange={(e) => setState((p) => ({ ...p, smsMarketingBlurb: e.target.value }))}
+        />
         <Label>SMS Consent Text</Label>
         <Textarea value={state.smsConsentText} onChange={(e) => setState((p) => ({ ...p, smsConsentText: e.target.value }))} />
         <label className="mt-3 flex items-center gap-2 text-sm">

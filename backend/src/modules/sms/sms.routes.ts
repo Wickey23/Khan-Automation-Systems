@@ -75,6 +75,38 @@ function extractAssistantReply(payload: unknown) {
   return "";
 }
 
+function parsePoliciesJson(value: string | null | undefined) {
+  if (!value) return {} as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function buildFirstInboundIntro(input: {
+  businessName: string;
+  policiesJson?: string | null;
+  smsConsentText?: string | null;
+}) {
+  const policies = parsePoliciesJson(input.policiesJson);
+  const customWelcomeRaw = String(policies.smsWelcomeMessage || "").trim();
+  const marketingEnabled = Boolean(policies.smsMarketingEnabled);
+  const marketingBlurb = String(policies.smsMarketingBlurb || "").trim();
+  const consent = String(input.smsConsentText || "").trim();
+
+  const welcome =
+    customWelcomeRaw.replace(/\{\{\s*businessName\s*\}\}/g, input.businessName) ||
+    `Thanks for texting ${input.businessName}. You reached our service team.`;
+
+  const lines = [welcome];
+  if (marketingEnabled && marketingBlurb) lines.push(marketingBlurb);
+  if (consent) lines.push(consent);
+  lines.push("Reply STOP to opt out. Reply START to re-subscribe.");
+  return lines.filter(Boolean).join(" ");
+}
+
 async function getVapiSmsReply(input: {
   assistantId: string;
   orgId: string;
@@ -229,6 +261,11 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     }
   });
 
+  const existingMessageCount = await prisma.message.count({
+    where: { threadId: thread.id }
+  });
+  const isFirstInbound = existingMessageCount === 0;
+
   await prisma.message.create({
     data: {
       threadId: thread.id,
@@ -354,15 +391,25 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   const proMessagingEnabled = await hasProMessaging(prisma, orgId);
   const orgStatus = String(orgPhone.organization.status || "").toUpperCase();
   const runtimeEnabled = orgPhone.organization.live || orgStatus === "LIVE" || orgStatus === "TESTING";
+  const firstInboundIntro =
+    isFirstInbound && !incomingKeyword
+      ? buildFirstInboundIntro({
+          businessName: orgPhone.organization.name,
+          policiesJson: orgPhone.organization.businessSettings?.policiesJson,
+          smsConsentText: orgPhone.organization.businessSettings?.smsConsentText
+        })
+      : "";
   if (!runtimeEnabled) {
-    response.message(`Thanks for contacting ${orgPhone.organization.name}. Your account is in setup mode and we'll follow up soon.`);
+    const setupReply = `Thanks for contacting ${orgPhone.organization.name}. Your account is in setup mode and we'll follow up soon.`;
+    response.message(firstInboundIntro ? `${firstInboundIntro}\n\n${setupReply}` : setupReply);
     return res.type("text/xml").send(response.toString());
   }
 
   if (!proMessagingEnabled) {
-    response.message(
+    const nonProReply =
       `Thanks for contacting ${orgPhone.organization.name}. Messaging automation is currently unavailable on this plan. Please call us and our team will follow up.`
-    );
+    ;
+    response.message(firstInboundIntro ? `${firstInboundIntro}\n\n${nonProReply}` : nonProReply);
     return res.type("text/xml").send(response.toString());
   }
 
@@ -400,7 +447,8 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
 
   const consentText = orgPhone.organization.businessSettings?.smsConsentText?.trim() || "";
   const fallback = `Thanks for contacting ${orgPhone.organization.name}. We received your message and will follow up shortly.`;
-  const outboundBody = `${vapiReply || fallback}${consentText ? ` ${consentText}` : ""}`.trim();
+  const baseReply = `${vapiReply || fallback}${consentText ? ` ${consentText}` : ""}`.trim();
+  const outboundBody = firstInboundIntro ? `${firstInboundIntro}\n\n${baseReply}` : baseReply;
 
   await prisma.message.create({
     data: {
