@@ -13,6 +13,8 @@ function formatWhen(value: string) {
 export default function AppMessagesPage() {
   const { showToast } = useToast();
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
+  const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
+  const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
@@ -22,9 +24,13 @@ export default function AppMessagesPage() {
     try {
       const data = await fetchOrgMessages();
       setThreads(data.threads);
+      setAssignedPhoneNumber(data.assignedPhoneNumber);
+      setAssignedNumberProvider(data.assignedNumberProvider);
       setSelectedId((current) => current || data.threads[0]?.id || "");
     } catch {
       setThreads([]);
+      setAssignedPhoneNumber(null);
+      setAssignedNumberProvider(null);
     }
   }, []);
 
@@ -80,6 +86,10 @@ export default function AppMessagesPage() {
       <div className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-900">
         Messaging automation is a <strong>Pro</strong> feature. If sending fails due to plan, upgrade from{" "}
         <Link className="underline" href="/app/billing">Billing</Link>.
+      </div>
+      <div className="rounded-lg border bg-white p-3 text-sm">
+        Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
+        {assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">

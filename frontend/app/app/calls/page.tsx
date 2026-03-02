@@ -77,6 +77,8 @@ function extractCallerName(call: OrgCallRecord) {
 
 export default function AppCallsPage() {
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
+  const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
+  const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedCall, setSelectedCall] = useState<OrgCallRecord | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,9 +90,13 @@ export default function AppCallsPage() {
     try {
       const data = await fetchOrgCalls();
       setCalls(data.calls);
+      setAssignedPhoneNumber(data.assignedPhoneNumber);
+      setAssignedNumberProvider(data.assignedNumberProvider);
       setLastUpdated(new Date());
     } catch {
       setCalls([]);
+      setAssignedPhoneNumber(null);
+      setAssignedNumberProvider(null);
     }
   }, []);
 
@@ -209,6 +215,10 @@ export default function AppCallsPage() {
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
         Inbound call events with recording, transcript, summary, and outcomes.
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
+        {assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
         Auto-refreshes every 12 seconds{lastUpdated ? ` (last updated ${lastUpdated.toLocaleTimeString()})` : ""}.

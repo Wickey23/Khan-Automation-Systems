@@ -278,7 +278,11 @@ export async function sendSupportMessage(subject: string, message: string) {
 }
 
 export async function fetchOrgProfile() {
-  return request<{ organization: Organization }>("/api/org/profile");
+  return request<{
+    organization: Organization;
+    assignedPhoneNumber: string | null;
+    assignedNumberProvider: "TWILIO" | "VAPI" | null;
+  }>("/api/org/profile");
 }
 
 export async function updateOrgProfile(body: { name?: string; industry?: string | null }) {
@@ -322,11 +326,19 @@ export async function fetchOrgLeads() {
 }
 
 export async function fetchOrgCalls() {
-  return request<{ calls: OrgCallRecord[] }>("/api/org/calls");
+  return request<{
+    calls: OrgCallRecord[];
+    assignedPhoneNumber: string | null;
+    assignedNumberProvider: "TWILIO" | "VAPI" | null;
+  }>("/api/org/calls");
 }
 
 export async function fetchOrgMessages() {
-  return request<{ threads: OrgMessageThread[] }>("/api/org/messages");
+  return request<{
+    threads: OrgMessageThread[];
+    assignedPhoneNumber: string | null;
+    assignedNumberProvider: "TWILIO" | "VAPI" | null;
+  }>("/api/org/messages");
 }
 
 export async function sendOrgMessage(payload: { to: string; body: string; leadId?: string }) {

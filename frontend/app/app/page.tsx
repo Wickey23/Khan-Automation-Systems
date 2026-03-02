@@ -10,11 +10,15 @@ export default function AppOverviewPage() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [submission, setSubmission] = useState<OnboardingSubmission | null>(null);
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
+  const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
+  const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
 
   useEffect(() => {
     void Promise.all([fetchOrgProfile(), fetchOrgOnboarding(), getBillingStatus()])
       .then(([org, onboarding, billing]) => {
         setOrganization(org.organization);
+        setAssignedPhoneNumber(org.assignedPhoneNumber);
+        setAssignedNumberProvider(org.assignedNumberProvider);
         setSubmission(onboarding.submission);
         setSubscription(billing.subscription);
       })
@@ -27,7 +31,7 @@ export default function AppOverviewPage() {
         <h1 className="text-3xl font-bold">Workspace Overview</h1>
         <p className="mt-2 text-sm text-muted-foreground">Track onboarding, subscription, and go-live progress.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Organization</CardTitle>
@@ -53,6 +57,15 @@ export default function AppOverviewPage() {
           <CardContent className="text-sm">
             <p>{subscription?.status || "inactive"}</p>
             <p className="text-muted-foreground">Plan: {subscription?.plan || "-"}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Assigned Number</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>{assignedPhoneNumber || "Not assigned yet"}</p>
+            <p className="text-muted-foreground">Provider: {assignedNumberProvider || "-"}</p>
           </CardContent>
         </Card>
       </div>

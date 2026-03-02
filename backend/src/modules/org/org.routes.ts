@@ -29,9 +29,23 @@ function normalizePhone(input: string) {
 
 orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const organization = await prisma.organization.findUnique({ where: { id: req.auth.orgId } });
+  const [organization, activePhone] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: req.auth.orgId } }),
+    prisma.phoneNumber.findFirst({
+      where: { orgId: req.auth.orgId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { e164Number: true, provider: true }
+    })
+  ]);
   if (!organization) return res.status(404).json({ ok: false, message: "Organization not found." });
-  return res.json({ ok: true, data: { organization } });
+  return res.json({
+    ok: true,
+    data: {
+      organization,
+      assignedPhoneNumber: activePhone?.e164Number || null,
+      assignedNumberProvider: activePhone?.provider || null
+    }
+  });
 });
 
 orgRouter.patch("/profile", async (req: AuthenticatedRequest, res) => {
@@ -221,15 +235,29 @@ orgRouter.get("/leads", async (req: AuthenticatedRequest, res) => {
 
 orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const calls = await prisma.callLog.findMany({
-    where: { orgId: req.auth.orgId },
-    orderBy: { startedAt: "desc" }
-  });
+  const [calls, activePhone] = await Promise.all([
+    prisma.callLog.findMany({
+      where: { orgId: req.auth.orgId },
+      orderBy: { startedAt: "desc" }
+    }),
+    prisma.phoneNumber.findFirst({
+      where: { orgId: req.auth.orgId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { e164Number: true, provider: true }
+    })
+  ]);
   const enrichedCalls = calls.map((call) => ({
     ...call,
     summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
   }));
-  return res.json({ ok: true, data: { calls: enrichedCalls } });
+  return res.json({
+    ok: true,
+    data: {
+      calls: enrichedCalls,
+      assignedPhoneNumber: activePhone?.e164Number || null,
+      assignedNumberProvider: activePhone?.provider || null
+    }
+  });
 });
 
 orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {
@@ -241,22 +269,36 @@ orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {
 orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
 
-  const threads = await prisma.messageThread.findMany({
-    where: { orgId: req.auth.orgId, channel: "SMS" },
-    include: {
-      lead: {
-        select: { id: true, name: true, business: true, phone: true }
+  const [threads, activePhone] = await Promise.all([
+    prisma.messageThread.findMany({
+      where: { orgId: req.auth.orgId, channel: "SMS" },
+      include: {
+        lead: {
+          select: { id: true, name: true, business: true, phone: true }
+        },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 40
+        }
       },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 40
-      }
-    },
-    orderBy: { lastMessageAt: "desc" },
-    take: 150
-  });
+      orderBy: { lastMessageAt: "desc" },
+      take: 150
+    }),
+    prisma.phoneNumber.findFirst({
+      where: { orgId: req.auth.orgId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { e164Number: true, provider: true }
+    })
+  ]);
 
-  return res.json({ ok: true, data: { threads } });
+  return res.json({
+    ok: true,
+    data: {
+      threads,
+      assignedPhoneNumber: activePhone?.e164Number || null,
+      assignedNumberProvider: activePhone?.provider || null
+    }
+  });
 });
 
 orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
