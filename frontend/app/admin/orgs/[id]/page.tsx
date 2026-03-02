@@ -39,6 +39,7 @@ type OrgDetail = {
     agentId?: string | null;
     vapiAgentId?: string | null;
     vapiPhoneNumberId?: string | null;
+    transferRulesJson?: string | null;
     voice?: string | null;
     model?: string | null;
     systemPrompt?: string | null;
@@ -65,6 +66,10 @@ export default function AdminOrgDetailPage() {
   const [voice, setVoice] = useState("");
   const [model, setModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [urgentKeywords, setUrgentKeywords] = useState("towing,no brakes,accident,stranded,smoke");
+  const [urgentTransferTo, setUrgentTransferTo] = useState("");
+  const [alwaysNotifyManagerOnUrgent, setAlwaysNotifyManagerOnUrgent] = useState(true);
+  const [transferRulesJson, setTransferRulesJson] = useState("");
   const [vapiConfigured, setVapiConfigured] = useState(false);
   const [vapiAssistants, setVapiAssistants] = useState<Array<{ id: string; name: string }>>([]);
   const [vapiPhoneNumbers, setVapiPhoneNumbers] = useState<Array<{ id: string; number: string; provider: string }>>([]);
@@ -88,6 +93,28 @@ export default function AdminOrgDetailPage() {
     setVoice(latestAi?.voice || "");
     setModel(latestAi?.model || "");
     setSystemPrompt(latestAi?.systemPrompt || "");
+    const rulesRaw = latestAi?.transferRulesJson || "";
+    setTransferRulesJson(rulesRaw);
+    if (rulesRaw) {
+      try {
+        const rules = JSON.parse(rulesRaw) as {
+          urgentKeywords?: string[];
+          urgentTransferTo?: string;
+          alwaysNotifyManagerOnUrgent?: boolean;
+        };
+        if (Array.isArray(rules.urgentKeywords) && rules.urgentKeywords.length) {
+          setUrgentKeywords(rules.urgentKeywords.join(","));
+        }
+        if (rules.urgentTransferTo) {
+          setUrgentTransferTo(rules.urgentTransferTo);
+        }
+        if (typeof rules.alwaysNotifyManagerOnUrgent === "boolean") {
+          setAlwaysNotifyManagerOnUrgent(rules.alwaysNotifyManagerOnUrgent);
+        }
+      } catch {
+        // keep defaults if existing json is malformed
+      }
+    }
   }
 
   useEffect(() => {
@@ -165,6 +192,16 @@ export default function AdminOrgDetailPage() {
   }
 
   async function saveAiConfig() {
+    const computedTransferRules = {
+      urgentKeywords: urgentKeywords
+        .split(",")
+        .map((keyword) => keyword.trim())
+        .filter(Boolean),
+      urgentTransferTo: urgentTransferTo.trim() || null,
+      alwaysNotifyManagerOnUrgent
+    };
+    const rawTransferRules = transferRulesJson.trim() || JSON.stringify(computedTransferRules, null, 2);
+
     await updateOrgAiConfig(id, {
       provider: "VAPI",
       vapiAgentId: agentId,
@@ -172,6 +209,7 @@ export default function AdminOrgDetailPage() {
       voice,
       model,
       systemPrompt,
+      transferRulesJson: rawTransferRules,
       status: "ACTIVE"
     });
     showToast({ title: "AI config saved" });
@@ -383,6 +421,37 @@ export default function AdminOrgDetailPage() {
               <div><Label>Voice</Label><Input value={voice} onChange={(e) => setVoice(e.target.value)} /></div>
               <div><Label>Model</Label><Input value={model} onChange={(e) => setModel(e.target.value)} /></div>
               <div className="sm:col-span-2"><Label>System Prompt</Label><Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} /></div>
+            </div>
+            <div className="mt-4 rounded-md border bg-muted/30 p-3">
+              <h3 className="text-sm font-semibold">Urgent + Transfer Logic</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Urgent keywords (comma-separated)</Label>
+                  <Input value={urgentKeywords} onChange={(e) => setUrgentKeywords(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Urgent transfer destination (E164)</Label>
+                  <Input placeholder="+15165551234" value={urgentTransferTo} onChange={(e) => setUrgentTransferTo(e.target.value)} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={alwaysNotifyManagerOnUrgent}
+                      onChange={(e) => setAlwaysNotifyManagerOnUrgent(e.target.checked)}
+                    />
+                    Always notify manager on urgent calls
+                  </label>
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Advanced transferRules JSON (optional override)</Label>
+                  <Textarea
+                    placeholder='{"urgentKeywords":["towing"],"urgentTransferTo":"+1516...","alwaysNotifyManagerOnUrgent":true}'
+                    value={transferRulesJson}
+                    onChange={(e) => setTransferRulesJson(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
             <div className="mt-3 flex gap-2">
               <Button onClick={() => void saveAiConfig().then(() => setStep("vapi_agent_configured", "DONE"))}>Save AI config</Button>
