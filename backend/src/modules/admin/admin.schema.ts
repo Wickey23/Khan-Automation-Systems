@@ -95,7 +95,7 @@ export const importProspectsSchema = z.object({
 
 export const discoverProspectsSchema = z.object({
   orgId: z.string().optional().nullable(),
-  location: z.string().min(2).max(200),
+  location: z.string().max(200).optional().default(""),
   keywords: z.array(z.string().min(2).max(80)).optional(),
   limit: z.number().int().min(1).max(100).optional().default(30)
 });

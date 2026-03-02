@@ -114,7 +114,6 @@ export default function AdminProspectsPage() {
   }
 
   async function runDiscover() {
-    if (!discoverLocation.trim()) return;
     setDiscovering(true);
     try {
       const keywords = discoverKeywords
@@ -123,14 +122,14 @@ export default function AdminProspectsPage() {
         .filter(Boolean);
       const result = await discoverProspects({
         location: discoverLocation.trim(),
-        keywords,
+        keywords: keywords.length ? keywords : undefined,
         limit: discoverLimit
       });
       const data = await fetchProspects(query);
       setProspects(data.prospects);
       showToast({
         title: "Discovery completed",
-        description: `Imported ${result.createdCount} prospects from ${discoverLocation.trim()}.`
+        description: `Imported ${result.createdCount} prospects.`
       });
     } catch (error) {
       showToast({
@@ -221,16 +220,16 @@ export default function AdminProspectsPage() {
         <section className="mt-4 rounded-lg border bg-white p-4">
           <h2 className="text-sm font-semibold">Auto-discover businesses</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Finds local service companies likely to benefit from AI reception and imports them as prospects.
+            Finds businesses likely to benefit from AI reception and imports them as prospects. Leave fields blank to run broad discovery.
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Input
-              placeholder="Location (city, state)"
+              placeholder="Location (optional, defaults to United States)"
               value={discoverLocation}
               onChange={(e) => setDiscoverLocation(e.target.value)}
             />
             <Input
-              placeholder="Keywords (comma-separated)"
+              placeholder="Keywords (optional, comma-separated)"
               value={discoverKeywords}
               onChange={(e) => setDiscoverKeywords(e.target.value)}
               className="sm:col-span-2"

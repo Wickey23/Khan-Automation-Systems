@@ -291,21 +291,32 @@ adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) =
     return res.status(400).json({ ok: false, message: "Invalid discover payload.", errors: parsed.error.flatten() });
   }
 
+  const fallbackLocation = "United States";
+  const location = parsed.data.location.trim() || fallbackLocation;
   const defaultKeywords = [
+    "service business",
+    "local contractor",
+    "home services company",
     "truck repair shop",
     "auto repair shop",
     "hvac contractor",
     "equipment repair service",
-    "manufacturing service"
+    "manufacturing service",
+    "plumbing service",
+    "electrical contractor",
+    "locksmith service",
+    "roofing contractor"
   ];
-  const keywords = parsed.data.keywords?.length ? parsed.data.keywords : defaultKeywords;
+  const keywords = parsed.data.keywords?.filter((k) => k.trim().length > 1).length
+    ? parsed.data.keywords.filter((k) => k.trim().length > 1)
+    : defaultKeywords;
   const perKeywordLimit = Math.max(3, Math.min(15, Math.ceil(parsed.data.limit / Math.max(1, keywords.length))));
   const seen = new Set<string>();
   let createdCount = 0;
   const imported: Array<{ id: string; business: string }> = [];
 
   for (const keyword of keywords) {
-    const places = await discoverViaNominatim(parsed.data.location, keyword, perKeywordLimit);
+    const places = await discoverViaNominatim(location, keyword, perKeywordLimit);
     for (const place of places) {
       const business = (place.name || place.display_name || "").split(",")[0]?.trim();
       if (!business) continue;
@@ -357,7 +368,7 @@ adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) =
           status: score >= 75 ? "QUALIFIED" : "NEW",
           score,
           scoreReason: reasons.join(", "),
-          notes: `Discovered from "${keyword}" near ${parsed.data.location}.`
+          notes: `Discovered from "${keyword}" near ${location}.`
         }
       });
       createdCount += 1;
@@ -371,7 +382,9 @@ adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) =
     ok: true,
     data: {
       createdCount,
-      imported
+      imported,
+      locationUsed: location,
+      keywordCount: keywords.length
     }
   });
 });
