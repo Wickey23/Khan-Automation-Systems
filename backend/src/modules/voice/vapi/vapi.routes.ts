@@ -52,6 +52,7 @@ function normalizeOutcome(value: string) {
 vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const body = asObject(req.body);
   const call = asObject(body.call);
+  const callTransport = asObject(call.transport);
   const customer = asObject(body.customer);
   const phoneNumber = asObject(body.phoneNumber);
   const analysis = asObject(body.analysis);
@@ -62,6 +63,9 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     body.callSid,
     body.providerCallId,
     body.callId,
+    call.providerCallId,
+    call.phoneCallProviderCallId,
+    callTransport.providerCallId,
     call.id,
     call.sid,
     call.callSid
