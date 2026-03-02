@@ -14,6 +14,7 @@ type HeaderNavItem = {
 
 export function Header() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -21,10 +22,12 @@ export function Header() {
       .then((data) => {
         if (!active) return;
         setUser(data.user);
+        setAuthResolved(true);
       })
       .catch(() => {
         if (!active) return;
         setUser(null);
+        setAuthResolved(true);
       });
     return () => {
       active = false;
@@ -33,6 +36,7 @@ export function Header() {
 
   const isAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
   const homeHref = user ? (isAdmin ? "/admin/orgs" : "/app") : "/";
+  const username = user?.email?.split("@")[0] || "Account";
 
   const portalNav = useMemo<HeaderNavItem[]>(() => {
     if (!user) return navLinks.map((item) => ({ href: item.href, label: item.label }));
@@ -66,10 +70,10 @@ export function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          {user ? (
+          {!authResolved ? null : user ? (
             <>
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
-                <Link href={isAdmin ? "/admin/orgs" : "/app"}>{isAdmin ? "Admin Portal" : "Client Portal"}</Link>
+                <Link href={isAdmin ? "/admin/orgs" : "/app"}>{username}</Link>
               </Button>
               <Button asChild size="sm" variant="ghost">
                 <Link href="/auth/logout">Logout</Link>
