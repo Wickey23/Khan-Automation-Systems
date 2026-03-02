@@ -985,8 +985,9 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
       requireCallIdWhenAvailable: true
     }
   }));
-  const intakeSchema = (configPackage as Record<string, unknown>).intakeSchema || [];
-  const transferRules = (configPackage as Record<string, unknown>).transferRules || {};
+  const intakeSchema =
+    ((configPackage as Record<string, unknown>).intake as Record<string, unknown>)?.requiredFields || [];
+  const transferRules = (configPackage as Record<string, unknown>).transfer || {};
 
   const ai = await prisma.aiAgentConfig.upsert({
     where: { orgId: req.params.id },

@@ -191,18 +191,33 @@ orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
   await prisma.businessSettings.upsert({
     where: { orgId: req.auth.orgId },
     update: {
-      timezone: String((configPackage.hours as Record<string, unknown>)?.timezone || "America/New_York"),
-      servicesJson: JSON.stringify(configPackage.services || []),
+      timezone: String(
+        ((configPackage.hours as Record<string, unknown>)?.weekly as Record<string, unknown>)?.timezone ||
+          "America/New_York"
+      ),
+      servicesJson: JSON.stringify(
+        ((configPackage.services as Record<string, unknown>)?.offered as unknown[]) || []
+      ),
       policiesJson: JSON.stringify(configPackage.policies || {}),
-      notificationEmailsJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerEmails || []),
-      notificationPhonesJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerPhones || [])
+      notificationEmailsJson: JSON.stringify(
+        ((configPackage.notifications as Record<string, unknown>)?.emails as unknown[]) || []
+      ),
+      notificationPhonesJson: JSON.stringify(
+        ((configPackage.notifications as Record<string, unknown>)?.phones as unknown[]) || []
+      )
     },
     create: {
       orgId: req.auth.orgId,
-      servicesJson: JSON.stringify(configPackage.services || []),
+      servicesJson: JSON.stringify(
+        ((configPackage.services as Record<string, unknown>)?.offered as unknown[]) || []
+      ),
       policiesJson: JSON.stringify(configPackage.policies || {}),
-      notificationEmailsJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerEmails || []),
-      notificationPhonesJson: JSON.stringify((configPackage.notifications as Record<string, unknown>)?.managerPhones || [])
+      notificationEmailsJson: JSON.stringify(
+        ((configPackage.notifications as Record<string, unknown>)?.emails as unknown[]) || []
+      ),
+      notificationPhonesJson: JSON.stringify(
+        ((configPackage.notifications as Record<string, unknown>)?.phones as unknown[]) || []
+      )
     }
   });
 

@@ -1,21 +1,36 @@
 type JsonMap = Record<string, unknown>;
 
+function asObject(value: unknown): JsonMap {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonMap) : {};
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
 export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: JsonMap) {
-  const business = (configPackage.businessProfile || {}) as JsonMap;
-  const services = Array.isArray(configPackage.services) ? configPackage.services : [];
-  const transferRules = (configPackage.transferRules || {}) as JsonMap;
-  const policies = (configPackage.policies || {}) as JsonMap;
+  const business = asObject(configPackage.business);
+  const services = asStringArray(asObject(configPackage.services).offered);
+  const transfer = asObject(configPackage.transfer);
+  const transferRules = Array.isArray(transfer.rules) ? transfer.rules : [];
+  const transferNumbers = transferRules
+    .map((rule) => asObject(rule).toNumber)
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const policies = asObject(configPackage.policies);
   const timezone = String((businessSettings.timezone as string) || "America/New_York");
+  const businessName = String(business.name || "Service Shop");
+  const industry = String((businessSettings.industry as string) || "Service");
 
   return [
     "You are the AI receptionist for a local service business.",
-    `Business: ${String(business.displayName || business.legalBusinessName || "Service Shop")}`,
-    `Industry: ${String(business.industry || "Service")}`,
+    `Business: ${businessName}`,
+    `Industry: ${industry}`,
     `Timezone: ${timezone}`,
     `Services: ${services.join(", ") || "General service work"}`,
     "Goals: collect caller details, determine urgency, offer next steps, escalate when rules match.",
-    `Transfer numbers: ${JSON.stringify(transferRules.transferNumbers || [])}`,
-    `Transfer when: ${JSON.stringify(transferRules.whenToTransfer || [])}`,
+    `Transfer numbers: ${JSON.stringify(transferNumbers)}`,
+    `Transfer rules: ${JSON.stringify(transferRules)}`,
     `Policies: ${JSON.stringify(policies)}`,
     "Always be concise, practical, and clear. If unsure, take a message and notify the manager."
   ].join("\n");
