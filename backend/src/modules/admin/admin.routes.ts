@@ -835,9 +835,14 @@ adminRouter.get("/vapi/resources", async (_req, res) => {
       }
     });
   } catch (error) {
-    return res.status(502).json({
-      ok: false,
-      message: error instanceof Error ? `Failed to load Vapi resources: ${error.message}` : "Failed to load Vapi resources."
+    return res.json({
+      ok: true,
+      data: {
+        configured: false,
+        assistants: [],
+        phoneNumbers: [],
+        error: error instanceof Error ? error.message : "Failed to load Vapi resources."
+      }
     });
   }
 });

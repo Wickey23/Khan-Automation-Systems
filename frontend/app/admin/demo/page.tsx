@@ -29,13 +29,9 @@ export default function AdminDemoPage() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([fetchAdminDemoConfig(), fetchAdminVapiResources()])
-      .then(([data, resources]) => {
+    void fetchAdminDemoConfig()
+      .then((data) => {
         if (!active) return;
-        setVapiConfigured(Boolean(resources.configured));
-        setAssistants(resources.assistants || []);
-        setPhoneNumbers(resources.phoneNumbers || []);
-
         setDemoNumber(data.demoNumber || "");
         setDemoVapiAssistantId(data.demoVapiAssistantId || "");
         setDemoVapiPhoneNumberId(data.demoVapiPhoneNumberId || "");
@@ -61,6 +57,20 @@ export default function AdminDemoPage() {
       .finally(() => {
         if (!active) return;
         setLoading(false);
+      });
+
+    void fetchAdminVapiResources()
+      .then((resources) => {
+        if (!active) return;
+        setVapiConfigured(Boolean(resources.configured));
+        setAssistants(resources.assistants || []);
+        setPhoneNumbers(resources.phoneNumbers || []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setVapiConfigured(false);
+        setAssistants([]);
+        setPhoneNumbers([]);
       });
     return () => {
       active = false;
