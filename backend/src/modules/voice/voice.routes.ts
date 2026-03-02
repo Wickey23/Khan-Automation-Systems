@@ -175,7 +175,6 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
       (org.status === "LIVE" || org.status === "TESTING" || org.live);
     if (canUseVapiNow) {
       if (ai.vapiPhoneNumberId) {
-        response.say(`Connecting you to ${org.name}'s AI receptionist.`);
         const dial = response.dial({ answerOnBridge: true });
         dial.number(ai.vapiPhoneNumberId);
         return res.type("text/xml").send(response.toString());
