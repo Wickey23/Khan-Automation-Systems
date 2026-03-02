@@ -56,7 +56,8 @@ export default function PricingPage() {
           <ul className="mt-2 space-y-1">
             <li>Starter: 300 voice minutes included each billing cycle</li>
             <li>Pro: 500 voice minutes + 1,000 SMS segments included each billing cycle</li>
-            <li>One-time setup fee: $199 on initial activation</li>
+            <li>Starter setup: $199 one-time on initial activation</li>
+            <li>Pro setup: $299 one-time on initial activation</li>
           </ul>
         </div>
         <div className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">

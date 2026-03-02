@@ -19,8 +19,8 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-foreground">2. One-Time Setup Fee</h2>
           <p>
-            A one-time setup fee of $199 is charged at initial activation to configure workflows, intake logic, and baseline
-            provisioning.
+            A one-time setup fee is charged at initial activation to configure workflows, intake logic, and baseline
+            provisioning: $199 for Starter, $299 for Pro.
           </p>
         </section>
         <section className="space-y-2">

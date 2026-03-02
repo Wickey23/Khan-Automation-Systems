@@ -20,6 +20,7 @@ const tiers = [
     price: "$497/mo",
     features: [
       "Everything in Starter",
+      "$299 one-time setup",
       "Includes 500 voice minutes + 1,000 SMS segments",
       "Two-way messaging automation and follow-up flows",
       "Advanced escalation, after-hours, and transfer logic",
