@@ -190,6 +190,50 @@ export type AdminCallRecord = OrgCallRecord & {
   } | null;
 };
 
+export type OrgMessage = {
+  id: string;
+  threadId: string;
+  orgId: string;
+  leadId: string | null;
+  direction: "INBOUND" | "OUTBOUND";
+  status: "RECEIVED" | "QUEUED" | "SENT" | "FAILED" | "DELIVERED";
+  body: string;
+  provider: string;
+  providerMessageId: string | null;
+  fromNumber: string | null;
+  toNumber: string | null;
+  errorText: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+};
+
+export type OrgMessageThread = {
+  id: string;
+  orgId: string;
+  leadId: string | null;
+  channel: string;
+  contactName: string | null;
+  contactPhone: string;
+  lastMessageAt: string;
+  createdAt: string;
+  updatedAt: string;
+  lead?: {
+    id: string;
+    name: string;
+    business: string;
+    phone: string;
+  } | null;
+  messages: OrgMessage[];
+};
+
+export type AdminMessageThread = OrgMessageThread & {
+  organization?: {
+    id: string;
+    name: string;
+  } | null;
+};
+
 export type BusinessSettings = {
   id: string;
   orgId: string;

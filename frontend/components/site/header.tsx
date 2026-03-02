@@ -44,6 +44,7 @@ export function Header() {
       return [
         { href: "/admin/orgs", label: "Clients" },
         { href: "/admin/calls", label: "Calls" },
+        { href: "/admin/messages", label: "Messages" },
         { href: "/admin/leads", label: "Leads" },
         { href: "/admin/prospects", label: "Prospects" }
       ];
@@ -52,6 +53,7 @@ export function Header() {
       { href: "/app", label: "Overview" },
       { href: "/app/onboarding", label: "Onboarding" },
       { href: "/app/calls", label: "Calls" },
+      { href: "/app/messages", label: "Messages" },
       { href: "/app/leads", label: "Leads" }
     ];
   }, [isAdmin, user]);

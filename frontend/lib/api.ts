@@ -1,6 +1,7 @@
 import { siteConfig } from "@/lib/config";
 import type {
   AIConfig,
+  AdminMessageThread,
   AuditEvent,
   AdminCallRecord,
   AuthUser,
@@ -15,6 +16,7 @@ import type {
   ReadinessReport,
   Organization,
   OrgCallRecord,
+  OrgMessageThread,
   OrgSubscription,
   PhoneLine,
   Setting,
@@ -168,6 +170,10 @@ export async function fetchAdminCalls(query: string) {
   return request<{ calls: AdminCallRecord[]; total: number }>(`/api/admin/calls${query}`);
 }
 
+export async function fetchAdminMessages(query = "") {
+  return request<{ threads: AdminMessageThread[] }>(`/api/admin/messages${query}`);
+}
+
 export async function deleteAdminCall(id: string, password: string) {
   return request<{ id: string }>(`/api/admin/calls/${id}`, {
     method: "DELETE",
@@ -319,6 +325,17 @@ export async function fetchOrgCalls() {
   return request<{ calls: OrgCallRecord[] }>("/api/org/calls");
 }
 
+export async function fetchOrgMessages() {
+  return request<{ threads: OrgMessageThread[] }>("/api/org/messages");
+}
+
+export async function sendOrgMessage(payload: { to: string; body: string; leadId?: string }) {
+  return request<{ threadId: string; message: Record<string, unknown> }>("/api/org/messages/send", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function repopulateOrgCalls() {
   return request<{ scanned: number; resolved: number; skipped: number }>("/api/org/calls/repopulate", {
     method: "POST"
@@ -350,6 +367,10 @@ export async function fetchAdminVapiResources() {
 
 export async function fetchAdminOrgById(id: string) {
   return request<{ org: Organization & Record<string, unknown> }>(`/api/admin/orgs/${id}`);
+}
+
+export async function fetchAdminOrgMessages(id: string) {
+  return request<{ threads: OrgMessageThread[] }>(`/api/admin/orgs/${id}/messages`);
 }
 
 export async function fetchAdminOrgReadiness(id: string) {

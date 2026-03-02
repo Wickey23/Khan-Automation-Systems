@@ -195,6 +195,33 @@ adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
   return res.json({ ok: true, data: { calls, total } });
 });
 
+adminRouter.get("/messages", async (req: AuthenticatedRequest, res: Response) => {
+  const orgId = typeof req.query.orgId === "string" ? req.query.orgId : undefined;
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const where: Prisma.MessageThreadWhereInput = { channel: "SMS" };
+  if (orgId) where.orgId = orgId;
+  if (search) {
+    where.OR = [
+      { contactName: { contains: search, mode: "insensitive" } },
+      { contactPhone: { contains: search, mode: "insensitive" } },
+      { organization: { name: { contains: search, mode: "insensitive" } } }
+    ];
+  }
+
+  const threads = await prisma.messageThread.findMany({
+    where,
+    include: {
+      organization: { select: { id: true, name: true } },
+      lead: { select: { id: true, name: true, business: true, phone: true } },
+      messages: { orderBy: { createdAt: "desc" }, take: 30 }
+    },
+    orderBy: { lastMessageAt: "desc" },
+    take: 250
+  });
+
+  return res.json({ ok: true, data: { threads } });
+});
+
 adminRouter.get("/leads/:id", async (req, res) => {
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
   if (!lead) return res.status(404).json({ ok: false, message: "Lead not found." });
@@ -735,6 +762,15 @@ adminRouter.get("/orgs/:id", async (req, res) => {
       aiAgentConfigs: { orderBy: { updatedAt: "desc" }, take: 1 },
       leads: { orderBy: { createdAt: "desc" }, take: 25 },
       callLogs: { orderBy: { startedAt: "desc" }, take: 25 },
+      messageThreads: {
+        where: { channel: "SMS" },
+        orderBy: { lastMessageAt: "desc" },
+        take: 40,
+        include: {
+          lead: { select: { id: true, name: true, business: true, phone: true } },
+          messages: { orderBy: { createdAt: "desc" }, take: 20 }
+        }
+      },
       provisioningChecklist: true,
       businessSettings: true
     }
@@ -755,6 +791,23 @@ adminRouter.get("/orgs/:id/readiness", async (req, res) => {
     env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
   });
   return res.json({ ok: true, data: report });
+});
+
+adminRouter.get("/orgs/:id/messages", async (req, res) => {
+  const org = await prisma.organization.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+
+  const threads = await prisma.messageThread.findMany({
+    where: { orgId: req.params.id, channel: "SMS" },
+    include: {
+      lead: { select: { id: true, name: true, business: true, phone: true } },
+      messages: { orderBy: { createdAt: "desc" }, take: 40 }
+    },
+    orderBy: { lastMessageAt: "desc" },
+    take: 200
+  });
+
+  return res.json({ ok: true, data: { threads } });
 });
 
 adminRouter.post("/orgs/:id/config-package/generate", async (req: AuthenticatedRequest, res) => {

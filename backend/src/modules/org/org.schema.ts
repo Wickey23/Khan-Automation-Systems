@@ -105,3 +105,9 @@ export const updateBusinessSettingsSchema = z.object({
   servicesJson: z.string().optional(),
   policiesJson: z.string().optional()
 });
+
+export const sendOrgMessageSchema = z.object({
+  to: z.string().min(5),
+  body: z.string().min(1).max(1000),
+  leadId: z.string().optional()
+});

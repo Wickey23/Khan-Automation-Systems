@@ -118,6 +118,19 @@ enum CallOutcome {
   UNKNOWN
 }
 
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  FAILED
+  DELIVERED
+}
+
 model Client {
   id            String         @id @default(cuid())
   name          String
@@ -161,6 +174,8 @@ model Organization {
   testRuns             TestRun[]
   webhookEventLogs     WebhookEventLog[]
   billingWebhookEvents BillingWebhookEvent[]
+  messageThreads       MessageThread[]
+  messages             Message[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -370,8 +385,54 @@ model Lead {
   ip               String?
   userAgent        String?
   callLogs         CallLog[]
+  messageThreads   MessageThread[]
+  messages         Message[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+}
+
+model MessageThread {
+  id           String    @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId       String?
+  lead         Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  channel      String    @default("SMS")
+  contactName  String?
+  contactPhone String
+  lastMessageAt DateTime @default(now())
+  messages     Message[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([orgId, channel, contactPhone])
+  @@index([orgId, lastMessageAt])
+}
+
+model Message {
+  id               String           @id @default(cuid())
+  threadId         String
+  thread           MessageThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  orgId            String
+  organization     Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId           String?
+  lead             Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  direction        MessageDirection
+  status           MessageStatus
+  body             String
+  provider         String           @default("TWILIO")
+  providerMessageId String?
+  fromNumber       String?
+  toNumber         String?
+  errorText        String?
+  metadataJson     String           @default("{}")
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([orgId, createdAt])
+  @@unique([orgId, providerMessageId])
 }
 
 model ProvisioningChecklist {

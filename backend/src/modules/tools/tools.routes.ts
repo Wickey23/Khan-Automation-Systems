@@ -3,6 +3,8 @@ import { Router, type Response } from "express";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma";
 import { verifyVapiToolSecret } from "../../middleware/webhook-security";
+import { hasProMessaging } from "../billing/plan-features";
+import { sendSmsMessage } from "../twilio/twilio.service";
 
 export const toolsRouter = Router();
 toolsRouter.use(verifyVapiToolSecret);
@@ -45,6 +47,15 @@ function toolError(res: Response, code: string, message: string, status = 400) {
   return res.status(status).json({ ok: false, error: { code, message } });
 }
 
+function normalizePhone(input: string) {
+  const digits = input.replace(/\D/g, "");
+  if (!digits) return input.trim();
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.startsWith("1") && digits.length === 11) return `+${digits}`;
+  if (input.trim().startsWith("+")) return input.trim();
+  return `+${digits}`;
+}
+
 toolsRouter.post("/create-lead-from-call", async (req, res) => {
   try {
     const parsed = createLeadSchema.safeParse(req.body);
@@ -84,16 +95,92 @@ toolsRouter.post("/send-sms", async (req, res) => {
     const parsed = sendSmsSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid send-sms payload.");
 
+    const { orgId, to, message } = parsed.data;
+    const isPro = await hasProMessaging(prisma, orgId);
+    if (!isPro) {
+      return toolError(res, "FEATURE_NOT_IN_PLAN", "SMS automation is available on Pro plan only.", 403);
+    }
+
+    const toNumber = normalizePhone(to);
+    const fromPhone = await prisma.phoneNumber.findFirst({
+      where: { orgId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" }
+    });
+    if (!fromPhone?.e164Number) {
+      return toolError(res, "NO_ACTIVE_NUMBER", "No active org phone number configured for SMS.", 400);
+    }
+
+    const matchedLead = await prisma.lead.findFirst({
+      where: { orgId, phone: toNumber },
+      select: { id: true, name: true }
+    });
+
+    const thread = await prisma.messageThread.upsert({
+      where: {
+        orgId_channel_contactPhone: {
+          orgId,
+          channel: "SMS",
+          contactPhone: toNumber
+        }
+      },
+      update: {
+        leadId: matchedLead?.id || undefined,
+        contactName: matchedLead?.name || undefined,
+        lastMessageAt: new Date()
+      },
+      create: {
+        orgId,
+        channel: "SMS",
+        contactPhone: toNumber,
+        contactName: matchedLead?.name || null,
+        leadId: matchedLead?.id || null,
+        lastMessageAt: new Date()
+      }
+    });
+
+    let providerMessageId: string | null = null;
+    let status: "SENT" | "FAILED" = "SENT";
+    let errorText: string | null = null;
+    try {
+      const sent = await sendSmsMessage({
+        from: fromPhone.e164Number,
+        to: toNumber,
+        body: message
+      });
+      providerMessageId = sent.sid;
+    } catch (error) {
+      status = "FAILED";
+      errorText = error instanceof Error ? error.message : "sms_send_failed";
+    }
+
+    const smsMessage = await prisma.message.create({
+      data: {
+        threadId: thread.id,
+        orgId,
+        leadId: matchedLead?.id || null,
+        direction: "OUTBOUND",
+        status,
+        body: message,
+        provider: "TWILIO",
+        providerMessageId,
+        fromNumber: fromPhone.e164Number,
+        toNumber,
+        sentAt: new Date(),
+        errorText,
+        metadataJson: JSON.stringify({ source: "vapi_tool" })
+      }
+    });
+
     await prisma.auditLog.create({
       data: {
-        orgId: parsed.data.orgId,
+        orgId,
         actorUserId: "vapi-tool",
         actorRole: "SYSTEM",
         action: "TOOL_SEND_SMS",
-        metadataJson: JSON.stringify(req.body || {})
+        metadataJson: JSON.stringify({ ...(req.body || {}), messageId: smsMessage.id, status })
       }
     });
-    return res.json({ ok: true, data: { queued: true } });
+    return res.json({ ok: true, data: { queued: status !== "FAILED", messageId: smsMessage.id, status } });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }

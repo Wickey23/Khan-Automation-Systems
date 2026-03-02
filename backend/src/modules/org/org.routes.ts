@@ -2,13 +2,30 @@ import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { hasProMessaging } from "../billing/plan-features";
+import { sendSmsMessage } from "../twilio/twilio.service";
 import { backfillMissedVapiCalls } from "../admin/backfill.service";
 import { buildConfigPackage, generateConfigPackage } from "./config-package";
-import { saveOnboardingSchema, submitOnboardingSchema, updateBusinessSettingsSchema, updateOrgProfileSchema } from "./org.schema";
+import {
+  saveOnboardingSchema,
+  sendOrgMessageSchema,
+  submitOnboardingSchema,
+  updateBusinessSettingsSchema,
+  updateOrgProfileSchema
+} from "./org.schema";
 
 export const orgRouter = Router();
 
 orgRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT, UserRole.SUPER_ADMIN]));
+
+function normalizePhone(input: string) {
+  const digits = input.replace(/\D/g, "");
+  if (!digits) return input.trim();
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.startsWith("1") && digits.length === 11) return `+${digits}`;
+  if (input.trim().startsWith("+")) return input.trim();
+  return `+${digits}`;
+}
 
 orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -219,4 +236,132 @@ orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const result = await backfillMissedVapiCalls(prisma, req.auth.userId, req.auth.orgId);
   return res.json({ ok: true, data: result });
+});
+
+orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+
+  const threads = await prisma.messageThread.findMany({
+    where: { orgId: req.auth.orgId, channel: "SMS" },
+    include: {
+      lead: {
+        select: { id: true, name: true, business: true, phone: true }
+      },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 40
+      }
+    },
+    orderBy: { lastMessageAt: "desc" },
+    take: 150
+  });
+
+  return res.json({ ok: true, data: { threads } });
+});
+
+orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = sendOrgMessageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid message payload.", errors: parsed.error.flatten() });
+  }
+
+  const isPro = await hasProMessaging(prisma, req.auth.orgId);
+  if (!isPro) {
+    return res.status(403).json({
+      ok: false,
+      message: "Messaging automation is a Pro feature. Upgrade to Pro to send operational SMS from the portal."
+    });
+  }
+
+  const toNumber = normalizePhone(parsed.data.to);
+  const fromPhone = await prisma.phoneNumber.findFirst({
+    where: { orgId: req.auth.orgId, status: "ACTIVE" },
+    orderBy: { createdAt: "desc" }
+  });
+  if (!fromPhone?.e164Number) {
+    return res.status(400).json({ ok: false, message: "No active phone number configured for this organization." });
+  }
+
+  const lead =
+    parsed.data.leadId
+      ? await prisma.lead.findFirst({
+          where: { id: parsed.data.leadId, orgId: req.auth.orgId },
+          select: { id: true, name: true }
+        })
+      : null;
+
+  const thread = await prisma.messageThread.upsert({
+    where: {
+      orgId_channel_contactPhone: {
+        orgId: req.auth.orgId,
+        channel: "SMS",
+        contactPhone: toNumber
+      }
+    },
+    update: {
+      contactName: lead?.name || undefined,
+      leadId: lead?.id || undefined,
+      lastMessageAt: new Date()
+    },
+    create: {
+      orgId: req.auth.orgId,
+      channel: "SMS",
+      contactPhone: toNumber,
+      contactName: lead?.name || null,
+      leadId: lead?.id || null,
+      lastMessageAt: new Date()
+    }
+  });
+
+  let providerMessageId: string | null = null;
+  let status: "SENT" | "FAILED" = "SENT";
+  let errorText: string | null = null;
+
+  try {
+    const sent = await sendSmsMessage({
+      from: fromPhone.e164Number,
+      to: toNumber,
+      body: parsed.data.body
+    });
+    providerMessageId = sent.sid;
+  } catch (error) {
+    status = "FAILED";
+    errorText = error instanceof Error ? error.message : "sms_send_failed";
+  }
+
+  const message = await prisma.message.create({
+    data: {
+      threadId: thread.id,
+      orgId: req.auth.orgId,
+      leadId: lead?.id || null,
+      direction: "OUTBOUND",
+      status,
+      body: parsed.data.body,
+      provider: "TWILIO",
+      providerMessageId,
+      fromNumber: fromPhone.e164Number,
+      toNumber,
+      sentAt: new Date(),
+      errorText,
+      metadataJson: JSON.stringify({ actorUserId: req.auth.userId })
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      orgId: req.auth.orgId,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      action: "ORG_SMS_SENT",
+      metadataJson: JSON.stringify({
+        threadId: thread.id,
+        messageId: message.id,
+        to: toNumber,
+        status
+      })
+    }
+  });
+
+  return res.json({ ok: true, data: { threadId: thread.id, message } });
 });

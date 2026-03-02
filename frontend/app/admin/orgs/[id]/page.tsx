@@ -51,6 +51,19 @@ type OrgDetail = {
     updatedAt: string;
   }>;
   users?: Array<{ id: string; email: string; role: string; createdAt: string }>;
+  messageThreads?: Array<{
+    id: string;
+    contactName?: string | null;
+    contactPhone: string;
+    lastMessageAt: string;
+    messages?: Array<{
+      id: string;
+      direction: "INBOUND" | "OUTBOUND";
+      status: "RECEIVED" | "QUEUED" | "SENT" | "FAILED" | "DELIVERED";
+      body: string;
+      createdAt: string;
+    }>;
+  }>;
   checklistSteps?: Array<{ key: string; label: string; status: string; notes?: string }>;
 };
 
@@ -585,6 +598,35 @@ export default function AdminOrgDetailPage() {
                 </div>
               ))}
               {!org?.users?.length ? <p className="text-sm text-muted-foreground">No users found.</p> : null}
+            </div>
+          </section>
+
+          <section className="rounded-lg border bg-white p-4">
+            <h2 className="text-lg font-semibold">Messaging Threads (Pro)</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Admin visibility into SMS thread history for this organization.
+            </p>
+            <div className="mt-4 grid gap-3">
+              {(org?.messageThreads || []).map((thread) => (
+                <div key={thread.id} className="rounded-md border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{thread.contactName || "Unknown contact"} • {thread.contactPhone}</p>
+                    <p className="text-xs text-muted-foreground">Last: {new Date(thread.lastMessageAt).toLocaleString()}</p>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {(thread.messages || []).slice(0, 4).map((message) => (
+                      <div key={message.id} className="rounded border bg-muted/20 px-2 py-1 text-xs">
+                        <span className="font-medium">{message.direction}</span> • {message.status} • {new Date(message.createdAt).toLocaleTimeString()}
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{message.body}</p>
+                      </div>
+                    ))}
+                    {!thread.messages?.length ? <p className="text-xs text-muted-foreground">No messages yet.</p> : null}
+                  </div>
+                </div>
+              ))}
+              {!org?.messageThreads?.length ? (
+                <p className="text-sm text-muted-foreground">No messaging threads found for this organization.</p>
+              ) : null}
             </div>
           </section>
         </div>

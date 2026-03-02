@@ -84,3 +84,24 @@ export async function releaseNumber(sid: string) {
   }
   await client.incomingPhoneNumbers(sid).remove();
 }
+
+export async function sendSmsMessage(input: {
+  from: string;
+  to: string;
+  body: string;
+}) {
+  const client = getTwilioClient();
+  if (!client) {
+    throw new Error("Twilio credentials are not configured.");
+  }
+  const message = await client.messages.create({
+    from: input.from,
+    to: input.to,
+    body: input.body
+  });
+
+  return {
+    sid: message.sid,
+    status: message.status
+  };
+}
