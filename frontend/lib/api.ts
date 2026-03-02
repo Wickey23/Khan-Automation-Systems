@@ -62,15 +62,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const contentType = response.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json")
-    ? ((await response.json()) as ApiResponse<T>)
-    : null;
+  let payload: ApiResponse<T> | null = null;
+  let rawText = "";
+  if (contentType.includes("application/json")) {
+    payload = (await response.json()) as ApiResponse<T>;
+  } else {
+    rawText = await response.text().catch(() => "");
+  }
 
   if (!response.ok || !payload?.ok) {
     if (response.status === 401) {
       throw new Error("Session expired. Please log in again.");
     }
-    throw new Error(payload?.message || "Request failed.");
+    if (payload?.message) {
+      throw new Error(payload.message);
+    }
+    if (rawText.trim()) {
+      throw new Error(`Request failed (${response.status}): ${rawText.slice(0, 240)}`);
+    }
+    throw new Error(`Request failed (${response.status}).`);
   }
 
   return payload.data as T;

@@ -3,9 +3,42 @@
 import { useEffect, useState } from "react";
 import { createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
 import type { OrgSubscription } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/site/toast-provider";
+
+const PLAN_COPY: Record<"starter" | "pro", { title: string; price: string; points: string[] }> = {
+  starter: {
+    title: "Starter",
+    price: "$297 / month",
+    points: ["Inbound call handling", "Lead capture and summaries", "Voicemail + routing basics"]
+  },
+  pro: {
+    title: "Pro",
+    price: "$497 / month",
+    points: ["Everything in Starter", "Advanced routing + escalation", "Higher-touch automation workflows"]
+  }
+};
+
+function normalizeStatus(status: string | null | undefined) {
+  return String(status || "not_active").toLowerCase();
+}
+
+function statusStyles(status: string | null | undefined) {
+  const normalized = normalizeStatus(status);
+  if (normalized === "active" || normalized === "trialing") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (normalized === "past_due") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  return "border-zinc-200 bg-zinc-100 text-zinc-700";
+}
+
+function formatStatus(status: string | null | undefined) {
+  return normalizeStatus(status).replace(/_/g, " ");
+}
 
 export default function AppBillingPage() {
   const { showToast } = useToast();
@@ -52,56 +85,91 @@ export default function AppBillingPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold">Billing</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage plan, payment method, and invoices.
-        </p>
+    <div className="space-y-6">
+      <div className="rounded-xl border bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold">Billing</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage your subscription, payment method, and invoices.
+            </p>
+          </div>
+          <Badge className={statusStyles(subscription?.status)}>
+            {subscription ? `Status: ${formatStatus(subscription.status)}` : "No active subscription"}
+          </Badge>
+        </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500" />
         <CardHeader>
           <CardTitle>Current subscription</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-2 text-sm">
-          <p>
-            Plan: <span className="font-medium">{subscription?.plan || "No active plan"}</span>
-          </p>
-          <p>
-            Status: <span className="font-medium">{subscription?.status || "Not active"}</span>
-          </p>
-          <p>
-            Current period end:{" "}
-            <span className="font-medium">
-              {subscription?.currentPeriodEnd
-                ? new Date(subscription.currentPeriodEnd).toLocaleString()
-                : "-"}
-            </span>
-          </p>
-          <div className="pt-2">
-            {subscription ? (
-              <Button onClick={onOpenPortal} disabled={openingPortal}>
-                {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
-              </Button>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => void onStartPlan("starter")}
-                  disabled={startingPlan !== null}
-                >
-                  {startingPlan === "starter" ? "Starting..." : "Start Starter"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => void onStartPlan("pro")}
-                  disabled={startingPlan !== null}
-                >
-                  {startingPlan === "pro" ? "Starting..." : "Start Pro"}
+        <CardContent className="space-y-4 text-sm">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Plan</p>
+              <p className="mt-1 text-base font-semibold">{subscription?.plan || "No active plan"}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+              <p className="mt-1 text-base font-semibold">{subscription ? formatStatus(subscription.status) : "not active"}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Current period end</p>
+              <p className="mt-1 text-base font-semibold">
+                {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "-"}
+              </p>
+            </div>
+          </div>
+
+          {subscription ? (
+            <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
+              <p className="text-sm text-blue-900">
+                Manage payment method, invoices, and cancellation in Stripe’s customer portal.
+              </p>
+              <div className="mt-3">
+                <Button onClick={onOpenPortal} disabled={openingPortal}>
+                  {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Choose a plan to activate billing and unlock live production workflow.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {(["starter", "pro"] as const).map((planKey) => (
+                  <div
+                    key={planKey}
+                    className="rounded-lg border bg-white p-4"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold">{PLAN_COPY[planKey].title}</h3>
+                      <Badge variant="outline" className="border-zinc-300">
+                        {PLAN_COPY[planKey].price}
+                      </Badge>
+                    </div>
+                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {PLAN_COPY[planKey].points.map((point) => (
+                        <li key={point}>- {point}</li>
+                      ))}
+                    </ul>
+                    <div className="mt-4">
+                      <Button
+                        variant={planKey === "starter" ? "default" : "outline"}
+                        onClick={() => void onStartPlan(planKey)}
+                        disabled={startingPlan !== null}
+                      >
+                        {startingPlan === planKey ? "Starting..." : `Start ${PLAN_COPY[planKey].title}`}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

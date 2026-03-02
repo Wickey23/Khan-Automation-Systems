@@ -9,7 +9,7 @@ export default function AuthLogoutPage() {
 
   useEffect(() => {
     void authLogout().finally(() => {
-      router.replace("/auth/login");
+      router.replace("/");
     });
   }, [router]);
 
