@@ -287,9 +287,21 @@ orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
     parsed.data.leadId
       ? await prisma.lead.findFirst({
           where: { id: parsed.data.leadId, orgId: req.auth.orgId },
-          select: { id: true, name: true }
+          select: { id: true, name: true, dnc: true }
         })
       : null;
+
+  const matchedByNumber = await prisma.lead.findFirst({
+    where: { orgId: req.auth.orgId, phone: toNumber },
+    select: { id: true, dnc: true }
+  });
+
+  if (lead?.dnc || matchedByNumber?.dnc) {
+    return res.status(403).json({
+      ok: false,
+      message: "This contact has opted out of SMS (STOP). Ask them to text START to re-enable messaging."
+    });
+  }
 
   const thread = await prisma.messageThread.upsert({
     where: {

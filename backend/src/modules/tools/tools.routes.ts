@@ -112,8 +112,11 @@ toolsRouter.post("/send-sms", async (req, res) => {
 
     const matchedLead = await prisma.lead.findFirst({
       where: { orgId, phone: toNumber },
-      select: { id: true, name: true }
+      select: { id: true, name: true, dnc: true }
     });
+    if (matchedLead?.dnc) {
+      return toolError(res, "DNC_BLOCKED", "Recipient has opted out of SMS (STOP).", 403);
+    }
 
     const thread = await prisma.messageThread.upsert({
       where: {
