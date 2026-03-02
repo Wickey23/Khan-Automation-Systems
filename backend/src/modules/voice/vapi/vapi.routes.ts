@@ -81,7 +81,21 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const successEvaluation = parseNumeric(analysis.successEvaluation ?? analysis.score ?? body.successEvaluation);
   const structuredData = asObject(analysis.structuredData);
 
-  if (!callSid) return res.status(400).json({ ok: false, message: "callSid/providerCallId is required." });
+  if (!callSid) {
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: "vapi-webhook",
+        actorRole: "SYSTEM",
+        action: "VAPI_WEBHOOK_NO_CALL_ID",
+        metadataJson: JSON.stringify({
+          eventType,
+          receivedAt: new Date().toISOString(),
+          body
+        })
+      }
+    });
+    return res.status(202).json({ ok: true, data: { queuedBackfill: true, reason: "missing_call_id" } });
+  }
 
   const fromNumber = normalizeToE164(
     pickString(

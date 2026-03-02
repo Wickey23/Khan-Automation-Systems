@@ -24,6 +24,7 @@ import { voiceRouter } from "./modules/voice/voice.routes";
 import { backfillMissedVapiCalls } from "./modules/admin/backfill.service";
 
 const app = express();
+app.set("trust proxy", 1);
 const allowedOrigins = new Set(["http://localhost:3000", env.ALLOWED_ORIGIN].filter(Boolean) as string[]);
 const originRegex = env.ALLOWED_ORIGIN_REGEX ? new RegExp(env.ALLOWED_ORIGIN_REGEX) : null;
 const corsOptions: cors.CorsOptions = {
