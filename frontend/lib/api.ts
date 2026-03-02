@@ -1,6 +1,7 @@
 import { siteConfig } from "@/lib/config";
 import type {
   AIConfig,
+  AiAgentConfigVersion,
   AdminMessageThread,
   AuditEvent,
   AdminCallRecord,
@@ -9,6 +10,7 @@ import type {
   CallRecord,
   Client,
   ConfigPackage,
+  ConfigPackageVersion,
   DemoConfig,
   DemoCallLog,
   Lead,
@@ -20,6 +22,9 @@ import type {
   OrgCallRecord,
   OrgMessageThread,
   OrgSubscription,
+  OrgAnalytics,
+  OrgHealth,
+  PublicSystemStatus,
   PhoneLine,
   Setting,
   TestScenario
@@ -345,6 +350,18 @@ export async function fetchOrgCalls() {
   }>("/api/org/calls");
 }
 
+export async function fetchOrgAnalytics(params: { range?: "7d" | "30d" | "custom"; start?: string; end?: string }) {
+  const query = new URLSearchParams();
+  if (params.range) query.set("range", params.range);
+  if (params.start) query.set("start", params.start);
+  if (params.end) query.set("end", params.end);
+  return request<OrgAnalytics>(`/api/org/analytics${query.toString() ? `?${query.toString()}` : ""}`);
+}
+
+export async function fetchOrgHealth() {
+  return request<OrgHealth>("/api/org/health");
+}
+
 export async function fetchOrgMessages() {
   return request<{
     threads: OrgMessageThread[];
@@ -401,6 +418,10 @@ export async function fetchAdminOrgReadiness(id: string) {
   return request<ReadinessReport>(`/api/admin/orgs/${id}/readiness`);
 }
 
+export async function fetchAdminOrgHealth(id: string) {
+  return request<OrgHealth>(`/api/admin/orgs/${id}/health`);
+}
+
 export async function generateAdminConfigPackage(id: string) {
   return request<{ configPackage: ConfigPackage }>(`/api/admin/orgs/${id}/config-package/generate`, {
     method: "POST"
@@ -409,6 +430,17 @@ export async function generateAdminConfigPackage(id: string) {
 
 export async function fetchAdminConfigPackage(id: string) {
   return request<{ configPackage: ConfigPackage | null }>(`/api/admin/orgs/${id}/config-package`);
+}
+
+export async function fetchAdminConfigPackageVersions(id: string) {
+  return request<{ versions: ConfigPackageVersion[] }>(`/api/admin/orgs/${id}/config-package/versions`);
+}
+
+export async function revertAdminConfigPackageVersion(id: string, versionId: string) {
+  return request<{ configPackage: ConfigPackage }>(
+    `/api/admin/orgs/${id}/config-package/versions/${versionId}/revert`,
+    { method: "POST" }
+  );
 }
 
 export async function fetchAdminTesting(id: string) {
@@ -463,6 +495,16 @@ export async function updateOrgAiConfig(id: string, body: Record<string, unknown
   return request<{ ai: Record<string, unknown> }>(`/api/admin/orgs/${id}/ai/config`, {
     method: "PATCH",
     body: JSON.stringify(body)
+  });
+}
+
+export async function fetchAdminAiConfigVersions(id: string) {
+  return request<{ versions: AiAgentConfigVersion[] }>(`/api/admin/orgs/${id}/ai-config/versions`);
+}
+
+export async function revertAdminAiConfigVersion(id: string, versionId: string) {
+  return request<{ ai: Record<string, unknown> }>(`/api/admin/orgs/${id}/ai-config/versions/${versionId}/revert`, {
+    method: "POST"
   });
 }
 
@@ -632,6 +674,10 @@ export async function fetchPublicDemoConfig() {
     demoSubtitle: string | null;
     demoQuestions: string[];
   }>("/api/public/demo-config");
+}
+
+export async function fetchPublicStatus() {
+  return request<PublicSystemStatus>("/api/status");
 }
 
 export async function fetchAdminDemoCalls(limit = 100) {

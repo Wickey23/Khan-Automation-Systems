@@ -170,6 +170,8 @@ model Organization {
   auditLogs            AuditLog[]
   businessSettings     BusinessSettings?
   configPackage        ConfigPackage?
+  aiConfigVersions     AiAgentConfigVersion[]
+  configPackageVersions ConfigPackageVersion[]
   testScenarios        TestScenario[]
   testRuns             TestRun[]
   webhookEventLogs     WebhookEventLog[]
@@ -278,6 +280,7 @@ model AiAgentConfig {
   status            AgentConfigStatus @default(DRAFT)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+  versions          AiAgentConfigVersion[]
 }
 
 model CallLog {
@@ -502,6 +505,37 @@ model ConfigPackage {
   generatedByUserId String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  versions          ConfigPackageVersion[]
+}
+
+model AiAgentConfigVersion {
+  id              String       @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  aiAgentConfigId String
+  aiAgentConfig   AiAgentConfig @relation(fields: [aiAgentConfigId], references: [id], onDelete: Cascade)
+  version         Int
+  configJson      Json
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([aiAgentConfigId, createdAt])
+}
+
+model ConfigPackageVersion {
+  id              String       @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  configPackageId String
+  configPackage   ConfigPackage @relation(fields: [configPackageId], references: [id], onDelete: Cascade)
+  version         Int
+  packageJson     Json
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([configPackageId, createdAt])
 }
 
 model TestScenario {

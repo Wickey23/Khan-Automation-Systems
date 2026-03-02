@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Lock } from "lucide-react";
 import { fetchOrgMessages, getBillingStatus, sendOrgMessage } from "@/lib/api";
+import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgMessageThread } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 
@@ -27,13 +29,14 @@ export default function AppMessagesPage() {
     try {
       const [messagesData, billingData] = await Promise.all([fetchOrgMessages(), getBillingStatus()]);
       const subscription = billingData.subscription;
-      const plan = String(subscription?.plan || "").toUpperCase();
-      const status = String(subscription?.status || "").toLowerCase();
-      const proAllowed = plan === "PRO" && (status === "active" || status === "trialing");
+      const featureAccess = resolvePlanFeatures({
+        plan: subscription?.plan,
+        status: subscription?.status
+      });
 
-      setSubscriptionPlan(plan || null);
-      setSubscriptionStatus(status || null);
-      setCanSendMessages(proAllowed);
+      setSubscriptionPlan(featureAccess.plan);
+      setSubscriptionStatus(subscription?.status || null);
+      setCanSendMessages(featureAccess.messaging);
 
       const data = messagesData;
       setThreads(data.threads);
@@ -108,7 +111,10 @@ export default function AppMessagesPage() {
       </div>
 
       <div className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-900">
-        Messaging automation is a <strong>Pro</strong> feature.
+        <div className="flex items-center gap-2 font-medium">
+          <Lock className="h-4 w-4" />
+          Messaging automation is a <strong>Pro</strong> feature.
+        </div>
         {" "}Current plan: <strong>{subscriptionPlan || "NONE"}</strong>
         {" "}({subscriptionStatus || "inactive"}).
         {" "}If sending is disabled, upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
@@ -170,6 +176,7 @@ export default function AppMessagesPage() {
                   type="button"
                   onClick={() => void onSend()}
                   disabled={sending || !canSendMessages}
+                  title={!canSendMessages ? "Upgrade to Pro to enable outbound SMS." : "Send message"}
                   className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
                 >
                   {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}

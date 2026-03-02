@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus } from "@/lib/api";
-import type { OnboardingSubmission, Organization, OrgSubscription } from "@/lib/types";
+import { fetchOrgHealth, fetchOrgOnboarding, fetchOrgProfile, getBillingStatus } from "@/lib/api";
+import type { OnboardingSubmission, Organization, OrgHealth, OrgSubscription } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AppOverviewPage() {
@@ -12,15 +12,17 @@ export default function AppOverviewPage() {
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
+  const [health, setHealth] = useState<OrgHealth | null>(null);
 
   useEffect(() => {
-    void Promise.all([fetchOrgProfile(), fetchOrgOnboarding(), getBillingStatus()])
-      .then(([org, onboarding, billing]) => {
+    void Promise.all([fetchOrgProfile(), fetchOrgOnboarding(), getBillingStatus(), fetchOrgHealth()])
+      .then(([org, onboarding, billing, orgHealth]) => {
         setOrganization(org.organization);
         setAssignedPhoneNumber(org.assignedPhoneNumber);
         setAssignedNumberProvider(org.assignedNumberProvider);
         setSubmission(onboarding.submission);
         setSubscription(billing.subscription);
+        setHealth(orgHealth);
       })
       .catch(() => null);
   }, []);
@@ -57,6 +59,15 @@ export default function AppOverviewPage() {
           <CardContent className="text-sm">
             <p>{subscription?.status || "inactive"}</p>
             <p className="text-muted-foreground">Plan: {subscription?.plan || "-"}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">System Health</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>{health?.level === "GREEN" ? "All systems operational" : "Action needed"}</p>
+            <p className="text-muted-foreground">{health?.summary || "Loading health status..."}</p>
           </CardContent>
         </Card>
         <Card>

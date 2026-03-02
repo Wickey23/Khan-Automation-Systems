@@ -7,6 +7,8 @@ import { hasProMessaging } from "../billing/plan-features";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { backfillMissedVapiCalls } from "../admin/backfill.service";
 import { buildConfigPackage, generateConfigPackage } from "./config-package";
+import { computeOrgAnalytics } from "./analytics.service";
+import { computeOrgHealth } from "./health.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -274,6 +276,28 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
       assignedNumberProvider: activePhone?.provider || null
     }
   });
+});
+
+orgRouter.get("/analytics", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const data = await computeOrgAnalytics(prisma, req.auth.orgId, {
+    range: typeof req.query.range === "string" ? req.query.range : undefined,
+    start: typeof req.query.start === "string" ? req.query.start : undefined,
+    end: typeof req.query.end === "string" ? req.query.end : undefined
+  });
+  return res.json({ ok: true, data });
+});
+
+orgRouter.get("/health", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const org = await prisma.organization.findUnique({ where: { id: req.auth.orgId } });
+  if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const health = await computeOrgHealth({
+    prisma,
+    org,
+    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+  });
+  return res.json({ ok: true, data: health });
 });
 
 orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {

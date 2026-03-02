@@ -30,6 +30,7 @@ import {
 import { backfillMissedVapiCalls } from "./backfill.service";
 import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./provisioning.service";
 import { computeReadinessReport } from "./readiness.service";
+import { computeOrgHealth } from "../org/health.service";
 import { ensureDefaultTestScenarios, getTestPassSummary } from "./testing.service";
 
 export const adminRouter = Router();
@@ -96,6 +97,27 @@ function parseIsoDate(value: string | undefined) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function snapshotAiConfigVersion(input: {
+  orgId: string;
+  aiConfigId: string;
+  createdByUserId?: string;
+}) {
+  const versions = await prisma.aiAgentConfigVersion.count({
+    where: { orgId: input.orgId, aiAgentConfigId: input.aiConfigId }
+  });
+  const ai = await prisma.aiAgentConfig.findUnique({ where: { id: input.aiConfigId } });
+  if (!ai) return null;
+  return prisma.aiAgentConfigVersion.create({
+    data: {
+      orgId: input.orgId,
+      aiAgentConfigId: input.aiConfigId,
+      version: versions + 1,
+      configJson: ai as unknown as Prisma.InputJsonValue,
+      createdByUserId: input.createdByUserId || null
+    }
+  });
 }
 
 type NominatimItem = {
@@ -907,6 +929,17 @@ adminRouter.get("/orgs/:id/readiness", async (req, res) => {
   return res.json({ ok: true, data: report });
 });
 
+adminRouter.get("/orgs/:id/health", async (req, res) => {
+  const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const health = await computeOrgHealth({
+    prisma,
+    org,
+    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+  });
+  return res.json({ ok: true, data: health });
+});
+
 adminRouter.get("/orgs/:id/messages", async (req, res) => {
   const org = await prisma.organization.findUnique({ where: { id: req.params.id }, select: { id: true } });
   if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
@@ -947,6 +980,60 @@ adminRouter.post("/orgs/:id/config-package/generate", async (req: AuthenticatedR
 adminRouter.get("/orgs/:id/config-package", async (req, res) => {
   const configPackage = await prisma.configPackage.findUnique({ where: { orgId: req.params.id } });
   return res.json({ ok: true, data: { configPackage } });
+});
+
+adminRouter.get("/orgs/:id/config-package/versions", async (req, res) => {
+  const versions = await prisma.configPackageVersion.findMany({
+    where: { orgId: req.params.id },
+    orderBy: { createdAt: "desc" },
+    take: 100
+  });
+  return res.json({ ok: true, data: { versions } });
+});
+
+adminRouter.post("/orgs/:id/config-package/versions/:versionId/revert", async (req: AuthenticatedRequest, res) => {
+  const target = await prisma.configPackageVersion.findFirst({
+    where: { id: req.params.versionId, orgId: req.params.id }
+  });
+  if (!target) return res.status(404).json({ ok: false, message: "Version not found." });
+
+  const current = await prisma.configPackage.upsert({
+    where: { orgId: req.params.id },
+    update: {
+      json: target.packageJson as Prisma.InputJsonValue,
+      version: target.version + 1,
+      generatedAt: new Date(),
+      generatedByUserId: req.auth?.userId || null
+    },
+    create: {
+      orgId: req.params.id,
+      json: target.packageJson as Prisma.InputJsonValue,
+      version: target.version + 1,
+      generatedAt: new Date(),
+      generatedByUserId: req.auth?.userId || null
+    }
+  });
+
+  await prisma.configPackageVersion.create({
+    data: {
+      orgId: req.params.id,
+      configPackageId: current.id,
+      version: current.version,
+      packageJson: current.json as Prisma.InputJsonValue,
+      createdByUserId: req.auth?.userId || null
+    }
+  });
+
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "CONFIG_PACKAGE_VERSION_RESTORED",
+    metadata: { versionId: target.id, restoredToVersion: current.version }
+  });
+
+  return res.json({ ok: true, data: { configPackage: current } });
 });
 
 adminRouter.get("/orgs/:id/testing", async (req, res) => {
@@ -1112,6 +1199,11 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
       status: "DRAFT"
     }
   });
+  await snapshotAiConfigVersion({
+    orgId: req.params.id,
+    aiConfigId: ai.id,
+    createdByUserId: req.auth?.userId
+  });
 
   await upsertChecklistStep({
     prisma,
@@ -1200,6 +1292,11 @@ adminRouter.patch("/orgs/:id/ai/config", async (req: AuthenticatedRequest, res) 
   const ai = existing
     ? await prisma.aiAgentConfig.update({ where: { id: existing.id }, data: payload })
     : await prisma.aiAgentConfig.create({ data: { orgId: req.params.id, ...payload } });
+  await snapshotAiConfigVersion({
+    orgId: req.params.id,
+    aiConfigId: ai.id,
+    createdByUserId: req.auth?.userId
+  });
 
   const vapiResult = await upsertVapiAgentIfConfigured({
     apiKey: env.VAPI_API_KEY,
@@ -1229,6 +1326,63 @@ adminRouter.patch("/orgs/:id/ai/config", async (req: AuthenticatedRequest, res) 
     metadata: { aiConfigId: ai.id, vapiResult }
   });
   return res.json({ ok: true, data: { ai, vapiResult } });
+});
+
+adminRouter.get("/orgs/:id/ai-config/versions", async (req, res) => {
+  const versions = await prisma.aiAgentConfigVersion.findMany({
+    where: { orgId: req.params.id },
+    orderBy: { createdAt: "desc" },
+    take: 100
+  });
+  return res.json({ ok: true, data: { versions } });
+});
+
+adminRouter.post("/orgs/:id/ai-config/versions/:versionId/revert", async (req: AuthenticatedRequest, res) => {
+  const target = await prisma.aiAgentConfigVersion.findFirst({
+    where: { id: req.params.versionId, orgId: req.params.id }
+  });
+  if (!target) return res.status(404).json({ ok: false, message: "Version not found." });
+
+  const snapshot = target.configJson as Record<string, unknown>;
+  const payload = {
+    provider: String(snapshot.provider || "VAPI") as "VAPI",
+    vapiAgentId: toNullable(String(snapshot.vapiAgentId || "")),
+    vapiPhoneNumberId: toNullable(String(snapshot.vapiPhoneNumberId || "")),
+    agentId: toNullable(String(snapshot.agentId || "")),
+    apiKeyRef: toNullable(String(snapshot.apiKeyRef || "")),
+    voice: toNullable(String(snapshot.voice || "")),
+    model: toNullable(String(snapshot.model || "")),
+    temperature: typeof snapshot.temperature === "number" ? snapshot.temperature : null,
+    systemPrompt: toNullable(String(snapshot.systemPrompt || "")),
+    toolsJson: toNullable(String(snapshot.toolsJson || "")),
+    intakeSchemaJson: toNullable(String(snapshot.intakeSchemaJson || "")),
+    toolsEnabledJson: toNullable(String(snapshot.toolsEnabledJson || "")),
+    transferRulesJson: toNullable(String(snapshot.transferRulesJson || "")),
+    status: String(snapshot.status || "ACTIVE") as "DRAFT" | "ACTIVE"
+  };
+
+  const ai = await prisma.aiAgentConfig.upsert({
+    where: { orgId: req.params.id },
+    update: payload,
+    create: { orgId: req.params.id, ...payload }
+  });
+
+  await snapshotAiConfigVersion({
+    orgId: req.params.id,
+    aiConfigId: ai.id,
+    createdByUserId: req.auth?.userId
+  });
+
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "AI_CONFIG_VERSION_RESTORED",
+    metadata: { versionId: target.id, aiConfigId: ai.id }
+  });
+
+  return res.json({ ok: true, data: { ai } });
 });
 
 adminRouter.post("/orgs/:id/provisioning/testing", async (req: AuthenticatedRequest, res) => {

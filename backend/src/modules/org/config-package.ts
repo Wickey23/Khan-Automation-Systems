@@ -188,6 +188,16 @@ export async function generateConfigPackage(input: {
     }
   });
 
+  await input.prisma.configPackageVersion.create({
+    data: {
+      orgId: input.orgId,
+      configPackageId: configPackage.id,
+      version: configPackage.version,
+      packageJson: packageJsonInput,
+      createdByUserId: input.generatedByUserId || null
+    }
+  });
+
   await input.prisma.onboardingSubmission.updateMany({
     where: { orgId: input.orgId },
     data: { configPackageJson: JSON.stringify(packageJson) }

@@ -8,6 +8,9 @@ import {
   assignOrgTwilioNumber,
   completeOrgTesting,
   fetchAdminConfigPackage,
+  fetchAdminConfigPackageVersions,
+  fetchAdminAiConfigVersions,
+  fetchAdminOrgHealth,
   fetchAdminOrgReadiness,
   fetchAdminVapiResources,
   fetchAdminOrgById,
@@ -18,17 +21,20 @@ import {
   resetOrgUserPassword,
   setOrgTesting,
   saveAdminOrgNotes,
+  revertAdminAiConfigVersion,
+  revertAdminConfigPackageVersion,
   updateProvisioningStep,
   updateAdminOrgStatus,
   updateOrgAiConfig
 } from "@/lib/api";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { ConfigPackage, ReadinessReport } from "@/lib/types";
+import type { AiAgentConfigVersion, ConfigPackage, ConfigPackageVersion, OrgHealth, ReadinessReport } from "@/lib/types";
 
 type OrgDetail = {
   id: string;
@@ -93,18 +99,27 @@ export default function AdminOrgDetailPage() {
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [testNotes, setTestNotes] = useState("");
   const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
+  const [health, setHealth] = useState<OrgHealth | null>(null);
   const [configPackage, setConfigPackage] = useState<ConfigPackage | null>(null);
+  const [configPackageVersions, setConfigPackageVersions] = useState<ConfigPackageVersion[]>([]);
+  const [aiConfigVersions, setAiConfigVersions] = useState<AiAgentConfigVersion[]>([]);
 
   async function load() {
-    const [orgData, readinessData, configData] = await Promise.all([
+    const [orgData, readinessData, healthData, configData, configVersionsData, aiVersionsData] = await Promise.all([
       fetchAdminOrgById(id),
       fetchAdminOrgReadiness(id),
-      fetchAdminConfigPackage(id)
+      fetchAdminOrgHealth(id),
+      fetchAdminConfigPackage(id),
+      fetchAdminConfigPackageVersions(id),
+      fetchAdminAiConfigVersions(id)
     ]);
     const next = orgData.org as OrgDetail;
     setOrg(next);
     setReadiness(readinessData);
+    setHealth(healthData);
     setConfigPackage(configData.configPackage);
+    setConfigPackageVersions(configVersionsData.versions || []);
+    setAiConfigVersions(aiVersionsData.versions || []);
     setStatus(next.status);
     const latestAi = next.aiAgentConfigs?.[0];
     const activePhone = next.phoneNumbers?.find((phone) => phone.status === "ACTIVE");
@@ -324,12 +339,23 @@ export default function AdminOrgDetailPage() {
   return (
     <AdminGuard>
       <div className="container py-10">
+        <AdminTopTabs className="mb-3" backFallbackHref="/admin/orgs" />
         <Link href="/admin/orgs" className="text-sm text-primary">
           Back to organizations
         </Link>
         <h1 className="mt-3 text-3xl font-bold">{org?.name || "Organization"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">Live: {org?.live ? "Yes" : "No"}</p>
         <p className="mt-1 text-sm text-amber-700">Next required action: {nextAction}</p>
+        {org?.status === "TESTING" ? (
+          <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            Testing Mode. Complete test runs and notifications before go-live.
+          </div>
+        ) : null}
+        {org?.status === "PAUSED" ? (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Paused mode. Runtime is limited until billing and readiness are restored.
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border bg-white p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
@@ -379,6 +405,37 @@ export default function AdminOrgDetailPage() {
                       Fix
                     </Link>
                   ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Org Health</h2>
+              <span
+                className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                  health?.level === "GREEN"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : health?.level === "YELLOW"
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-rose-100 text-rose-700"
+                }`}
+              >
+                {health?.level || "RED"}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{health?.summary || "Health report unavailable."}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {Object.entries(health?.checks || {}).map(([key, check]) => (
+                <div key={key} className="rounded border p-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{formatReadinessKey(key)}</p>
+                    <span className={`rounded px-2 py-0.5 text-xs ${check.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      {check.ok ? "PASS" : "FAIL"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{check.reason}</p>
                 </div>
               ))}
             </div>
@@ -439,6 +496,33 @@ export default function AdminOrgDetailPage() {
                 {JSON.stringify(configPackage?.json || {}, null, 2)}
               </pre>
             </details>
+            <div className="mt-3 rounded border p-3">
+              <p className="text-sm font-medium">Config Package Versions</p>
+              <div className="mt-2 space-y-2">
+                {configPackageVersions.slice(0, 8).map((versionRow) => (
+                  <div key={versionRow.id} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 px-2 py-1 text-xs">
+                    <span>
+                      v{versionRow.version} | {new Date(versionRow.createdAt).toLocaleString()}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        void revertAdminConfigPackageVersion(id, versionRow.id).then(async () => {
+                          showToast({ title: `Config package reverted to snapshot v${versionRow.version}` });
+                          await load();
+                        })
+                      }
+                    >
+                      Revert
+                    </Button>
+                  </div>
+                ))}
+                {!configPackageVersions.length ? (
+                  <p className="text-xs text-muted-foreground">No versions found yet.</p>
+                ) : null}
+              </div>
+            </div>
             <div className="mt-3">
               <Link href={`/admin/orgs/${id}/testing`} className="text-sm font-medium text-primary underline">
                 Open testing tab
@@ -654,6 +738,33 @@ export default function AdminOrgDetailPage() {
             <div className="mt-3 flex gap-2">
               <Button onClick={() => void saveAiConfig().then(() => setStep("vapi_agent_configured", "DONE"))}>Save AI config</Button>
               <Button variant="outline" onClick={() => void setStep("webhooks_verified", "DONE")}>Mark webhooks verified</Button>
+            </div>
+            <div className="mt-3 rounded border p-3">
+              <p className="text-sm font-medium">AI Config Versions</p>
+              <div className="mt-2 space-y-2">
+                {aiConfigVersions.slice(0, 8).map((versionRow) => (
+                  <div key={versionRow.id} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 px-2 py-1 text-xs">
+                    <span>
+                      v{versionRow.version} | {new Date(versionRow.createdAt).toLocaleString()}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        void revertAdminAiConfigVersion(id, versionRow.id).then(async () => {
+                          showToast({ title: `AI config reverted to snapshot v${versionRow.version}` });
+                          await load();
+                        })
+                      }
+                    >
+                      Revert
+                    </Button>
+                  </div>
+                ))}
+                {!aiConfigVersions.length ? (
+                  <p className="text-xs text-muted-foreground">No AI config versions found yet.</p>
+                ) : null}
+              </div>
             </div>
             <div className="mt-3 space-y-2">
               <Label>Test completion notes</Label>

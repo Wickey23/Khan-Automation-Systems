@@ -61,6 +61,40 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/health", healthRouter);
+app.get("/api/status", async (_req, res) => {
+  const since = new Date(Date.now() - 60 * 60 * 1000);
+  const [recentWebhookFailures, recentBillingFailures] = await Promise.all([
+    prisma.webhookEventLog.count({
+      where: { createdAt: { gte: since }, statusCode: { gte: 400 } }
+    }),
+    prisma.billingWebhookEvent.count({
+      where: { createdAt: { gte: since }, processed: false }
+    })
+  ]);
+
+  const voiceOperational = Boolean(env.TWILIO_AUTH_TOKEN);
+  const smsOperational = Boolean(env.TWILIO_AUTH_TOKEN);
+  const billingOperational = Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET);
+  const webhooksOperational = recentWebhookFailures === 0 && recentBillingFailures === 0;
+  const components = {
+    voice: (voiceOperational ? "OPERATIONAL" : "DEGRADED") as "OPERATIONAL" | "DEGRADED",
+    sms: (smsOperational ? "OPERATIONAL" : "DEGRADED") as "OPERATIONAL" | "DEGRADED",
+    billing: (billingOperational ? "OPERATIONAL" : "DEGRADED") as "OPERATIONAL" | "DEGRADED",
+    webhooks: (webhooksOperational ? "OPERATIONAL" : "DEGRADED") as "OPERATIONAL" | "DEGRADED"
+  };
+  const overallStatus: "OPERATIONAL" | "DEGRADED" = Object.values(components).every((value) => value === "OPERATIONAL")
+    ? "OPERATIONAL"
+    : "DEGRADED";
+
+  res.json({
+    ok: true,
+    data: {
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      components
+    }
+  });
+});
 app.use("/api/public", publicRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/auth", authRouter);

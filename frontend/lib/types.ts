@@ -362,3 +362,69 @@ export type DemoCallLog = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type OrgAnalytics = {
+  range: "7d" | "30d" | "custom";
+  start: string;
+  end: string;
+  kpis: {
+    totalCalls: number;
+    answeredCalls: number;
+    answerRate: number;
+    leadsCreated: number;
+    leadCaptureRate: number;
+    avgCallDurationSec: number;
+    smsThreads: number;
+    smsEngagedThreads: number;
+    smsEngagementRate: number;
+    appointmentRequests: number;
+    missedCalls: number;
+  };
+  charts: {
+    callsPerDay: Array<{ day: string; value: number }>;
+    leadsPerDay: Array<{ day: string; value: number }>;
+    outcomeBreakdown: Array<{ outcome: string; value: number }>;
+  };
+};
+
+export type OrgHealth = {
+  level: "GREEN" | "YELLOW" | "RED";
+  score: number;
+  summary: string;
+  checks: Record<string, { ok: boolean; reason: string; fixHint: string }>;
+  metrics: {
+    avgSuccessScore: number;
+    recentActivityAt: string | null;
+  };
+};
+
+export type AiAgentConfigVersion = {
+  id: string;
+  orgId: string;
+  aiAgentConfigId: string;
+  version: number;
+  configJson: Record<string, unknown>;
+  createdByUserId: string | null;
+  createdAt: string;
+};
+
+export type ConfigPackageVersion = {
+  id: string;
+  orgId: string;
+  configPackageId: string;
+  version: number;
+  packageJson: Record<string, unknown>;
+  createdByUserId: string | null;
+  createdAt: string;
+};
+
+export type PublicSystemStatus = {
+  status: "OPERATIONAL" | "DEGRADED";
+  timestamp: string;
+  components: {
+    voice: "OPERATIONAL" | "DEGRADED";
+    sms: "OPERATIONAL" | "DEGRADED";
+    billing: "OPERATIONAL" | "DEGRADED";
+    webhooks: "OPERATIONAL" | "DEGRADED";
+  };
+};
