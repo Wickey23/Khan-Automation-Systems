@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { changeStripePlan, createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
 import type { OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -8,18 +8,50 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/site/toast-provider";
 
-const PLAN_COPY: Record<"starter" | "pro", { title: string; price: string; points: string[] }> = {
+const PLAN_COPY: Record<
+  "starter" | "pro",
+  { title: string; price: string; subtitle: string; bestFor: string; includes: string[]; notes: string[] }
+> = {
   starter: {
     title: "Starter",
     price: "$297 / month",
-    points: ["Inbound call handling", "Lead capture and summaries", "Voicemail + routing basics"]
+    subtitle: "Core AI receptionist for single-location operators",
+    bestFor: "Best for shops that want immediate 24/7 call coverage with practical intake and follow-up.",
+    includes: [
+      "24/7 inbound AI receptionist coverage",
+      "Structured call intake and lead capture",
+      "Call summaries and transcript logging",
+      "Voicemail handling and basic call routing",
+      "Client portal access for onboarding, settings, calls, and leads",
+      "Admin provisioning support (number + agent setup)"
+    ],
+    notes: [
+      "Phone carrier charges (if applicable) are billed separately.",
+      "Advanced transfer logic and higher-touch automation are available in Pro."
+    ]
   },
   pro: {
     title: "Pro",
     price: "$497 / month",
-    points: ["Everything in Starter", "Advanced routing + escalation", "Higher-touch automation workflows"]
+    subtitle: "Advanced routing and escalation for higher-volume operations",
+    bestFor: "Best for teams that need stronger escalation rules, priority handling, and richer automation.",
+    includes: [
+      "Everything in Starter",
+      "Advanced routing and transfer policies",
+      "Priority/urgent escalation behavior",
+      "Expanded automation workflows for operations",
+      "More flexible call-handling configuration",
+      "Faster iteration cadence for production tuning"
+    ],
+    notes: [
+      "Recommended when multiple staff lines, urgent call triage, or tighter operational controls are required.",
+      "Carrier and usage-dependent costs are still separate from subscription."
+    ]
   }
 };
+
+type BillingPreviewPlan = "none" | "starter" | "pro";
+const PREVIEW_PLANS: BillingPreviewPlan[] = ["none", "starter", "pro"];
 
 function normalizeStatus(status: string | null | undefined) {
   return String(status || "not_active").toLowerCase();
@@ -40,18 +72,54 @@ function formatStatus(status: string | null | undefined) {
   return normalizeStatus(status).replace(/_/g, " ");
 }
 
+function subscriptionToPreviewPlan(source: OrgSubscription | null): BillingPreviewPlan {
+  if (!source) return "none";
+  return source.plan === "PRO" ? "pro" : "starter";
+}
+
+function toPreviewSubscription(plan: BillingPreviewPlan, source: OrgSubscription | null): OrgSubscription | null {
+  if (plan === "none") return null;
+  if (source) {
+    return {
+      ...source,
+      plan: plan === "pro" ? "PRO" : "STARTER"
+    };
+  }
+  return {
+    id: "preview-subscription",
+    status: "active",
+    plan: plan === "pro" ? "PRO" : "STARTER",
+    currentPeriodEnd: null,
+    stripeCustomerId: "preview-customer",
+    stripeSubscriptionId: "preview-subscription"
+  };
+}
+
 export default function AppBillingPage() {
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [startingPlan, setStartingPlan] = useState<"starter" | "pro" | null>(null);
   const [changingPlan, setChangingPlan] = useState<"starter" | "pro" | null>(null);
+  const [previewEnabled, setPreviewEnabled] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState<BillingPreviewPlan>("none");
 
   useEffect(() => {
     void getBillingStatus()
-      .then((data) => setSubscription(data.subscription))
-      .catch(() => setSubscription(null));
+      .then((data) => {
+        setSubscription(data.subscription);
+        setPreviewPlan(subscriptionToPreviewPlan(data.subscription));
+      })
+      .catch(() => {
+        setSubscription(null);
+        setPreviewPlan("none");
+      });
   }, []);
+
+  const effectiveSubscription = useMemo(
+    () => (previewEnabled ? toPreviewSubscription(previewPlan, subscription) : subscription),
+    [previewEnabled, previewPlan, subscription]
+  );
 
   async function onOpenPortal() {
     setOpeningPortal(true);
@@ -91,6 +159,7 @@ export default function AppBillingPage() {
       const result = await changeStripePlan(plan);
       const latest = await getBillingStatus();
       setSubscription(latest.subscription);
+      setPreviewPlan(subscriptionToPreviewPlan(latest.subscription));
       showToast({
         title: result.changed ? "Plan updated" : "No changes made",
         description: result.changed
@@ -108,6 +177,9 @@ export default function AppBillingPage() {
     }
   }
 
+  const previewIndex = PREVIEW_PLANS.indexOf(previewPlan);
+  const hasRealSubscription = Boolean(subscription);
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
@@ -118,9 +190,50 @@ export default function AppBillingPage() {
               Manage your subscription, payment method, and invoices.
             </p>
           </div>
-          <Badge className={statusStyles(subscription?.status)}>
-            {subscription ? `Status: ${formatStatus(subscription.status)}` : "No active subscription"}
+          <Badge className={statusStyles(effectiveSubscription?.status)}>
+            {effectiveSubscription ? `Status: ${formatStatus(effectiveSubscription.status)}` : "No active subscription"}
           </Badge>
+        </div>
+
+        <div className="mt-4 rounded-lg border bg-white p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Billing plan preview (temporary)</p>
+            {previewEnabled ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setPreviewEnabled(false);
+                  setPreviewPlan(subscriptionToPreviewPlan(subscription));
+                }}
+              >
+                Return to live data
+              </Button>
+            ) : null}
+          </div>
+          <div className="mt-3 space-y-2">
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={1}
+              value={previewIndex}
+              onChange={(event) => {
+                const idx = Number(event.target.value);
+                setPreviewPlan(PREVIEW_PLANS[idx] || "none");
+                setPreviewEnabled(true);
+              }}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>No plan</span>
+              <span>Starter</span>
+              <span>Pro</span>
+            </div>
+            {previewEnabled ? (
+              <p className="text-xs text-amber-700">Preview mode enabled. This only changes plan visuals and does not update Stripe or backend.</p>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -133,34 +246,37 @@ export default function AppBillingPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-white p-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Plan</p>
-              <p className="mt-1 text-base font-semibold">{subscription?.plan || "No active plan"}</p>
+              <p className="mt-1 text-base font-semibold">{effectiveSubscription?.plan || "No active plan"}</p>
             </div>
             <div className="rounded-lg border bg-white p-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-              <p className="mt-1 text-base font-semibold">{subscription ? formatStatus(subscription.status) : "not active"}</p>
+              <p className="mt-1 text-base font-semibold">{effectiveSubscription ? formatStatus(effectiveSubscription.status) : "not active"}</p>
             </div>
             <div className="rounded-lg border bg-white p-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Current period end</p>
               <p className="mt-1 text-base font-semibold">
-                {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "-"}
+                {effectiveSubscription?.currentPeriodEnd ? new Date(effectiveSubscription.currentPeriodEnd).toLocaleDateString() : "-"}
               </p>
             </div>
           </div>
 
-          {subscription ? (
+          {effectiveSubscription ? (
             <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
               <p className="text-sm text-blue-900">
                 Manage payment method, invoices, and cancellation in Stripe&apos;s customer portal.
               </p>
+              {!hasRealSubscription ? (
+                <p className="mt-2 text-xs text-amber-700">Preview state only: no real subscription exists for this account yet.</p>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button onClick={onOpenPortal} disabled={openingPortal}>
+                <Button onClick={onOpenPortal} disabled={openingPortal || previewEnabled || !hasRealSubscription}>
                   {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
                 </Button>
-                {subscription.plan === "STARTER" ? (
+                {effectiveSubscription.plan === "STARTER" ? (
                   <Button
                     variant="outline"
                     onClick={() => void onChangePlan("pro")}
-                    disabled={changingPlan !== null}
+                    disabled={changingPlan !== null || previewEnabled || !hasRealSubscription}
                   >
                     {changingPlan === "pro" ? "Upgrading..." : "Upgrade to Pro"}
                   </Button>
@@ -168,7 +284,7 @@ export default function AppBillingPage() {
                   <Button
                     variant="outline"
                     onClick={() => void onChangePlan("starter")}
-                    disabled={changingPlan !== null}
+                    disabled={changingPlan !== null || previewEnabled || !hasRealSubscription}
                   >
                     {changingPlan === "starter" ? "Switching..." : "Switch to Starter"}
                   </Button>
@@ -192,16 +308,27 @@ export default function AppBillingPage() {
                         {PLAN_COPY[planKey].price}
                       </Badge>
                     </div>
-                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-                      {PLAN_COPY[planKey].points.map((point) => (
+                    <p className="mt-1 text-xs text-muted-foreground">{PLAN_COPY[planKey].subtitle}</p>
+                    <p className="mt-3 rounded-md border bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
+                      {PLAN_COPY[planKey].bestFor}
+                    </p>
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Included</p>
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {PLAN_COPY[planKey].includes.map((point) => (
                         <li key={point}>- {point}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {PLAN_COPY[planKey].notes.map((note) => (
+                        <li key={note}>- {note}</li>
                       ))}
                     </ul>
                     <div className="mt-4">
                       <Button
                         variant={planKey === "starter" ? "default" : "outline"}
                         onClick={() => void onStartPlan(planKey)}
-                        disabled={startingPlan !== null}
+                        disabled={startingPlan !== null || previewEnabled}
                       >
                         {startingPlan === planKey ? "Starting..." : `Start ${PLAN_COPY[planKey].title}`}
                       </Button>
