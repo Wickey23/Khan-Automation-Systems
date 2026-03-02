@@ -81,9 +81,7 @@ export async function computeReadinessReport(input: {
   const checklist = parseChecklist(checklistRow?.stepsJson);
   const testSummary = await getTestPassSummary(input.prisma, input.org.id);
 
-  const billingActive =
-    !subscription ||
-    ["active", "trialing", "past_due"].includes(String(subscription.status || "").toLowerCase());
+  const billingActive = ["active", "trialing"].includes(String(subscription?.status || "").toLowerCase());
 
   const transferNumbers = normalizeArrayString(settings?.transferNumbersJson);
   const businessSettingsValidCheck =
@@ -137,4 +135,3 @@ export async function computeReadinessReport(input: {
   const canGoLive = Object.values(checks).every((check) => check.ok);
   return { checks, canGoLive };
 }
-

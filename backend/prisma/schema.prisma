@@ -140,6 +140,9 @@ model Organization {
   industry             String?
   status               OrganizationStatus     @default(NEW)
   live                 Boolean                @default(false)
+  stripeCustomerId     String?                @unique
+  subscriptionStatus   String                 @default("inactive")
+  billingActive        Boolean                @default(false)
   onboardingApprovedAt DateTime?
   goLiveAt             DateTime?
   users                User[]
@@ -157,6 +160,7 @@ model Organization {
   testScenarios        TestScenario[]
   testRuns             TestRun[]
   webhookEventLogs     WebhookEventLog[]
+  billingWebhookEvents BillingWebhookEvent[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -476,4 +480,21 @@ model WebhookEventLog {
   headersJson    String       @default("{}")
   payloadSnippet String       @default("{}")
   createdAt      DateTime     @default(now())
+}
+
+model BillingWebhookEvent {
+  id             String       @id @default(cuid())
+  eventId        String       @unique
+  eventType      String
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+  orgId          String?
+  organization   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  processed      Boolean      @default(false)
+  processingError String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([stripeSubscriptionId, createdAt])
 }

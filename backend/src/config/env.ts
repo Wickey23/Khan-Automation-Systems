@@ -24,6 +24,7 @@ const envSchema = z.object({
   STRIPE_PRO_PRICE_ID: z.string().default("price_pro_placeholder"),
   STRIPE_SUCCESS_URL: z.string().default("http://localhost:3000/checkout/success"),
   STRIPE_CANCEL_URL: z.string().default("http://localhost:3000/checkout/cancel"),
+  STRIPE_PORTAL_RETURN_URL: z.string().optional(),
   FRONTEND_APP_URL: z.string().default("http://localhost:3000"),
   API_BASE_URL: z.string().default("http://localhost:4000"),
   AUTO_LIVE_ON_SETUP: z.string().default("false"),
