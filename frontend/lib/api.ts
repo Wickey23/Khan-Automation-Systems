@@ -396,3 +396,20 @@ export async function resetOrgUserPassword(orgId: string, userId: string, passwo
     }
   );
 }
+
+export async function clearAllSystemData(password: string, confirmationText: string) {
+  return request<{
+    deleted: {
+      callLogs: number;
+      calls: number;
+      leads: number;
+      organizations: number;
+      clients: number;
+      subscriptions: number;
+      users: number;
+    };
+  }>("/api/admin/system/clear-data", {
+    method: "POST",
+    body: JSON.stringify({ password, confirmationText })
+  });
+}

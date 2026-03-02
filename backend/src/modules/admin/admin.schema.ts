@@ -53,3 +53,8 @@ export const provisioningStepUpdateSchema = z.object({
   status: z.enum(["TODO", "DONE", "BLOCKED"]),
   notes: z.string().max(2000).optional()
 });
+
+export const clearAllDataSchema = z.object({
+  password: z.string().min(8).max(128),
+  confirmationText: z.string().min(1)
+});

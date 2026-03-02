@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
-import { fetchAdminOrgs } from "@/lib/api";
+import { clearAllSystemData, fetchAdminOrgs } from "@/lib/api";
+import { useToast } from "@/components/site/toast-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type AdminOrg = {
   id: string;
@@ -16,11 +20,37 @@ type AdminOrg = {
 };
 
 export default function AdminOrgsPage() {
+  const { showToast } = useToast();
   const [orgs, setOrgs] = useState<AdminOrg[]>([]);
+  const [clearPassword, setClearPassword] = useState("");
+  const [confirmationText, setConfirmationText] = useState("");
+  const [clearLoading, setClearLoading] = useState(false);
 
   useEffect(() => {
     void fetchAdminOrgs().then((data) => setOrgs(data.orgs as AdminOrg[])).catch(() => setOrgs([]));
   }, []);
+
+  async function clearData() {
+    setClearLoading(true);
+    try {
+      const data = await clearAllSystemData(clearPassword, confirmationText);
+      setOrgs([]);
+      setClearPassword("");
+      setConfirmationText("");
+      showToast({
+        title: "System data cleared",
+        description: `Deleted ${data.deleted.leads} leads, ${data.deleted.callLogs} call logs, ${data.deleted.organizations} orgs.`
+      });
+    } catch (error) {
+      showToast({
+        title: "Clear data failed",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setClearLoading(false);
+    }
+  }
 
   return (
     <AdminGuard>
@@ -71,6 +101,41 @@ export default function AdminOrgsPage() {
             </tbody>
           </table>
         </div>
+
+        <section className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4">
+          <h2 className="text-lg font-semibold text-red-900">Danger Zone</h2>
+          <p className="mt-1 text-sm text-red-800">
+            Permanently clears tenant data (organizations, client users, leads, call logs, subscriptions). Admin users are preserved.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="clear-password">Admin password</Label>
+              <Input
+                id="clear-password"
+                type="password"
+                value={clearPassword}
+                onChange={(e) => setClearPassword(e.target.value)}
+                placeholder="Enter admin password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="clear-confirmation">Type DELETE ALL DATA</Label>
+              <Input
+                id="clear-confirmation"
+                value={confirmationText}
+                onChange={(e) => setConfirmationText(e.target.value)}
+                placeholder="DELETE ALL DATA"
+              />
+            </div>
+          </div>
+          <Button
+            className="mt-4 bg-red-600 text-white hover:bg-red-700"
+            disabled={clearLoading || confirmationText !== "DELETE ALL DATA" || clearPassword.length < 8}
+            onClick={() => void clearData()}
+          >
+            {clearLoading ? "Clearing..." : "Clear all data"}
+          </Button>
+        </section>
       </div>
     </AdminGuard>
   );

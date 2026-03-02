@@ -9,6 +9,7 @@ import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } fr
 import { provisionNumber } from "../twilio/twilio.service";
 import {
   assignNumberSchema,
+  clearAllDataSchema,
   leadFilterSchema,
   provisioningStepUpdateSchema,
   resetUserPasswordSchema,
@@ -507,6 +508,71 @@ adminRouter.post("/orgs/:id/users/:userId/reset-password", async (req, res) => {
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
   return res.json({ ok: true, data: { user: { id: user.id, email: user.email, role: user.role } } });
+});
+
+adminRouter.post("/system/clear-data", async (req: AuthenticatedRequest, res) => {
+  const parsed = clearAllDataSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid clear-data payload.", errors: parsed.error.flatten() });
+  }
+
+  if (parsed.data.confirmationText.trim() !== "DELETE ALL DATA") {
+    return res.status(400).json({ ok: false, message: 'Confirmation text must be exactly "DELETE ALL DATA".' });
+  }
+
+  const actor = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+  if (!actor) return res.status(404).json({ ok: false, message: "Admin user not found." });
+
+  const passwordOk = await bcrypt.compare(parsed.data.password, actor.passwordHash);
+  if (!passwordOk) return res.status(401).json({ ok: false, message: "Invalid admin password." });
+
+  const result = await prisma.$transaction(async (tx) => {
+    const deleted = {
+      callLogs: 0,
+      calls: 0,
+      leads: 0,
+      organizations: 0,
+      clients: 0,
+      subscriptions: 0,
+      users: 0
+    };
+
+    deleted.callLogs = (await tx.callLog.deleteMany({})).count;
+    deleted.calls = (await tx.call.deleteMany({})).count;
+    deleted.leads = (await tx.lead.deleteMany({})).count;
+    deleted.subscriptions = (await tx.subscription.deleteMany({})).count;
+    await tx.provisioningChecklist.deleteMany({});
+    await tx.businessSettings.deleteMany({});
+    await tx.onboardingSubmission.deleteMany({});
+    await tx.phoneNumber.deleteMany({});
+    await tx.aiAgentConfig.deleteMany({});
+    await tx.setting.deleteMany({});
+    await tx.aIConfig.deleteMany({});
+    await tx.phoneLine.deleteMany({});
+    deleted.clients = (await tx.client.deleteMany({})).count;
+    deleted.organizations = (await tx.organization.deleteMany({})).count;
+    await tx.loginChallenge.deleteMany({});
+    deleted.users = (
+      await tx.user.deleteMany({
+        where: {
+          role: { in: [UserRole.CLIENT, UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF] }
+        }
+      })
+    ).count;
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: req.auth!.userId,
+        actorRole: req.auth!.role,
+        action: "SYSTEM_DATA_CLEARED",
+        metadataJson: JSON.stringify(deleted)
+      }
+    });
+
+    return deleted;
+  });
+
+  return res.json({ ok: true, data: { deleted: result } });
 });
 
 // Legacy client-based endpoints preserved for compatibility.
