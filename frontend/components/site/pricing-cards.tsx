@@ -6,17 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const tiers = [
   {
     name: "Starter",
-    price: "$1,500 setup + $399/mo",
-    features: ["24/7 AI call intake", "SMS confirmation flow", "Basic routing + transfer", "Monthly optimization"]
+    price: "$297/mo",
+    features: [
+      "$199 one-time setup",
+      "Includes 300 inbound/outbound voice minutes",
+      "24/7 AI call intake and voicemail capture",
+      "Call summaries, transcripts, and lead logging",
+      "Basic transfer logic + manager notifications"
+    ]
   },
   {
     name: "Pro",
-    price: "$2,500 setup + $699/mo",
+    price: "$497/mo",
     features: [
       "Everything in Starter",
-      "Advanced escalation rules",
-      "Calendar + workflow integrations",
-      "Priority performance tuning"
+      "Includes 500 voice minutes + 1,000 SMS segments",
+      "Two-way messaging automation and follow-up flows",
+      "Advanced escalation, after-hours, and transfer logic",
+      "Priority tuning and deeper automation support"
     ]
   }
 ];

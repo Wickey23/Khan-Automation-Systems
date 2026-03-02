@@ -37,7 +37,7 @@ export default function PricingPage() {
     <div className="container py-14">
       <h1 className="text-4xl font-bold">Pricing</h1>
       <p className="mt-3 text-muted-foreground">
-        Start with one offer: AI Reception + Follow-Up for service businesses.
+        Transparent monthly plans for AI voice + messaging operations.
       </p>
       <div className="mt-8">
         <PricingCards />
@@ -50,8 +50,26 @@ export default function PricingPage() {
           {loadingPlan === "pro" ? "Redirecting..." : "Start Pro"}
         </Button>
       </div>
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">Included usage</p>
+          <ul className="mt-2 space-y-1">
+            <li>Starter: 300 voice minutes included each billing cycle</li>
+            <li>Pro: 500 voice minutes + 1,000 SMS segments included each billing cycle</li>
+            <li>One-time setup fee: $199 on initial activation</li>
+          </ul>
+        </div>
+        <div className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">Overages + compliance</p>
+          <ul className="mt-2 space-y-1">
+            <li>Usage above included limits is billed at carrier/provider pass-through rates plus platform margin.</li>
+            <li>US A2P 10DLC registration fees and monthly campaign fees are billed separately when SMS is enabled.</li>
+            <li>Carrier compliance, filtering, and deliverability policies apply to all messaging traffic.</li>
+          </ul>
+        </div>
+      </div>
       <div className="mt-6 rounded-lg border bg-white p-5 text-sm text-muted-foreground">
-        Optional setup fees are configured in Stripe and can be added during onboarding.
+        Final implementation scope, any custom integrations, and custom overage schedules are defined in your signed MSA/order form.
       </div>
     </div>
   );
