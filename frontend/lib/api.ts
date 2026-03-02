@@ -67,6 +67,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     : null;
 
   if (!response.ok || !payload?.ok) {
+    if (response.status === 401) {
+      throw new Error("Session expired. Please log in again.");
+    }
     throw new Error(payload?.message || "Request failed.");
   }
 
