@@ -16,6 +16,42 @@ function formatDuration(seconds: number) {
   return `${mins}m ${secs}s`;
 }
 
+function getCallSuccessRating(call: OrgCallRecord) {
+  let base = 60;
+  if (call.outcome === "APPOINTMENT_REQUEST") base = 95;
+  else if (call.outcome === "TRANSFERRED") base = 90;
+  else if (call.outcome === "MESSAGE_TAKEN") base = 75;
+  else if (call.outcome === "SPAM") base = 40;
+  else if (call.outcome === "MISSED") base = 20;
+
+  if (call.transcript) base += 5;
+  if (call.recordingUrl) base += 5;
+
+  return Math.max(0, Math.min(100, base));
+}
+
+function extractCallerName(call: OrgCallRecord) {
+  const transcript = call.transcript || "";
+  const summary = call.aiSummary || call.summary || "";
+  const sources = [transcript, summary];
+
+  const patterns = [
+    /my name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
+    /this is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
+    /i(?:'| a)?m\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
+    /^([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\s+called\b/i
+  ];
+
+  for (const source of sources) {
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (match?.[1]) return match[1].trim();
+    }
+  }
+
+  return "";
+}
+
 export default function AppCallsPage() {
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -172,10 +208,10 @@ export default function AppCallsPage() {
               <th className="p-3">Started</th>
               <th className="p-3">Duration</th>
               <th className="p-3">From</th>
+              <th className="p-3">Name</th>
               <th className="p-3">To</th>
               <th className="p-3">Outcome</th>
-              <th className="p-3">AI</th>
-              <th className="p-3">Summary</th>
+              <th className="p-3">Success</th>
               <th className="p-3">Recording</th>
               <th className="p-3">Call SID</th>
               <th className="p-3">Details</th>
@@ -187,18 +223,10 @@ export default function AppCallsPage() {
                 <td className="p-3">{new Date(call.startedAt).toLocaleString()}</td>
                 <td className="p-3">{call.durationSec ? `${call.durationSec}s` : "-"}</td>
                 <td className="p-3">{call.fromNumber}</td>
+                <td className="p-3">{extractCallerName(call) || "-"}</td>
                 <td className="p-3">{call.toNumber}</td>
                 <td className="p-3">{call.outcome.replaceAll("_", " ")}</td>
-                <td className="p-3 text-xs text-muted-foreground">
-                  {call.aiProvider || "-"}
-                  {call.appointmentRequested ? " | appointment" : ""}
-                </td>
-                <td className="p-3">
-                  <div className="max-w-sm whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                    {call.aiSummary || call.summary || "-"}
-                    {call.transcript ? `\n\nTranscript: ${call.transcript}` : ""}
-                  </div>
-                </td>
+                <td className="p-3">{formatPercent(getCallSuccessRating(call))}</td>
                 <td className="p-3">
                   {call.recordingUrl ? (
                     <a
@@ -259,9 +287,10 @@ export default function AppCallsPage() {
             <div><span className="text-muted-foreground">Ended:</span> {selectedCall.endedAt ? new Date(selectedCall.endedAt).toLocaleString() : "-"}</div>
             <div><span className="text-muted-foreground">Duration:</span> {selectedCall.durationSec ? `${selectedCall.durationSec}s` : "-"}</div>
             <div><span className="text-muted-foreground">From:</span> {selectedCall.fromNumber}</div>
+            <div><span className="text-muted-foreground">Caller name:</span> {extractCallerName(selectedCall) || "-"}</div>
             <div><span className="text-muted-foreground">To:</span> {selectedCall.toNumber}</div>
             <div><span className="text-muted-foreground">Outcome:</span> {selectedCall.outcome.replaceAll("_", " ")}</div>
-            <div><span className="text-muted-foreground">AI Provider:</span> {selectedCall.aiProvider || "-"}</div>
+            <div><span className="text-muted-foreground">Success rating:</span> {formatPercent(getCallSuccessRating(selectedCall))}</div>
             <div><span className="text-muted-foreground">Appointment:</span> {selectedCall.appointmentRequested ? "Yes" : "No"}</div>
             <div><span className="text-muted-foreground">Lead ID:</span> {selectedCall.leadId || "-"}</div>
             <div className="sm:col-span-2 lg:col-span-3">
