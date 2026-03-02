@@ -86,6 +86,21 @@ enum LeadSource {
   SMS
 }
 
+enum ProspectStatus {
+  NEW
+  QUALIFIED
+  CONTACTED
+  NURTURE
+  WON
+  LOST
+}
+
+enum ProspectSource {
+  MANUAL
+  CSV_IMPORT
+  ENRICHED
+}
+
 enum SubscriptionPlan {
   STARTER
   PRO
@@ -129,11 +144,34 @@ model Organization {
   aiAgentConfigs       AiAgentConfig[]
   callLogs             CallLog[]
   leads                Lead[]
+  prospects            Prospect[]
   provisioningChecklist ProvisioningChecklist?
   auditLogs            AuditLog[]
   businessSettings     BusinessSettings?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
+}
+
+model Prospect {
+  id          String         @id @default(cuid())
+  orgId       String?
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  name        String
+  business    String
+  email       String?
+  phone       String?
+  website     String?
+  industry    String?
+  city        String?
+  state       String?
+  status      ProspectStatus @default(NEW)
+  source      ProspectSource @default(MANUAL)
+  score       Int?
+  scoreReason String?
+  tags        String         @default("")
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 }
 
 model User {

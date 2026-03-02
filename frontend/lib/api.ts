@@ -8,6 +8,7 @@ import type {
   Lead,
   LeadPayload,
   OnboardingSubmission,
+  Prospect,
   Organization,
   OrgCallRecord,
   OrgSubscription,
@@ -422,6 +423,55 @@ export async function clearAllSystemData(password: string, confirmationText: str
 
 export async function backfillMissedVapiCalls() {
   return request<{ scanned: number; resolved: number; skipped: number }>("/api/admin/system/backfill-vapi-calls", {
+    method: "POST"
+  });
+}
+
+export async function fetchProspects(query: string) {
+  return request<{ prospects: Prospect[]; total: number }>(`/api/admin/prospects${query}`);
+}
+
+export async function createProspect(body: {
+  orgId?: string | null;
+  name: string;
+  business: string;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  industry?: string | null;
+  city?: string | null;
+  state?: string | null;
+  tags?: string;
+  notes?: string | null;
+}) {
+  return request<{ prospect: Prospect }>("/api/admin/prospects", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function updateProspect(id: string, body: Partial<Prospect>) {
+  return request<{ prospect: Prospect }>(`/api/admin/prospects/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function importProspectsCsv(csv: string, orgId?: string | null) {
+  return request<{ createdCount: number }>("/api/admin/prospects/import-csv", {
+    method: "POST",
+    body: JSON.stringify({ csv, orgId: orgId || null })
+  });
+}
+
+export async function scoreProspect(id: string) {
+  return request<{ prospect: Prospect }>(`/api/admin/prospects/${id}/score`, {
+    method: "POST"
+  });
+}
+
+export async function convertProspectToLead(id: string) {
+  return request<{ lead: { id: string }; prospect: Prospect }>(`/api/admin/prospects/${id}/convert-to-lead`, {
     method: "POST"
   });
 }

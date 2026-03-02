@@ -10,9 +10,13 @@ import { provisionNumber } from "../twilio/twilio.service";
 import {
   assignNumberSchema,
   clearAllDataSchema,
+  createProspectSchema,
+  importProspectsSchema,
   leadFilterSchema,
+  prospectFilterSchema,
   provisioningStepUpdateSchema,
   resetUserPasswordSchema,
+  updateProspectSchema,
   updateAiConfigSchema,
   updateClientStatusSchema,
   updateLeadSchema
@@ -30,6 +34,30 @@ function normalizeVapiList(payload: unknown): Array<Record<string, unknown>> {
     if (Array.isArray(maybeData)) return maybeData as Array<Record<string, unknown>>;
   }
   return [];
+}
+
+function parseCsvRows(input: string) {
+  const lines = input
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return [] as Array<Record<string, string>>;
+  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const rows: Array<Record<string, string>> = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const cols = lines[i].split(",").map((c) => c.trim());
+    const row: Record<string, string> = {};
+    headers.forEach((h, index) => {
+      row[h] = cols[index] || "";
+    });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function toNullable(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  return text ? text : null;
 }
 
 adminRouter.get("/leads", async (req: AuthenticatedRequest, res: Response) => {
@@ -100,6 +128,185 @@ adminRouter.get("/export/leads.csv", async (_req, res) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", "attachment; filename=leads.csv");
   return res.send(csv);
+});
+
+adminRouter.get("/prospects", async (req: AuthenticatedRequest, res: Response) => {
+  const parsed = prospectFilterSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
+  const limit = Math.min(Number(parsed.data.limit || 100), 300);
+  const page = Math.max(Number(parsed.data.page || 1), 1);
+  const skip = (page - 1) * limit;
+  const where: Prisma.ProspectWhereInput = {};
+  if (parsed.data.status) where.status = parsed.data.status;
+  if (parsed.data.orgId) where.orgId = parsed.data.orgId;
+  if (parsed.data.search) {
+    where.OR = [
+      { name: { contains: parsed.data.search, mode: "insensitive" } },
+      { business: { contains: parsed.data.search, mode: "insensitive" } },
+      { email: { contains: parsed.data.search, mode: "insensitive" } },
+      { phone: { contains: parsed.data.search, mode: "insensitive" } },
+      { website: { contains: parsed.data.search, mode: "insensitive" } }
+    ];
+  }
+  const [prospects, total] = await Promise.all([
+    prisma.prospect.findMany({ where, orderBy: { createdAt: "desc" }, take: limit, skip }),
+    prisma.prospect.count({ where })
+  ]);
+  return res.json({ ok: true, data: { prospects, total } });
+});
+
+adminRouter.post("/prospects", async (req: AuthenticatedRequest, res) => {
+  const parsed = createProspectSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid prospect payload.", errors: parsed.error.flatten() });
+  const prospect = await prisma.prospect.create({
+    data: {
+      orgId: parsed.data.orgId || null,
+      name: parsed.data.name.trim(),
+      business: parsed.data.business.trim(),
+      email: toNullable(parsed.data.email),
+      phone: toNullable(parsed.data.phone),
+      website: toNullable(parsed.data.website),
+      industry: toNullable(parsed.data.industry),
+      city: toNullable(parsed.data.city),
+      state: toNullable(parsed.data.state),
+      status: parsed.data.status || "NEW",
+      notes: toNullable(parsed.data.notes),
+      tags: parsed.data.tags || "",
+      source: "MANUAL"
+    }
+  });
+  return res.status(201).json({ ok: true, data: { prospect } });
+});
+
+adminRouter.patch("/prospects/:id", async (req: AuthenticatedRequest, res) => {
+  const parsed = updateProspectSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid prospect update payload.", errors: parsed.error.flatten() });
+  try {
+    const prospect = await prisma.prospect.update({
+      where: { id: req.params.id },
+      data: {
+        orgId: parsed.data.orgId === undefined ? undefined : parsed.data.orgId || null,
+        name: parsed.data.name?.trim(),
+        business: parsed.data.business?.trim(),
+        email: parsed.data.email === undefined ? undefined : toNullable(parsed.data.email),
+        phone: parsed.data.phone === undefined ? undefined : toNullable(parsed.data.phone),
+        website: parsed.data.website === undefined ? undefined : toNullable(parsed.data.website),
+        industry: parsed.data.industry === undefined ? undefined : toNullable(parsed.data.industry),
+        city: parsed.data.city === undefined ? undefined : toNullable(parsed.data.city),
+        state: parsed.data.state === undefined ? undefined : toNullable(parsed.data.state),
+        notes: parsed.data.notes === undefined ? undefined : toNullable(parsed.data.notes),
+        tags: parsed.data.tags,
+        status: parsed.data.status,
+        source: parsed.data.source,
+        score: parsed.data.score === undefined ? undefined : parsed.data.score,
+        scoreReason: parsed.data.scoreReason === undefined ? undefined : toNullable(parsed.data.scoreReason)
+      }
+    });
+    return res.json({ ok: true, data: { prospect } });
+  } catch {
+    return res.status(404).json({ ok: false, message: "Prospect not found." });
+  }
+});
+
+adminRouter.post("/prospects/import-csv", async (req: AuthenticatedRequest, res) => {
+  const parsed = importProspectsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
+  const rows = parseCsvRows(parsed.data.csv);
+  if (!rows.length) return res.status(400).json({ ok: false, message: "CSV must include header and at least one row." });
+
+  const created = [];
+  for (const row of rows) {
+    if (!row.name || !row.business) continue;
+    const prospect = await prisma.prospect.create({
+      data: {
+        orgId: parsed.data.orgId || null,
+        name: row.name,
+        business: row.business,
+        email: toNullable(row.email),
+        phone: toNullable(row.phone),
+        website: toNullable(row.website),
+        industry: toNullable(row.industry),
+        city: toNullable(row.city),
+        state: toNullable(row.state),
+        notes: toNullable(row.notes),
+        tags: row.tags || "",
+        source: "CSV_IMPORT",
+        status: "NEW"
+      }
+    });
+    created.push(prospect.id);
+  }
+  return res.json({ ok: true, data: { createdCount: created.length } });
+});
+
+adminRouter.post("/prospects/:id/score", async (req: AuthenticatedRequest, res) => {
+  const prospect = await prisma.prospect.findUnique({ where: { id: req.params.id } });
+  if (!prospect) return res.status(404).json({ ok: false, message: "Prospect not found." });
+
+  let score = 45;
+  const reasons: string[] = [];
+  if (prospect.phone) {
+    score += 20;
+    reasons.push("has phone");
+  }
+  if (prospect.email) {
+    score += 15;
+    reasons.push("has email");
+  }
+  if (prospect.website) {
+    score += 10;
+    reasons.push("has website");
+  }
+  if (prospect.industry) {
+    score += 10;
+    reasons.push("industry known");
+  }
+  if (prospect.orgId) {
+    score += 5;
+    reasons.push("mapped to org");
+  }
+  score = Math.max(0, Math.min(100, score));
+
+  const updated = await prisma.prospect.update({
+    where: { id: prospect.id },
+    data: {
+      score,
+      scoreReason: reasons.join(", "),
+      status: score >= 75 ? "QUALIFIED" : prospect.status
+    }
+  });
+  return res.json({ ok: true, data: { prospect: updated } });
+});
+
+adminRouter.post("/prospects/:id/convert-to-lead", async (req: AuthenticatedRequest, res) => {
+  const prospect = await prisma.prospect.findUnique({ where: { id: req.params.id } });
+  if (!prospect) return res.status(404).json({ ok: false, message: "Prospect not found." });
+
+  const lead = await prisma.lead.create({
+    data: {
+      orgId: prospect.orgId || null,
+      name: prospect.name,
+      business: prospect.business,
+      email: prospect.email || "unknown@example.com",
+      phone: prospect.phone || "unknown",
+      industry: prospect.industry,
+      message: prospect.notes,
+      sourcePage: "/admin/prospects",
+      source: "WEB_FORM",
+      status: "NEW",
+      tags: prospect.tags || ""
+    }
+  });
+
+  const updatedProspect = await prisma.prospect.update({
+    where: { id: prospect.id },
+    data: {
+      status: "CONTACTED",
+      notes: `${prospect.notes ? `${prospect.notes}\n` : ""}Converted to lead ${lead.id} on ${new Date().toISOString()}`
+    }
+  });
+
+  return res.json({ ok: true, data: { lead, prospect: updatedProspect } });
 });
 
 adminRouter.get("/orgs", async (_req, res) => {

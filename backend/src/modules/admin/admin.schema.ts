@@ -58,3 +58,37 @@ export const clearAllDataSchema = z.object({
   password: z.string().min(8).max(128),
   confirmationText: z.string().min(1)
 });
+
+export const prospectFilterSchema = z.object({
+  status: z.enum(["NEW", "QUALIFIED", "CONTACTED", "NURTURE", "WON", "LOST"]).optional(),
+  search: z.string().optional(),
+  orgId: z.string().optional(),
+  limit: z.string().optional(),
+  page: z.string().optional()
+});
+
+export const createProspectSchema = z.object({
+  orgId: z.string().optional().nullable(),
+  name: z.string().min(1).max(200),
+  business: z.string().min(1).max(200),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().max(50).optional().nullable(),
+  website: z.string().max(255).optional().nullable(),
+  industry: z.string().max(120).optional().nullable(),
+  city: z.string().max(120).optional().nullable(),
+  state: z.string().max(120).optional().nullable(),
+  status: z.enum(["NEW", "QUALIFIED", "CONTACTED", "NURTURE", "WON", "LOST"]).optional(),
+  tags: z.string().max(1000).optional(),
+  notes: z.string().max(5000).optional().nullable()
+});
+
+export const updateProspectSchema = createProspectSchema.partial().extend({
+  source: z.enum(["MANUAL", "CSV_IMPORT", "ENRICHED"]).optional(),
+  score: z.number().int().min(0).max(100).optional().nullable(),
+  scoreReason: z.string().max(1000).optional().nullable()
+});
+
+export const importProspectsSchema = z.object({
+  orgId: z.string().optional().nullable(),
+  csv: z.string().min(1)
+});

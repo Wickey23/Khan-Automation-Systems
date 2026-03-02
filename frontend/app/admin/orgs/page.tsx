@@ -75,6 +75,11 @@ export default function AdminOrgsPage() {
   return (
     <AdminGuard>
       <div className="container py-10">
+        <div className="mb-3 flex items-center gap-3 text-sm">
+          <Link href="/admin/leads" className="text-primary">Leads</Link>
+          <span className="text-muted-foreground">/</span>
+          <Link href="/admin/prospects" className="text-primary">Prospects</Link>
+        </div>
         <h1 className="text-3xl font-bold">Organizations</h1>
         <p className="mt-2 text-sm text-muted-foreground">Review onboarding, provisioning, and go-live readiness.</p>
         <div className="mt-4 overflow-x-auto rounded-lg border bg-white">

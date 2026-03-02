@@ -199,3 +199,26 @@ export type BusinessSettings = {
   policiesJson: string;
   updatedAt: string;
 };
+
+export type ProspectStatus = "NEW" | "QUALIFIED" | "CONTACTED" | "NURTURE" | "WON" | "LOST";
+
+export type Prospect = {
+  id: string;
+  orgId: string | null;
+  name: string;
+  business: string;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  industry: string | null;
+  city: string | null;
+  state: string | null;
+  status: ProspectStatus;
+  source: "MANUAL" | "CSV_IMPORT" | "ENRICHED";
+  score: number | null;
+  scoreReason: string | null;
+  tags: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
