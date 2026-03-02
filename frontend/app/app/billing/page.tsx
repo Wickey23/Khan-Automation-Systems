@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createCustomerPortalSession, getBillingStatus } from "@/lib/api";
+import { createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
 import type { OrgSubscription } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ export default function AppBillingPage() {
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [startingPlan, setStartingPlan] = useState<"starter" | "pro" | null>(null);
 
   useEffect(() => {
     void getBillingStatus()
@@ -31,6 +32,22 @@ export default function AppBillingPage() {
       });
     } finally {
       setOpeningPortal(false);
+    }
+  }
+
+  async function onStartPlan(plan: "starter" | "pro") {
+    setStartingPlan(plan);
+    try {
+      const data = await createStripeCheckoutSession(plan);
+      window.location.href = data.url;
+    } catch (error) {
+      showToast({
+        title: "Checkout failed",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setStartingPlan(null);
     }
   }
 
@@ -63,9 +80,27 @@ export default function AppBillingPage() {
             </span>
           </p>
           <div className="pt-2">
-            <Button onClick={onOpenPortal} disabled={openingPortal || !subscription}>
-              {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
-            </Button>
+            {subscription ? (
+              <Button onClick={onOpenPortal} disabled={openingPortal}>
+                {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
+              </Button>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => void onStartPlan("starter")}
+                  disabled={startingPlan !== null}
+                >
+                  {startingPlan === "starter" ? "Starting..." : "Start Starter"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void onStartPlan("pro")}
+                  disabled={startingPlan !== null}
+                >
+                  {startingPlan === "pro" ? "Starting..." : "Start Pro"}
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
