@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { siteConfig } from "@/lib/config";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 
 export default function AdminLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -74,15 +75,9 @@ export default function AdminLeadsPage() {
     <div className="container py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
+          <AdminTopTabs className="mb-3" />
           <h1 className="text-3xl font-bold">Admin Leads</h1>
           <p className="text-sm text-muted-foreground">Manage lead status, tags, notes, and exports.</p>
-          <div className="mt-2 flex items-center gap-2 text-sm">
-            <Link href="/admin/prospects" className="text-primary">Prospects</Link>
-            <span className="text-muted-foreground">/</span>
-            <Link href="/admin/calls" className="text-primary">Calls</Link>
-            <span className="text-muted-foreground">/</span>
-            <Link href="/admin/orgs" className="text-primary">Organizations</Link>
-          </div>
         </div>
         <Button asChild variant="outline">
           <a href={`${siteConfig.apiBase}/api/admin/export/leads.csv`} target="_blank" rel="noreferrer">

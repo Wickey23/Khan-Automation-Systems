@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { deleteAdminCall, fetchAdminCalls } from "@/lib/api";
@@ -8,6 +7,7 @@ import type { AdminCallRecord } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/site/toast-provider";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 
 function formatDuration(seconds: number | null) {
   if (!seconds || seconds <= 0) return "-";
@@ -88,15 +88,9 @@ export default function AdminCallsPage() {
       <div className="container py-10">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
+            <AdminTopTabs className="mb-3" />
             <h1 className="text-3xl font-bold">Admin Calls</h1>
             <p className="text-sm text-muted-foreground">Global call activity across all organizations.</p>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <Link href="/admin/leads" className="text-primary">Leads</Link>
-              <span className="text-muted-foreground">/</span>
-              <Link href="/admin/prospects" className="text-primary">Prospects</Link>
-              <span className="text-muted-foreground">/</span>
-              <Link href="/admin/orgs" className="text-primary">Organizations</Link>
-            </div>
           </div>
           <Button variant="outline" onClick={() => void fetchAdminCalls(query).then((d) => setCalls(d.calls))}>
             Refresh

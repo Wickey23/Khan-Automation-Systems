@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import {
@@ -18,6 +17,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 
 const statusOptions: ProspectStatus[] = ["NEW", "QUALIFIED", "CONTACTED", "NURTURE", "WON", "LOST"];
 
@@ -220,15 +220,9 @@ export default function AdminProspectsPage() {
       <div className="container py-10">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
+            <AdminTopTabs className="mb-3" />
             <h1 className="text-3xl font-bold">Prospects</h1>
             <p className="text-sm text-muted-foreground">Lead Finder workspace for discovering and qualifying businesses.</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Link href="/admin/orgs" className="text-primary">Organizations</Link>
-            <span className="text-muted-foreground">/</span>
-            <Link href="/admin/calls" className="text-primary">Calls</Link>
-            <span className="text-muted-foreground">/</span>
-            <Link href="/admin/leads" className="text-primary">Leads</Link>
           </div>
         </div>
 

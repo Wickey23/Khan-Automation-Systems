@@ -1,1 +1,1 @@
-export const RELEASE_TAG = "v51";
+export const RELEASE_TAG = "v52";

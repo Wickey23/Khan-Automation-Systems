@@ -8,6 +8,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 
 type AdminOrg = {
   id: string;
@@ -102,15 +103,7 @@ export default function AdminOrgsPage() {
   return (
     <AdminGuard>
       <div className="container py-10">
-        <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/admin/leads" className="text-primary">Leads</Link>
-          <span className="text-muted-foreground">/</span>
-          <Link href="/admin/prospects" className="text-primary">Prospects</Link>
-          <span className="text-muted-foreground">/</span>
-          <Link href="/admin/calls" className="text-primary">Calls</Link>
-          <span className="text-muted-foreground">/</span>
-          <Link href="/admin/clients" className="text-primary">Clients</Link>
-        </div>
+        <AdminTopTabs />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
