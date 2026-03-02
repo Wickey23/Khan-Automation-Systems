@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchOrgCalls } from "@/lib/api";
+import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { OrgCallRecord } from "@/lib/types";
 
 function formatPercent(value: number) {
@@ -20,6 +20,7 @@ export default function AppCallsPage() {
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedCall, setSelectedCall] = useState<OrgCallRecord | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadCalls = useCallback(async () => {
     try {
@@ -30,6 +31,18 @@ export default function AppCallsPage() {
       setCalls([]);
     }
   }, []);
+
+  const refreshAndRepopulate = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await repopulateOrgCalls();
+    } catch {
+      // if repopulate fails, still refresh list from existing records
+    } finally {
+      await loadCalls();
+      setRefreshing(false);
+    }
+  }, [loadCalls]);
 
   useEffect(() => {
     void loadCalls();
@@ -106,9 +119,10 @@ export default function AppCallsPage() {
         <button
           type="button"
           className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
-          onClick={() => void loadCalls()}
+          onClick={() => void refreshAndRepopulate()}
+          disabled={refreshing}
         >
-          Refresh
+          {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">

@@ -281,6 +281,12 @@ export async function fetchOrgCalls() {
   return request<{ calls: OrgCallRecord[] }>("/api/org/calls");
 }
 
+export async function repopulateOrgCalls() {
+  return request<{ scanned: number; resolved: number; skipped: number }>("/api/org/calls/repopulate", {
+    method: "POST"
+  });
+}
+
 export async function fetchOrgSettings() {
   return request<{ settings: BusinessSettings }>("/api/org/settings");
 }

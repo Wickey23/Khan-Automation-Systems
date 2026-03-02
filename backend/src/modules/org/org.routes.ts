@@ -2,6 +2,7 @@ import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { backfillMissedVapiCalls } from "../admin/backfill.service";
 import { buildConfigPackage } from "./config-package";
 import { saveOnboardingSchema, submitOnboardingSchema, updateBusinessSettingsSchema, updateOrgProfileSchema } from "./org.schema";
 
@@ -194,4 +195,10 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
   }));
   return res.json({ ok: true, data: { calls: enrichedCalls } });
+});
+
+orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const result = await backfillMissedVapiCalls(prisma, req.auth.userId, req.auth.orgId);
+  return res.json({ ok: true, data: result });
 });

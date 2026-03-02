@@ -14,7 +14,11 @@ type BackfillResult = {
   skipped: number;
 };
 
-export async function backfillMissedVapiCalls(prisma: PrismaClient, actorUserId: string): Promise<BackfillResult> {
+export async function backfillMissedVapiCalls(
+  prisma: PrismaClient,
+  actorUserId: string,
+  filterOrgId?: string
+): Promise<BackfillResult> {
   const unresolved = await prisma.auditLog.findMany({
     where: { action: "VAPI_WEBHOOK_UNRESOLVED" },
     orderBy: { createdAt: "asc" },
@@ -49,6 +53,10 @@ export async function backfillMissedVapiCalls(prisma: PrismaClient, actorUserId:
       }
 
       if (!orgId) {
+        skipped += 1;
+        continue;
+      }
+      if (filterOrgId && orgId !== filterOrgId) {
         skipped += 1;
         continue;
       }
