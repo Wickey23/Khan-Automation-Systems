@@ -201,6 +201,24 @@ billingRouter.post(
       const org = await ensureOrgContext(req);
 
       const priceId = parsed.data.plan === "starter" ? env.STRIPE_STARTER_PRICE_ID : env.STRIPE_PRO_PRICE_ID;
+      if (!priceId || priceId.includes("placeholder")) {
+        return res.status(500).json({
+          ok: false,
+          message: "Stripe price ID is not configured for this plan."
+        });
+      }
+      if (!env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY.includes("placeholder")) {
+        return res.status(500).json({
+          ok: false,
+          message: "Stripe secret key is not configured."
+        });
+      }
+      if (!env.STRIPE_SUCCESS_URL || !env.STRIPE_CANCEL_URL) {
+        return res.status(500).json({
+          ok: false,
+          message: "Stripe success/cancel URLs are not configured."
+        });
+      }
       const checkoutMetadata = {
         orgId: org.orgId,
         userId: req.auth.userId,
@@ -222,13 +240,22 @@ billingRouter.post(
 
       return res.json({ ok: true, data: { url: session.url } });
     } catch (error) {
+      const stripeMessage =
+        error instanceof Stripe.errors.StripeError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "unknown_error";
       logBillingEvent("error", {
         action: "create_checkout_session_failed",
         userId: req.auth.userId,
         orgId: req.auth.orgId || null,
-        message: error instanceof Error ? error.message : "unknown_error"
+        message: stripeMessage
       });
-      return res.status(500).json({ ok: false, message: "Checkout failed. Please try again." });
+      return res.status(500).json({
+        ok: false,
+        message: `Checkout failed: ${stripeMessage}`
+      });
     }
   }
 );
