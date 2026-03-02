@@ -169,7 +169,11 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
 
     const org = orgPhone.organization;
     const ai = org.aiAgentConfigs[0];
-    if (org.status === "LIVE" && org.live && ai?.provider === "VAPI") {
+    const canUseVapiNow =
+      ai?.provider === "VAPI" &&
+      Boolean(ai?.vapiPhoneNumberId) &&
+      (org.status === "LIVE" || org.status === "TESTING" || org.live);
+    if (canUseVapiNow) {
       if (ai.vapiPhoneNumberId) {
         response.say(`Connecting you to ${org.name}'s AI receptionist.`);
         const dial = response.dial({ answerOnBridge: true });
