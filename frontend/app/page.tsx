@@ -6,6 +6,7 @@ import { LeadCaptureForm } from "@/components/site/lead-capture-form";
 import { PricingCards } from "@/components/site/pricing-cards";
 import { FAQAccordion } from "@/components/site/faq-accordion";
 import { SmsDemo } from "@/components/site/sms-demo";
+import { DemoCallCard } from "@/components/site/demo-call-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { siteConfig } from "@/lib/config";
@@ -102,15 +103,7 @@ export default function HomePage() {
       </section>
 
       <section className="container grid gap-6 py-14 lg:grid-cols-2">
-        <Card>
-          <CardContent className="space-y-4 p-6">
-            <h2 className="text-2xl font-semibold">Demo</h2>
-            <p className="text-sm text-muted-foreground">Call the demo number to hear the voice flow.</p>
-            <Button asChild>
-              <a href={`tel:${siteConfig.demoNumber}`}>Call the demo number: {siteConfig.demoNumber}</a>
-            </Button>
-          </CardContent>
-        </Card>
+        <DemoCallCard demoNumber={siteConfig.demoNumber} />
         <SmsDemo />
       </section>
 
