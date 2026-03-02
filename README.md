@@ -1,372 +1,100 @@
-# Khan Automation Systems Monorepo
+# Khan Automation Systems
 
-Full-stack multi-tenant SaaS foundation for:
-- Marketing site + lead capture
-- Stripe subscriptions
-- Client dashboard
-- Admin operations dashboard
-- Manual Twilio number provisioning and AI behavior controls per client
+Multi-tenant SaaS for AI receptionist operations:
+- Client portal (`/app`) for onboarding, calls, leads, billing, messaging.
+- Admin portal (`/admin`) for provisioning, readiness gating, testing, go-live operations.
+- Voice/SMS runtime via Twilio + Vapi.
 
-## Apps
-
-- `frontend/` - Next.js 14 App Router + TypeScript + Tailwind
-- `backend/` - Express + TypeScript + Prisma + PostgreSQL
+## Stack
+- Frontend: Next.js 14, TypeScript, Tailwind
+- Backend: Express, TypeScript, Prisma, PostgreSQL
 
 ## Local Setup
-
-1. Install dependencies:
+1. Install deps:
 ```bash
 npm install
 ```
-
-2. Start Postgres (optional but recommended):
-```bash
-docker compose up -d
-```
-
-3. Create env files:
+2. Create env files:
 - `frontend/.env.local` from `frontend/.env.example`
 - `backend/.env` from `backend/.env.example`
-
-4. Generate Prisma client + migrate + seed admin:
+3. Generate Prisma client + apply schema:
 ```bash
 npm run prisma:generate --workspace backend
-npm run prisma:migrate --workspace backend
-npm run seed:admin
+npx prisma db push --schema backend/prisma/schema.prisma
 ```
-
-5. Run both apps:
+4. Run apps:
 ```bash
 npm run dev
 ```
 
-## Core Flow
+## Core Runtime Flow
+1. Client signs up / logs in.
+2. Client completes onboarding in `/app/onboarding`.
+3. Admin reviews org in `/admin/orgs/[id]`.
+4. Admin provisions number + AI config, runs tests, resolves readiness blockers.
+5. Admin clicks Go Live (hard-gated by readiness checks).
+6. Inbound calls and SMS are handled and logged by org.
 
-1. Customer visits pricing and clicks `Start Starter` or `Start Pro`.
-2. Backend creates Stripe Checkout session.
-3. Stripe webhook creates/updates:
-   - `Client`
-   - `User` (CLIENT role)
-   - `Subscription`
-   - `Setting`
-   - `AIConfig` (default)
-4. Customer logs in and completes `/dashboard/setup`.
-5. Admin opens `/admin/clients/:id` and:
-   - assigns Twilio number
-   - sets AI config
-   - sets status to `LIVE`
-6. Test call to assigned number; Twilio hits `/api/twilio/voice?clientId=...`.
+## Key Backend Routes
 
-## Backend Env Vars
-
-```env
-PORT=4000
-DATABASE_URL=postgresql://khan_automation_db_user:replace-password@dpg-d6i5fj6a2pns738t6v30-a.oregon-postgres.render.com:5432/khan_automation_db
-ALLOWED_ORIGIN=https://khan-automation-systems-frontend.vercel.app
-JWT_SECRET=change-this-to-a-long-random-secret
-JWT_EXPIRES_IN=7d
-ADMIN_EMAIL=admin@khanautomationsystems.com
-ADMIN_PASSWORD=change-this-admin-password
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=Khan Automation Systems <no-reply@example.com>
-LEAD_NOTIFICATION_EMAIL=owner@example.com
-STRIPE_SECRET_KEY=sk_test_xxx
-STRIPE_WEBHOOK_SECRET=whsec_xxx
-STRIPE_STARTER_PRICE_ID=price_xxx
-STRIPE_PRO_PRICE_ID=price_xxx
-STRIPE_SUCCESS_URL=https://khan-automation-systems-frontend.vercel.app/checkout/success
-STRIPE_CANCEL_URL=https://khan-automation-systems-frontend.vercel.app/checkout/cancel
-FRONTEND_APP_URL=https://khan-automation-systems-frontend.vercel.app
-API_BASE_URL=https://ai-auto-apply.onrender.com
-AUTO_LIVE_ON_SETUP=false
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_SID=
-```
-
-## Frontend Env Vars
-
-```env
-NEXT_PUBLIC_API_BASE=https://ai-auto-apply.onrender.com
-NEXT_PUBLIC_SITE_URL=https://khan-automation-systems-frontend.vercel.app
-NEXT_PUBLIC_CALENDLY_URL=CALENDLY_LINK_HERE
-NEXT_PUBLIC_DEMO_NUMBER=DEMO_NUMBER_HERE
-```
-
-## Admin Twilio Assignment
-
-Admin UI: `/admin/clients/:id`
-
-1. Set preferred area code (optional)
-2. Toggle SMS enabled (optional)
-3. Click `Assign number`
-4. Backend:
-   - finds available Twilio local number
-   - purchases number
-   - saves `PhoneLine`
-   - configures webhooks:
-     - `${API_BASE_URL}/api/twilio/voice?clientId=...`
-     - `${API_BASE_URL}/api/twilio/sms?clientId=...`
-
-Optional replace:
-- `POST /api/admin/clients/:id/twilio/replace-number`
-
-## Twilio Webhook Behavior (MVP)
-
-`POST /api/twilio/voice?clientId=xxx`
-
-- if client status != `LIVE`: friendly inactive message
-- if `LIVE`:
-  - reads `Setting.businessHoursJson`, `Setting.transferNumber`, `AIConfig.greetingText`, `AIConfig.afterHoursMessage`
-  - after-hours: plays after-hours message and hangs up
-  - within-hours: plays greeting and dials transfer number
-- logs `Call` record (`TRANSFERRED` or `UNKNOWN`)
-
-`POST /api/twilio/sms?clientId=xxx`
-- returns simple TwiML response based on status + `AIConfig.smsEnabled`
-
-## Stripe Endpoints
-
-- `POST /api/stripe/create-checkout-session`
-- `POST /api/stripe/webhook`
-- `POST /api/stripe/customer-portal`
-
-## Auth Model
-
-- `POST /api/auth/login` (CLIENT or ADMIN)
+### Auth
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
-- Admin endpoints protected by role check
-- Client endpoints protected by role check
 
-## Client Dashboard Routes
+### Billing (Stripe)
+- `POST /api/billing/create-checkout-session`
+- `POST /api/billing/change-plan`
+- `GET /api/billing/status`
+- `POST /api/billing/customer-portal`
+- `POST /api/billing/webhook` (raw body + signature verification)
 
-- `/dashboard`
-- `/dashboard/setup`
-- `/dashboard/calls`
-- `/dashboard/leads`
-- `/dashboard/settings`
-- `/dashboard/billing`
-- `/dashboard/support`
+### Client Org
+- `GET /api/org/profile`
+- `PATCH /api/org/profile`
+- `GET /api/org/settings`
+- `PATCH /api/org/settings`
+- `GET /api/org/onboarding`
+- `PUT /api/org/onboarding`
+- `POST /api/org/onboarding/preview`
+- `POST /api/org/onboarding/submit`
+- `GET /api/org/config-package`
+- `GET /api/org/calls`
+- `POST /api/org/calls/repopulate`
+- `GET /api/org/messages`
+- `POST /api/org/messages/send`
+- `GET /api/org/leads`
 
-Client users can edit only `Setting` fields.  
-Client users cannot edit `PhoneLine` or `AIConfig`.
+### Admin Ops
+- `GET /api/admin/orgs`
+- `GET /api/admin/orgs/:id`
+- `GET /api/admin/orgs/:id/readiness`
+- `POST /api/admin/orgs/:id/config-package/generate`
+- `GET /api/admin/orgs/:id/config-package`
+- `GET /api/admin/orgs/:id/testing`
+- `POST /api/admin/orgs/:id/testing/run`
+- `POST /api/admin/orgs/:id/provisioning/approve-onboarding`
+- `POST /api/admin/orgs/:id/provisioning/generate-ai-config`
+- `POST /api/admin/orgs/:id/twilio/assign-number`
+- `PATCH /api/admin/orgs/:id/ai/config`
+- `POST /api/admin/orgs/:id/go-live`
+- `POST /api/admin/orgs/:id/pause`
+- `GET /api/admin/events`
+- `POST /api/admin/system/backfill-vapi-calls`
 
-## Admin Routes (Client Ops)
-
-- `/admin/clients`
-- `/admin/clients/:id`
-
-API:
-- `GET /api/admin/clients`
-- `GET /api/admin/clients/:id`
-- `PATCH /api/admin/clients/:id/status`
-- `GET /api/admin/clients/:id/leads`
-- `GET /api/admin/clients/:id/calls`
-- `GET /api/admin/clients/:id/phone-line`
-- `POST /api/admin/clients/:id/twilio/assign-number`
-- `POST /api/admin/clients/:id/twilio/replace-number`
-- `GET /api/admin/clients/:id/ai-config`
-- `PATCH /api/admin/clients/:id/ai-config`
-
-## Deployment
-
-### Backend on Render (standalone)
-
-Render service settings:
-- Root Directory: `backend`
-- Runtime: `Node`
-- Node version: `20.x`
-- Build Command: `npm ci && npm run build`
-- Start Command: `npm start`
-- Health Check Path: `/api/health`
-
-Important:
-- Backend is independently deployable from `backend/` and does not require the monorepo root or frontend build.
-- `postinstall` runs `prisma generate` automatically.
-- Render free plan does not support robust predeploy hooks. Use:
-  - First production setup: `npm run db:push:prod` (or `npx prisma db push`) from backend shell/context
-  - Ongoing schema changes with migrations: `npx prisma migrate deploy`
-
-Required backend environment variables on Render:
-- `DATABASE_URL` (Render Postgres connection string)
-- `PORT` (Render sets this automatically; keep support in app)
-- `ALLOWED_ORIGIN` (your Vercel frontend URL)
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
-- `API_BASE_URL` (public Render backend URL, e.g. `https://api.yourdomain.com`)
-- `FRONTEND_APP_URL`
-- `LEAD_NOTIFICATION_EMAIL`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_STARTER_PRICE_ID`
-- `STRIPE_PRO_PRICE_ID`
-- `STRIPE_SUCCESS_URL`
-- `STRIPE_CANCEL_URL`
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-
-### Frontend on Vercel
-- Root Directory: `frontend`
-- Set `NEXT_PUBLIC_API_BASE` to your Render backend URL
-- Set `NEXT_PUBLIC_SITE_URL` to your Vercel URL
-
-## Stripe Webhook Setup
-
-Use Stripe CLI or dashboard endpoint:
-- `https://YOUR_BACKEND_DOMAIN/api/stripe/webhook`
-
-## Twilio Webhook Setup / Testing
-
-For local tests, expose backend using ngrok:
-```bash
-ngrok http 4000
-```
-
-Set `API_BASE_URL` to ngrok URL and assign number again (or reconfigure webhooks).
-
-## Build Verification
-
-```bash
-npm run build --workspace backend
-npm run build --workspace frontend
-```
-
-## Multi-tenant Portals (v2 foundation)
-
-### Roles
-- `SUPER_ADMIN` (operator)
-- `CLIENT_ADMIN` (owner/manager)
-- `CLIENT_STAFF` (future support)
-
-### Client Portal Routes
-- `/auth/signup`
-- `/auth/login`
-- `/auth/logout`
-- `/app`
-- `/app/onboarding`
-- `/app/settings`
-- `/app/calls`
-- `/app/leads`
-
-### Operator/Admin Routes
-- `/admin/login`
-- `/admin/orgs`
-- `/admin/orgs/[id]`
-- `/admin/leads`
-
-### Core Backend APIs
-- Auth:
-  - `POST /api/auth/signup`
-  - `POST /api/auth/login`
-  - `POST /api/auth/logout`
-  - `GET /api/auth/me`
-- Billing:
-  - `POST /api/billing/create-checkout-session`
-  - `POST /api/billing/webhook`
-  - `GET /api/billing/status`
-- Org scoped:
-  - `GET /api/org/profile`
-  - `PATCH /api/org/profile`
-  - `GET /api/org/onboarding`
-  - `PUT /api/org/onboarding`
-  - `POST /api/org/onboarding/submit`
-  - `GET /api/org/subscription`
-  - `GET /api/org/leads`
-  - `GET /api/org/calls`
-- Admin org operations:
-  - `GET /api/admin/orgs`
-  - `GET /api/admin/orgs/:id`
-  - `PATCH /api/admin/orgs/:id/status`
-  - `POST /api/admin/orgs/:id/notes`
-  - `POST /api/admin/orgs/:id/twilio/assign-number`
-  - `PATCH /api/admin/orgs/:id/ai/config`
-  - `POST /api/admin/orgs/:id/go-live`
-  - `POST /api/admin/orgs/:id/pause`
-
-### Stripe Local Webhook Testing
-```bash
-stripe listen --forward-to https://ai-auto-apply.onrender.com/api/billing/webhook
-```
-
-### Twilio Webhook Stubs
+### Voice / SMS / Tools
 - `POST /api/twilio/voice`
 - `POST /api/twilio/sms`
+- `POST /api/vapi/webhook`
+- `POST /api/tools/create-lead-from-call`
+- `POST /api/tools/send-sms`
+- `POST /api/tools/notify-manager`
+- `POST /api/tools/request-appointment`
+- `POST /api/tools/transfer-call`
 
-Twilio routing is org-aware by inbound `To` number lookup (`PhoneNumber.e164Number`).
-
-## Client-Ready Operations v1
-
-### Provisioning Pipeline Statuses
-- `NEW`
-- `ONBOARDING`
-- `SUBMITTED`
-- `NEEDS_CHANGES`
-- `APPROVED`
-- `PROVISIONING`
-- `TESTING`
-- `LIVE`
-- `PAUSED`
-
-### Operational Models
-- `ProvisioningChecklist` (step-by-step go-live controls)
-- `ConfigPackage` (canonical AI build sheet, versioned per org)
-- `TestScenario` + `TestRun` (admin test harness with PASS/FAIL history)
-- `WebhookEventLog` (Vapi/Twilio webhook acceptance/rejection observability)
-- `AuditLog` (every admin mutation + key system actions)
-- `BusinessSettings` (org-level routing/notification behavior)
-- Expanded `CallLog`:
-  - idempotent key: `(orgId, providerCallId)`
-  - `rawJson` payload snapshot
-  - summary/transcript/recording/outcome fields
-
-### Backend Endpoints (Ops v1)
-- Client/org:
-  - `GET /api/org/settings`
-  - `PATCH /api/org/settings`
-  - `POST /api/org/onboarding/preview`
-  - `GET /api/org/config-package`
-- Admin provisioning:
-  - `GET /api/admin/orgs/:id/readiness`
-  - `POST /api/admin/orgs/:id/config-package/generate`
-  - `GET /api/admin/orgs/:id/config-package`
-  - `GET /api/admin/orgs/:id/testing`
-  - `POST /api/admin/orgs/:id/testing/run`
-  - `POST /api/admin/orgs/:id/provisioning/approve-onboarding`
-  - `POST /api/admin/orgs/:id/provisioning/generate-ai-config`
-  - `POST /api/admin/orgs/:id/provisioning/checklist-step`
-  - `POST /api/admin/orgs/:id/provisioning/testing`
-  - `POST /api/admin/orgs/:id/provisioning/test-complete`
-  - `GET /api/admin/events`
-- Vapi runtime + tools:
-  - `POST /api/vapi/webhook`
-  - `POST /api/tools/create-lead-from-call`
-  - `POST /api/tools/send-sms`
-  - `POST /api/tools/notify-manager`
-  - `POST /api/tools/request-appointment`
-  - `POST /api/tools/transfer-call`
-
-### Security Enhancements
-- Twilio webhook signature validation (enabled when `TWILIO_AUTH_TOKEN` is set)
-- Vapi tool/webhook secret validation via `VAPI_TOOL_SECRET`
-- Rate limiting applied to public webhook routes
-- `app.set("trust proxy", 1)` for Render/proxy-safe IP detection
-- `x-request-id` request tracing on API logs and webhook diagnostics
-
-### Readiness Checks and Go-Live Gate
-`GET /api/admin/orgs/:id/readiness` returns:
+## Readiness Gating
+`GET /api/admin/orgs/:id/readiness` computes:
 - `billingActive`
 - `onboardingSubmitted`
 - `onboardingApproved`
@@ -377,58 +105,61 @@ Twilio routing is org-aware by inbound `To` number lookup (`PhoneNumber.e164Numb
 - `notificationsVerified`
 - `testCallsPassed`
 
-`POST /api/admin/orgs/:id/go-live` is hard-gated:
-- Returns HTTP 400 with `missingChecks` if any readiness check is incomplete.
-- Org is only set `LIVE` when `canGoLive=true`.
+`POST /api/admin/orgs/:id/go-live` is blocked unless all checks pass.
 
-### Go Live Checklist
-1. Confirm subscription is active (`/app/billing` + readiness panel).
-2. Review onboarding and approve.
-3. Generate config package (`config-package/generate`).
-4. Generate AI prompt/policy from config package.
-5. Assign provider line (Vapi or Twilio).
-6. Verify webhooks + `VAPI_TOOL_SECRET` header wiring.
-7. Run test harness and record at least 5 PASS runs, including:
-   - after-hours scenario
-   - transfer scenario
-8. Verify manager notifications are delivered.
-9. Click Go Live (enabled only when readiness passes).
+## Go Live Checklist
+1. Confirm active paid subscription in billing.
+2. Onboarding submitted and approved.
+3. Generate Config Package.
+4. Generate AI prompt/tools from Config Package.
+5. Assign number provider + active number.
+6. Save AI config (`vapiAgentId`, `vapiPhoneNumberId`).
+7. Verify webhook wiring and `x-vapi-tool-secret`.
+8. Complete testing harness with PASS coverage:
+   - At least 5 PASS runs.
+   - Includes after-hours scenario.
+   - Includes transfer scenario.
+9. Verify manager notifications.
+10. Go Live.
 
-### Ops Runbook
-1. Open `/admin/orgs/:id` and check readiness panel for blockers.
-2. Use `/admin/orgs/:id/testing` to run and log scenario outcomes.
-3. Use `/admin/events` to audit admin/system actions by org and time.
-4. If calls are missing, verify:
-   - Vapi webhook URL: `${API_BASE_URL}/api/vapi/webhook`
-   - Header `x-vapi-tool-secret` matches backend env
-   - `WebhookEventLog` entries for rejection reason and payload snippet
-5. Use periodic backfill worker (`VAPI_BACKFILL_ENABLED=true`) for missed Vapi events.
+## Ops Runbook
+1. Open `/admin/orgs/[id]`, review readiness blockers first.
+2. Use `/admin/orgs/[id]/testing` to log PASS/FAIL with notes and call IDs.
+3. Use `/admin/events` for audit and timeline tracing.
+4. If calls are missing:
+   - Check `POST /api/vapi/webhook` delivery in provider logs.
+   - Validate `x-vapi-tool-secret`.
+   - Review `WebhookEventLog` reason/payload snippet.
+   - Run admin backfill: `POST /api/admin/system/backfill-vapi-calls`.
+5. If Twilio voice fails:
+   - Confirm number webhook points to `/api/twilio/voice`.
+   - Confirm org has active assigned number and AI config.
+   - Review backend logs by request ID.
 
-### Vapi + Twilio Setup Checklist
-1. Set backend env:
-  - `VAPI_API_KEY`
-  - `VAPI_TOOL_SECRET`
-   - `TWILIO_ACCOUNT_SID`
-   - `TWILIO_AUTH_TOKEN`
-   - `API_BASE_URL`
-2. In admin org detail:
-   - approve onboarding
-   - generate AI config package
-   - assign Twilio number
-   - set `vapiAgentId` and `vapiPhoneNumberId` in AI config
-   - move org to testing, then go live
-3. Configure Vapi tool calls to use:
-   - `${API_BASE_URL}/api/tools/*`
-   - include `x-vapi-tool-secret: <VAPI_TOOL_SECRET>`
-4. Configure Vapi webhook to:
-   - `${API_BASE_URL}/api/vapi/webhook`
-   - include `x-vapi-tool-secret: <VAPI_TOOL_SECRET>`
+## Required Backend Env Vars
+See `backend/.env.example`. Critical vars:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `ADMIN_ACTION_PASSWORD` (required, min 8 chars)
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_STARTER_PRICE_ID`
+- `STRIPE_PRO_PRICE_ID`
+- `STRIPE_SUCCESS_URL`
+- `STRIPE_CANCEL_URL`
+- `FRONTEND_APP_URL`
+- `API_BASE_URL`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `VAPI_TOOL_SECRET`
+- `VAPI_API_KEY` (or `VAPI_PRIVATE_KEY`)
 
-### Render/Prod Schema Workflow
-Render free tier usually requires manual schema sync for major model updates:
+## Deployment
+- Backend (Render): root `backend`, build `npm ci && npm run build`, start `npm start`.
+- Frontend (Vercel): root `frontend`.
+- Run Prisma schema sync for production when schema changes:
 ```bash
-cd backend
-npx prisma db push
+npx prisma db push --schema backend/prisma/schema.prisma
 ```
-
-Then redeploy backend.
