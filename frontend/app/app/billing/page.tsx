@@ -291,13 +291,30 @@ export default function AppBillingPage() {
                 )}
               </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Choose a plan to activate billing and unlock live production workflow.
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-                {(["starter", "pro"] as const).map((planKey) => (
+          ) : null}
+
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {effectiveSubscription
+                ? "Compare plans below to see exactly what is included before you change tiers."
+                : "Choose a plan to activate billing and unlock live production workflow."}
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {(["starter", "pro"] as const).map((planKey) => {
+                const isCurrentPlan =
+                  effectiveSubscription &&
+                  ((effectiveSubscription.plan === "STARTER" && planKey === "starter") ||
+                    (effectiveSubscription.plan === "PRO" && planKey === "pro"));
+
+                const actionLabel = isCurrentPlan
+                  ? "Current plan"
+                  : !effectiveSubscription
+                    ? `Start ${PLAN_COPY[planKey].title}`
+                    : planKey === "pro"
+                      ? "Upgrade to Pro"
+                      : "Switch to Starter";
+
+                return (
                   <div
                     key={planKey}
                     className="rounded-lg border bg-white p-4"
@@ -327,17 +344,30 @@ export default function AppBillingPage() {
                     <div className="mt-4">
                       <Button
                         variant={planKey === "starter" ? "default" : "outline"}
-                        onClick={() => void onStartPlan(planKey)}
-                        disabled={startingPlan !== null || previewEnabled}
+                        onClick={() => {
+                          if (isCurrentPlan) return;
+                          if (!effectiveSubscription) {
+                            void onStartPlan(planKey);
+                            return;
+                          }
+                          void onChangePlan(planKey);
+                        }}
+                        disabled={
+                          isCurrentPlan ||
+                          previewEnabled ||
+                          startingPlan !== null ||
+                          changingPlan !== null ||
+                          (Boolean(effectiveSubscription) && !hasRealSubscription)
+                        }
                       >
-                        {startingPlan === planKey ? "Starting..." : `Start ${PLAN_COPY[planKey].title}`}
+                        {startingPlan === planKey || changingPlan === planKey ? "Processing..." : actionLabel}
                       </Button>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
     </div>
