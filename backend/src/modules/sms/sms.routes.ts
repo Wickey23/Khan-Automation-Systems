@@ -422,9 +422,14 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     return res.type("text/xml").send(response.toString());
   }
 
-  const aiConfig = await prisma.aiAgentConfig.findUnique({
-    where: { orgId },
-    select: { vapiAgentId: true }
+  const aiConfig = await prisma.aiAgentConfig.findFirst({
+    where: {
+      orgId,
+      status: "ACTIVE",
+      provider: "VAPI"
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, vapiAgentId: true }
   });
   const threadWithMessages = await prisma.messageThread.findUnique({
     where: { id: thread.id },
@@ -471,9 +476,26 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       fromNumber: toNumber || null,
       toNumber: normalizedFrom,
       metadataJson: JSON.stringify({
-        source: vapiReply ? "vapi_sms_chat" : "sms_fallback"
+        source: vapiReply ? "vapi_sms_chat" : "sms_fallback",
+        assistantId: aiConfig?.vapiAgentId || null,
+        aiConfigId: aiConfig?.id || null
       }),
       sentAt: new Date()
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      orgId,
+      actorUserId: "twilio-sms",
+      actorRole: "SYSTEM",
+      action: "SMS_ASSISTANT_USED",
+      metadataJson: JSON.stringify({
+        threadId: thread.id,
+        assistantId: aiConfig?.vapiAgentId || null,
+        aiConfigId: aiConfig?.id || null,
+        usedVapiReply: Boolean(vapiReply)
+      })
     }
   });
 
