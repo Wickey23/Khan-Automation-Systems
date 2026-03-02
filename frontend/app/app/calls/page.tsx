@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { OrgCallRecord } from "@/lib/types";
 
@@ -81,6 +82,7 @@ export default function AppCallsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
+  const detailsRef = useRef<HTMLElement | null>(null);
 
   const loadCalls = useCallback(async () => {
     try {
@@ -185,6 +187,11 @@ export default function AppCallsPage() {
       .map((part) => part.trim())
       .filter(Boolean);
     return chunks.filter((part) => part.includes("?"));
+  }, [selectedCall]);
+
+  useEffect(() => {
+    if (!selectedCall || !detailsRef.current) return;
+    detailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedCall]);
 
   return (
@@ -332,7 +339,7 @@ export default function AppCallsPage() {
       </div>
 
       {selectedCall ? (
-        <section className="mt-5 rounded-lg border bg-white p-4">
+        <section ref={detailsRef} className="mt-5 rounded-lg border bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">Call details</h2>
