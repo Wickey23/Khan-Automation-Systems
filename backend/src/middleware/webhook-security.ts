@@ -37,13 +37,22 @@ export function verifyVapiToolSecret(req: Request, res: Response, next: NextFunc
 
 export function verifyTwilioRequest(req: Request, res: Response, next: NextFunction) {
   if (!env.TWILIO_AUTH_TOKEN) return next();
+  const authToken = env.TWILIO_AUTH_TOKEN as string;
   const signature = req.header("x-twilio-signature");
   if (!signature) {
     logRejectedWebhook(req, 401, "missing_twilio_signature");
     return res.status(401).json({ ok: false, message: "Missing Twilio signature." });
   }
-  const fullUrl = `${env.API_BASE_URL}${req.originalUrl}`;
-  const valid = Twilio.validateRequest(env.TWILIO_AUTH_TOKEN, signature, fullUrl, req.body as Record<string, unknown>);
+  const sig = signature as string;
+  const requestHost = req.get("host");
+  const requestProtocol = req.protocol || "https";
+  const runtimeUrl = requestHost ? `${requestProtocol}://${requestHost}${req.originalUrl}` : null;
+  const envUrl = `${env.API_BASE_URL}${req.originalUrl}`;
+  const candidates = [runtimeUrl, envUrl].filter((v): v is string => Boolean(v));
+
+  const valid = candidates.some((url) =>
+    Twilio.validateRequest(authToken, sig, url, req.body as Record<string, unknown>)
+  );
   if (!valid) {
     logRejectedWebhook(req, 401, "invalid_twilio_signature");
     return res.status(401).json({ ok: false, message: "Invalid Twilio signature." });
