@@ -73,6 +73,8 @@ export default function AdminLeadsPage() {
           <div className="mt-2 flex items-center gap-2 text-sm">
             <Link href="/admin/prospects" className="text-primary">Prospects</Link>
             <span className="text-muted-foreground">/</span>
+            <Link href="/admin/calls" className="text-primary">Calls</Link>
+            <span className="text-muted-foreground">/</span>
             <Link href="/admin/orgs" className="text-primary">Organizations</Link>
           </div>
         </div>

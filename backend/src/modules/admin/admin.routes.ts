@@ -9,6 +9,7 @@ import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } fr
 import { provisionNumber } from "../twilio/twilio.service";
 import {
   assignNumberSchema,
+  callFilterSchema,
   clearAllDataSchema,
   createProspectSchema,
   discoverProspectsSchema,
@@ -128,6 +129,45 @@ adminRouter.get("/leads", async (req: AuthenticatedRequest, res: Response) => {
     prisma.lead.count({ where })
   ]);
   return res.json({ ok: true, data: { leads, total } });
+});
+
+adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
+  const parsed = callFilterSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
+  const limit = Math.min(Number(parsed.data.limit || 100), 300);
+  const page = Math.max(Number(parsed.data.page || 1), 1);
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.CallLogWhereInput = {};
+  if (parsed.data.outcome) where.outcome = parsed.data.outcome;
+  if (parsed.data.orgId) where.orgId = parsed.data.orgId;
+  if (parsed.data.search) {
+    where.OR = [
+      { providerCallId: { contains: parsed.data.search, mode: "insensitive" } },
+      { fromNumber: { contains: parsed.data.search, mode: "insensitive" } },
+      { toNumber: { contains: parsed.data.search, mode: "insensitive" } },
+      { transcript: { contains: parsed.data.search, mode: "insensitive" } },
+      { aiSummary: { contains: parsed.data.search, mode: "insensitive" } },
+      { organization: { name: { contains: parsed.data.search, mode: "insensitive" } } }
+    ];
+  }
+
+  const [calls, total] = await Promise.all([
+    prisma.callLog.findMany({
+      where,
+      include: {
+        organization: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { startedAt: "desc" },
+      take: limit,
+      skip
+    }),
+    prisma.callLog.count({ where })
+  ]);
+
+  return res.json({ ok: true, data: { calls, total } });
 });
 
 adminRouter.get("/leads/:id", async (req, res) => {

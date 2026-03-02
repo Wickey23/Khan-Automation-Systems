@@ -107,6 +107,8 @@ export default function AdminOrgsPage() {
           <span className="text-muted-foreground">/</span>
           <Link href="/admin/prospects" className="text-primary">Prospects</Link>
           <span className="text-muted-foreground">/</span>
+          <Link href="/admin/calls" className="text-primary">Calls</Link>
+          <span className="text-muted-foreground">/</span>
           <Link href="/admin/clients" className="text-primary">Clients</Link>
         </div>
 

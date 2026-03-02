@@ -1,6 +1,7 @@
 import { siteConfig } from "@/lib/config";
 import type {
   AIConfig,
+  AdminCallRecord,
   AuthUser,
   BusinessSettings,
   CallRecord,
@@ -141,6 +142,10 @@ export async function createCustomerPortalSession() {
 
 export async function fetchLeads(query: string) {
   return request<{ leads: Lead[]; total: number }>(`/api/admin/leads${query}`);
+}
+
+export async function fetchAdminCalls(query: string) {
+  return request<{ calls: AdminCallRecord[]; total: number }>(`/api/admin/calls${query}`);
 }
 
 export async function fetchLeadById(id: string) {

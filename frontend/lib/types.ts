@@ -183,6 +183,13 @@ export type OrgCallRecord = {
   updatedAt: string;
 };
 
+export type AdminCallRecord = OrgCallRecord & {
+  organization?: {
+    id: string;
+    name: string;
+  } | null;
+};
+
 export type BusinessSettings = {
   id: string;
   orgId: string;

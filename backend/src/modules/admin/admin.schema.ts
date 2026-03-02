@@ -11,6 +11,14 @@ export const leadFilterSchema = z.object({
   sort: z.enum(["createdAt:desc", "createdAt:asc"]).optional()
 });
 
+export const callFilterSchema = z.object({
+  outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"]).optional(),
+  orgId: z.string().optional(),
+  search: z.string().optional(),
+  limit: z.string().optional(),
+  page: z.string().optional()
+});
+
 export const updateLeadSchema = z.object({
   status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "WON", "LOST"]).optional(),
   tags: z.string().optional(),

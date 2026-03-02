@@ -202,6 +202,8 @@ export default function AdminProspectsPage() {
           <div className="flex items-center gap-2 text-sm">
             <Link href="/admin/orgs" className="text-primary">Organizations</Link>
             <span className="text-muted-foreground">/</span>
+            <Link href="/admin/calls" className="text-primary">Calls</Link>
+            <span className="text-muted-foreground">/</span>
             <Link href="/admin/leads" className="text-primary">Leads</Link>
           </div>
         </div>
