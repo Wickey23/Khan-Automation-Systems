@@ -413,3 +413,9 @@ export async function clearAllSystemData(password: string, confirmationText: str
     body: JSON.stringify({ password, confirmationText })
   });
 }
+
+export async function backfillMissedVapiCalls() {
+  return request<{ scanned: number; resolved: number; skipped: number }>("/api/admin/system/backfill-vapi-calls", {
+    method: "POST"
+  });
+}

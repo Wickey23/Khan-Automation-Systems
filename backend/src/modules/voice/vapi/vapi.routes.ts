@@ -119,7 +119,30 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     }
 
     if (!resolvedOrgId) {
-      return res.status(404).json({ ok: false, message: "Unable to resolve org for call webhook." });
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: "VAPI_WEBHOOK_UNRESOLVED",
+          metadataJson: JSON.stringify({
+            eventType,
+            callSid,
+            orgIdFromPayload: orgIdFromPayload || null,
+            fromNumber,
+            toNumber,
+            summary,
+            transcript,
+            recordingUrl,
+            outcome,
+            appointmentRequested,
+            leadId,
+            callStatus: callStatus || null,
+            successEvaluation,
+            structuredData
+          })
+        }
+      });
+      return res.status(202).json({ ok: true, data: { queuedBackfill: true, eventType, callSid } });
     }
 
     log = await prisma.callLog.create({

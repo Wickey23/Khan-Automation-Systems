@@ -17,6 +17,7 @@ import {
   updateClientStatusSchema,
   updateLeadSchema
 } from "./admin.schema";
+import { backfillMissedVapiCalls } from "./backfill.service";
 import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./provisioning.service";
 
 export const adminRouter = Router();
@@ -167,6 +168,14 @@ adminRouter.get("/vapi/resources", async (_req, res) => {
       message: error instanceof Error ? `Failed to load Vapi resources: ${error.message}` : "Failed to load Vapi resources."
     });
   }
+});
+
+adminRouter.post("/system/backfill-vapi-calls", async (req: AuthenticatedRequest, res) => {
+  const result = await backfillMissedVapiCalls(prisma, req.auth!.userId);
+  return res.json({
+    ok: true,
+    data: result
+  });
 });
 
 adminRouter.get("/orgs/:id", async (req, res) => {

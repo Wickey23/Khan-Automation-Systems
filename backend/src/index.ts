@@ -21,6 +21,7 @@ import { orgRouter } from "./modules/org/org.routes";
 import { toolsRouter } from "./modules/tools/tools.routes";
 import { vapiRouter } from "./modules/voice/vapi/vapi.routes";
 import { voiceRouter } from "./modules/voice/voice.routes";
+import { backfillMissedVapiCalls } from "./modules/admin/backfill.service";
 
 const app = express();
 const allowedOrigins = new Set(["http://localhost:3000", env.ALLOWED_ORIGIN].filter(Boolean) as string[]);
@@ -69,6 +70,7 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const PORT = process.env.PORT || "3001";
+let backfillTimer: NodeJS.Timeout | null = null;
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -86,8 +88,31 @@ async function ensureAdminUser() {
   }
 }
 
+function startVapiBackfillWorker() {
+  const enabled = env.VAPI_BACKFILL_ENABLED === "true";
+  const interval = Number.parseInt(env.VAPI_BACKFILL_INTERVAL_MS, 10);
+  if (!enabled || !Number.isFinite(interval) || interval < 5000) return;
+
+  backfillTimer = setInterval(() => {
+    void backfillMissedVapiCalls(prisma, "system-backfill")
+      .then((result) => {
+        if (result.resolved > 0 || result.skipped > 0) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[vapi-backfill] scanned=${result.scanned} resolved=${result.resolved} skipped=${result.skipped}`
+          );
+        }
+      })
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error("[vapi-backfill] failed", error);
+      });
+  }, interval);
+}
+
 void (async () => {
   await ensureAdminUser();
+  startVapiBackfillWorker();
   app.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -95,6 +120,7 @@ void (async () => {
 })();
 
 const shutdown = async () => {
+  if (backfillTimer) clearInterval(backfillTimer);
   await prisma.$disconnect();
   process.exit(0);
 };

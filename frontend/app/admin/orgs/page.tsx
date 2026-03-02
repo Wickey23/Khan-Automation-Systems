@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
-import { clearAllSystemData, fetchAdminOrgs } from "@/lib/api";
+import { backfillMissedVapiCalls, clearAllSystemData, fetchAdminOrgs } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ export default function AdminOrgsPage() {
   const [clearPassword, setClearPassword] = useState("");
   const [confirmationText, setConfirmationText] = useState("");
   const [clearLoading, setClearLoading] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
 
   useEffect(() => {
     void fetchAdminOrgs().then((data) => setOrgs(data.orgs as AdminOrg[])).catch(() => setOrgs([]));
@@ -49,6 +50,25 @@ export default function AdminOrgsPage() {
       });
     } finally {
       setClearLoading(false);
+    }
+  }
+
+  async function backfillCalls() {
+    setBackfillLoading(true);
+    try {
+      const data = await backfillMissedVapiCalls();
+      showToast({
+        title: "Backfill completed",
+        description: `Scanned ${data.scanned}, resolved ${data.resolved}, skipped ${data.skipped}.`
+      });
+    } catch (error) {
+      showToast({
+        title: "Backfill failed",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setBackfillLoading(false);
     }
   }
 
@@ -134,6 +154,14 @@ export default function AdminOrgsPage() {
             onClick={() => void clearData()}
           >
             {clearLoading ? "Clearing..." : "Clear all data"}
+          </Button>
+          <Button
+            className="mt-4 ml-2"
+            variant="outline"
+            disabled={backfillLoading}
+            onClick={() => void backfillCalls()}
+          >
+            {backfillLoading ? "Backfilling..." : "Backfill missed Vapi calls"}
           </Button>
         </section>
       </div>

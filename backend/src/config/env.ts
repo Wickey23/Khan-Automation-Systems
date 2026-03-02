@@ -30,7 +30,9 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_SID: z.string().optional(),
   VAPI_API_KEY: z.string().optional(),
-  VAPI_TOOL_SECRET: z.string().optional()
+  VAPI_TOOL_SECRET: z.string().optional(),
+  VAPI_BACKFILL_ENABLED: z.string().default("true"),
+  VAPI_BACKFILL_INTERVAL_MS: z.string().default("60000")
 });
 
 const parsed = envSchema.safeParse(process.env);
