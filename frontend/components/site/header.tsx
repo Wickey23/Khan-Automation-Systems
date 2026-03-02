@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/site/brand-mark";
-import { ThemeSwitcher } from "@/components/site/theme-switcher";
 import { navLinks, siteConfig } from "@/lib/config";
-import { getMe } from "@/lib/api";
+import { getBillingStatus, getMe } from "@/lib/api";
 import type { AuthUser } from "@/lib/types";
 
 type HeaderNavItem = {
@@ -17,6 +16,7 @@ type HeaderNavItem = {
 export function Header() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
+  const [planTone, setPlanTone] = useState<"default" | "starter" | "pro">("default");
 
   useEffect(() => {
     let active = true;
@@ -24,11 +24,29 @@ export function Header() {
       .then((data) => {
         if (!active) return;
         setUser(data.user);
+        const isAdminUser = data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN";
+        if (!isAdminUser) {
+          void getBillingStatus()
+            .then((billing) => {
+              if (!active) return;
+              const plan = billing.subscription?.plan || null;
+              if (plan === "STARTER") setPlanTone("starter");
+              else if (plan === "PRO") setPlanTone("pro");
+              else setPlanTone("default");
+            })
+            .catch(() => {
+              if (!active) return;
+              setPlanTone("default");
+            });
+        } else {
+          setPlanTone("default");
+        }
         setAuthResolved(true);
       })
       .catch(() => {
         if (!active) return;
         setUser(null);
+        setPlanTone("default");
         setAuthResolved(true);
       });
     return () => {
@@ -64,7 +82,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-4">
-          <BrandMark href={homeHref} size="sm" />
+          <BrandMark href={homeHref} size="sm" iconTone={planTone} />
           <span className="hidden text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground lg:inline-flex">
             v{siteConfig.version}
           </span>
@@ -77,9 +95,6 @@ export function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <div className="hidden lg:block">
-            <ThemeSwitcher />
-          </div>
           {!authResolved ? null : user ? (
             <>
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">

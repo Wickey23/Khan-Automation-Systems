@@ -6,6 +6,7 @@ type BrandMarkProps = {
   iconOnly?: boolean;
   className?: string;
   size?: "sm" | "md" | "lg";
+  iconTone?: "default" | "starter" | "pro";
 };
 
 const sizeClasses = {
@@ -42,10 +43,21 @@ function KIcon({ className }: { className?: string }) {
   );
 }
 
-function Lockup({ size, className }: { size: keyof typeof sizeClasses; className?: string }) {
+function Lockup({
+  size,
+  className,
+  iconTone = "default"
+}: {
+  size: keyof typeof sizeClasses;
+  className?: string;
+  iconTone?: "default" | "starter" | "pro";
+}) {
+  const iconToneClass =
+    iconTone === "starter" ? "text-primary" : iconTone === "pro" ? "text-foreground" : "text-foreground";
+
   return (
     <span className={cn("inline-flex items-center gap-3 text-foreground", className)}>
-      <KIcon className={sizeClasses[size].icon} />
+      <KIcon className={cn(sizeClasses[size].icon, iconToneClass)} />
       <span className="inline-flex flex-col leading-none">
         <span className={cn("font-black uppercase tracking-[0.02em]", sizeClasses[size].khan)}>Khan</span>
         <span className={cn("mt-1 font-medium uppercase text-muted-foreground", sizeClasses[size].systems)}>Systems</span>
@@ -54,9 +66,16 @@ function Lockup({ size, className }: { size: keyof typeof sizeClasses; className
   );
 }
 
-export function BrandMark({ href, iconOnly = false, className, size = "md" }: BrandMarkProps) {
+export function BrandMark({ href, iconOnly = false, className, size = "md", iconTone = "default" }: BrandMarkProps) {
+  const iconToneClass =
+    iconTone === "starter" ? "text-primary" : iconTone === "pro" ? "text-foreground" : "text-foreground";
+
   if (!href) {
-    return iconOnly ? <KIcon className={cn(sizeClasses[size].icon, "text-foreground", className)} /> : <Lockup size={size} className={className} />;
+    return iconOnly ? (
+      <KIcon className={cn(sizeClasses[size].icon, iconToneClass, className)} />
+    ) : (
+      <Lockup size={size} className={className} iconTone={iconTone} />
+    );
   }
 
   return (
@@ -65,8 +84,7 @@ export function BrandMark({ href, iconOnly = false, className, size = "md" }: Br
       className={cn("inline-flex items-center", className)}
       aria-label="Khan Systems"
     >
-      {iconOnly ? <KIcon className={cn(sizeClasses[size].icon, "text-foreground")} /> : <Lockup size={size} />}
+      {iconOnly ? <KIcon className={cn(sizeClasses[size].icon, iconToneClass)} /> : <Lockup size={size} iconTone={iconTone} />}
     </Link>
   );
 }
-
