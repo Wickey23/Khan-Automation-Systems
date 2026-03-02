@@ -1,11 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { getMe } from "@/lib/api";
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [status, setStatus] = useState<"checking" | "allowed" | "redirecting">("checking");
 
   useEffect(() => {
     let active = true;
@@ -13,28 +15,26 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       try {
         const data = await getMe();
         if (!active) return;
-        setAllowed(data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN");
+        const isAdmin = data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN";
+        if (isAdmin) {
+          setStatus("allowed");
+          return;
+        }
+        setStatus("redirecting");
+        router.replace("/app");
       } catch {
         if (!active) return;
-        setAllowed(false);
+        setStatus("redirecting");
+        const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
+        router.replace(`/auth/login${next}`);
       }
     }
     void check();
     return () => {
       active = false;
     };
-  }, []);
+  }, [pathname, router]);
 
-  if (allowed === null) return <div className="container py-12 text-sm text-muted-foreground">Loading admin...</div>;
-  if (!allowed) {
-    return (
-      <div className="container py-12">
-        <p className="text-sm text-muted-foreground">Admin access required.</p>
-        <Link href="/login" className="mt-2 inline-block text-sm font-medium text-primary">
-          Go to login
-        </Link>
-      </div>
-    );
-  }
+  if (status !== "allowed") return <div className="container py-12 text-sm text-muted-foreground">Checking access...</div>;
   return <>{children}</>;
 }
