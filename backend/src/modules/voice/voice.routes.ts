@@ -12,6 +12,17 @@ function parseDuration(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizePhoneE164(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (raw.startsWith("+")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
+}
+
 function safeParseStringArray(value: string | null | undefined): string[] {
   if (!value) return [];
   try {
@@ -75,9 +86,18 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
   try {
     const fromNumber = (req.body.From as string | undefined) || "unknown";
     const toNumber = (req.body.To as string | undefined) || "unknown";
+    const normalizedTo = normalizePhoneE164(toNumber);
+    const last10 = normalizedTo.replace(/\D/g, "").slice(-10);
     const callSid = String(req.body.CallSid || "").trim();
     const orgPhone = await prisma.phoneNumber.findFirst({
-      where: { e164Number: toNumber, status: { not: "RELEASED" } },
+      where: {
+        status: { not: "RELEASED" },
+        OR: [
+          { e164Number: toNumber },
+          ...(normalizedTo ? [{ e164Number: normalizedTo }] : []),
+          ...(last10.length === 10 ? [{ e164Number: { endsWith: last10 } }] : [])
+        ]
+      },
       include: {
         organization: {
           include: {

@@ -81,6 +81,17 @@ function toNullable(value: string | null | undefined) {
   return text ? text : null;
 }
 
+function normalizePhoneE164(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (raw.startsWith("+")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
+}
+
 function parseIsoDate(value: string | undefined) {
   if (!value) return null;
   const date = new Date(value);
@@ -1021,7 +1032,7 @@ adminRouter.post("/orgs/:id/twilio/assign-number", async (req: AuthenticatedRequ
   const provider = providerRaw === "VAPI" ? NumberProvider.VAPI : NumberProvider.TWILIO;
   const autoPurchase = Boolean(req.body?.autoPurchase);
   const areaCode = String(req.body?.areaCode || "").trim() || undefined;
-  let e164Number = String(req.body?.e164Number || "").trim();
+  let e164Number = normalizePhoneE164(String(req.body?.e164Number || ""));
   let twilioPhoneSid = String(req.body?.twilioPhoneSid || "").trim() || null;
   const friendlyName = String(req.body?.friendlyName || "").trim() || null;
 
