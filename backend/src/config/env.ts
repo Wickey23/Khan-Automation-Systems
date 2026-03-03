@@ -46,6 +46,7 @@ const envSchema = z.object({
   LOG_REDACTION_ENABLED: z.string().default("true"),
   ENCRYPTION_KEY_BASE64: z.string().optional(),
   ADMIN_2FA_REQUIRED_IN_PROD: z.string().default("true"),
+  AUTH_2FA_ENFORCE_ALL_USERS: z.string().default("false"),
   VAPI_BACKFILL_ENABLED: z.string().default("true"),
   VAPI_BACKFILL_INTERVAL_MS: z.string().default("60000"),
   ROUTING_ENGINE_ENABLED: z.string().default("false"),

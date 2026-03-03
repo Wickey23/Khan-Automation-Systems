@@ -58,7 +58,9 @@ function otpEmailUnavailableInProduction() {
 }
 
 function roleRequiresTwoFactor(role: UserRole) {
-  return process.env.ADMIN_2FA_ENABLED === "true" && (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN);
+  if (process.env.ADMIN_2FA_ENABLED !== "true") return false;
+  if (env.AUTH_2FA_ENFORCE_ALL_USERS === "true") return true;
+  return role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN;
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, code: string): Promise<T> {
@@ -672,12 +674,13 @@ authRouter.post("/security/send-test-otp", requireAuth, requireCsrf, authRateLim
     await auditAuthEvent("AUTH_2FA_TEST_EMAIL_SENT", { userId, email, role, requiresTwoFactor: roleRequiresTwoFactor(role) });
     return res.json({ ok: true, data: { sent: true } });
   } catch (error) {
+    const reason = error instanceof Error ? error.message : "otp_test_email_failed";
     await auditAuthEvent("AUTH_2FA_TEST_EMAIL_FAILED", {
       userId,
       email,
       role,
-      reason: error instanceof Error ? error.message : "otp_test_email_failed"
+      reason
     });
-    return res.status(503).json({ ok: false, message: "Could not send test verification email." });
+    return res.status(503).json({ ok: false, message: `Could not send test verification email (${reason}).` });
   }
 });
