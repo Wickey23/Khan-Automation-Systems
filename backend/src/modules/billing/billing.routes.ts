@@ -323,6 +323,13 @@ billingRouter.post(
         });
       }
 
+      if (!isBillingActive(currentSubscription.status)) {
+        return res.status(400).json({
+          ok: false,
+          message: "Subscription is not active. Restart checkout to reactivate and choose a plan."
+        });
+      }
+
       const stripeSubscription = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId, {
         expand: ["items.data.price"]
       });

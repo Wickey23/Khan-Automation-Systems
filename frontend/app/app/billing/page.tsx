@@ -84,6 +84,8 @@ type PlanKey = keyof typeof PLAN_COPY;
 type StripePlanKey = "starter" | "pro";
 const PLAN_ORDER: PlanKey[] = ["none", "starter", "founding", "pro"];
 
+const ACTIVE_STATUSES = new Set(["active", "trialing"]);
+
 function normalizeStatus(status: string | null | undefined) {
   return String(status || "not_active").toLowerCase();
 }
@@ -186,6 +188,7 @@ export default function AppBillingPage() {
   }
 
   const hasRealSubscription = Boolean(subscription);
+  const isActiveSubscription = ACTIVE_STATUSES.has(normalizeStatus(subscription?.status));
   const showDemoCard = !subscription && demo?.mode === "GUIDED_DEMO";
 
   return (
@@ -262,16 +265,18 @@ export default function AppBillingPage() {
             </div>
           </div>
 
-          {subscription ? (
+          {hasRealSubscription ? (
             <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
               <p className="text-sm text-blue-900">
-                Manage payment method, invoices, and cancellation in Stripe&apos;s customer portal.
+                {isActiveSubscription
+                  ? "Manage payment method, invoices, and cancellation in Stripe's customer portal."
+                  : "Your subscription is not currently active. Restart checkout to reactivate live billing and runtime features."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button onClick={onOpenPortal} disabled={openingPortal || !hasRealSubscription}>
                   {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
                 </Button>
-                {subscription.plan === "STARTER" ? (
+                {isActiveSubscription && subscription?.plan === "STARTER" ? (
                   <Button
                     variant="outline"
                     onClick={() => void onChangePlan("pro")}
@@ -279,7 +284,8 @@ export default function AppBillingPage() {
                   >
                     {changingPlan === "pro" ? "Upgrading..." : "Upgrade to Growth/Pro"}
                   </Button>
-                ) : (
+                ) : null}
+                {isActiveSubscription && subscription?.plan === "PRO" ? (
                   <Button
                     variant="outline"
                     onClick={() => void onChangePlan("starter")}
@@ -287,7 +293,16 @@ export default function AppBillingPage() {
                   >
                     {changingPlan === "starter" ? "Switching..." : "Switch to Standard"}
                   </Button>
-                )}
+                ) : null}
+                {!isActiveSubscription ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => void onStartPlan(subscription?.plan === "PRO" ? "pro" : "starter")}
+                    disabled={startingPlan !== null}
+                  >
+                    {startingPlan ? "Starting..." : "Reactivate subscription"}
+                  </Button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -302,9 +317,9 @@ export default function AppBillingPage() {
               {PLAN_ORDER.map((planKey: PlanKey) => {
                 const isCurrentPlan =
                   planKey !== "founding" &&
-                  subscription &&
-                  ((subscription.plan === "STARTER" && planKey === "starter") ||
-                    (subscription.plan === "PRO" && planKey === "pro"));
+                  isActiveSubscription &&
+                  ((subscription?.plan === "STARTER" && planKey === "starter") ||
+                    (subscription?.plan === "PRO" && planKey === "pro"));
                 const isNoPlanCurrent = !subscription && planKey === "none";
 
                 const actionLabel = isCurrentPlan
@@ -315,7 +330,7 @@ export default function AppBillingPage() {
                     ? "Contract-managed tier"
                   : planKey === "none"
                     ? "No active subscription"
-                  : !subscription
+                    : !isActiveSubscription
                     ? `Start ${PLAN_COPY[planKey].title}`
                     : planKey === "pro"
                       ? "Upgrade to Growth/Pro"
@@ -375,7 +390,7 @@ export default function AppBillingPage() {
                           if (planKey === "none") return;
                           if (planKey === "founding") return;
                           if (isCurrentPlan) return;
-                          if (!subscription) {
+                          if (!isActiveSubscription) {
                             void onStartPlan(planKey);
                             return;
                           }
@@ -387,8 +402,7 @@ export default function AppBillingPage() {
                           isNoPlanCurrent ||
                           isCurrentPlan ||
                           startingPlan !== null ||
-                          changingPlan !== null ||
-                          (Boolean(subscription) && !hasRealSubscription)
+                          changingPlan !== null
                         }
                       >
                         {startingPlan === planKey || changingPlan === planKey ? "Processing..." : actionLabel}
