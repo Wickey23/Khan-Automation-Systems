@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/site/brand-mark";
 import { navLinks, siteConfig } from "@/lib/config";
-import { getBillingStatus, getMe } from "@/lib/api";
+import { fetchAuthSecurityStatus, getBillingStatus, getMe } from "@/lib/api";
 import type { AuthUser } from "@/lib/types";
 
 type HeaderNavItem = {
@@ -19,6 +19,7 @@ export function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [planTone, setPlanTone] = useState<"default" | "starter" | "pro">("default");
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -26,6 +27,15 @@ export function Header() {
       .then((data) => {
         if (!active) return;
         setUser(data.user);
+        void fetchAuthSecurityStatus()
+          .then((security) => {
+            if (!active) return;
+            setEmailVerified(Boolean(security.lastOtpVerifiedAt));
+          })
+          .catch(() => {
+            if (!active) return;
+            setEmailVerified(false);
+          });
         const isAdminUser = data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN";
         if (!isAdminUser) {
           void getBillingStatus()
@@ -47,6 +57,7 @@ export function Header() {
       .catch(() => {
         if (!active) return;
         setUser(null);
+        setEmailVerified(false);
         setPlanTone("default");
       });
     return () => {
@@ -117,6 +128,11 @@ export function Header() {
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link href={isAdmin ? "/admin/orgs" : "/app"}>{username}</Link>
               </Button>
+              {emailVerified ? (
+                <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 sm:inline-flex">
+                  Email verified
+                </span>
+              ) : null}
               <Button asChild size="sm" variant="ghost">
                 <Link href="/auth/logout">Logout</Link>
               </Button>

@@ -971,10 +971,61 @@ adminRouter.get("/orgs/:id", async (req, res) => {
     }
   });
   if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
+
+  const userIds = org.users.map((user) => user.id);
+  let userVerificationMap = new Map<string, { emailVerified: boolean; lastOtpVerifiedAt: string | null }>();
+  if (userIds.length > 0) {
+    const maybeOtpSuccessLogs = await prisma.auditLog.findMany({
+      where: {
+        action: "AUTH_LOGIN_SUCCESS",
+        OR: userIds.map((id) => ({ metadataJson: { contains: `"userId":"${id}"` } }))
+      },
+      select: { metadataJson: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 1000
+    });
+
+    userVerificationMap = new Map<string, { emailVerified: boolean; lastOtpVerifiedAt: string | null }>();
+    for (const id of userIds) {
+      userVerificationMap.set(id, { emailVerified: false, lastOtpVerifiedAt: null });
+    }
+
+    for (const log of maybeOtpSuccessLogs) {
+      let metadata: Record<string, unknown> = {};
+      try {
+        metadata = log.metadataJson ? (JSON.parse(log.metadataJson) as Record<string, unknown>) : {};
+      } catch {
+        metadata = {};
+      }
+      const userId = String(metadata.userId || "");
+      if (!userId || !userVerificationMap.has(userId)) continue;
+      if (String(metadata.via || "") !== "otp") continue;
+      const existing = userVerificationMap.get(userId);
+      if (!existing || existing.emailVerified) continue;
+      userVerificationMap.set(userId, {
+        emailVerified: true,
+        lastOtpVerifiedAt: log.createdAt.toISOString()
+      });
+    }
+  }
+
   const checklistSteps = org.provisioningChecklist?.stepsJson
     ? JSON.parse(org.provisioningChecklist.stepsJson)
     : getDefaultChecklistSteps();
-  return res.json({ ok: true, data: { org: { ...org, checklistSteps } } });
+  return res.json({
+    ok: true,
+    data: {
+      org: {
+        ...org,
+        users: org.users.map((user) => ({
+          ...user,
+          emailVerified: userVerificationMap.get(user.id)?.emailVerified || false,
+          lastOtpVerifiedAt: userVerificationMap.get(user.id)?.lastOtpVerifiedAt || null
+        })),
+        checklistSteps
+      }
+    }
+  });
 });
 
 adminRouter.get("/orgs/:id/readiness", async (req, res) => {

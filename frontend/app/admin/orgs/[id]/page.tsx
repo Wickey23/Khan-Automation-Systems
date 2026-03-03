@@ -57,7 +57,7 @@ type OrgDetail = {
     status: string;
     updatedAt: string;
   }>;
-  users?: Array<{ id: string; email: string; role: string; createdAt: string }>;
+  users?: Array<{ id: string; email: string; role: string; createdAt: string; emailVerified?: boolean; lastOtpVerifiedAt?: string | null }>;
   messageThreads?: Array<{
     id: string;
     contactName?: string | null;
@@ -808,8 +808,22 @@ export default function AdminOrgDetailPage() {
             <div className="mt-4 grid gap-3">
               {(org?.users || []).map((user) => (
                 <div key={user.id} className="rounded-md border p-3">
-                  <p className="text-sm font-medium">{user.email}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium">{user.email}</p>
+                    {user.emailVerified ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                        Email verified
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                        Not verified
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{user.role}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Last OTP verify: {user.lastOtpVerifiedAt ? new Date(user.lastOtpVerifiedAt).toLocaleString() : "-"}
+                  </p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Input
                       type="password"
