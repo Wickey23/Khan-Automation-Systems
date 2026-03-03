@@ -191,13 +191,32 @@ orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
     data: { status: OrganizationStatus.SUBMITTED }
   });
 
+  const hours = (configPackage.hours as Record<string, unknown>) || {};
+  const weekly = (hours.weekly as Record<string, unknown>) || {};
+  const schedule =
+    weekly.schedule && typeof weekly.schedule === "object" && !Array.isArray(weekly.schedule)
+      ? (weekly.schedule as Record<string, unknown>)
+      : {};
+  const timezoneValue = String(weekly.timezone || "America/New_York");
+  const afterHoursModeValue = String(hours.afterHoursMode || "TAKE_MESSAGE").toUpperCase();
+  const transfer = (configPackage.transfer as Record<string, unknown>) || {};
+  const transferRules = Array.isArray(transfer.rules) ? (transfer.rules as Array<Record<string, unknown>>) : [];
+  const transferNumbers = transferRules
+    .map((rule) => String(rule.toNumber || "").trim())
+    .filter((value) => Boolean(value));
+  const fallback = transfer.fallback && typeof transfer.fallback === "object" ? (transfer.fallback as Record<string, unknown>) : {};
+  const fallbackTo = String(fallback.toNumber || "").trim();
+  const transferNumbersWithFallback = Array.from(
+    new Set([...(transferNumbers || []), ...(fallbackTo ? [fallbackTo] : [])])
+  );
+
   await prisma.businessSettings.upsert({
     where: { orgId: req.auth.orgId },
     update: {
-      timezone: String(
-        ((configPackage.hours as Record<string, unknown>)?.weekly as Record<string, unknown>)?.timezone ||
-          "America/New_York"
-      ),
+      timezone: timezoneValue,
+      hoursJson: JSON.stringify({ timezone: timezoneValue, schedule }),
+      afterHoursMode: afterHoursModeValue,
+      transferNumbersJson: JSON.stringify(transferNumbersWithFallback),
       servicesJson: JSON.stringify(
         ((configPackage.services as Record<string, unknown>)?.offered as unknown[]) || []
       ),
@@ -211,6 +230,10 @@ orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
     },
     create: {
       orgId: req.auth.orgId,
+      timezone: timezoneValue,
+      hoursJson: JSON.stringify({ timezone: timezoneValue, schedule }),
+      afterHoursMode: afterHoursModeValue,
+      transferNumbersJson: JSON.stringify(transferNumbersWithFallback),
       servicesJson: JSON.stringify(
         ((configPackage.services as Record<string, unknown>)?.offered as unknown[]) || []
       ),
