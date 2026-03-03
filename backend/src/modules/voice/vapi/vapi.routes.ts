@@ -2,6 +2,11 @@ import { AiProvider, type Prisma } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../../lib/prisma";
 import { verifyVapiToolSecret } from "../../../middleware/webhook-security";
+import { env } from "../../../config/env";
+import { computeCallQuality } from "../../org/call-quality.service";
+import { evaluateAndSendAutoRecovery } from "../../sms/auto-recovery.service";
+import { transitionCallState } from "../call-state.service";
+import { updateCallerProfileOutcome } from "../caller-profile.service";
 
 export const vapiRouter = Router();
 
@@ -247,7 +252,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     if (outcome) updateData.outcome = outcome;
     if (eventType === "end-of-call-report" || endedByStatus) updateData.endedAt = new Date();
 
-    await prisma.callLog.upsert({
+    const persistedCall = await prisma.callLog.upsert({
       where: {
         orgId_providerCallId: {
           orgId: resolvedOrgId,
@@ -272,6 +277,54 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
       }
     });
+
+    if (env.ROUTING_ENGINE_ENABLED === "true") {
+      await transitionCallState({
+        prisma,
+        callLogId: persistedCall.id,
+        toState: "CONNECTED",
+        metadata: { source: "vapi-webhook", eventType, status: callStatus || null }
+      });
+      if (eventType === "tool-calls" || Array.isArray(body.toolCallList) || Array.isArray(body.toolCalls)) {
+        await transitionCallState({
+          prisma,
+          callLogId: persistedCall.id,
+          toState: "AI_ACTIVE",
+          metadata: { source: "vapi-webhook", eventType }
+        });
+      }
+      if (outcome === "TRANSFERRED" || callStatus.includes("transfer")) {
+        await transitionCallState({
+          prisma,
+          callLogId: persistedCall.id,
+          toState: "TRANSFERRED",
+          metadata: { source: "vapi-webhook", eventType, outcome: outcome || null }
+        });
+      }
+      if (eventType === "end-of-call-report" || endedByStatus) {
+        await transitionCallState({
+          prisma,
+          callLogId: persistedCall.id,
+          toState: "COMPLETED",
+          metadata: { source: "vapi-webhook", eventType, status: callStatus || null }
+        });
+      }
+    }
+
+    if (eventType === "end-of-call-report" || endedByStatus) {
+      if (env.ROUTING_ENGINE_ENABLED === "true") {
+        await computeCallQuality({ prisma, callLogId: persistedCall.id });
+        await updateCallerProfileOutcome({
+          prisma,
+          orgId: resolvedOrgId,
+          callerNumber: fromNumber,
+          outcome: outcome || null
+        });
+      }
+      if (env.AUTO_RECOVERY_ENABLED === "true") {
+        await evaluateAndSendAutoRecovery({ prisma, callLogId: persistedCall.id });
+      }
+    }
 
     await prisma.auditLog.create({
       data: {

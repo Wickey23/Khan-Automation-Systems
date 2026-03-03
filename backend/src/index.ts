@@ -24,6 +24,7 @@ import { toolsRouter } from "./modules/tools/tools.routes";
 import { vapiRouter } from "./modules/voice/vapi/vapi.routes";
 import { voiceRouter } from "./modules/voice/voice.routes";
 import { backfillMissedVapiCalls } from "./modules/admin/backfill.service";
+import { runSlaMonitorTick } from "./modules/ops/sla-monitor.service";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -117,6 +118,7 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 const PORT = process.env.PORT || "3001";
 let backfillTimer: NodeJS.Timeout | null = null;
+let slaMonitorTimer: NodeJS.Timeout | null = null;
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -156,9 +158,23 @@ function startVapiBackfillWorker() {
   }, interval);
 }
 
+function startSlaMonitorWorker() {
+  if (env.SLA_MONITOR_ENABLED !== "true") return;
+  const interval = Number.parseInt(env.SLA_MONITOR_INTERVAL_MS, 10);
+  if (!Number.isFinite(interval) || interval < 10000) return;
+
+  slaMonitorTimer = setInterval(() => {
+    void runSlaMonitorTick(prisma).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error("[sla-monitor] failed", error);
+    });
+  }, interval);
+}
+
 void (async () => {
   await ensureAdminUser();
   startVapiBackfillWorker();
+  startSlaMonitorWorker();
   app.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -167,6 +183,7 @@ void (async () => {
 
 const shutdown = async () => {
   if (backfillTimer) clearInterval(backfillTimer);
+  if (slaMonitorTimer) clearInterval(slaMonitorTimer);
   await prisma.$disconnect();
   process.exit(0);
 };

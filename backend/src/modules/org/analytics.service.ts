@@ -62,7 +62,8 @@ export async function computeOrgAnalytics(
         durationSec: true,
         outcome: true,
         appointmentRequested: true,
-        leadId: true
+        leadId: true,
+        callQualityScore: true
       }
     }),
     prisma.lead.findMany({
@@ -75,7 +76,7 @@ export async function computeOrgAnalytics(
     }),
     prisma.message.findMany({
       where: { orgId, createdAt: whereWindow },
-      select: { threadId: true, direction: true, createdAt: true }
+      select: { threadId: true, direction: true, createdAt: true, metadataJson: true, leadId: true }
     })
   ]);
 
@@ -105,6 +106,17 @@ export async function computeOrgAnalytics(
   const answerRate = safeDivide(answeredCalls, totalCalls);
   const leadCaptureRate = safeDivide(leadsCreated, totalCalls);
   const smsEngagementRate = safeDivide(engagedThreads, threads.length);
+  const qualityCalls = calls.filter((call) => typeof call.callQualityScore === "number");
+  const callQualityAverage = qualityCalls.length
+    ? qualityCalls.reduce((sum, call) => sum + Number(call.callQualityScore || 0), 0) / qualityCalls.length
+    : 0;
+
+  const autoRecoveryMessages = messages.filter((message) => message.metadataJson.includes("\"recovery\":true"));
+  const autoRecoverySent = autoRecoveryMessages.length;
+  const recoveryThreadIds = new Set(autoRecoveryMessages.map((message) => message.threadId));
+  const autoRecoveryLeadConversions = messages.filter(
+    (message) => recoveryThreadIds.has(message.threadId) && message.direction === "INBOUND" && Boolean(message.leadId)
+  ).length;
 
   const dayKeys: string[] = [];
   const callsByDay = new Map<string, number>();
@@ -149,7 +161,10 @@ export async function computeOrgAnalytics(
       smsEngagedThreads: engagedThreads,
       smsEngagementRate,
       appointmentRequests,
-      missedCalls
+      missedCalls,
+      callQualityAverage,
+      autoRecoverySent,
+      autoRecoveryLeadConversions
     },
     charts: {
       callsPerDay: dayKeys.map((day) => ({ day, value: callsByDay.get(day) || 0 })),

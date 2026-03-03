@@ -35,7 +35,20 @@ const envSchema = z.object({
   VAPI_PRIVATE_KEY: z.string().optional(),
   VAPI_TOOL_SECRET: z.string().optional(),
   VAPI_BACKFILL_ENABLED: z.string().default("true"),
-  VAPI_BACKFILL_INTERVAL_MS: z.string().default("60000")
+  VAPI_BACKFILL_INTERVAL_MS: z.string().default("60000"),
+  ROUTING_ENGINE_ENABLED: z.string().default("false"),
+  AUTO_RECOVERY_ENABLED: z.string().default("false"),
+  SLA_MONITOR_ENABLED: z.string().default("false"),
+  AUTO_RECOVERY_DEDUPE_WINDOW_HOURS: z.string().default("2"),
+  AUTO_RECOVERY_DAILY_CAP: z.string().default("50"),
+  CALL_QUALITY_MIN_SCORE: z.string().default("75"),
+  SLA_MONITOR_INTERVAL_MS: z.string().default("60000"),
+  SLA_WARN_WEBHOOK_FAILURES: z.string().default("5"),
+  SLA_CRITICAL_WEBHOOK_FAILURES: z.string().default("10"),
+  SLA_WARN_PROVIDER_ERRORS: z.string().default("5"),
+  SLA_CRITICAL_PROVIDER_ERRORS: z.string().default("10"),
+  SLA_CRITICAL_CONSECUTIVE_BREACHES: z.string().default("2"),
+  SLA_RECOVERY_WINDOWS_REQUIRED: z.string().default("2")
 });
 
 const parsed = envSchema.safeParse(process.env);

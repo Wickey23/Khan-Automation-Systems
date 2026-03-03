@@ -1,9 +1,12 @@
-import { AiProvider } from "@prisma/client";
+import { AiProvider, type Prisma } from "@prisma/client";
 import { Router } from "express";
 import { twiml as Twiml } from "twilio";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { verifyTwilioRequest } from "../../middleware/webhook-security";
+import { transitionCallState } from "./call-state.service";
+import { upsertCallerProfileOnInbound } from "./caller-profile.service";
+import { buildRoutingDecisionJson, computeRoutingDecision, type RoutingResultType } from "./routing.service";
 
 export const voiceRouter = Router();
 
@@ -137,8 +140,9 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
     }
 
     // Idempotent for Twilio retries.
+    let callLogId: string | null = null;
     if (callSid) {
-      await prisma.callLog.upsert({
+      const upserted = await prisma.callLog.upsert({
         where: { orgId_providerCallId: { orgId: orgPhone.orgId, providerCallId: callSid } },
         update: {
           fromNumber,
@@ -154,8 +158,9 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
           outcome: "MESSAGE_TAKEN"
         }
       });
+      callLogId = upserted.id;
     } else {
-      await prisma.callLog.create({
+      const created = await prisma.callLog.create({
         data: {
           orgId: orgPhone.orgId,
           providerCallId: null,
@@ -165,16 +170,75 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
           outcome: "MESSAGE_TAKEN"
         }
       });
+      callLogId = created.id;
     }
 
     const org = orgPhone.organization;
     const ai = org.aiAgentConfigs[0];
+    const routingEnabled = env.ROUTING_ENGINE_ENABLED === "true";
+    if (routingEnabled && callLogId) {
+      await transitionCallState({
+        prisma,
+        callLogId,
+        toState: "RINGING",
+        metadata: { source: "twilio-voice-inbound" }
+      });
+      await upsertCallerProfileOnInbound({
+        prisma,
+        orgId: orgPhone.orgId,
+        callerNumber: fromNumber
+      });
+    }
+
+    let forcedRoute: RoutingResultType | null = null;
+    if (routingEnabled) {
+      const [callerProfile, callVolumeLast5m] = await Promise.all([
+        prisma.callerProfile.findUnique({
+          where: { orgId_phoneNumber: { orgId: orgPhone.orgId, phoneNumber: normalizePhoneE164(fromNumber) } },
+          select: { totalCalls: true, lastCallAt: true, flaggedVIP: true }
+        }),
+        prisma.callLog.count({
+          where: { orgId: orgPhone.orgId, startedAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } }
+        })
+      ]);
+      const decision = computeRoutingDecision({
+        org,
+        phone: orgPhone,
+        aiConfig: ai || null,
+        settings: org.businessSettings,
+        callerProfile,
+        callerNumber: fromNumber,
+        callVolumeLast5m
+      });
+      forcedRoute = decision.route;
+      if (callLogId) {
+        await prisma.callLog.update({
+          where: { id: callLogId },
+          data: { routingDecisionJson: buildRoutingDecisionJson(decision) as Prisma.InputJsonValue }
+        });
+      }
+    }
+
     const canUseVapiNow =
       ai?.provider === "VAPI" &&
       Boolean(ai?.vapiPhoneNumberId) &&
       (org.status === "LIVE" || org.status === "TESTING" || org.live);
-    if (canUseVapiNow) {
+    if (canUseVapiNow && (forcedRoute === null || forcedRoute === "ROUTE_TO_VAPI")) {
       if (ai.vapiPhoneNumberId) {
+        if (routingEnabled && callLogId) {
+          await transitionCallState({
+            prisma,
+            callLogId,
+            toState: "CONNECTED",
+            metadata: { source: "twilio-bridge-vapi" }
+          });
+          await transitionCallState({
+            prisma,
+            callLogId,
+            toState: "AI_ACTIVE",
+            metadata: { source: "twilio-bridge-vapi" }
+          });
+        }
         const dial = response.dial({ answerOnBridge: true });
         dial.number(ai.vapiPhoneNumberId);
         return res.type("text/xml").send(response.toString());
@@ -188,7 +252,14 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
     const recordingCallbackUrl = `${env.API_BASE_URL}/api/twilio/voice/recording?orgId=${encodedOrgId}`;
     const completionUrl = `${env.API_BASE_URL}/api/twilio/voice/complete?orgId=${encodedOrgId}`;
 
-    if (mode === "VOICEMAIL" || mode === "TAKE_MESSAGE") {
+    const shouldVoicemail =
+      forcedRoute === "ROUTE_TO_VOICEMAIL" ||
+      forcedRoute === "ROUTE_TO_SANDBOX" ||
+      forcedRoute === "ROUTE_TO_FALLBACK_SMS" ||
+      mode === "VOICEMAIL" ||
+      mode === "TAKE_MESSAGE";
+
+    if (shouldVoicemail) {
       response.say(`Thanks for calling ${org.name}. Please leave a brief message after the beep.`);
       response.record({
         maxLength: 120,
@@ -210,6 +281,14 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
     const transferList = safeParseStringArray(org.businessSettings?.transferNumbersJson);
     const first = transferList[0] || null;
     if (first) {
+      if (routingEnabled && callLogId) {
+        await transitionCallState({
+          prisma,
+          callLogId,
+          toState: "TRANSFERRED",
+          metadata: { source: "twilio-transfer" }
+        });
+      }
       response.dial(first.trim());
     } else {
       response.say("No transfer destination configured. Goodbye.");
@@ -237,6 +316,24 @@ voiceRouter.post("/recording", verifyTwilioRequest, async (req, res) => {
 voiceRouter.post("/complete", verifyTwilioRequest, async (req, res) => {
   const orgId = typeof req.query.orgId === "string" ? req.query.orgId : undefined;
   await updateCallLogFromVoicePayload(req.body as Record<string, unknown>, orgId);
+  if (env.ROUTING_ENGINE_ENABLED === "true") {
+    const callSid = String((req.body as Record<string, unknown>).CallSid || "").trim();
+    if (callSid) {
+      const row = await prisma.callLog.findFirst({
+        where: { providerCallId: callSid },
+        orderBy: { createdAt: "desc" },
+        select: { id: true }
+      });
+      if (row) {
+        await transitionCallState({
+          prisma,
+          callLogId: row.id,
+          toState: "COMPLETED",
+          metadata: { source: "twilio-voice-complete" }
+        });
+      }
+    }
+  }
   const response = new Twiml.VoiceResponse();
   response.say("Thank you. Your message has been saved and our team will follow up shortly.");
   response.hangup();

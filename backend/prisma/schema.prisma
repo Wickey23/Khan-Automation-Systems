@@ -131,6 +131,14 @@ enum MessageStatus {
   DELIVERED
 }
 
+enum CallState {
+  RINGING
+  CONNECTED
+  AI_ACTIVE
+  TRANSFERRED
+  COMPLETED
+}
+
 model Client {
   id            String         @id @default(cuid())
   name          String
@@ -178,6 +186,8 @@ model Organization {
   billingWebhookEvents BillingWebhookEvent[]
   messageThreads       MessageThread[]
   messages             Message[]
+  callerProfiles       CallerProfile[]
+  autoRecoveryDedupes  AutoRecoveryDedupe[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -302,10 +312,64 @@ model CallLog {
   transcript     String?
   outcome        CallLogOutcome @default(MESSAGE_TAKEN)
   rawJson        Json?
+  state          CallState?
+  ringingAt      DateTime?
+  connectedAt    DateTime?
+  aiStartedAt    DateTime?
+  transferredAt  DateTime?
+  completedAt    DateTime?
+  routingDecisionJson Json?
+  callQualityScore Int?
+  callQualityBreakdownJson Json?
+  callQualityVersion String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  stateTransitions CallStateTransition[]
 
   @@unique([orgId, providerCallId])
+}
+
+model CallerProfile {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  phoneNumber  String
+  totalCalls   Int          @default(0)
+  firstCallAt  DateTime
+  lastCallAt   DateTime
+  lastOutcome  CallLogOutcome?
+  flaggedVIP   Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, phoneNumber])
+  @@index([orgId, lastCallAt])
+}
+
+model CallStateTransition {
+  id           String    @id @default(cuid())
+  callLogId    String
+  callLog      CallLog   @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  fromState    CallState?
+  toState      CallState
+  at           DateTime  @default(now())
+  metadataJson Json      @default("{}")
+  createdAt    DateTime  @default(now())
+
+  @@index([callLogId, at])
+}
+
+model AutoRecoveryDedupe {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  phoneNumber  String
+  reasonCode   String
+  windowBucket String
+  createdAt    DateTime     @default(now())
+
+  @@unique([orgId, phoneNumber, reasonCode, windowBucket])
+  @@index([orgId, createdAt])
 }
 
 model Setting {
