@@ -11,13 +11,37 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { siteConfig } from "@/lib/config";
 
-const outcomes: Array<{ title: string; icon: LucideIcon }> = [
-  { title: "24/7 call answer coverage", icon: PhoneCall },
-  { title: "Faster quote turnaround", icon: Clock3 },
-  { title: "Consistent intake notes", icon: BadgeCheck },
-  { title: "Automated SMS confirmations", icon: MessageSquareText },
-  { title: "Smart scheduling + handoff", icon: CalendarClock },
-  { title: "Call log visibility", icon: ShieldCheck }
+const outcomes: Array<{ title: string; icon: LucideIcon; copy: string }> = [
+  {
+    title: "24/7 call answer coverage",
+    icon: PhoneCall,
+    copy: "Every inbound call gets answered or captured, including nights, weekends, and peak hours."
+  },
+  {
+    title: "Faster quote turnaround",
+    icon: Clock3,
+    copy: "Collects the right job details on first contact so your team can quote and follow up faster."
+  },
+  {
+    title: "Consistent intake notes",
+    icon: BadgeCheck,
+    copy: "Standardized summaries reduce missed details and keep dispatch, techs, and office aligned."
+  },
+  {
+    title: "Automated SMS confirmations",
+    icon: MessageSquareText,
+    copy: "Sends immediate confirmations and follow-up messages to reduce drop-off after first contact."
+  },
+  {
+    title: "Smart scheduling + handoff",
+    icon: CalendarClock,
+    copy: "Routes urgent calls correctly and hands off priority jobs to the right person without delay."
+  },
+  {
+    title: "Call log visibility",
+    icon: ShieldCheck,
+    copy: "Gives your team a searchable record of calls, outcomes, and summaries for operational control."
+  }
 ];
 
 const steps: Array<{ title: string; icon: LucideIcon; copy: string }> = [
@@ -28,12 +52,27 @@ const steps: Array<{ title: string; icon: LucideIcon; copy: string }> = [
 ];
 
 export default function HomePage() {
+  const missedCallFacts = [
+    "Missed calls usually represent high-intent buyers who needed help now, not later.",
+    "Speed to first response often decides who wins the job in local service markets.",
+    "Delayed follow-up compounds quickly into lost revenue and lower booking consistency."
+  ];
+
+  const integrationLabels = [
+    "Current phone workflows",
+    "Scheduling calendars",
+    "CRM and dispatch systems",
+    "Existing intake processes"
+  ];
+
   return (
     <div>
       <section className="container grid gap-10 py-14 md:py-20 lg:grid-cols-[1.05fr_0.95fr]">
         <MotionInView>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">Engineering AI Automation Agency</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+              Enterprise Call Operations Infrastructure
+            </p>
             <h1 className="mt-3 text-4xl font-bold leading-tight sm:text-5xl">
               AI Reception + Follow-Up System for Service Shops
             </h1>
@@ -60,10 +99,10 @@ export default function HomePage() {
         <div className="container flex flex-col items-start justify-between gap-4 py-8 md:flex-row md:items-center">
           <p className="text-sm font-semibold">Built for service shops</p>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span className="rounded-full border px-3 py-1">LOGO_PLACEHOLDER_1</span>
-            <span className="rounded-full border px-3 py-1">LOGO_PLACEHOLDER_2</span>
-            <span className="rounded-full border px-3 py-1">LOGO_PLACEHOLDER_3</span>
-            <span className="rounded-full border px-3 py-1">LOGO_PLACEHOLDER_4</span>
+            <span className="rounded-full border px-3 py-1">HVAC</span>
+            <span className="rounded-full border px-3 py-1">Auto & Diesel</span>
+            <span className="rounded-full border px-3 py-1">Home Services</span>
+            <span className="rounded-full border px-3 py-1">Field Operations</span>
           </div>
         </div>
       </section>
@@ -71,11 +110,7 @@ export default function HomePage() {
       <section className="container py-14">
         <h2 className="text-3xl font-semibold">The Cost of Missed Calls</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {[
-            "Placeholder: 27% of high-value calls hit voicemail or ring out.",
-            "Placeholder: 42% of prospects choose the first shop that responds.",
-            "Placeholder: 15-20% of potential jobs are lost from delayed follow-up."
-          ].map((item) => (
+          {missedCallFacts.map((item) => (
             <Card key={item}>
               <CardContent className="p-5 text-sm text-muted-foreground">{item}</CardContent>
             </Card>
@@ -86,14 +121,14 @@ export default function HomePage() {
       <section className="container py-14">
         <h2 className="text-3xl font-semibold">What You Get</h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {outcomes.map(({ title, icon: Icon }, index) => (
+          {outcomes.map(({ title, icon: Icon, copy }, index) => (
             <MotionInView delay={index * 0.04} key={title}>
               <Card>
                 <CardContent className="flex items-start gap-3 p-5">
                   <Icon className="mt-0.5 h-5 w-5 text-primary" />
                   <div>
                     <p className="font-medium">{title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Built to improve speed, quality, and booking consistency.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{copy}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -126,10 +161,10 @@ export default function HomePage() {
         <div className="container py-14">
           <h2 className="text-3xl font-semibold">Works with your current tools</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Integrates with existing workflows first. Placeholder examples: CDK, shop management systems, Google Calendar, CRM tools.
+            Integrates into your current operating stack first, so you can launch without disrupting the way your team already works.
           </p>
           <div className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-            {["CDK", "Shop Mgmt Systems", "Google Calendar", "CRM/Dispatch Tool"].map((item) => (
+            {integrationLabels.map((item) => (
               <div key={item} className="rounded-md border bg-background px-4 py-3">
                 {item}
               </div>

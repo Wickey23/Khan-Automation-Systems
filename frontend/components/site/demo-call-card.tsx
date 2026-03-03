@@ -78,7 +78,7 @@ export function DemoCallCard({ demoNumber }: DemoCallCardProps) {
             {questions.map((question) => (
               <li key={question}>{question}</li>
             ))}
-            <li>If this is placeholder text, set `NEXT_PUBLIC_DEMO_NUMBER` in frontend env.</li>
+            {!isConfigured ? <li>Demo line is temporarily unavailable. Use the contact form and we will provide live access.</li> : null}
           </ul>
         </div>
 
