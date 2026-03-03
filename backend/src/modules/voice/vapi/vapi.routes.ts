@@ -67,6 +67,68 @@ function safePayloadSnippet(payload: unknown) {
   }
 }
 
+function toTitleCase(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function isPlaceholderName(value: string | null | undefined) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return !normalized || normalized === "unknown caller" || normalized === "unknown contact" || normalized === "unknown";
+}
+
+function extractHumanNameFromText(text: string) {
+  const source = String(text || "").trim();
+  if (!source) return "";
+
+  const stopWords = new Set([
+    "sorry",
+    "help",
+    "issue",
+    "problem",
+    "phone",
+    "number",
+    "looking",
+    "escalating",
+    "customer",
+    "caller",
+    "unknown",
+    "support",
+    "service",
+    "name",
+    "from"
+  ]);
+
+  const patterns = [
+    /\bmy name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bthis is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bi(?:'m| am)\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,1})\b/i,
+    /\b([A-Za-z][A-Za-z'-]+\s+[A-Za-z][A-Za-z'-]+)\s+called\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    const raw = match?.[1]?.trim() || "";
+    if (!raw) continue;
+    const cleaned = raw
+      .replace(/\b(from|and|but)\b.*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned) continue;
+    const parts = cleaned.split(" ").filter(Boolean);
+    if (!parts.length || parts.length > 3) continue;
+    if (parts.some((part) => stopWords.has(part.toLowerCase()))) continue;
+    if (parts.length === 1 && parts[0].length < 2) continue;
+    return toTitleCase(parts.join(" "));
+  }
+  return "";
+}
+
 async function ensureLeadForCall(input: {
   orgId: string;
   callLogId: string;
@@ -100,7 +162,10 @@ async function ensureLeadForCall(input: {
     orderBy: { createdAt: "desc" }
   });
 
-  const fallbackName = (input.candidateName || "").trim() || existingLead?.name || "Unknown Caller";
+  const candidateFromFields = toTitleCase(String(input.candidateName || "").trim());
+  const candidateFromText = extractHumanNameFromText(`${input.summary || ""}\n${input.transcript || ""}`);
+  const strongCandidate = !isPlaceholderName(candidateFromFields) ? candidateFromFields : candidateFromText;
+  const fallbackName = strongCandidate || existingLead?.name || "Unknown Caller";
   const fallbackMessage = (input.summary || input.transcript || "").trim() || existingLead?.message || "";
   const fallbackEmail = `${input.fromNumber.replace(/\D/g, "") || "unknown"}@no-email.local`;
 
@@ -108,7 +173,7 @@ async function ensureLeadForCall(input: {
     ? await prisma.lead.update({
         where: { id: existingLead.id },
         data: {
-          name: fallbackName,
+          name: !isPlaceholderName(strongCandidate) && isPlaceholderName(existingLead.name) ? strongCandidate : existingLead.name,
           business: existingLead.business || org.name,
           email: existingLead.email || fallbackEmail,
           message: fallbackMessage || existingLead.message

@@ -63,6 +63,69 @@ function normalizePhone(input: string) {
   return `+${digits}`;
 }
 
+function toTitleCase(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function isPlaceholderName(value: string | null | undefined) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return !normalized || normalized === "unknown caller" || normalized === "unknown contact" || normalized === "unknown";
+}
+
+function extractHumanNameFromText(text: string) {
+  const source = String(text || "").trim();
+  if (!source) return "";
+
+  const stopWords = new Set([
+    "sorry",
+    "help",
+    "issue",
+    "problem",
+    "phone",
+    "number",
+    "looking",
+    "escalating",
+    "customer",
+    "caller",
+    "unknown",
+    "support",
+    "service",
+    "name",
+    "from"
+  ]);
+
+  const patterns = [
+    /\bmy name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bthis is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bi(?:'m| am)\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,1})\b/i,
+    /\b([A-Za-z][A-Za-z'-]+\s+[A-Za-z][A-Za-z'-]+)\s+called\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    const raw = match?.[1]?.trim() || "";
+    if (!raw) continue;
+    const cleaned = raw
+      .replace(/\b(from|and|but)\b.*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned) continue;
+    const parts = cleaned.split(" ").filter(Boolean);
+    if (!parts.length || parts.length > 3) continue;
+    if (parts.some((part) => stopWords.has(part.toLowerCase()))) continue;
+    if (parts.length === 1 && parts[0].length < 2) continue;
+    return toTitleCase(parts.join(" "));
+  }
+
+  return "";
+}
+
 function pickString(...values: Array<unknown>) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -88,6 +151,11 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
 
     const { orgId: explicitOrgId, name, phone, message, callId: explicitCallId } = parsed.data;
     const normalizedPhone = normalizePhone(phone);
+    const parsedNameFromMessage = extractHumanNameFromText(message || "");
+    const normalizedInputName = toTitleCase(String(name || "").trim());
+    const finalInputName = !isPlaceholderName(normalizedInputName)
+      ? normalizedInputName
+      : parsedNameFromMessage || "Unknown Caller";
     let resolvedCallId = pickString(runtimeCallId, explicitCallId);
     let resolvedOrgId = pickString(runtimeOrgId, explicitOrgId);
 
@@ -140,7 +208,10 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
       ? await prisma.lead.update({
           where: { id: existingLead.id },
           data: {
-            name: name || existingLead.name,
+            name:
+              !isPlaceholderName(finalInputName) && isPlaceholderName(existingLead.name)
+                ? finalInputName
+                : existingLead.name,
             business: existingLead.business || org.name,
             email: existingLead.email || `${normalizedPhone.replace(/\D/g, "") || "unknown"}@no-email.local`,
             message: message || existingLead.message
@@ -149,7 +220,7 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
       : await prisma.lead.create({
           data: {
             orgId: resolvedOrgId,
-            name,
+            name: finalInputName,
             business: org.name,
             email: `${normalizedPhone.replace(/\D/g, "") || "unknown"}@no-email.local`,
             phone: normalizedPhone,
