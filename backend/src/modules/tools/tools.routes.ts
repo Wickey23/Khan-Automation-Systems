@@ -87,40 +87,95 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
     const runtimeCallId = pickString(root.callId, root.providerCallId, call.id, call.callId, call.providerCallId);
 
     const { orgId: explicitOrgId, name, phone, message, callId: explicitCallId } = parsed.data;
-    const orgId = pickString(runtimeOrgId, explicitOrgId);
-    const callId = pickString(runtimeCallId, explicitCallId);
+    const normalizedPhone = normalizePhone(phone);
+    let resolvedCallId = pickString(runtimeCallId, explicitCallId);
+    let resolvedOrgId = pickString(runtimeOrgId, explicitOrgId);
 
-    if (!orgId) {
-      return toolError(
-        res,
-        "MISSING_ORG_CONTEXT",
-        "Missing orgId (neither runtime metadata nor explicit payload provided)."
-      );
+    // If call id exists, use it to resolve org deterministically.
+    if (resolvedCallId) {
+      const callRow = await prisma.callLog.findFirst({
+        where: { OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, orgId: true, providerCallId: true }
+      });
+      if (callRow?.orgId) {
+        resolvedOrgId = callRow.orgId;
+      }
+      if (callRow?.id && !explicitCallId) {
+        resolvedCallId = callRow.id;
+      }
     }
 
-    const org = await prisma.organization.findUnique({ where: { id: orgId } });
+    // Fallback: resolve org/call from the most recent call from the same phone.
+    if (!resolvedOrgId || !resolvedCallId) {
+      const recentCall = await prisma.callLog.findFirst({
+        where: {
+          fromNumber: normalizedPhone,
+          createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, orgId: true }
+      });
+      if (recentCall?.orgId && !resolvedOrgId) {
+        resolvedOrgId = recentCall.orgId;
+      }
+      if (recentCall?.id && !resolvedCallId) {
+        resolvedCallId = recentCall.id;
+      }
+    }
+
+    if (!resolvedOrgId) {
+      return toolError(res, "MISSING_ORG_CONTEXT", "Missing orgId and unable to resolve from recent call context.");
+    }
+
+    const org = await prisma.organization.findUnique({ where: { id: resolvedOrgId } });
     if (!org) return toolError(res, "ORG_NOT_FOUND", "Organization not found.", 404);
 
-    const lead = await prisma.lead.create({
-      data: {
-        orgId,
-        name,
-        business: org.name,
-        email: `${phone.replace(/\D/g, "") || "unknown"}@no-email.local`,
-        phone,
-        message,
-        source: LeadSource.PHONE_CALL
-      }
+    const existingLead = await prisma.lead.findFirst({
+      where: { orgId: resolvedOrgId, phone: normalizedPhone },
+      orderBy: { createdAt: "desc" }
     });
 
-    if (callId) {
+    const lead = existingLead
+      ? await prisma.lead.update({
+          where: { id: existingLead.id },
+          data: {
+            name: name || existingLead.name,
+            business: existingLead.business || org.name,
+            email: existingLead.email || `${normalizedPhone.replace(/\D/g, "") || "unknown"}@no-email.local`,
+            message: message || existingLead.message
+          }
+        })
+      : await prisma.lead.create({
+          data: {
+            orgId: resolvedOrgId,
+            name,
+            business: org.name,
+            email: `${normalizedPhone.replace(/\D/g, "") || "unknown"}@no-email.local`,
+            phone: normalizedPhone,
+            message,
+            source: LeadSource.PHONE_CALL
+          }
+        });
+
+    if (resolvedCallId) {
       await prisma.callLog.updateMany({
-        where: { orgId, OR: [{ id: callId }, { providerCallId: callId }] },
+        where: { orgId: resolvedOrgId, OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
+        data: { leadId: lead.id }
+      });
+    } else {
+      // Deterministic fallback when call id is absent in tool payload.
+      await prisma.callLog.updateMany({
+        where: {
+          orgId: resolvedOrgId,
+          fromNumber: normalizedPhone,
+          createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }
+        },
         data: { leadId: lead.id }
       });
     }
 
-    return res.json({ ok: true, data: { leadId: lead.id, orgId, callId: callId || null } });
+    return res.json({ ok: true, data: { leadId: lead.id, orgId: resolvedOrgId, callId: resolvedCallId || null } });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }
