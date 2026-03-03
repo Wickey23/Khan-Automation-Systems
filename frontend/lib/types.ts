@@ -458,6 +458,11 @@ export type AdminSystemDashboard = {
   autoRecoveryVolumeLast24h: number;
   callsMissingLeadLinkage: number;
   callsStuckNonTerminalOver1h: number;
+  orgExposurePercent: number;
+  trafficExposurePercent: number;
+  p1AckTimeP95Ms: number | null;
+  p1ResolutionTimeP95Ms: number | null;
+  lowIncidentVolumeWarning: boolean;
 };
 
 export type AdminSystemReadiness = {
@@ -472,6 +477,38 @@ export type AdminSystemReadiness = {
     CRITICAL: number;
   };
   DataIntegrityAnomalies: number;
+};
+
+export type AdminScaleGate = {
+  evaluationTimestamp: string;
+  result: "PASS" | "FAIL";
+  failingCriteria: string[];
+  warnings: {
+    lowIncidentVolumeWarning: boolean;
+    lowIncidentVolumeContext: {
+      p1IncidentCount14d: number;
+      minRecommendedSampleSize: number;
+    };
+  };
+  exposure: {
+    orgExposurePercent: number;
+    trafficExposurePercent: number;
+    thresholds: {
+      orgExposureThreshold: number;
+      trafficExposureThreshold: number;
+    };
+  };
+  cooldown: {
+    systemicFailTriggered: boolean;
+    required: boolean;
+    status: "PASS" | "FAIL";
+  };
+  metrics: {
+    webhookSuccessRate: number;
+    leadLinkageRate: number;
+    p1AckTimeP95Ms: number | null;
+    p1ResolutionTimeP95Ms: number | null;
+  };
 };
 
 export type OrgHealth = {

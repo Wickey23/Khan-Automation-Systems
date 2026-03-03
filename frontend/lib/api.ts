@@ -29,6 +29,7 @@ import type {
   OrgKnowledgeFile,
   OrgMessagingReadiness,
   PublicSystemStatus,
+  AdminScaleGate,
   AdminSystemDashboard,
   AdminSystemReadiness,
   PhoneLine,
@@ -649,6 +650,10 @@ export async function fetchAdminSystemDashboard() {
 
 export async function fetchAdminSystemReadiness() {
   return request<AdminSystemReadiness>("/api/admin/system/readiness");
+}
+
+export async function fetchAdminSystemScaleGate() {
+  return request<AdminScaleGate>("/api/admin/system/scale-gate");
 }
 
 export async function fetchProspects(query: string) {

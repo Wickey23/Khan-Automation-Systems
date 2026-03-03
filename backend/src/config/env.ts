@@ -50,7 +50,9 @@ const envSchema = z.object({
   SLA_WARN_PROVIDER_ERRORS: z.string().default("5"),
   SLA_CRITICAL_PROVIDER_ERRORS: z.string().default("10"),
   SLA_CRITICAL_CONSECUTIVE_BREACHES: z.string().default("2"),
-  SLA_RECOVERY_WINDOWS_REQUIRED: z.string().default("2")
+  SLA_RECOVERY_WINDOWS_REQUIRED: z.string().default("2"),
+  OPS_ORG_EXPOSURE_THRESHOLD: z.string().default("0.5"),
+  OPS_TRAFFIC_EXPOSURE_THRESHOLD: z.string().default("0.5")
 });
 
 const parsed = envSchema.safeParse(process.env);

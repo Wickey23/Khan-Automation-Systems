@@ -139,6 +139,17 @@ enum CallState {
   COMPLETED
 }
 
+enum OrgOverrideMode {
+  DEFAULT
+  FORCE_ON
+  FORCE_OFF
+}
+
+enum ScaleGateResult {
+  PASS
+  FAIL
+}
+
 model Client {
   id            String         @id @default(cuid())
   name          String
@@ -164,6 +175,10 @@ model Organization {
   stripeCustomerId     String?                @unique
   subscriptionStatus   String                 @default("inactive")
   billingActive        Boolean                @default(false)
+  routingEngineOverride OrgOverrideMode       @default(DEFAULT)
+  autoRecoveryOverride  OrgOverrideMode       @default(DEFAULT)
+  smsSendOverride       OrgOverrideMode       @default(DEFAULT)
+  slaMonitorOverride    OrgOverrideMode       @default(DEFAULT)
   onboardingApprovedAt DateTime?
   goLiveAt             DateTime?
   users                User[]
@@ -189,6 +204,7 @@ model Organization {
   knowledgeFiles       OrganizationKnowledgeFile[]
   callerProfiles       CallerProfile[]
   autoRecoveryDedupes  AutoRecoveryDedupe[]
+  scaleGateDecisions   ScaleGateDecisionLog[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -682,9 +698,29 @@ model AppConfig {
   demoTitle        String?
   demoSubtitle     String?
   demoQuestionsJson String  @default("[]")
+  opsThresholdsJson String  @default("{}")
   updatedByUserId  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model ScaleGateDecisionLog {
+  id                   String          @id @default(cuid())
+  evaluatedAt          DateTime        @default(now())
+  evaluationTimestamp  DateTime
+  result               ScaleGateResult
+  failingCriteriaJson  Json
+  metricsSnapshotJson  Json
+  actorUserId          String?
+  promotionAttempted   Boolean         @default(false)
+  systemicFailTriggered Boolean        @default(false)
+  orgId                String?
+  organization         Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdAt            DateTime        @default(now())
+
+  @@index([evaluatedAt])
+  @@index([result, evaluatedAt])
+  @@index([evaluationTimestamp])
 }
 
 model DemoCallLog {

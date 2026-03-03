@@ -35,7 +35,7 @@ import { computeReadinessReport } from "./readiness.service";
 import { computeOrgHealth } from "../org/health.service";
 import { ensureDefaultTestScenarios, getTestPassSummary } from "./testing.service";
 import { validateGoLiveBusinessConfig } from "./config-validation.service";
-import { computeOperatorDashboard, computeSystemReadiness } from "./system-ops.service";
+import { computeOperatorDashboard, computeScaleGate, computeSystemReadiness } from "./system-ops.service";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
@@ -874,6 +874,11 @@ adminRouter.get("/system/readiness", async (_req: AuthenticatedRequest, res) => 
   return res.json({ ok: true, data: readiness });
 });
 
+adminRouter.get("/system/scale-gate", async (req: AuthenticatedRequest, res) => {
+  const gate = await computeScaleGate(prisma, { actorUserId: req.auth?.userId || null, promotionAttempted: false });
+  return res.json({ ok: true, data: gate });
+});
+
 adminRouter.get("/vapi/resources", async (_req, res) => {
   if (!env.VAPI_API_KEY) {
     return res.json({
@@ -1566,6 +1571,16 @@ adminRouter.post("/orgs/:id/provisioning/test-complete", async (req: Authenticat
 });
 
 adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => {
+  const scaleGate = await computeScaleGate(prisma, { actorUserId: req.auth?.userId || null, promotionAttempted: true });
+  if (scaleGate.result === "FAIL") {
+    return res.status(409).json({
+      ok: false,
+      message: "Go-live blocked: scale gate failed.",
+      data: {
+        scaleGate
+      }
+    });
+  }
   const orgRow = await prisma.organization.findUnique({ where: { id: req.params.id } });
   if (!orgRow) return res.status(404).json({ ok: false, message: "Organization not found." });
   const readiness = await computeReadinessReport({
