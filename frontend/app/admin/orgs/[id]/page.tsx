@@ -21,6 +21,7 @@ import {
   resetOrgUserPassword,
   setOrgTesting,
   saveAdminOrgNotes,
+  syncBusinessSettingsFromOnboarding,
   revertAdminAiConfigVersion,
   revertAdminConfigPackageVersion,
   updateProvisioningStep,
@@ -336,6 +337,12 @@ export default function AdminOrgDetailPage() {
     await load();
   }
 
+  async function syncBusinessSettings() {
+    await syncBusinessSettingsFromOnboarding(id);
+    showToast({ title: "Business settings synced from onboarding" });
+    await load();
+  }
+
   return (
     <AdminGuard>
       <div className="container py-10">
@@ -601,6 +608,9 @@ export default function AdminOrgDetailPage() {
             <div className="mb-4 flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => void approveOnboarding(id).then(load)}>
                 Approve onboarding
+              </Button>
+              <Button variant="outline" onClick={() => void syncBusinessSettings()}>
+                Sync business settings
               </Button>
               <Button variant="outline" onClick={() => void generateAiConfigFromPackage(id).then(load)}>
                 Generate AI Prompt

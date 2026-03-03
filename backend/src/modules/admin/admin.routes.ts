@@ -7,7 +7,7 @@ import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../mi
 import { toCsv } from "../../utils/csv";
 import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } from "../voice/vapi/vapi.service";
 import { provisionNumber } from "../twilio/twilio.service";
-import { generateConfigPackage } from "../org/config-package";
+import { buildConfigPackage, generateConfigPackage } from "../org/config-package";
 import {
   assignNumberSchema,
   callFilterSchema,
@@ -1170,6 +1170,91 @@ adminRouter.post("/orgs/:id/provisioning/approve-onboarding", async (req: Authen
     action: "ORG_APPROVED"
   });
   return res.json({ ok: true });
+});
+
+adminRouter.post("/orgs/:id/provisioning/sync-business-settings", async (req: AuthenticatedRequest, res) => {
+  const latestSubmission = await prisma.onboardingSubmission.findFirst({
+    where: { orgId: req.params.id },
+    orderBy: { submittedAt: "desc" }
+  });
+  if (!latestSubmission?.answersJson) {
+    return res.status(404).json({ ok: false, message: "No onboarding submission found for this organization." });
+  }
+
+  let answers: Record<string, unknown>;
+  try {
+    answers = JSON.parse(latestSubmission.answersJson) as Record<string, unknown>;
+  } catch {
+    return res.status(400).json({ ok: false, message: "Latest onboarding answers are invalid JSON." });
+  }
+
+  const configPackage = buildConfigPackage(answers);
+  const hours = (configPackage.hours as Record<string, unknown>) || {};
+  const weekly = (hours.weekly as Record<string, unknown>) || {};
+  const schedule =
+    weekly.schedule && typeof weekly.schedule === "object" && !Array.isArray(weekly.schedule)
+      ? (weekly.schedule as Record<string, unknown>)
+      : {};
+  const timezoneValue = String(weekly.timezone || "America/New_York");
+  const afterHoursModeValue = String(hours.afterHoursMode || "TAKE_MESSAGE").toUpperCase();
+  const transfer = (configPackage.transfer as Record<string, unknown>) || {};
+  const transferRules = Array.isArray(transfer.rules) ? (transfer.rules as Array<Record<string, unknown>>) : [];
+  const transferNumbers = transferRules
+    .map((rule) => String(rule.toNumber || "").trim())
+    .filter((value) => Boolean(value));
+  const fallback =
+    transfer.fallback && typeof transfer.fallback === "object" ? (transfer.fallback as Record<string, unknown>) : {};
+  const fallbackTo = String(fallback.toNumber || "").trim();
+  const transferNumbersWithFallback = Array.from(new Set([...(transferNumbers || []), ...(fallbackTo ? [fallbackTo] : [])]));
+  const notifications = (configPackage.notifications as Record<string, unknown>) || {};
+  const services = (configPackage.services as Record<string, unknown>) || {};
+
+  const settings = await prisma.businessSettings.upsert({
+    where: { orgId: req.params.id },
+    update: {
+      timezone: timezoneValue,
+      hoursJson: JSON.stringify({ timezone: timezoneValue, schedule }),
+      afterHoursMode: afterHoursModeValue,
+      transferNumbersJson: JSON.stringify(transferNumbersWithFallback),
+      servicesJson: JSON.stringify((services.offered as unknown[]) || []),
+      policiesJson: JSON.stringify(configPackage.policies || {}),
+      notificationEmailsJson: JSON.stringify((notifications.emails as unknown[]) || []),
+      notificationPhonesJson: JSON.stringify((notifications.phones as unknown[]) || [])
+    },
+    create: {
+      orgId: req.params.id,
+      timezone: timezoneValue,
+      hoursJson: JSON.stringify({ timezone: timezoneValue, schedule }),
+      afterHoursMode: afterHoursModeValue,
+      transferNumbersJson: JSON.stringify(transferNumbersWithFallback),
+      servicesJson: JSON.stringify((services.offered as unknown[]) || []),
+      policiesJson: JSON.stringify(configPackage.policies || {}),
+      notificationEmailsJson: JSON.stringify((notifications.emails as unknown[]) || []),
+      notificationPhonesJson: JSON.stringify((notifications.phones as unknown[]) || [])
+    }
+  });
+
+  await upsertChecklistStep({
+    prisma,
+    orgId: req.params.id,
+    key: "business_settings_confirmed",
+    status: "DONE",
+    userId: req.auth!.userId
+  });
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "BUSINESS_SETTINGS_SYNCED_FROM_ONBOARDING",
+    metadata: {
+      onboardingSubmissionId: latestSubmission.id,
+      timezone: timezoneValue,
+      afterHoursMode: afterHoursModeValue
+    }
+  });
+
+  return res.json({ ok: true, data: { settings } });
 });
 
 adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: AuthenticatedRequest, res) => {

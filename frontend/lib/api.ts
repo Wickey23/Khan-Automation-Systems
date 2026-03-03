@@ -538,6 +538,12 @@ export async function generateAiConfigFromPackage(orgId: string) {
   });
 }
 
+export async function syncBusinessSettingsFromOnboarding(orgId: string) {
+  return request<{ settings: BusinessSettings }>(`/api/admin/orgs/${orgId}/provisioning/sync-business-settings`, {
+    method: "POST"
+  });
+}
+
 export async function setOrgTesting(orgId: string) {
   return request<{ org: Organization }>(`/api/admin/orgs/${orgId}/provisioning/testing`, { method: "POST" });
 }
