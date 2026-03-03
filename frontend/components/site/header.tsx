@@ -18,7 +18,6 @@ type HeaderNavItem = {
 export function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [authResolved, setAuthResolved] = useState(false);
   const [planTone, setPlanTone] = useState<"default" | "starter" | "pro">("default");
 
   useEffect(() => {
@@ -44,13 +43,11 @@ export function Header() {
         } else {
           setPlanTone("default");
         }
-        setAuthResolved(true);
       })
       .catch(() => {
         if (!active) return;
         setUser(null);
         setPlanTone("default");
-        setAuthResolved(true);
       });
     return () => {
       active = false;
@@ -115,7 +112,7 @@ export function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          {!authResolved ? null : user ? (
+          {user ? (
             <>
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link href={isAdmin ? "/admin/orgs" : "/app"}>{username}</Link>
