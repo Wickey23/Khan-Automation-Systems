@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/site/brand-mark";
 import { navLinks, siteConfig } from "@/lib/config";
@@ -14,6 +16,7 @@ type HeaderNavItem = {
 };
 
 export function Header() {
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [planTone, setPlanTone] = useState<"default" | "starter" | "pro">("default");
@@ -78,6 +81,18 @@ export function Header() {
     ];
   }, [isAdmin, user]);
 
+  function handleAnchorNavClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (!href.startsWith("/#")) return;
+    if (pathname !== "/") return;
+    const targetId = href.slice(2);
+    if (!targetId) return;
+    const element = document.getElementById(targetId);
+    if (!element) return;
+    event.preventDefault();
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `/#${targetId}`);
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
@@ -89,7 +104,12 @@ export function Header() {
         </div>
         <nav className="hidden items-center gap-6 md:flex">
           {portalNav.map((item) => (
-            <Link key={item.href} href={item.href} className="text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm text-muted-foreground hover:text-foreground"
+              onClick={(event) => handleAnchorNavClick(event, item.href)}
+            >
               {item.label}
             </Link>
           ))}
