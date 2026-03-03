@@ -1,6 +1,7 @@
 "use client";
 
 import { PricingCards } from "@/components/site/pricing-cards";
+import { InfoHint } from "@/components/ui/info-hint";
 
 export default function PricingPage() {
   return (
@@ -14,7 +15,10 @@ export default function PricingPage() {
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">Founding Partner program rules</p>
+          <p className="inline-flex items-center gap-1 font-semibold text-foreground">
+            Founding Partner program rules
+            <InfoHint text="This tier is a limited pilot cohort with required participation and a fixed seat cap." />
+          </p>
           <ul className="mt-2 space-y-1">
             <li>Limited to 5 pilot seats while reliability proof window is active</li>
             <li>Requires monthly 30-minute feedback call + structured feedback form</li>
@@ -23,7 +27,10 @@ export default function PricingPage() {
           </ul>
         </div>
         <div className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">Support and operational guardrails</p>
+          <p className="inline-flex items-center gap-1 font-semibold text-foreground">
+            Support and operational guardrails
+            <InfoHint text="Guardrails keep onboarding quality high and protect reliability under shared platform capacity." />
+          </p>
           <ul className="mt-2 space-y-1">
             <li>High-touch onboarding is included; onboarding scope is finalized before go-live</li>
             <li>Fair-use and anti-abuse policies apply to protect system reliability</li>

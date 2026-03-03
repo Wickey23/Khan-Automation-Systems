@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchCustomerBase, importCustomerBase } from "@/lib/api";
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
+import { InfoHint } from "@/components/ui/info-hint";
 
 function formatOutcome(value: string | null | undefined) {
   const normalized = String(value || "").trim().toUpperCase();
@@ -135,19 +136,31 @@ export default function CustomerBasePage() {
 
       <div className="grid gap-3 sm:grid-cols-4">
         <div className="rounded-lg border bg-white p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total People</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Total People
+            <InfoHint text="Unique caller records detected for this organization by normalized phone number." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.total ?? "-"}</p>
         </div>
         <div className="rounded-lg border bg-white p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Repeat Callers</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Repeat Callers
+            <InfoHint text="Callers with more than one recorded call in caller profiles." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.repeatCallers ?? "-"}</p>
         </div>
         <div className="rounded-lg border bg-white p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">With Lead Profile</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            With Lead Profile
+            <InfoHint text="Caller records currently linked to a CRM lead profile." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.withLead ?? "-"}</p>
         </div>
         <div className="rounded-lg border bg-white p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">VIP Flagged</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            VIP Flagged
+            <InfoHint text="Caller profiles flagged as VIP for priority handling logic." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.vip ?? "-"}</p>
         </div>
       </div>
@@ -155,7 +168,10 @@ export default function CustomerBasePage() {
       <div className="rounded-lg border bg-white p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="font-semibold">Import Customer Base</h2>
+            <h2 className="inline-flex items-center gap-1 font-semibold">
+              Import Customer Base
+              <InfoHint text="Bulk import creates or updates caller profiles and lead records from CSV/Excel rows." />
+            </h2>
             <p className="text-xs text-muted-foreground">Upload Excel (.xlsx/.xls) or CSV with customer phone/name/details.</p>
           </div>
           <input
@@ -167,7 +183,10 @@ export default function CustomerBasePage() {
           />
         </div>
 
-        <label className="text-sm font-medium">Search</label>
+        <label className="inline-flex items-center gap-1 text-sm font-medium">
+          Search
+          <InfoHint text="Search matches phone, name, business, email, outcome, and recent summary text." />
+        </label>
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -193,7 +212,10 @@ export default function CustomerBasePage() {
                   Calls: {customer.totalCalls} | Last outcome: {formatOutcome(customer.lastOutcome)} | Last call:{" "}
                   {new Date(customer.lastCallAt).toLocaleString()}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Name confidence: {customer.nameConfidence}</p>
+                <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  Name confidence: {customer.nameConfidence}
+                  <InfoHint text="HIGH = explicit name captured; MEDIUM = inferred from reliable context; LOW = weak/no confirmed name." />
+                </p>
                 {customer.lead ? (
                   <p className="mt-1 text-sm">
                     {customer.lead.business}
