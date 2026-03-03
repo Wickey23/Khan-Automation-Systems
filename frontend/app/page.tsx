@@ -140,7 +140,9 @@ export default function HomePage() {
 
       <section className="container py-14">
         <h2 className="text-3xl font-semibold">Pricing</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Add-ons: extra call volume blocks, custom integrations, and multi-location routing.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Pilot-first pricing designed for reliable rollout, measurable outcomes, and disciplined scale.
+        </p>
         <div className="mt-6">
           <PricingCards />
         </div>
@@ -149,8 +151,9 @@ export default function HomePage() {
             <thead className="bg-muted/60">
               <tr>
                 <th className="p-3 text-left">Feature</th>
-                <th className="p-3 text-left">Starter</th>
-                <th className="p-3 text-left">Pro</th>
+                <th className="p-3 text-left">Founding Partner</th>
+                <th className="p-3 text-left">Standard</th>
+                <th className="p-3 text-left">Growth/Pro</th>
               </tr>
             </thead>
             <tbody>
@@ -158,16 +161,19 @@ export default function HomePage() {
                 <td className="p-3">Call handling + intake</td>
                 <td className="p-3">Included</td>
                 <td className="p-3">Included</td>
+                <td className="p-3">Included</td>
               </tr>
               <tr className="border-t">
-                <td className="p-3">Advanced routing logic</td>
-                <td className="p-3">Basic</td>
-                <td className="p-3">Advanced</td>
+                <td className="p-3">Commitment</td>
+                <td className="p-3">6 months</td>
+                <td className="p-3">Month-to-month or 3 months</td>
+                <td className="p-3">6 or 12 months</td>
               </tr>
               <tr className="border-t">
-                <td className="p-3">Integration depth</td>
-                <td className="p-3">Core</td>
-                <td className="p-3">Extended</td>
+                <td className="p-3">Support model</td>
+                <td className="p-3">High-touch pilot + monthly feedback ritual</td>
+                <td className="p-3">Structured standard support</td>
+                <td className="p-3">Priority SLA-oriented support</td>
               </tr>
             </tbody>
           </table>

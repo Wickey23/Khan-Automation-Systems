@@ -5,37 +5,57 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const tiers = [
   {
-    name: "Starter",
-    price: "$297/mo",
+    name: "Founding Partner",
+    price: "$249/mo",
+    badge: "Limited: 5 pilot seats",
     features: [
-      "$199 one-time setup",
-      "Includes 300 inbound/outbound voice minutes",
-      "24/7 AI call intake and voicemail capture",
-      "Call summaries, transcripts, and lead logging",
-      "Basic transfer logic + manager notifications"
-    ]
+      "$500 one-time setup",
+      "6-month commitment + 12-month price lock",
+      "$200 credit applied in month 6 if all feedback cycles are completed",
+      "Monthly 30-minute feedback review + structured form",
+      "AI call handling, summaries, lead capture, analytics, notifications"
+    ],
+    ctaLabel: "Apply for Founding",
+    ctaHref: "/book?program=founding"
   },
   {
-    name: "Pro",
-    price: "$497/mo",
+    name: "Standard",
+    price: "$349/mo",
+    badge: "Default production plan",
     features: [
-      "Everything in Starter",
-      "$299 one-time setup",
-      "Includes 500 voice minutes + 1,000 SMS segments",
-      "Two-way messaging automation and follow-up flows",
-      "Advanced escalation, after-hours, and transfer logic",
-      "Priority tuning and deeper automation support"
-    ]
+      "$750 one-time setup",
+      "Month-to-month or 3-month commitment option",
+      "AI call handling, summaries, lead capture, analytics, notifications",
+      "Structured onboarding + standard support cadence",
+      "Built for reliability-first operations, not self-serve volume"
+    ],
+    ctaLabel: "Start Standard",
+    ctaHref: "/book?plan=standard"
+  },
+  {
+    name: "Growth/Pro",
+    price: "$599/mo",
+    badge: "Roadmap tier (30+ clients)",
+    features: [
+      "$1,500+ onboarding and implementation",
+      "6- or 12-month agreement",
+      "Priority support + SLA-oriented operations",
+      "Expanded controls for larger/multi-location workflows",
+      "Activated after pilot durability gates are consistently passing"
+    ],
+    ctaLabel: "Join Waitlist",
+    ctaHref: "/contact?plan=growth-pro"
   }
 ];
 
 export function PricingCards() {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-3">
       {tiers.map((tier) => (
         <Card key={tier.name} className="border-border">
           <CardHeader>
             <p className="text-sm font-semibold text-primary">{tier.name}</p>
+            <p className="text-xs text-muted-foreground">{tier.badge}</p>
             <CardTitle>{tier.price}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -46,7 +66,7 @@ export function PricingCards() {
               </div>
             ))}
             <Button asChild className="mt-4 w-full">
-              <Link href="/book">Book a 15-min Call</Link>
+              <Link href={tier.ctaHref}>{tier.ctaLabel}</Link>
             </Button>
           </CardContent>
         </Card>
