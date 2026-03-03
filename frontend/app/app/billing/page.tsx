@@ -82,6 +82,7 @@ const PLAN_COPY = {
 
 type PlanKey = keyof typeof PLAN_COPY;
 type StripePlanKey = "starter" | "pro";
+const PLAN_ORDER: PlanKey[] = ["none", "starter", "founding", "pro"];
 
 function normalizeStatus(status: string | null | undefined) {
   return String(status || "not_active").toLowerCase();
@@ -266,8 +267,8 @@ export default function AppBillingPage() {
                 ? "Compare plans below to see exactly what is included before you change tiers."
                 : "Choose a plan to activate billing and unlock live production workflow."}
             </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(["none", "founding", "starter", "pro"] as const).map((planKey: PlanKey) => {
+            <div className="grid gap-4 md:grid-cols-2">
+              {PLAN_ORDER.map((planKey: PlanKey) => {
                 const isCurrentPlan =
                   planKey !== "founding" &&
                   subscription &&
@@ -292,10 +293,10 @@ export default function AppBillingPage() {
                 return (
                   <div
                     key={planKey}
-                    className={`flex h-full flex-col rounded-lg border p-4 ${
+                    className={`flex h-full flex-col rounded-xl border p-5 ${
                       planKey === "founding"
-                        ? "border-amber-300 bg-gradient-to-b from-amber-50 to-white shadow-[0_0_0_1px_rgba(245,158,11,0.12)]"
-                        : "bg-white"
+                        ? "border-amber-300 bg-gradient-to-b from-amber-50 via-amber-50/30 to-white shadow-[0_0_0_1px_rgba(245,158,11,0.14)]"
+                        : "bg-white shadow-sm"
                     }`}
                   >
                     {planKey === "founding" ? (
@@ -308,32 +309,34 @@ export default function AppBillingPage() {
                         </span>
                       </div>
                     ) : null}
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-base font-semibold">{PLAN_COPY[planKey].title}</h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-lg font-semibold leading-tight">{PLAN_COPY[planKey].title}</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">{PLAN_COPY[planKey].subtitle}</p>
+                      </div>
                       <Badge variant="outline" className="border-zinc-300">
                         {PLAN_COPY[planKey].price}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{PLAN_COPY[planKey].subtitle}</p>
                     {planKey === "founding" ? (
-                      <p className="mt-1 text-xs font-medium text-amber-800">Enrollment closes once all 5 seats are filled.</p>
+                      <p className="mt-2 text-xs font-medium text-amber-800">Enrollment closes once all 5 seats are filled.</p>
                     ) : null}
                     <p className="mt-3 rounded-md border bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
                       {PLAN_COPY[planKey].bestFor}
                     </p>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Included</p>
-                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground marker:text-zinc-400">
                       {PLAN_COPY[planKey].includes.map((point) => (
-                        <li key={point}>- {point}</li>
+                        <li key={point}>{point}</li>
                       ))}
                     </ul>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
-                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground marker:text-zinc-400">
                       {PLAN_COPY[planKey].notes.map((note) => (
-                        <li key={note}>- {note}</li>
+                        <li key={note}>{note}</li>
                       ))}
                     </ul>
-                    <div className="mt-4">
+                    <div className="mt-auto pt-4">
                       <Button
                         variant={planKey === "starter" ? "default" : "outline"}
                         className={planKey === "founding" ? "border-amber-300 text-amber-800 hover:bg-amber-50" : undefined}
