@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { deriveOrgLifecycleFromBilling } from "./billing-lifecycle.service";
 import { changePlanSchema, createCheckoutSessionSchema } from "./billing.schema";
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
@@ -104,6 +105,16 @@ async function upsertSubscriptionAndOrg(input: {
 }) {
   const normalizedStatus = normalizeSubscriptionStatus(input.status);
   const billingActive = isBillingActive(normalizedStatus);
+  const org = await prisma.organization.findUnique({
+    where: { id: input.orgId },
+    select: { status: true, live: true }
+  });
+  if (!org) throw new Error("Organization not found.");
+  const lifecycle = deriveOrgLifecycleFromBilling({
+    currentStatus: org.status,
+    currentLive: org.live,
+    billingActive
+  });
 
   await prisma.subscription.upsert({
     where: { stripeSubscriptionId: input.stripeSubscriptionId },
@@ -130,8 +141,8 @@ async function upsertSubscriptionAndOrg(input: {
       stripeCustomerId: input.stripeCustomerId,
       subscriptionStatus: normalizedStatus,
       billingActive,
-      status: billingActive ? OrganizationStatus.ONBOARDING : OrganizationStatus.PAUSED,
-      live: billingActive ? undefined : false
+      status: lifecycle.status,
+      live: lifecycle.live
     }
   });
 }

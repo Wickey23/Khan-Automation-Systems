@@ -8,6 +8,7 @@ import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../mi
 import { hasProMessaging } from "../billing/plan-features";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { backfillMissedVapiCalls } from "../admin/backfill.service";
+import { hasActiveBilling } from "./runtime-access.service";
 import { buildConfigPackage, generateConfigPackage } from "./config-package";
 import { computeOrgAnalytics } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
@@ -1005,6 +1006,14 @@ orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
   const parsed = sendOrgMessageSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid message payload.", errors: parsed.error.flatten() });
+  }
+
+  const billingActive = await hasActiveBilling(prisma, req.auth.orgId);
+  if (!billingActive) {
+    return res.status(403).json({
+      ok: false,
+      message: "No active plan. Activate Standard or Growth/Pro in Billing before sending operational SMS."
+    });
   }
 
   const isPro = await hasProMessaging(prisma, req.auth.orgId);

@@ -1572,6 +1572,14 @@ adminRouter.post("/orgs/:id/provisioning/test-complete", async (req: Authenticat
 });
 
 adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => {
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth?.userId || "unknown",
+    actorRole: req.auth?.role || "UNKNOWN",
+    action: "LIVE_ENABLE_ATTEMPTED"
+  });
+
   const scaleGate = await computeScaleGate(prisma, { actorUserId: req.auth?.userId || null, promotionAttempted: true });
   const criticalFailCodes = new Set(["REPEAT_P1_ROOT_CAUSE", "TENANT_ISOLATION_FAILED", "CAPACITY_REGRESSION"]);
   const hasCriticalFail = scaleGate.failingCriteria.some((code) => criticalFailCodes.has(code));
@@ -1587,6 +1595,17 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
     return res.status(403).json({ ok: false, message: "Critical go-live override requires SUPER_ADMIN." });
   }
   if (scaleGate.result === "FAIL") {
+    await writeAuditLog({
+      prisma,
+      orgId: req.params.id,
+      actorUserId: req.auth?.userId || "unknown",
+      actorRole: req.auth?.role || "UNKNOWN",
+      action: "LIVE_ENABLE_BLOCKED",
+      metadata: {
+        reason: "scale_gate_failed",
+        failingCriteria: scaleGate.failingCriteria
+      }
+    });
     return res.status(409).json({
       ok: false,
       message: "Go-live blocked: scale gate failed.",
@@ -1606,6 +1625,17 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
     const missing = Object.entries(readiness.checks)
       .filter(([, value]) => !value.ok)
       .map(([key, value]) => ({ key, reason: value.reason, fixHint: value.fixHint }));
+    await writeAuditLog({
+      prisma,
+      orgId: req.params.id,
+      actorUserId: req.auth?.userId || "unknown",
+      actorRole: req.auth?.role || "UNKNOWN",
+      action: "LIVE_ENABLE_BLOCKED",
+      metadata: {
+        reason: "readiness_incomplete",
+        missingChecks: missing
+      }
+    });
     return res.status(400).json({
       ok: false,
       message: "Go-live readiness checks are incomplete.",
@@ -1615,6 +1645,17 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
   const settings = await prisma.businessSettings.findUnique({ where: { orgId: req.params.id } });
   const configValidation = validateGoLiveBusinessConfig(settings);
   if (!configValidation.ok) {
+    await writeAuditLog({
+      prisma,
+      orgId: req.params.id,
+      actorUserId: req.auth?.userId || "unknown",
+      actorRole: req.auth?.role || "UNKNOWN",
+      action: "LIVE_ENABLE_BLOCKED",
+      metadata: {
+        reason: "config_validation_failed",
+        issues: configValidation.issues
+      }
+    });
     return res.status(400).json({
       ok: false,
       message: "Go-live blocked by configuration validation.",

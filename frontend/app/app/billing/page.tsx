@@ -10,6 +10,21 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { useToast } from "@/components/site/toast-provider";
 
 const PLAN_COPY = {
+  none: {
+    title: "No Plan",
+    price: "$0 / month",
+    subtitle: "Account created, subscription not active",
+    bestFor: "Best for setup and evaluation before activating paid call handling.",
+    includes: [
+      "Account access and basic workspace setup",
+      "Plan selection and checkout initiation",
+      "No production call-handling runtime until subscription activation"
+    ],
+    notes: [
+      "Upgrade to Standard or Growth/Pro to enable live operations.",
+      "Carrier/provider usage is not active until a paid plan is enabled."
+    ]
+  },
   founding: {
     title: "Founding Partner",
     price: "$249 / month",
@@ -90,7 +105,7 @@ function formatStatus(status: string | null | undefined) {
 function formatPlan(plan: OrgSubscription["plan"] | null | undefined) {
   if (plan === "PRO") return "Growth/Pro";
   if (plan === "STARTER") return "Standard";
-  return "No active plan";
+  return "No Plan";
 }
 
 export default function AppBillingPage() {
@@ -251,18 +266,23 @@ export default function AppBillingPage() {
                 ? "Compare plans below to see exactly what is included before you change tiers."
                 : "Choose a plan to activate billing and unlock live production workflow."}
             </p>
-            <div className="grid gap-3 lg:grid-cols-3">
-              {(["founding", "starter", "pro"] as const).map((planKey: PlanKey) => {
+            <div className="grid gap-3 lg:grid-cols-4">
+              {(["none", "founding", "starter", "pro"] as const).map((planKey: PlanKey) => {
                 const isCurrentPlan =
                   planKey !== "founding" &&
                   subscription &&
                   ((subscription.plan === "STARTER" && planKey === "starter") ||
                     (subscription.plan === "PRO" && planKey === "pro"));
+                const isNoPlanCurrent = !subscription && planKey === "none";
 
                 const actionLabel = isCurrentPlan
                   ? "Current plan"
+                  : isNoPlanCurrent
+                    ? "Current plan"
                   : planKey === "founding"
                     ? "Contract-managed tier"
+                  : planKey === "none"
+                    ? "No active subscription"
                   : !subscription
                     ? `Start ${PLAN_COPY[planKey].title}`
                     : planKey === "pro"
@@ -300,6 +320,7 @@ export default function AppBillingPage() {
                       <Button
                         variant={planKey === "starter" ? "default" : "outline"}
                         onClick={() => {
+                          if (planKey === "none") return;
                           if (planKey === "founding") return;
                           if (isCurrentPlan) return;
                           if (!subscription) {
@@ -309,7 +330,9 @@ export default function AppBillingPage() {
                           void onChangePlan(planKey);
                         }}
                         disabled={
+                          planKey === "none" ||
                           planKey === "founding" ||
+                          isNoPlanCurrent ||
                           isCurrentPlan ||
                           startingPlan !== null ||
                           changingPlan !== null ||
