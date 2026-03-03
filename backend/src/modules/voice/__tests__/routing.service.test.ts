@@ -11,7 +11,8 @@ function baseInput() {
       afterHoursMode: "TAKE_MESSAGE",
       transferNumbersJson: "[\"+15555550124\"]",
       policiesJson: "{}",
-      hoursJson: "{\"timezone\":\"America/New_York\",\"schedule\":{\"mon\":[{\"start\":\"00:00\",\"end\":\"23:59\"}]}}"
+      hoursJson:
+        "{\"timezone\":\"America/New_York\",\"schedule\":{\"sun\":[{\"start\":\"00:00\",\"end\":\"23:59\"}],\"mon\":[{\"start\":\"00:00\",\"end\":\"23:59\"}],\"tue\":[{\"start\":\"00:00\",\"end\":\"23:59\"}],\"wed\":[{\"start\":\"00:00\",\"end\":\"23:59\"}],\"thu\":[{\"start\":\"00:00\",\"end\":\"23:59\"}],\"fri\":[{\"start\":\"00:00\",\"end\":\"23:59\"}],\"sat\":[{\"start\":\"00:00\",\"end\":\"23:59\"}]}}"
     } as any,
     callerProfile: null,
     callVolumeLast5m: 0
@@ -49,4 +50,3 @@ test("repeat caller falls to tier 5 when higher tiers not matched", () => {
   assert.equal(decision.tier, 5);
   assert.equal(decision.reasonCode, "REPEAT_CALLER_RECENT");
 });
-
