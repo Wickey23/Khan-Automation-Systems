@@ -1,14 +1,21 @@
 import { AiProvider, type Prisma } from "@prisma/client";
 import { Router } from "express";
+import { z } from "zod";
 import { twiml as Twiml } from "twilio";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { verifyTwilioRequest } from "../../middleware/webhook-security";
+import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { transitionCallState } from "./call-state.service";
 import { upsertCallerProfileOnInbound } from "./caller-profile.service";
 import { buildRoutingDecisionJson, computeRoutingDecision, type RoutingResultType } from "./routing.service";
 
 export const voiceRouter = Router();
+const twilioVoiceSchema = z.object({
+  CallSid: z.string().min(1),
+  From: z.string().optional(),
+  To: z.string().optional()
+});
 
 function parseDuration(value: unknown): number | null {
   const parsed = Number(value);
@@ -87,6 +94,38 @@ async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, o
 voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
   const response = new Twiml.VoiceResponse();
   try {
+    const parsedPayload = twilioVoiceSchema.safeParse(req.body || {});
+    if (!parsedPayload.success) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "twilio-voice",
+          actorRole: "SYSTEM",
+          action: "TWILIO_WEBHOOK_SCHEMA_IGNORED",
+          metadataJson: JSON.stringify({ requestId: req.requestId || null, endpoint: "/api/twilio/voice" })
+        }
+      });
+      return res.type("text/xml").send(response.toString());
+    }
+    const inboundSid = String(req.body.CallSid || "").trim();
+    if (inboundSid) {
+      const replay = await registerWebhookReplay(prisma, {
+        provider: "TWILIO",
+        eventKey: `voice:${inboundSid}:inbound`,
+        outcome: "INBOUND"
+      });
+      if (replay.duplicate) {
+        await prisma.auditLog.create({
+          data: {
+            actorUserId: "twilio-voice",
+            actorRole: "SYSTEM",
+            action: "WEBHOOK_REPLAY_BLOCKED",
+            metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `voice:${inboundSid}:inbound` })
+          }
+        });
+        return res.type("text/xml").send(response.toString());
+      }
+    }
+
     const fromNumber = (req.body.From as string | undefined) || "unknown";
     const toNumber = (req.body.To as string | undefined) || "unknown";
     const normalizedTo = normalizePhoneE164(toNumber);
@@ -308,16 +347,54 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
 });
 
 voiceRouter.post("/recording", verifyTwilioRequest, async (req, res) => {
+  const callSid = String((req.body as Record<string, unknown>).CallSid || "").trim();
+  if (callSid) {
+    const replay = await registerWebhookReplay(prisma, {
+      provider: "TWILIO",
+      eventKey: `voice:${callSid}:recording`,
+      outcome: "RECORDING"
+    });
+    if (replay.duplicate) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "twilio-voice",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_REPLAY_BLOCKED",
+          metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `voice:${callSid}:recording` })
+        }
+      });
+      return res.json({ ok: true, ignored: true });
+    }
+  }
   const orgId = typeof req.query.orgId === "string" ? req.query.orgId : undefined;
   await updateCallLogFromVoicePayload(req.body as Record<string, unknown>, orgId);
   return res.json({ ok: true });
 });
 
 voiceRouter.post("/complete", verifyTwilioRequest, async (req, res) => {
+  const callSid = String((req.body as Record<string, unknown>).CallSid || "").trim();
+  if (callSid) {
+    const replay = await registerWebhookReplay(prisma, {
+      provider: "TWILIO",
+      eventKey: `voice:${callSid}:complete`,
+      outcome: "COMPLETE"
+    });
+    if (replay.duplicate) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "twilio-voice",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_REPLAY_BLOCKED",
+          metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `voice:${callSid}:complete` })
+        }
+      });
+      const duplicateResponse = new Twiml.VoiceResponse();
+      return res.type("text/xml").send(duplicateResponse.toString());
+    }
+  }
   const orgId = typeof req.query.orgId === "string" ? req.query.orgId : undefined;
   await updateCallLogFromVoicePayload(req.body as Record<string, unknown>, orgId);
   if (env.ROUTING_ENGINE_ENABLED === "true") {
-    const callSid = String((req.body as Record<string, unknown>).CallSid || "").trim();
     if (callSid) {
       const row = await prisma.callLog.findFirst({
         where: { providerCallId: callSid },

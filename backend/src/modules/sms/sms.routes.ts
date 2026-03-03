@@ -1,11 +1,19 @@
 import { Router } from "express";
+import { z } from "zod";
 import { twiml as Twiml } from "twilio";
 import { prisma } from "../../lib/prisma";
 import { env } from "../../config/env";
 import { verifyTwilioRequest } from "../../middleware/webhook-security";
+import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { hasProMessaging } from "../billing/plan-features";
 
 export const smsRouter = Router();
+const twilioSmsSchema = z.object({
+  MessageSid: z.string().min(1),
+  From: z.string().optional(),
+  To: z.string().optional(),
+  Body: z.string().optional()
+});
 
 function normalizePhone(input: string) {
   const digits = input.replace(/\D/g, "");
@@ -200,12 +208,45 @@ async function getVapiSmsReply(input: {
 }
 
 smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
+  try {
+  const parsedPayload = twilioSmsSchema.safeParse(req.body || {});
+  if (!parsedPayload.success) {
+    const xml = new Twiml.MessagingResponse();
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: "twilio-sms",
+        actorRole: "SYSTEM",
+        action: "TWILIO_WEBHOOK_SCHEMA_IGNORED",
+        metadataJson: JSON.stringify({ requestId: req.requestId || null, endpoint: "/api/twilio/sms" })
+      }
+    });
+    return res.type("text/xml").send(xml.toString());
+  }
   const toNumberRaw = pickString(req.body.To, req.body.Called, req.body.Recipient, "");
   const fromNumberRaw = pickString(req.body.From, req.body.WaId, "");
   const toNumber = normalizePhone(toNumberRaw);
   const fromNumber = normalizePhone(fromNumberRaw);
   const body = String((req.body.Body as string | undefined) || "").trim();
+  const response = new Twiml.MessagingResponse();
   const messageSid = String((req.body.MessageSid as string | undefined) || "");
+  if (messageSid) {
+    const replay = await registerWebhookReplay(prisma, {
+      provider: "TWILIO",
+      eventKey: `sms:${messageSid}:inbound`,
+      outcome: "INBOUND"
+    });
+    if (replay.duplicate) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "twilio-sms",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_REPLAY_BLOCKED",
+          metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `sms:${messageSid}:inbound` })
+        }
+      });
+      return res.type("text/xml").send(response.toString());
+    }
+  }
   const toDigits = toNumber.replace(/\D/g, "");
   const toLast10 = toDigits.slice(-10);
   let orgPhone = await prisma.phoneNumber.findFirst({
@@ -232,7 +273,6 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
         : null) ||
       null;
   }
-  const response = new Twiml.MessagingResponse();
   if (!orgPhone?.organization) {
     response.message("This SMS line is not configured.");
     return res.type("text/xml").send(response.toString());
@@ -506,9 +546,45 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
 
   response.message(outboundBody);
   return res.type("text/xml").send(response.toString());
+  } catch (error) {
+    await prisma.auditLog
+      .create({
+        data: {
+          actorUserId: "twilio-sms",
+          actorRole: "SYSTEM",
+          action: "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED",
+          metadataJson: JSON.stringify({
+            requestId: req.requestId || null,
+            endpoint: "/api/twilio/sms",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        }
+      })
+      .catch(() => null);
+    const xml = new Twiml.MessagingResponse();
+    return res.type("text/xml").send(xml.toString());
+  }
 });
 
 smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
+  try {
+  const parsedPayload = z
+    .object({
+      MessageSid: z.string().min(1),
+      MessageStatus: z.string().optional()
+    })
+    .safeParse(req.body || {});
+  if (!parsedPayload.success) {
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: "twilio-sms",
+        actorRole: "SYSTEM",
+        action: "TWILIO_WEBHOOK_SCHEMA_IGNORED",
+        metadataJson: JSON.stringify({ requestId: req.requestId || null, endpoint: "/api/twilio/sms/status" })
+      }
+    });
+    return res.json({ ok: true, ignored: true });
+  }
   const messageSid = String(req.body.MessageSid || "").trim();
   const statusRaw = String(req.body.MessageStatus || "").trim();
   const errorCode = String(req.body.ErrorCode || "").trim();
@@ -516,6 +592,22 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
   const orgIdFromQuery = typeof req.query.orgId === "string" ? req.query.orgId.trim() : "";
 
   if (!messageSid) return res.json({ ok: true, ignored: true });
+  const replay = await registerWebhookReplay(prisma, {
+    provider: "TWILIO",
+    eventKey: `sms:${messageSid}:status:${String(req.body.MessageStatus || "").trim().toLowerCase()}`,
+    outcome: "STATUS"
+  });
+  if (replay.duplicate) {
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: "twilio-sms",
+        actorRole: "SYSTEM",
+        action: "WEBHOOK_REPLAY_BLOCKED",
+        metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `sms:${messageSid}:status` })
+      }
+    });
+    return res.json({ ok: true, ignored: true });
+  }
 
   let resolvedOrgId = orgIdFromQuery;
   if (!resolvedOrgId) {
@@ -551,4 +643,21 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
   }
 
   return res.json({ ok: true });
+  } catch (error) {
+    await prisma.auditLog
+      .create({
+        data: {
+          actorUserId: "twilio-sms",
+          actorRole: "SYSTEM",
+          action: "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED",
+          metadataJson: JSON.stringify({
+            requestId: req.requestId || null,
+            endpoint: "/api/twilio/sms/status",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        }
+      })
+      .catch(() => null);
+    return res.json({ ok: true, ignored: true });
+  }
 });

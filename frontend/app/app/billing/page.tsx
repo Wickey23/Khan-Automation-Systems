@@ -9,10 +9,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { useToast } from "@/components/site/toast-provider";
 
-const PLAN_COPY: Record<
-  "starter" | "pro",
-  { title: string; price: string; subtitle: string; bestFor: string; includes: string[]; notes: string[] }
-> = {
+const PLAN_COPY = {
+  founding: {
+    title: "Founding Partner",
+    price: "$249 / month",
+    subtitle: "Limited pilot cohort (contract-managed)",
+    bestFor: "Best for committed early partners participating in reliability-first pilot feedback cycles.",
+    includes: [
+      "Everything in Standard call handling and lead capture",
+      "High-touch onboarding and implementation",
+      "Monthly 30-minute feedback review + structured form",
+      "12-month price lock (per founding agreement)"
+    ],
+    notes: [
+      "Limited seat availability and contract approval required.",
+      "Founding setup credit: $200 applied in month 6 when participation requirements are met.",
+      "Miss 2 consecutive or 3 total feedback cycles: plan reverts to Standard pricing."
+    ]
+  },
   starter: {
     title: "Standard",
     price: "$349 / month",
@@ -49,7 +63,10 @@ const PLAN_COPY: Record<
       "Carrier and usage-dependent costs are still separate from subscription."
     ]
   }
-};
+} as const;
+
+type PlanKey = keyof typeof PLAN_COPY;
+type StripePlanKey = "starter" | "pro";
 
 function normalizeStatus(status: string | null | undefined) {
   return String(status || "not_active").toLowerCase();
@@ -80,8 +97,8 @@ export default function AppBillingPage() {
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
-  const [startingPlan, setStartingPlan] = useState<"starter" | "pro" | null>(null);
-  const [changingPlan, setChangingPlan] = useState<"starter" | "pro" | null>(null);
+  const [startingPlan, setStartingPlan] = useState<StripePlanKey | null>(null);
+  const [changingPlan, setChangingPlan] = useState<StripePlanKey | null>(null);
 
   useEffect(() => {
     void getBillingStatus()
@@ -109,7 +126,7 @@ export default function AppBillingPage() {
     }
   }
 
-  async function onStartPlan(plan: "starter" | "pro") {
+  async function onStartPlan(plan: StripePlanKey) {
     setStartingPlan(plan);
     try {
       const data = await createStripeCheckoutSession(plan);
@@ -125,7 +142,7 @@ export default function AppBillingPage() {
     }
   }
 
-  async function onChangePlan(plan: "starter" | "pro") {
+  async function onChangePlan(plan: StripePlanKey) {
     setChangingPlan(plan);
     try {
       const result = await changeStripePlan(plan);
@@ -234,15 +251,18 @@ export default function AppBillingPage() {
                 ? "Compare plans below to see exactly what is included before you change tiers."
                 : "Choose a plan to activate billing and unlock live production workflow."}
             </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(["starter", "pro"] as const).map((planKey) => {
+            <div className="grid gap-3 lg:grid-cols-3">
+              {(["founding", "starter", "pro"] as const).map((planKey: PlanKey) => {
                 const isCurrentPlan =
+                  planKey !== "founding" &&
                   subscription &&
                   ((subscription.plan === "STARTER" && planKey === "starter") ||
                     (subscription.plan === "PRO" && planKey === "pro"));
 
                 const actionLabel = isCurrentPlan
                   ? "Current plan"
+                  : planKey === "founding"
+                    ? "Contract-managed tier"
                   : !subscription
                     ? `Start ${PLAN_COPY[planKey].title}`
                     : planKey === "pro"
@@ -280,6 +300,7 @@ export default function AppBillingPage() {
                       <Button
                         variant={planKey === "starter" ? "default" : "outline"}
                         onClick={() => {
+                          if (planKey === "founding") return;
                           if (isCurrentPlan) return;
                           if (!subscription) {
                             void onStartPlan(planKey);
@@ -288,6 +309,7 @@ export default function AppBillingPage() {
                           void onChangePlan(planKey);
                         }}
                         disabled={
+                          planKey === "founding" ||
                           isCurrentPlan ||
                           startingPlan !== null ||
                           changingPlan !== null ||

@@ -1,14 +1,24 @@
 import { AiProvider, LeadSource, type Prisma } from "@prisma/client";
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../../../lib/prisma";
 import { verifyVapiToolSecret } from "../../../middleware/webhook-security";
 import { env } from "../../../config/env";
+import { registerWebhookReplay } from "../../ops/webhook-replay.service";
 import { computeCallQuality } from "../../org/call-quality.service";
 import { evaluateAndSendAutoRecovery } from "../../sms/auto-recovery.service";
 import { transitionCallState } from "../call-state.service";
 import { updateCallerProfileOutcome } from "../caller-profile.service";
 
 export const vapiRouter = Router();
+const vapiEnvelopeSchema = z.object({
+  type: z.string().optional(),
+  event: z.string().optional(),
+  messageType: z.string().optional(),
+  callId: z.string().optional(),
+  providerCallId: z.string().optional(),
+  callSid: z.string().optional()
+});
 
 function asObject(value: unknown) {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -222,6 +232,27 @@ async function logWebhookEvent(input: {
 }
 
 vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
+  const parsedEnvelope = vapiEnvelopeSchema.safeParse(req.body || {});
+  if (!parsedEnvelope.success) {
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: "vapi-webhook",
+        actorRole: "SYSTEM",
+        action: "VAPI_WEBHOOK_SCHEMA_IGNORED",
+        metadataJson: JSON.stringify({ requestId: req.requestId || null })
+      }
+    });
+    await logWebhookEvent({
+      requestId: req.requestId,
+      orgId: null,
+      statusCode: 200,
+      reason: "schema_validation_failed",
+      headers: req.headers as Record<string, unknown>,
+      payload: req.body
+    });
+    return res.json({ ok: true, data: { ignored: true } });
+  }
+
   const body = asObject(req.body);
   const call = asObject(body.call);
   const callTransport = asObject(call.transport);
@@ -243,6 +274,33 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     call.sid,
     call.callSid
   );
+  if (callSid) {
+    const replay = await registerWebhookReplay(prisma, {
+      provider: "VAPI",
+      eventKey: `vapi:${callSid}:${eventType}`,
+      orgId: null,
+      outcome: eventType
+    });
+    if (replay.duplicate) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_REPLAY_BLOCKED",
+          metadataJson: JSON.stringify({ provider: "VAPI", eventKey: `vapi:${callSid}:${eventType}` })
+        }
+      });
+      await logWebhookEvent({
+        orgId: null,
+        requestId: req.requestId,
+        statusCode: 200,
+        reason: "duplicate_replay_ignored",
+        headers: req.headers as Record<string, unknown>,
+        payload: body
+      });
+      return res.json({ ok: true, data: { ignored: true } });
+    }
+  }
   const summary = pickString(body.summary, analysis.summary) || null;
   const transcript = pickString(body.transcript, artifact.transcript) || null;
   const recordingUrl = pickString(body.recordingUrl, artifact.recordingUrl) || null;

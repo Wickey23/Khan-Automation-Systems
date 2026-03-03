@@ -2,6 +2,7 @@ import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../../config/env";
+import { decryptField, encryptField } from "../../lib/crypto-fields";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { hasProMessaging } from "../billing/plan-features";
@@ -10,6 +11,7 @@ import { backfillMissedVapiCalls } from "../admin/backfill.service";
 import { buildConfigPackage, generateConfigPackage } from "./config-package";
 import { computeOrgAnalytics } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
+import { dedupeOrgCallRows } from "./call-log-dedupe.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -173,7 +175,13 @@ orgRouter.get("/settings", async (req: AuthenticatedRequest, res) => {
     update: {},
     create: { orgId: req.auth.orgId }
   });
-  return res.json({ ok: true, data: { settings } });
+  const hydrated = {
+    ...settings,
+    transferNumbersJson: decryptField(settings.transferNumbersJson),
+    notificationEmailsJson: decryptField(settings.notificationEmailsJson),
+    notificationPhonesJson: decryptField(settings.notificationPhonesJson)
+  };
+  return res.json({ ok: true, data: { settings: hydrated } });
 });
 
 orgRouter.patch("/settings", async (req: AuthenticatedRequest, res) => {
@@ -183,10 +191,18 @@ orgRouter.patch("/settings", async (req: AuthenticatedRequest, res) => {
 
   const settings = await prisma.businessSettings.upsert({
     where: { orgId: req.auth.orgId },
-    update: parsed.data,
+    update: {
+      ...parsed.data,
+      ...(parsed.data.transferNumbersJson ? { transferNumbersJson: encryptField(parsed.data.transferNumbersJson) } : {}),
+      ...(parsed.data.notificationEmailsJson ? { notificationEmailsJson: encryptField(parsed.data.notificationEmailsJson) } : {}),
+      ...(parsed.data.notificationPhonesJson ? { notificationPhonesJson: encryptField(parsed.data.notificationPhonesJson) } : {})
+    },
     create: {
       orgId: req.auth.orgId,
-      ...parsed.data
+      ...parsed.data,
+      ...(parsed.data.transferNumbersJson ? { transferNumbersJson: encryptField(parsed.data.transferNumbersJson) } : {}),
+      ...(parsed.data.notificationEmailsJson ? { notificationEmailsJson: encryptField(parsed.data.notificationEmailsJson) } : {}),
+      ...(parsed.data.notificationPhonesJson ? { notificationPhonesJson: encryptField(parsed.data.notificationPhonesJson) } : {})
     }
   });
 
@@ -203,7 +219,13 @@ orgRouter.patch("/settings", async (req: AuthenticatedRequest, res) => {
     });
   }
 
-  return res.json({ ok: true, data: { settings } });
+  const hydrated = {
+    ...settings,
+    transferNumbersJson: decryptField(settings.transferNumbersJson),
+    notificationEmailsJson: decryptField(settings.notificationEmailsJson),
+    notificationPhonesJson: decryptField(settings.notificationPhonesJson)
+  };
+  return res.json({ ok: true, data: { settings: hydrated } });
 });
 
 orgRouter.get("/knowledge-files", async (req: AuthenticatedRequest, res) => {
@@ -489,7 +511,25 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
       select: { e164Number: true, provider: true }
     })
   ]);
-  const enrichedCalls = calls.map((call) => ({
+  const dedupedCalls = dedupeOrgCallRows(
+    calls.map((call) => ({
+      id: call.id,
+      startedAt: call.startedAt,
+      fromNumber: call.fromNumber,
+      outcome: call.outcome,
+      durationSec: call.durationSec,
+      recordingUrl: call.recordingUrl,
+      transcript: call.transcript,
+      aiSummary: call.aiSummary,
+      endedAt: call.endedAt,
+      completedAt: call.completedAt,
+      leadId: call.leadId
+    }))
+  );
+  const dedupedCallIds = new Set(dedupedCalls.map((call) => call.id));
+  const enrichedCalls = calls
+    .filter((call) => dedupedCallIds.has(call.id))
+    .map((call) => ({
     ...call,
     summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
   }));

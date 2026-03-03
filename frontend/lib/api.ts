@@ -53,9 +53,42 @@ function redirectToLoginIfUnauthorized() {
   window.location.replace(target);
 }
 
+function readCookie(name: string) {
+  if (typeof document === "undefined") return "";
+  const source = `; ${document.cookie || ""}`;
+  const parts = source.split(`; ${name}=`);
+  if (parts.length < 2) return "";
+  return decodeURIComponent(parts.pop()?.split(";").shift() || "");
+}
+
+function isMutatingMethod(method: string | undefined) {
+  const normalized = String(method || "GET").toUpperCase();
+  return normalized === "POST" || normalized === "PATCH" || normalized === "PUT" || normalized === "DELETE";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!siteConfig.apiBase) {
     throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
+  }
+
+  let csrfToken = "";
+  if (isMutatingMethod(init?.method) && path !== "/api/auth/csrf-token") {
+    csrfToken = readCookie("kas_csrf_token");
+    if (!csrfToken && typeof window !== "undefined") {
+      try {
+        const csrfResponse = await fetch(`${siteConfig.apiBase}/api/auth/csrf-token`, {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store"
+        });
+        if (csrfResponse.ok) {
+          const payload = (await csrfResponse.json()) as { data?: { csrfToken?: string } };
+          csrfToken = String(payload?.data?.csrfToken || readCookie("kas_csrf_token") || "");
+        }
+      } catch {
+        // Ignore; backend will reject with explicit CSRF error if still missing.
+      }
+    }
   }
 
   let response: Response;
@@ -64,6 +97,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         ...(init?.headers || {})
       },
       credentials: "include",

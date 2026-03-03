@@ -2,16 +2,26 @@ import bcrypt from "bcryptjs";
 import { ClientStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import crypto from "crypto";
 import { Router, type Request, type Response } from "express";
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
+import { issueCsrfCookie } from "../../middleware/csrf";
+import { requireCsrf } from "../../middleware/csrf";
 import { signAuthToken } from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { authRateLimit } from "../../middleware/rate-limit";
 import { sendLoginOtpEmail } from "../../services/email";
+import {
+  createRefreshSession,
+  revokeAllRefreshSessionsForUser,
+  rotateRefreshSession
+} from "./refresh-session.service";
 import { loginSchema, resendLoginOtpSchema, signupSchema, verifyLoginOtpSchema } from "./auth.schema";
 
 export const authRouter = Router();
 
 const OTP_EXP_MINUTES = 10;
+const LOGIN_FAILS = new Map<string, { count: number; lastAt: number }>();
+const MAX_BACKOFF_MS = 10_000;
 
 function hashOtp(code: string) {
   return crypto.createHash("sha256").update(`${code}:${process.env.JWT_SECRET || "fallback-secret"}`).digest("hex");
@@ -22,6 +32,35 @@ function maskEmail(email: string) {
   if (!local || !domain) return email;
   if (local.length <= 2) return `${local[0] || "*"}***@${domain}`;
   return `${local.slice(0, 2)}***@${domain}`;
+}
+
+function authCookieOptions() {
+  const isProd = env.SECURITY_MODE === "production";
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
+    path: "/"
+  };
+}
+
+function trackAuthFailure(key: string) {
+  const now = Date.now();
+  const current = LOGIN_FAILS.get(key);
+  const count = current && now - current.lastAt < 15 * 60 * 1000 ? current.count + 1 : 1;
+  LOGIN_FAILS.set(key, { count, lastAt: now });
+  return Math.min(MAX_BACKOFF_MS, Math.max(0, (count - 2) * 750));
+}
+
+async function auditAuthEvent(action: string, metadata: Record<string, unknown>) {
+  await prisma.auditLog.create({
+    data: {
+      actorUserId: "auth",
+      actorRole: "SYSTEM",
+      action,
+      metadataJson: JSON.stringify(metadata)
+    }
+  });
 }
 
 async function createAndSendLoginChallenge(user: { id: string; email: string }) {
@@ -124,12 +163,16 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     orgId: user.orgId
   });
 
+    const refresh = await createRefreshSession(prisma, user.id);
     res.cookie("kas_auth_token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  });
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
+    });
+    res.cookie("kas_refresh_token", refresh.token, {
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+    });
+    issueCsrfCookie(req, res);
 
     return res.status(201).json({
       ok: true,
@@ -153,16 +196,28 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
     const user = await prisma.user.findUnique({
       where: { email: parsed.data.email.toLowerCase() }
     });
-    if (!user) return res.status(401).json({ ok: false, message: "Invalid credentials." });
+    if (!user) {
+      const delay = trackAuthFailure(`login:${parsed.data.email.toLowerCase()}`);
+      await auditAuthEvent("AUTH_LOGIN_FAIL", { email: parsed.data.email.toLowerCase(), reason: "user_not_found" });
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+      return res.status(401).json({ ok: false, message: "Invalid credentials." });
+    }
 
     const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
-    if (!valid) return res.status(401).json({ ok: false, message: "Invalid credentials." });
+    if (!valid) {
+      const delay = trackAuthFailure(`login:${user.email.toLowerCase()}`);
+      await auditAuthEvent("AUTH_LOGIN_FAIL", { userId: user.id, email: user.email, reason: "invalid_password" });
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+      return res.status(401).json({ ok: false, message: "Invalid credentials." });
+    }
 
     const requiresTwoFactor =
-      process.env.ADMIN_2FA_ENABLED === "true" &&
+      ((env.ADMIN_2FA_REQUIRED_IN_PROD === "true" && env.SECURITY_MODE === "production") ||
+        process.env.ADMIN_2FA_ENABLED === "true") &&
       (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN);
     if (requiresTwoFactor) {
       const challenge = await createAndSendLoginChallenge(user);
+      await auditAuthEvent("AUTH_2FA_REQUIRED", { userId: user.id, role: user.role });
       return res.json({
         ok: true,
         data: {
@@ -181,12 +236,17 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
       orgId: user.orgId
     });
 
+    const refresh = await createRefreshSession(prisma, user.id);
     res.cookie("kas_auth_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
     });
+    res.cookie("kas_refresh_token", refresh.token, {
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+    });
+    issueCsrfCookie(req, res);
+    await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: user.id, role: user.role });
 
     return res.json({
       ok: true,
@@ -233,6 +293,11 @@ authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Re
         where: { id: challenge.id },
         data: { attempts: { increment: 1 } }
       });
+      await auditAuthEvent("AUTH_LOGIN_FAIL", {
+        userId: challenge.user.id,
+        email: challenge.user.email,
+        reason: "invalid_otp"
+      });
       return res.status(401).json({ ok: false, message: "Invalid verification code." });
     }
 
@@ -249,12 +314,17 @@ authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Re
       orgId: challenge.user.orgId
     });
 
+    const refresh = await createRefreshSession(prisma, challenge.user.id);
     res.cookie("kas_auth_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
     });
+    res.cookie("kas_refresh_token", refresh.token, {
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+    });
+    issueCsrfCookie(req, res);
+    await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: challenge.user.id, role: challenge.user.role, via: "otp" });
 
     return res.json({
       ok: true,
@@ -310,13 +380,66 @@ authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Re
   }
 });
 
-authRouter.post("/logout", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
+authRouter.post("/logout", requireAuth, requireCsrf, async (_req: AuthenticatedRequest, res: Response) => {
   res.clearCookie("kas_auth_token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    ...authCookieOptions(),
     path: "/"
   });
+  res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
+  return res.json({ ok: true });
+});
+
+authRouter.get("/csrf-token", async (req: Request, res: Response) => {
+  const token = issueCsrfCookie(req, res);
+  return res.json({ ok: true, data: { csrfToken: token } });
+});
+
+authRouter.post("/refresh", authRateLimit, requireCsrf, async (req: Request, res: Response) => {
+  try {
+    const refreshToken = String(req.cookies?.kas_refresh_token || "").trim();
+    if (!refreshToken) return res.status(401).json({ ok: false, message: "Missing refresh token." });
+
+    const rotated = await rotateRefreshSession(prisma, refreshToken);
+    if (!rotated.ok) {
+      if (rotated.reason === "reuse" && rotated.familyId) {
+        await auditAuthEvent("AUTH_REFRESH_REVOKED", { reason: "reuse_detected", familyId: rotated.familyId });
+      }
+      return res.status(401).json({ ok: false, message: "Invalid refresh session." });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: rotated.userId } });
+    if (!user) return res.status(401).json({ ok: false, message: "Invalid session user." });
+
+    const token = signAuthToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      clientId: user.clientId,
+      orgId: user.orgId
+    });
+    res.cookie("kas_auth_token", token, {
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
+    });
+    res.cookie("kas_refresh_token", rotated.token, {
+      ...authCookieOptions(),
+      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+    });
+    issueCsrfCookie(req, res);
+    await auditAuthEvent("AUTH_REFRESH_ROTATED", { userId: user.id, familyId: rotated.familyId });
+    return res.json({ ok: true, data: { token } });
+  } catch (error) {
+    return res.status(401).json({ ok: false, message: error instanceof Error ? error.message : "Refresh failed." });
+  }
+});
+
+authRouter.post("/logout-all", requireAuth, requireCsrf, async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.auth?.userId) return res.status(401).json({ ok: false, message: "Unauthorized" });
+  await revokeAllRefreshSessionsForUser(prisma, req.auth.userId);
+  res.clearCookie("kas_auth_token", { ...authCookieOptions(), path: "/" });
+  res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
+  res.clearCookie("kas_csrf_token", { ...authCookieOptions(), path: "/" });
+  await auditAuthEvent("AUTH_REFRESH_REVOKED", { userId: req.auth.userId, reason: "logout_all" });
   return res.json({ ok: true });
 });
 

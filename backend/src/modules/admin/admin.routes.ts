@@ -4,6 +4,7 @@ import { Router, type Response } from "express";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { requirePermission } from "../../middleware/require-permission";
 import { toCsv } from "../../utils/csv";
 import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } from "../voice/vapi/vapi.service";
 import { provisionNumber } from "../twilio/twilio.service";
@@ -864,17 +865,17 @@ adminRouter.get("/events", async (req, res) => {
   return res.json({ ok: true, data: { events } });
 });
 
-adminRouter.get("/system/dashboard", async (_req: AuthenticatedRequest, res) => {
+adminRouter.get("/system/dashboard", requirePermission("ADMIN_SYSTEM_VIEW"), async (_req: AuthenticatedRequest, res) => {
   const dashboard = await computeOperatorDashboard(prisma);
   return res.json({ ok: true, data: dashboard });
 });
 
-adminRouter.get("/system/readiness", async (_req: AuthenticatedRequest, res) => {
+adminRouter.get("/system/readiness", requirePermission("ADMIN_SYSTEM_VIEW"), async (_req: AuthenticatedRequest, res) => {
   const readiness = await computeSystemReadiness(prisma);
   return res.json({ ok: true, data: readiness });
 });
 
-adminRouter.get("/system/scale-gate", async (req: AuthenticatedRequest, res) => {
+adminRouter.get("/system/scale-gate", requirePermission("ADMIN_SYSTEM_VIEW"), async (req: AuthenticatedRequest, res) => {
   const gate = await computeScaleGate(prisma, { actorUserId: req.auth?.userId || null, promotionAttempted: false });
   return res.json({ ok: true, data: gate });
 });
@@ -937,7 +938,7 @@ adminRouter.get("/vapi/resources", async (_req, res) => {
   }
 });
 
-adminRouter.post("/system/backfill-vapi-calls", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/system/backfill-vapi-calls", requirePermission("ADMIN_SYSTEM_MUTATE"), async (req: AuthenticatedRequest, res) => {
   const result = await backfillMissedVapiCalls(prisma, req.auth!.userId);
   return res.json({
     ok: true,
@@ -1572,6 +1573,19 @@ adminRouter.post("/orgs/:id/provisioning/test-complete", async (req: Authenticat
 
 adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => {
   const scaleGate = await computeScaleGate(prisma, { actorUserId: req.auth?.userId || null, promotionAttempted: true });
+  const criticalFailCodes = new Set(["REPEAT_P1_ROOT_CAUSE", "TENANT_ISOLATION_FAILED", "CAPACITY_REGRESSION"]);
+  const hasCriticalFail = scaleGate.failingCriteria.some((code) => criticalFailCodes.has(code));
+  if (hasCriticalFail && req.auth?.role !== UserRole.SUPER_ADMIN) {
+    await writeAuditLog({
+      prisma,
+      orgId: req.params.id,
+      actorUserId: req.auth?.userId || "unknown",
+      actorRole: req.auth?.role || "UNKNOWN",
+      action: "RBAC_FORBIDDEN",
+      metadata: { endpoint: "/api/admin/orgs/:id/go-live", reason: "critical_scale_gate_requires_super_admin" }
+    });
+    return res.status(403).json({ ok: false, message: "Critical go-live override requires SUPER_ADMIN." });
+  }
   if (scaleGate.result === "FAIL") {
     return res.status(409).json({
       ok: false,
@@ -1622,7 +1636,7 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
   return res.json({ ok: true, data: { org } });
 });
 
-adminRouter.post("/orgs/:id/repair/relink-call", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/repair/relink-call", requirePermission("DATA_REPAIR_EXECUTE"), async (req: AuthenticatedRequest, res) => {
   const parsed = relinkCallSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid relink payload.", errors: parsed.error.flatten() });
@@ -1665,7 +1679,7 @@ adminRouter.post("/orgs/:id/repair/relink-call", async (req: AuthenticatedReques
   return res.json({ ok: true, data: { callId: call.id, leadId: lead.id } });
 });
 
-adminRouter.post("/orgs/:id/repair/merge-leads", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/repair/merge-leads", requirePermission("DATA_REPAIR_EXECUTE"), async (req: AuthenticatedRequest, res) => {
   const parsed = mergeLeadsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid merge payload.", errors: parsed.error.flatten() });
@@ -1755,7 +1769,7 @@ adminRouter.post("/orgs/:id/users/:userId/reset-password", async (req, res) => {
   return res.json({ ok: true, data: { user: { id: user.id, email: user.email, role: user.role } } });
 });
 
-adminRouter.post("/system/clear-data", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/system/clear-data", requirePermission("ADMIN_SYSTEM_MUTATE"), async (req: AuthenticatedRequest, res) => {
   const parsed = clearAllDataSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid clear-data payload.", errors: parsed.error.flatten() });

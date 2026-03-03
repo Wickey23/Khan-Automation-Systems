@@ -7,6 +7,7 @@ import morgan from "morgan";
 import { UserRole } from "@prisma/client";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
+import { requireCsrf } from "./middleware/csrf";
 import { leadRateLimit, webhookRateLimit } from "./middleware/rate-limit";
 import { requestContext } from "./middleware/request-context";
 import { adminRouter } from "./modules/admin/admin.routes";
@@ -29,21 +30,42 @@ import { runDataIntegrityGuardTick } from "./modules/ops/data-integrity-guard.se
 
 const app = express();
 app.set("trust proxy", 1);
-const allowedOrigins = new Set([env.ALLOWED_ORIGIN, env.FRONTEND_APP_URL].filter(Boolean) as string[]);
-const originRegex = env.ALLOWED_ORIGIN_REGEX ? new RegExp(env.ALLOWED_ORIGIN_REGEX) : null;
+const allowedOrigins = new Set(
+  [
+    env.ALLOWED_ORIGIN,
+    env.FRONTEND_APP_URL,
+    ...String(env.ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => Boolean(value) && value !== "*" && !value.includes("*"))
+  ].filter(Boolean) as string[]
+);
+const originRegex =
+  env.ALLOWED_ORIGIN_REGEX && env.SECURITY_MODE !== "production"
+    ? new RegExp(env.ALLOWED_ORIGIN_REGEX)
+    : null;
+function isAllowedOrigin(origin: string) {
+  if (allowedOrigins.has(origin)) return true;
+  if (originRegex && originRegex.test(origin)) return true;
+  return false;
+}
 const corsOptions: cors.CorsOptions = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (allowedOrigins.has(origin)) return cb(null, true);
-    if (originRegex && originRegex.test(origin)) return cb(null, true);
-    return cb(new Error(`CORS blocked: ${origin}`));
+    if (isAllowedOrigin(origin)) return cb(null, true);
+    return cb(null, false);
   },
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"],
   credentials: true
 };
 
 app.use(helmet());
+app.use((req, res, next) => {
+  const origin = String(req.headers.origin || "").trim();
+  if (!origin || isAllowedOrigin(origin)) return next();
+  return res.status(403).json({ ok: false, message: "Origin not allowed." });
+});
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(requestContext);
@@ -101,11 +123,11 @@ app.use("/api/public", publicRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/leads", leadRateLimit, leadRouter);
-app.use("/api/client", clientRouter);
-app.use("/api/org", orgRouter);
-app.use("/api/admin", adminRouter);
+app.use("/api/client", requireCsrf, clientRouter);
+app.use("/api/org", requireCsrf, orgRouter);
+app.use("/api/admin", requireCsrf, adminRouter);
 app.use("/api/stripe", stripeRouter);
-app.use("/api/billing", billingRouter);
+app.use("/api/billing", requireCsrf, billingRouter);
 app.use("/api/twilio/voice", webhookRateLimit, voiceRouter);
 app.use("/api/twilio/sms", webhookRateLimit, smsRouter);
 app.use("/api/vapi", webhookRateLimit, vapiRouter);
@@ -121,6 +143,7 @@ const PORT = process.env.PORT || "3001";
 let backfillTimer: NodeJS.Timeout | null = null;
 let slaMonitorTimer: NodeJS.Timeout | null = null;
 let dataIntegrityGuardTimer: NodeJS.Timeout | null = null;
+let webhookRetentionTimer: NodeJS.Timeout | null = null;
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -254,11 +277,83 @@ function startDataIntegrityGuardWorker() {
   }, interval);
 }
 
+function startWebhookReplayCleanupWorker() {
+  const interval = 24 * 60 * 60 * 1000;
+  setInterval(() => {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    void prisma.webhookReplayGuard
+      .deleteMany({ where: { receivedAt: { lt: cutoff } } })
+      .then((result) => {
+        if (result.count > 0) {
+          return prisma.auditLog.create({
+            data: {
+              actorUserId: "system-security",
+              actorRole: "SYSTEM",
+              action: "WEBHOOK_REPLAY_GUARD_CLEANUP",
+              metadataJson: JSON.stringify({ deleted: result.count, cutoff: cutoff.toISOString() })
+            }
+          });
+        }
+        return null;
+      })
+      .catch(() => null);
+  }, interval);
+}
+
+function startWebhookPayloadRetentionWorker() {
+  const interval = 24 * 60 * 60 * 1000;
+  webhookRetentionTimer = setInterval(() => {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    void prisma.webhookEventLog
+      .updateMany({
+        where: {
+          createdAt: { lt: cutoff },
+          payloadSnippet: { not: "{}" }
+        },
+        data: { payloadSnippet: "{}" }
+      })
+      .then((result) => {
+        if (result.count > 0) {
+          return prisma.auditLog.create({
+            data: {
+              actorUserId: "system-security",
+              actorRole: "SYSTEM",
+              action: "WEBHOOK_PAYLOAD_RETENTION_COMPACTED",
+              metadataJson: JSON.stringify({ compacted: result.count, cutoff: cutoff.toISOString() })
+            }
+          });
+        }
+        return null;
+      })
+      .catch(() => null);
+  }, interval);
+}
+
+function enforceProductionSecurity() {
+  if (env.SECURITY_MODE !== "production") return;
+  const required: Array<[string, string | undefined]> = [
+    ["JWT_SECRET", env.JWT_SECRET],
+    ["REFRESH_TOKEN_SECRET", env.REFRESH_TOKEN_SECRET],
+    ["STRIPE_SECRET_KEY", env.STRIPE_SECRET_KEY],
+    ["TWILIO_AUTH_TOKEN", env.TWILIO_AUTH_TOKEN]
+  ];
+  if (env.VAPI_API_KEY || env.VAPI_PRIVATE_KEY) {
+    required.push(["VAPI_API_KEY", env.VAPI_API_KEY]);
+  }
+  const missing = required.filter(([, value]) => !value || value.includes("placeholder") || value.includes("change-this"));
+  if (missing.length > 0) {
+    throw new Error(`Missing required production secrets: ${missing.map(([key]) => key).join(", ")}`);
+  }
+}
+
 void (async () => {
+  enforceProductionSecurity();
   await ensureAdminUser();
   startVapiBackfillWorker();
   startSlaMonitorWorker();
   startDataIntegrityGuardWorker();
+  startWebhookReplayCleanupWorker();
+  startWebhookPayloadRetentionWorker();
   app.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -269,6 +364,7 @@ const shutdown = async () => {
   if (backfillTimer) clearInterval(backfillTimer);
   if (slaMonitorTimer) clearInterval(slaMonitorTimer);
   if (dataIntegrityGuardTimer) clearInterval(dataIntegrityGuardTimer);
+  if (webhookRetentionTimer) clearInterval(webhookRetentionTimer);
   await prisma.$disconnect();
   process.exit(0);
 };

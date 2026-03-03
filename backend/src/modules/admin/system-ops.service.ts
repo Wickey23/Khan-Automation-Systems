@@ -43,7 +43,7 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
   const since24h = new Date(now - 24 * 60 * 60 * 1000);
   const olderThan1h = new Date(now - 60 * 60 * 1000);
 
-  const [calls5m, calls1h, calls24h, webhookEvents1h, messages1h, vapiEvents1h, calls24hRows, autoRecovery24h, orgs, p1Incidents14d, calls7dByOrg] =
+  const [calls5m, calls1h, calls24h, webhookEvents1h, messages1h, vapiEvents1h, calls24hRows, autoRecovery24h, orgs, p1Incidents14d, calls7dByOrg, authFails24h, forbidden24h, rejectedWebhooks24h] =
     await Promise.all([
       prisma.callLog.count({ where: { startedAt: { gte: since5m } } }),
       prisma.callLog.count({ where: { startedAt: { gte: since1h } } }),
@@ -77,7 +77,10 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
         by: ["orgId"],
         where: { startedAt: { gte: new Date(now - 7 * 24 * 60 * 60 * 1000) } },
         _count: { _all: true }
-      })
+      }),
+      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_LOGIN_FAIL" } }),
+      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "RBAC_FORBIDDEN" } }),
+      prisma.webhookEventLog.count({ where: { createdAt: { gte: since24h }, statusCode: { gte: 400 } } })
     ]);
 
   const webhookTotal = webhookEvents1h.length;
@@ -153,6 +156,17 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
   );
   const p1IncidentCount14d = p1Durations.length;
   const lowIncidentVolumeWarning = p1IncidentCount14d < 3;
+  const securityAnomalyDetected = authFails24h >= 20 || forbidden24h >= 20 || rejectedWebhooks24h >= 20;
+  if (securityAnomalyDetected) {
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: "system-security",
+        actorRole: "SYSTEM",
+        action: "SECURITY_ANOMALY_DETECTED",
+        metadataJson: JSON.stringify({ authFails24h, forbidden24h, rejectedWebhooks24h })
+      }
+    });
+  }
 
   return {
     inboundCalls: { last5m: calls5m, last1h: calls1h, last24h: calls24h },
@@ -174,7 +188,12 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
     trafficExposurePercent,
     p1AckTimeP95Ms,
     p1ResolutionTimeP95Ms,
-    lowIncidentVolumeWarning
+    lowIncidentVolumeWarning,
+    securityAnomalies: {
+      authFails24h,
+      forbidden24h,
+      rejectedWebhooks24h
+    }
   };
 }
 

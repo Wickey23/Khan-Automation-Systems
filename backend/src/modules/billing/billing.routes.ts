@@ -431,7 +431,7 @@ billingRouter.post("/customer-portal", requireAuth, async (req: AuthenticatedReq
 
 billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
   const signature = req.headers["stripe-signature"];
-  if (!signature || typeof signature !== "string") return res.status(400).send("Missing signature");
+  if (!signature || typeof signature !== "string") return res.status(401).send("Missing signature");
 
   let event: Stripe.Event;
   try {
@@ -442,7 +442,7 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
       message: error instanceof Error ? error.message : "unknown_error",
       requestId: req.requestId || null
     });
-    return res.status(400).send("Invalid signature");
+    return res.status(401).send("Invalid signature");
   }
 
   const baseLog = {
