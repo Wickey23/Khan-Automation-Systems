@@ -5,6 +5,24 @@ import { fetchCustomerBase, importCustomerBase } from "@/lib/api";
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 
+function formatOutcome(value: string | null | undefined) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return "No outcome logged";
+  if (normalized === "N/A" || normalized === "NA" || normalized === "UNKNOWN") return "No outcome logged";
+  return normalized
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getDisplayEmail(value: string | null | undefined) {
+  const email = String(value || "").trim();
+  if (!email) return "";
+  if (email.toLowerCase().endsWith("@no-email.local")) return "No email provided";
+  return email;
+}
+
 export default function CustomerBasePage() {
   const { showToast } = useToast();
   const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
@@ -172,13 +190,14 @@ export default function CustomerBasePage() {
                   <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Calls: {customer.totalCalls} | Last outcome: {customer.lastOutcome || "n/a"} | Last call:{" "}
+                  Calls: {customer.totalCalls} | Last outcome: {formatOutcome(customer.lastOutcome)} | Last call:{" "}
                   {new Date(customer.lastCallAt).toLocaleString()}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">Name confidence: {customer.nameConfidence}</p>
                 {customer.lead ? (
                   <p className="mt-1 text-sm">
-                    {customer.lead.business} {customer.lead.email ? `| ${customer.lead.email}` : ""}
+                    {customer.lead.business}
+                    {getDisplayEmail(customer.lead.email) ? ` | ${getDisplayEmail(customer.lead.email)}` : ""}
                   </p>
                 ) : null}
                 {customer.recentCalls[0]?.aiSummary ? (
