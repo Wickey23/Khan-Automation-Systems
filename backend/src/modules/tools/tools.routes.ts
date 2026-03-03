@@ -11,7 +11,7 @@ export const toolsRouter = Router();
 toolsRouter.use(verifyVapiToolSecret);
 
 const createLeadSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   callId: z.string().optional(),
   name: z.string().min(1).default("Unknown Caller"),
   phone: z.string().min(1).default("unknown"),
@@ -45,7 +45,7 @@ const transferSchema = z.object({
 });
 
 const callerContextSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   callId: z.string().optional(),
   callerPhone: z.string().optional()
 });
@@ -63,12 +63,40 @@ function normalizePhone(input: string) {
   return `+${digits}`;
 }
 
+function pickString(...values: Array<unknown>) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function asObject(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
 toolsRouter.post("/create-lead-from-call", async (req, res) => {
   try {
     const parsed = createLeadSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid create-lead payload.");
 
-    const { orgId, name, phone, message, callId } = parsed.data;
+    const root = asObject(req.body);
+    const messageRoot = asObject(root.message);
+    const call = asObject(messageRoot.call);
+    const runtimeOrgId = pickString(call.orgId, call.organizationId, messageRoot.orgId);
+    const runtimeCallId = pickString(call.id, call.callId, call.providerCallId);
+
+    const { orgId: explicitOrgId, name, phone, message, callId: explicitCallId } = parsed.data;
+    const orgId = pickString(runtimeOrgId, explicitOrgId);
+    const callId = pickString(runtimeCallId, explicitCallId);
+
+    if (!orgId) {
+      return toolError(
+        res,
+        "MISSING_ORG_CONTEXT",
+        "Missing orgId (neither runtime metadata nor explicit payload provided)."
+      );
+    }
+
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) return toolError(res, "ORG_NOT_FOUND", "Organization not found.", 404);
 
@@ -91,7 +119,7 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
       });
     }
 
-    return res.json({ ok: true, data: { leadId: lead.id } });
+    return res.json({ ok: true, data: { leadId: lead.id, orgId, callId: callId || null } });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }
@@ -264,12 +292,34 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
     const parsed = callerContextSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-caller-context payload.");
 
-    const { orgId, callId, callerPhone } = parsed.data;
+    const { orgId: orgIdRaw, callId, callerPhone } = parsed.data;
+    let resolvedOrgId = String(orgIdRaw || "").trim();
     let resolvedPhone = normalizePhone(callerPhone || "");
+
+    if (!resolvedOrgId && callId) {
+      const call = await prisma.callLog.findFirst({
+        where: { OR: [{ id: callId }, { providerCallId: callId }] },
+        select: { orgId: true, fromNumber: true }
+      });
+      if (call?.orgId) {
+        resolvedOrgId = call.orgId;
+      }
+      if (!resolvedPhone && call?.fromNumber) {
+        resolvedPhone = normalizePhone(call.fromNumber);
+      }
+    }
+
+    if (!resolvedOrgId) {
+      return toolError(
+        res,
+        "MISSING_ORG_CONTEXT",
+        "orgId is required when callId cannot be resolved to an organization."
+      );
+    }
 
     if (!callerPhone && callId) {
       const call = await prisma.callLog.findFirst({
-        where: { orgId, OR: [{ id: callId }, { providerCallId: callId }] },
+        where: { orgId: resolvedOrgId, OR: [{ id: callId }, { providerCallId: callId }] },
         select: { fromNumber: true }
       });
       if (call?.fromNumber) {
@@ -289,7 +339,7 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
 
     const [callerProfile, latestLead, recentCalls, latestThread] = await Promise.all([
       prisma.callerProfile.findUnique({
-        where: { orgId_phoneNumber: { orgId, phoneNumber: resolvedPhone } },
+        where: { orgId_phoneNumber: { orgId: resolvedOrgId, phoneNumber: resolvedPhone } },
         select: {
           totalCalls: true,
           firstCallAt: true,
@@ -299,7 +349,7 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
         }
       }),
       prisma.lead.findFirst({
-        where: { orgId, phone: resolvedPhone },
+        where: { orgId: resolvedOrgId, phone: resolvedPhone },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -312,7 +362,7 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
         }
       }),
       prisma.callLog.findMany({
-        where: { orgId, fromNumber: resolvedPhone },
+        where: { orgId: resolvedOrgId, fromNumber: resolvedPhone },
         orderBy: { startedAt: "desc" },
         take: 3,
         select: {
@@ -323,7 +373,7 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
         }
       }),
       prisma.messageThread.findFirst({
-        where: { orgId, channel: "SMS", contactPhone: resolvedPhone },
+        where: { orgId: resolvedOrgId, channel: "SMS", contactPhone: resolvedPhone },
         orderBy: { lastMessageAt: "desc" },
         include: {
           messages: { orderBy: { createdAt: "desc" }, take: 1 }
