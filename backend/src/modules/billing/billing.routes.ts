@@ -6,6 +6,7 @@ import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { deriveOrgLifecycleFromBilling } from "./billing-lifecycle.service";
 import { changePlanSchema, createCheckoutSessionSchema } from "./billing.schema";
+import { getDemoState } from "./demo-access.service";
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20"
@@ -415,12 +416,26 @@ billingRouter.get("/status", requireAuth, async (req: AuthenticatedRequest, res)
     });
     orgId = user?.orgId || null;
   }
-  if (!orgId) return res.json({ ok: true, data: { subscription: null } });
+  if (!orgId) {
+    const demo = await getDemoState({
+      prisma,
+      orgId: null,
+      subscriptionStatus: null,
+      allowStart: false
+    });
+    return res.json({ ok: true, data: { subscription: null, demo } });
+  }
   const subscription = await prisma.subscription.findFirst({
     where: { orgId },
     orderBy: { createdAt: "desc" }
   });
-  return res.json({ ok: true, data: { subscription } });
+  const demo = await getDemoState({
+    prisma,
+    orgId,
+    subscriptionStatus: subscription?.status || null,
+    allowStart: false
+  });
+  return res.json({ ok: true, data: { subscription, demo } });
 });
 
 billingRouter.post("/customer-portal", requireAuth, async (req: AuthenticatedRequest, res) => {

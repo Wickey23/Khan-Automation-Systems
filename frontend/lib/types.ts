@@ -149,6 +149,22 @@ export type OrgSubscription = {
   stripeSubscriptionId: string;
 };
 
+export type OrgDemoStatus = {
+  mode: "GUIDED_DEMO" | null;
+  state: "ACTIVE" | "OVER_CAP" | "EXPIRED" | "NOT_ELIGIBLE";
+  eligible: boolean;
+  windowEndsAt: string | null;
+  callCap: number;
+  callsUsed: number;
+  callsRemaining: number;
+  overLimit: boolean;
+};
+
+export type BillingStatusPayload = {
+  subscription: OrgSubscription | null;
+  demo: OrgDemoStatus;
+};
+
 export type CallRecord = {
   id: string;
   clientId: string;

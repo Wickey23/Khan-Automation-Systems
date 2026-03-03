@@ -5,6 +5,9 @@ import { twiml as Twiml } from "twilio";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { verifyTwilioRequest } from "../../middleware/webhook-security";
+import { reserveDemoAttemptOrReject, getDemoState, isGuidedDemoEnabled, isPaidSubscriptionActive } from "../billing/demo-access.service";
+import { upsertDemoOverCapLead } from "../billing/demo-lead-fallback.service";
+import { sendThrottledUpgradeSms } from "../billing/demo-upgrade-sms.service";
 import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { transitionCallState } from "./call-state.service";
 import { upsertCallerProfileOnInbound } from "./caller-profile.service";
@@ -42,6 +45,18 @@ function safeParseStringArray(value: string | null | undefined): string[] {
   } catch {
     return [];
   }
+}
+
+async function writeDemoAudit(orgId: string, action: string, metadata: Record<string, unknown>) {
+  await prisma.auditLog.create({
+    data: {
+      orgId,
+      actorUserId: "guided-demo",
+      actorRole: "SYSTEM",
+      action,
+      metadataJson: JSON.stringify(metadata)
+    }
+  });
 }
 
 async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, orgId?: string) {
@@ -263,6 +278,82 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
       Boolean(ai?.vapiPhoneNumberId) &&
       (org.status === "LIVE" || org.status === "TESTING" || org.live);
     if (canUseVapiNow && (forcedRoute === null || forcedRoute === "ROUTE_TO_VAPI")) {
+      const guidedDemoEnabled = isGuidedDemoEnabled();
+      const paidActive = isPaidSubscriptionActive(org.subscriptionStatus);
+      if (guidedDemoEnabled && !paidActive) {
+        if (!callSid) {
+          await writeDemoAudit(orgPhone.orgId, "DEMO_PROVIDER_CALL_ID_MISSING", {
+            reason: "provider_call_id_missing",
+            fromNumber,
+            toNumber
+          });
+          response.say(`Thanks for calling ${org.name}. We could not process this demo call. Please try again shortly.`);
+          response.hangup();
+          return res.type("text/xml").send(response.toString());
+        }
+
+        const beforeReserve = await getDemoState({
+          prisma,
+          orgId: orgPhone.orgId,
+          subscriptionStatus: org.subscriptionStatus,
+          allowStart: false
+        });
+
+        const reserve = await reserveDemoAttemptOrReject({
+          prisma,
+          orgId: orgPhone.orgId,
+          providerCallId: callSid,
+          callerPhone: fromNumber
+        });
+        if (!reserve.allowed) {
+          const lead = await upsertDemoOverCapLead({
+            prismaClient: prisma,
+            orgId: orgPhone.orgId,
+            callerPhone: fromNumber,
+            businessName: org.name
+          });
+          if (lead && callLogId) {
+            await prisma.callLog.update({
+              where: { id: callLogId },
+              data: { leadId: lead.id }
+            });
+          }
+
+          await writeDemoAudit(orgPhone.orgId, "DEMO_CALL_CAP_REACHED", {
+            reason: reserve.reason,
+            fromNumber,
+            toNumber,
+            demoState: reserve.demo.state,
+            callsUsed: reserve.demo.callsUsed,
+            callCap: reserve.demo.callCap
+          });
+
+          await sendThrottledUpgradeSms({
+            prismaClient: prisma,
+            orgId: orgPhone.orgId,
+            callerPhone: fromNumber,
+            businessName: org.name
+          });
+
+          const summary =
+            reserve.reason === "EXPIRED"
+              ? `Your guided demo has ended for ${org.name}. Upgrade in Billing to continue AI call handling.`
+              : `You've reached the guided demo call limit for ${org.name}. Upgrade in Billing to continue AI call handling.`;
+          response.say(summary);
+          response.hangup();
+          return res.type("text/xml").send(response.toString());
+        }
+
+        if (beforeReserve.state === "ACTIVE" && beforeReserve.windowEndsAt === null) {
+          await writeDemoAudit(orgPhone.orgId, "DEMO_WINDOW_STARTED", {
+            providerCallId: callSid,
+            fromNumber,
+            toNumber,
+            windowEndsAt: reserve.demo.windowEndsAt
+          });
+        }
+      }
+
       if (ai.vapiPhoneNumberId) {
         if (routingEnabled && callLogId) {
           await transitionCallState({

@@ -117,6 +117,26 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
 
     const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
+    const emailDomain = email.split("@")[1] || "";
+    const ipHash = crypto.createHash("sha256").update(String(req.ip || "unknown")).digest("hex");
+    const [existingDomainUsers, existingBusinessNameOrgs] = await Promise.all([
+      emailDomain
+        ? prisma.user.count({
+            where: {
+              email: { endsWith: `@${emailDomain}` }
+            }
+          })
+        : Promise.resolve(0),
+      prisma.organization.count({
+        where: {
+          name: {
+            equals: parsed.data.businessName,
+            mode: "insensitive"
+          }
+        }
+      })
+    ]);
+
     const organization = await prisma.organization.create({
     data: {
       name: parsed.data.businessName,
@@ -185,6 +205,28 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
       maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
     });
     issueCsrfCookie(req, res);
+
+    const signals: string[] = [];
+    if (existingDomainUsers > 0) signals.push("email_domain_match");
+    if (existingBusinessNameOrgs > 0) signals.push("business_name_match");
+
+    if (signals.length > 0) {
+      await prisma.auditLog.create({
+        data: {
+          orgId: organization.id,
+          actorUserId: user.id,
+          actorRole: user.role,
+          action: "DEMO_ORG_CREATED_SUSPECTED_DUPLICATE",
+          metadataJson: JSON.stringify({
+            signals,
+            emailDomain: emailDomain || null,
+            hashedIp: ipHash,
+            matchedOrgCount: existingBusinessNameOrgs,
+            matchedDomainUserCount: existingDomainUsers
+          })
+        }
+      });
+    }
 
     return res.status(201).json({
       ok: true,

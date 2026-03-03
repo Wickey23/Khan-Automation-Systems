@@ -62,7 +62,14 @@ const envSchema = z.object({
   SLA_CRITICAL_CONSECUTIVE_BREACHES: z.string().default("2"),
   SLA_RECOVERY_WINDOWS_REQUIRED: z.string().default("2"),
   OPS_ORG_EXPOSURE_THRESHOLD: z.string().default("0.5"),
-  OPS_TRAFFIC_EXPOSURE_THRESHOLD: z.string().default("0.5")
+  OPS_TRAFFIC_EXPOSURE_THRESHOLD: z.string().default("0.5"),
+  GUIDED_DEMO_ENABLED: z.string().default("true"),
+  GUIDED_DEMO_WINDOW_DAYS: z.string().default("7"),
+  GUIDED_DEMO_TOTAL_CALL_CAP: z.string().default("15"),
+  GUIDED_DEMO_UPGRADE_SMS_COOLDOWN_HOURS: z.string().default("24"),
+  GUIDED_DEMO_UPGRADE_SMS_TEMPLATE: z.string().default(
+    "Thanks for calling {{businessName}}. Your guided demo call limit has been reached. Reply here or upgrade in your billing portal to continue AI call handling."
+  )
 });
 
 const parsed = envSchema.safeParse(process.env);

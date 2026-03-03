@@ -22,7 +22,7 @@ import type {
   OrgCallRecord,
   CustomerBaseRecord,
   OrgMessageThread,
-  OrgSubscription,
+  BillingStatusPayload,
   OrgAnalytics,
   OrgDataQuality,
   OrgHealth,
@@ -43,6 +43,8 @@ type ApiResponse<T> = {
   message?: string;
   data?: T;
 };
+
+const REQUEST_TIMEOUT_MS = 20_000;
 
 function redirectToLoginIfUnauthorized() {
   if (typeof window === "undefined") return;
@@ -92,6 +94,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   let response: Response;
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     response = await fetch(`${siteConfig.apiBase}${path}`, {
       ...init,
@@ -100,10 +104,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         ...(init?.headers || {})
       },
+      signal: controller.signal,
       credentials: "include",
       cache: "no-store"
     });
   } catch (error) {
+    clearTimeout(timeoutHandle);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
     const isProdBrowser = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
     if (isProdBrowser && !siteConfig.apiBase.includes("ai-auto-apply.onrender.com")) {
       throw new Error("API misconfigured: NEXT_PUBLIC_API_BASE is not pointing at the hosted backend.");
@@ -113,8 +122,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       error instanceof Error
         ? `Could not reach API (${siteConfig.apiBase}). ${error.message}`
         : `Could not reach API (${siteConfig.apiBase}).`
-    );
+      );
   }
+  clearTimeout(timeoutHandle);
 
   const contentType = response.headers.get("content-type") || "";
   let payload: ApiResponse<T> | null = null;
@@ -211,7 +221,7 @@ export async function changeStripePlan(plan: "starter" | "pro") {
 }
 
 export async function getBillingStatus() {
-  return request<{ subscription: OrgSubscription | null }>("/api/billing/status");
+  return request<BillingStatusPayload>("/api/billing/status");
 }
 
 export async function createCustomerPortalSession() {

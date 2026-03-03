@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { changeStripePlan, createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
-import type { OrgSubscription } from "@/lib/types";
+import type { OrgDemoStatus, OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,6 +112,7 @@ function formatPlan(plan: OrgSubscription["plan"] | null | undefined) {
 export default function AppBillingPage() {
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
+  const [demo, setDemo] = useState<OrgDemoStatus | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [startingPlan, setStartingPlan] = useState<StripePlanKey | null>(null);
   const [changingPlan, setChangingPlan] = useState<StripePlanKey | null>(null);
@@ -120,9 +121,11 @@ export default function AppBillingPage() {
     void getBillingStatus()
       .then((data) => {
         setSubscription(data.subscription);
+        setDemo(data.demo);
       })
       .catch(() => {
         setSubscription(null);
+        setDemo(null);
       });
   }, []);
 
@@ -164,6 +167,7 @@ export default function AppBillingPage() {
       const result = await changeStripePlan(plan);
       const latest = await getBillingStatus();
       setSubscription(latest.subscription);
+      setDemo(latest.demo);
       showToast({
         title: result.changed ? "Plan updated" : "No changes made",
         description: result.changed
@@ -182,6 +186,7 @@ export default function AppBillingPage() {
   }
 
   const hasRealSubscription = Boolean(subscription);
+  const showDemoCard = !subscription && demo?.mode === "GUIDED_DEMO";
 
   return (
     <div className="space-y-6">
@@ -205,6 +210,32 @@ export default function AppBillingPage() {
           <CardTitle>Current subscription</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
+          {showDemoCard ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+              <p className="text-sm font-semibold text-amber-900">Guided Demo Mode</p>
+              <p className="mt-1 text-xs text-amber-900/90">
+                Evaluation mode only. This is not live deployment and has strict call limits until you activate a paid plan.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <div className="rounded border bg-white px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Usage</p>
+                  <p className="text-sm font-semibold">
+                    {demo?.callsUsed ?? 0}/{demo?.callCap ?? 15} calls
+                  </p>
+                </div>
+                <div className="rounded border bg-white px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">State</p>
+                  <p className="text-sm font-semibold">{demo?.state || "ACTIVE"}</p>
+                </div>
+                <div className="rounded border bg-white px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Window end</p>
+                  <p className="text-sm font-semibold">
+                    {demo?.windowEndsAt ? new Date(demo.windowEndsAt).toLocaleDateString() : "Starts on first AI call"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-white p-3">
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">

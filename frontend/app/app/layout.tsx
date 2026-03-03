@@ -32,6 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus()])
       .then(([onboarding, orgProfile, billing]) => {
         const subStatus = billing.subscription?.status || "";
+        const demo = billing.demo;
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
         const orgStatus = orgProfile.organization?.status || "";
         const hasAccess = ["active", "trialing"].includes(subStatus) || !billing.subscription;
@@ -64,6 +65,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             ctaLabel: "Complete Onboarding",
             ctaHref: "/app/onboarding"
           });
+        }
+
+        if (!billing.subscription && demo?.mode === "GUIDED_DEMO") {
+          if (demo.state === "ACTIVE") {
+            setModeBanner({
+              text: `Guided demo active: ${demo.callsUsed}/${demo.callCap} AI demo calls used.${demo.windowEndsAt ? ` Window ends ${new Date(demo.windowEndsAt).toLocaleDateString()}.` : ""}`,
+              ctaLabel: "Upgrade Plan",
+              ctaHref: "/app/billing"
+            });
+          } else if (demo.state === "OVER_CAP") {
+            setModeBanner({
+              text: `Guided demo cap reached (${demo.callsUsed}/${demo.callCap}). Upgrade to continue AI call handling.`,
+              ctaLabel: "Upgrade Plan",
+              ctaHref: "/app/billing"
+            });
+          } else if (demo.state === "EXPIRED") {
+            setModeBanner({
+              text: `Guided demo expired. Usage summary: ${demo.callsUsed}/${demo.callCap} calls. Activate a paid plan to continue.`,
+              ctaLabel: "Activate Plan",
+              ctaHref: "/app/billing"
+            });
+          }
         }
 
         if (!hasAccess) {

@@ -199,6 +199,9 @@ model Organization {
   testRuns             TestRun[]
   webhookEventLogs     WebhookEventLog[]
   billingWebhookEvents BillingWebhookEvent[]
+  demoState            OrganizationDemoState?
+  demoAiAttempts       DemoAiAttempt[]
+  demoUpgradeSmsThrottle DemoUpgradeSmsThrottle[]
   messageThreads       MessageThread[]
   messages             Message[]
   knowledgeFiles       OrganizationKnowledgeFile[]
@@ -718,6 +721,42 @@ model BillingWebhookEvent {
 
   @@index([orgId, createdAt])
   @@index([stripeSubscriptionId, createdAt])
+}
+
+model OrganizationDemoState {
+  id                    String       @id @default(cuid())
+  orgId                 String       @unique
+  organization          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  demoStartedAt         DateTime?
+  demoEndsAt            DateTime?
+  startedByProviderCallId String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+model DemoAiAttempt {
+  id             String       @id @default(cuid())
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  providerCallId String
+  callerPhone    String?
+  attemptedAt    DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@unique([orgId, providerCallId])
+  @@index([orgId, attemptedAt])
+}
+
+model DemoUpgradeSmsThrottle {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callerPhone  String
+  lastSentAt   DateTime
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, callerPhone])
 }
 
 model AppConfig {
