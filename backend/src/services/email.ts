@@ -9,6 +9,9 @@ function buildTransporter() {
     host: env.SMTP_HOST,
     port: Number(env.SMTP_PORT),
     secure: env.SMTP_SECURE === "true",
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS
@@ -24,12 +27,16 @@ async function sendOrLog(subject: string, text: string, to: string) {
     return;
   }
 
-  await transporter.sendMail({
+  const sendPromise = transporter.sendMail({
     from: env.SMTP_FROM,
     to,
     subject,
     text
   });
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("smtp_send_timeout")), 12_000);
+  });
+  await Promise.race([sendPromise, timeoutPromise]);
 }
 
 export async function sendLeadNotificationEmail(payload: {
