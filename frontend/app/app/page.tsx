@@ -150,7 +150,7 @@ export default function AppOverviewPage() {
         <Link href="/app/onboarding" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
           Continue onboarding
         </Link>
-        <Link href="/pricing" className="rounded-md border px-4 py-2 text-sm font-medium">
+        <Link href="/app/billing" className="rounded-md border px-4 py-2 text-sm font-medium">
           Billing & plans
         </Link>
       </div>
