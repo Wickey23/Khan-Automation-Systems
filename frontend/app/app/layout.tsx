@@ -3,27 +3,38 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Lock } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+type PlanTier = "STARTER" | "PRO" | null;
+
+const navItems: Array<{ href: string; label: string; requiredPlan?: Exclude<PlanTier, null> }> = [
   { href: "/app", label: "Overview" },
   { href: "/app/onboarding", label: "Onboarding" },
   { href: "/app/billing", label: "Billing" },
   { href: "/app/settings", label: "Settings" },
   { href: "/app/calls", label: "Calls" },
   { href: "/app/customer-base", label: "Customer Base" },
-  { href: "/app/messages", label: "Messages" },
+  { href: "/app/messages", label: "Messages", requiredPlan: "PRO" },
   { href: "/app/leads", label: "Leads" },
-  { href: "/app/analytics", label: "Analytics" }
+  { href: "/app/analytics", label: "Analytics", requiredPlan: "PRO" }
 ];
+
+function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {
+  if (!requiredPlan) return true;
+  if (!currentPlan) return false;
+  if (requiredPlan === "STARTER") return currentPlan === "STARTER" || currentPlan === "PRO";
+  return currentPlan === "PRO";
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [modeBanner, setModeBanner] = useState<{ text: string; ctaLabel: string; ctaHref: string } | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<PlanTier>(null);
 
   useEffect(() => {
     setAccessWarning(null);
@@ -32,6 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus()])
       .then(([onboarding, orgProfile, billing]) => {
         const subStatus = billing.subscription?.status || "";
+        setCurrentPlan((billing.subscription?.plan as PlanTier) || null);
         const demo = billing.demo;
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
         const orgStatus = orgProfile.organization?.status || "";
@@ -99,6 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
+        setCurrentPlan(null);
       });
   }, [pathname, router]);
 
@@ -110,16 +123,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client Portal</p>
             <nav className="mt-2 grid gap-1">
               {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "rounded-md px-3 py-2 text-sm",
-                    pathname === item.href ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                  )}
-                >
-                  {item.label}
-                </Link>
+                hasRequiredPlan(currentPlan, item.requiredPlan) ? (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "rounded-md px-3 py-2 text-sm",
+                      pathname === item.href ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <div
+                    key={item.href}
+                    title={`Requires ${item.requiredPlan} plan`}
+                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm text-muted-foreground/70"
+                  >
+                    <span>{item.label}</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide">
+                      <Lock className="h-3 w-3" />
+                      {item.requiredPlan}
+                    </span>
+                  </div>
+                )
               ))}
             </nav>
             <Link href="/auth/logout" className="mt-4 inline-block px-3 text-xs text-muted-foreground underline">
