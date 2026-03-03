@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { deleteOrgKnowledgeFile, fetchOrgKnowledgeFiles, fetchOrgSettings, updateOrgSettings, uploadOrgKnowledgeFile } from "@/lib/api";
+import {
+  deleteOrgKnowledgeFile,
+  fetchAuthSecurityStatus,
+  fetchOrgKnowledgeFiles,
+  fetchOrgSettings,
+  sendAuthTestOtpEmail,
+  updateOrgSettings,
+  uploadOrgKnowledgeFile
+} from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { OrgKnowledgeFile } from "@/lib/types";
+import type { AuthSecurityStatus, OrgKnowledgeFile } from "@/lib/types";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -107,6 +115,8 @@ export default function AppSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [knowledgeFiles, setKnowledgeFiles] = useState<OrgKnowledgeFile[]>([]);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
+  const [security, setSecurity] = useState<AuthSecurityStatus | null>(null);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
 
   useEffect(() => {
     void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles()])
@@ -157,6 +167,30 @@ export default function AppSettingsPage() {
         })
       );
   }, [showToast]);
+
+  useEffect(() => {
+    void fetchAuthSecurityStatus()
+      .then((data) => setSecurity(data))
+      .catch(() => setSecurity(null));
+  }, []);
+
+  async function onSendTestVerificationEmail() {
+    setSendingTestEmail(true);
+    try {
+      await sendAuthTestOtpEmail();
+      const latest = await fetchAuthSecurityStatus();
+      setSecurity(latest);
+      showToast({ title: "Test email sent", description: "Check inbox/spam for your verification code email." });
+    } catch (error) {
+      showToast({
+        title: "Could not send test email",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setSendingTestEmail(false);
+    }
+  }
 
   async function onKnowledgeFileSelected(file: File | null) {
     if (!file) return;
@@ -295,6 +329,44 @@ export default function AppSettingsPage() {
           <li>Notification phones: {readinessHints.phones.length > 0 ? "Configured" : "Missing"}</li>
           <li>Business hours: {readinessHints.hasHours ? "Configured" : "Missing"}</li>
         </ul>
+      </section>
+
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="text-lg font-semibold">Security & Email Verification</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Verify your login email can receive codes and confirm whether 2FA is enforced for your role.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded border px-2 py-1 text-sm">
+            Email: <span className="font-medium">{security?.email || "Unknown"}</span>
+          </div>
+          <div className="rounded border px-2 py-1 text-sm">
+            2FA required: <span className="font-medium">{security?.twoFactorEnabledForAccount ? "Yes" : "No"}</span>
+          </div>
+          <div className="rounded border px-2 py-1 text-sm">
+            Provider: <span className="font-medium">{security?.emailProviderConfigured ? "Configured" : "Missing"}</span>
+          </div>
+          <div className="rounded border px-2 py-1 text-sm">
+            Last OTP sent:{" "}
+            <span className="font-medium">
+              {security?.lastOtpEmailSentAt ? new Date(security.lastOtpEmailSentAt).toLocaleString() : "-"}
+            </span>
+          </div>
+          <div className="rounded border px-2 py-1 text-sm">
+            Last OTP verified:{" "}
+            <span className="font-medium">
+              {security?.lastOtpVerifiedAt ? new Date(security.lastOtpVerifiedAt).toLocaleString() : "-"}
+            </span>
+          </div>
+          <div className="rounded border px-2 py-1 text-sm">
+            Last failure: <span className="font-medium">{security?.lastOtpFailureReason || "-"}</span>
+          </div>
+        </div>
+        <div className="mt-3">
+          <Button variant="outline" onClick={() => void onSendTestVerificationEmail()} disabled={sendingTestEmail}>
+            {sendingTestEmail ? "Sending..." : "Send test verification email"}
+          </Button>
+        </div>
       </section>
 
       <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">

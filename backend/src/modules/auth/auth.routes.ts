@@ -57,6 +57,10 @@ function otpEmailUnavailableInProduction() {
   return env.SECURITY_MODE === "production" && !isEmailProviderConfigured();
 }
 
+function roleRequiresTwoFactor(role: UserRole) {
+  return process.env.ADMIN_2FA_ENABLED === "true" && (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN);
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, code: string): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error(code)), timeoutMs);
@@ -265,9 +269,7 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
       return res.status(401).json({ ok: false, message: "Invalid credentials." });
     }
 
-    const requiresTwoFactor =
-      process.env.ADMIN_2FA_ENABLED === "true" &&
-      (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN);
+    const requiresTwoFactor = roleRequiresTwoFactor(user.role);
     if (requiresTwoFactor) {
       if (otpEmailUnavailableInProduction()) {
         await auditAuthEvent("AUTH_LOGIN_FAIL", {
@@ -582,4 +584,100 @@ authRouter.get("/me", requireAuth, async (req: AuthenticatedRequest, res: Respon
       org
     }
   });
+});
+
+authRouter.get("/security-status", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.auth?.userId;
+  const role = req.auth?.role;
+  const email = req.auth?.email;
+  if (!userId || !role || !email) return res.status(401).json({ ok: false, message: "Unauthorized" });
+
+  const relevant = await prisma.auditLog.findMany({
+    where: {
+      actorUserId: "auth",
+      action: { in: ["AUTH_LOGIN_FAIL", "AUTH_2FA_REQUIRED", "AUTH_LOGIN_SUCCESS", "AUTH_2FA_TEST_EMAIL_SENT", "AUTH_2FA_TEST_EMAIL_FAILED"] }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 400,
+    select: { action: true, metadataJson: true, createdAt: true }
+  });
+
+  let lastOtpEmailSentAt: Date | null = null;
+  let lastOtpEmailFailedAt: Date | null = null;
+  let lastOtpVerifiedAt: Date | null = null;
+  let lastOtpFailureReason: string | null = null;
+  let lastTestEmailSentAt: Date | null = null;
+  let lastTestEmailFailedAt: Date | null = null;
+  for (const row of relevant) {
+    let metadata: Record<string, unknown> = {};
+    try {
+      metadata = row.metadataJson ? (JSON.parse(row.metadataJson) as Record<string, unknown>) : {};
+    } catch {
+      metadata = {};
+    }
+    if (String(metadata.userId || "") !== userId) continue;
+
+    if (!lastOtpEmailSentAt && row.action === "AUTH_2FA_REQUIRED") lastOtpEmailSentAt = row.createdAt;
+    if (!lastOtpVerifiedAt && row.action === "AUTH_LOGIN_SUCCESS" && String(metadata.via || "") === "otp") lastOtpVerifiedAt = row.createdAt;
+    if (!lastOtpEmailFailedAt && row.action === "AUTH_LOGIN_FAIL" && String(metadata.reason || "").includes("otp_email")) {
+      lastOtpEmailFailedAt = row.createdAt;
+      lastOtpFailureReason = String(metadata.reason || "otp_email_failed");
+    }
+    if (!lastOtpFailureReason && row.action === "AUTH_LOGIN_FAIL" && String(metadata.reason || "") === "invalid_otp") {
+      lastOtpFailureReason = "invalid_otp";
+    }
+    if (!lastTestEmailSentAt && row.action === "AUTH_2FA_TEST_EMAIL_SENT") lastTestEmailSentAt = row.createdAt;
+    if (!lastTestEmailFailedAt && row.action === "AUTH_2FA_TEST_EMAIL_FAILED") lastTestEmailFailedAt = row.createdAt;
+  }
+
+  return res.json({
+    ok: true,
+    data: {
+      email,
+      role,
+      twoFactorEnabledForAccount: roleRequiresTwoFactor(role),
+      emailProviderConfigured: isEmailProviderConfigured(),
+      lastOtpEmailSentAt: lastOtpEmailSentAt?.toISOString() || null,
+      lastOtpEmailFailedAt: lastOtpEmailFailedAt?.toISOString() || null,
+      lastOtpVerifiedAt: lastOtpVerifiedAt?.toISOString() || null,
+      lastOtpFailureReason,
+      lastTestEmailSentAt: lastTestEmailSentAt?.toISOString() || null,
+      lastTestEmailFailedAt: lastTestEmailFailedAt?.toISOString() || null
+    }
+  });
+});
+
+authRouter.post("/security/send-test-otp", requireAuth, requireCsrf, authRateLimit, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.auth?.userId;
+  const email = req.auth?.email;
+  const role = req.auth?.role;
+  if (!userId || !email || !role) return res.status(401).json({ ok: false, message: "Unauthorized" });
+
+  if (otpEmailUnavailableInProduction()) {
+    await auditAuthEvent("AUTH_2FA_TEST_EMAIL_FAILED", { userId, email, reason: "otp_email_not_configured" });
+    return res.status(503).json({ ok: false, message: "Email provider is not configured." });
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  try {
+    await withTimeout(
+      sendLoginOtpEmail({
+        email,
+        code,
+        expiresMinutes: OTP_EXP_MINUTES
+      }),
+      OTP_CHALLENGE_TIMEOUT_MS,
+      "otp_test_email_timeout"
+    );
+    await auditAuthEvent("AUTH_2FA_TEST_EMAIL_SENT", { userId, email, role, requiresTwoFactor: roleRequiresTwoFactor(role) });
+    return res.json({ ok: true, data: { sent: true } });
+  } catch (error) {
+    await auditAuthEvent("AUTH_2FA_TEST_EMAIL_FAILED", {
+      userId,
+      email,
+      role,
+      reason: error instanceof Error ? error.message : "otp_test_email_failed"
+    });
+    return res.status(503).json({ ok: false, message: "Could not send test verification email." });
+  }
 });

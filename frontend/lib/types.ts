@@ -479,6 +479,28 @@ export type AdminSystemDashboard = {
   p1AckTimeP95Ms: number | null;
   p1ResolutionTimeP95Ms: number | null;
   lowIncidentVolumeWarning: boolean;
+  emailProviderConfigured?: boolean;
+  auth2fa?: {
+    required24h: number;
+    otpSuccess24h: number;
+    invalidOtp24h: number;
+    emailFailure24h: number;
+    testEmailsSent24h: number;
+    testEmailsFailed24h: number;
+  };
+};
+
+export type AuthSecurityStatus = {
+  email: string;
+  role: string;
+  twoFactorEnabledForAccount: boolean;
+  emailProviderConfigured: boolean;
+  lastOtpEmailSentAt: string | null;
+  lastOtpEmailFailedAt: string | null;
+  lastOtpVerifiedAt: string | null;
+  lastOtpFailureReason: string | null;
+  lastTestEmailSentAt: string | null;
+  lastTestEmailFailedAt: string | null;
 };
 
 export type AdminSystemReadiness = {

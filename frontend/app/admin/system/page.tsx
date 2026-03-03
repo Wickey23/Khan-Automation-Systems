@@ -102,6 +102,29 @@ export default function AdminSystemPage() {
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Traffic Exposure</p>
             <p className="mt-1 text-2xl font-semibold">{dashboard ? pct(dashboard.trafficExposurePercent) : "-"}</p>
           </div>
+          <div className="rounded-lg border bg-white p-3 sm:col-span-2 lg:col-span-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Auth / 2FA Email Health (24h)</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="rounded border px-2 py-1 text-sm">
+                Provider: <span className="font-medium">{dashboard?.emailProviderConfigured ? "Configured" : "Missing"}</span>
+              </div>
+              <div className="rounded border px-2 py-1 text-sm">
+                2FA Required: <span className="font-medium">{dashboard?.auth2fa?.required24h ?? 0}</span>
+              </div>
+              <div className="rounded border px-2 py-1 text-sm">
+                OTP Success: <span className="font-medium">{dashboard?.auth2fa?.otpSuccess24h ?? 0}</span>
+              </div>
+              <div className="rounded border px-2 py-1 text-sm">
+                Invalid OTP: <span className="font-medium">{dashboard?.auth2fa?.invalidOtp24h ?? 0}</span>
+              </div>
+              <div className="rounded border px-2 py-1 text-sm">
+                Email Failures: <span className="font-medium">{dashboard?.auth2fa?.emailFailure24h ?? 0}</span>
+              </div>
+              <div className="rounded border px-2 py-1 text-sm">
+                Test Sends: <span className="font-medium">{dashboard?.auth2fa?.testEmailsSent24h ?? 0}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">

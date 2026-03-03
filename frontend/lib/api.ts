@@ -32,6 +32,7 @@ import type {
   AdminScaleGate,
   AdminSystemDashboard,
   AdminSystemReadiness,
+  AuthSecurityStatus,
   PhoneLine,
   Setting,
   TestScenario
@@ -180,6 +181,17 @@ export async function authResendLoginOtp(email: string, challengeId: string) {
   return request<{ challengeId: string; email: string }>("/api/auth/login/resend-otp", {
     method: "POST",
     body: JSON.stringify({ email, challengeId })
+  });
+}
+
+export async function fetchAuthSecurityStatus() {
+  return request<AuthSecurityStatus>("/api/auth/security-status");
+}
+
+export async function sendAuthTestOtpEmail() {
+  return request<{ sent: boolean }>("/api/auth/security/send-test-otp", {
+    method: "POST",
+    body: JSON.stringify({})
   });
 }
 

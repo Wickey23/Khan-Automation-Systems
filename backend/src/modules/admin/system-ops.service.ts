@@ -43,7 +43,7 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
   const since24h = new Date(now - 24 * 60 * 60 * 1000);
   const olderThan1h = new Date(now - 60 * 60 * 1000);
 
-  const [calls5m, calls1h, calls24h, webhookEvents1h, messages1h, vapiEvents1h, calls24hRows, autoRecovery24h, orgs, p1Incidents14d, calls7dByOrg, authFails24h, forbidden24h, rejectedWebhooks24h] =
+  const [calls5m, calls1h, calls24h, webhookEvents1h, messages1h, vapiEvents1h, calls24hRows, autoRecovery24h, orgs, p1Incidents14d, calls7dByOrg, authFails24h, forbidden24h, rejectedWebhooks24h, auth2faRequired24h, authOtpSuccess24h, authOtpInvalid24h, authOtpEmailFailure24h, auth2faTestSent24h, auth2faTestFailed24h] =
     await Promise.all([
       prisma.callLog.count({ where: { startedAt: { gte: since5m } } }),
       prisma.callLog.count({ where: { startedAt: { gte: since1h } } }),
@@ -80,7 +80,19 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
       }),
       prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_LOGIN_FAIL" } }),
       prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "RBAC_FORBIDDEN" } }),
-      prisma.webhookEventLog.count({ where: { createdAt: { gte: since24h }, statusCode: { gte: 400 } } })
+      prisma.webhookEventLog.count({ where: { createdAt: { gte: since24h }, statusCode: { gte: 400 } } }),
+      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_2FA_REQUIRED" } }),
+      prisma.auditLog.count({
+        where: { createdAt: { gte: since24h }, action: "AUTH_LOGIN_SUCCESS", metadataJson: { contains: "\"via\":\"otp\"" } }
+      }),
+      prisma.auditLog.count({
+        where: { createdAt: { gte: since24h }, action: "AUTH_LOGIN_FAIL", metadataJson: { contains: "\"reason\":\"invalid_otp\"" } }
+      }),
+      prisma.auditLog.count({
+        where: { createdAt: { gte: since24h }, action: "AUTH_LOGIN_FAIL", metadataJson: { contains: "otp_email" } }
+      }),
+      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_2FA_TEST_EMAIL_SENT" } }),
+      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_2FA_TEST_EMAIL_FAILED" } })
     ]);
 
   const webhookTotal = webhookEvents1h.length;
@@ -189,6 +201,15 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
     p1AckTimeP95Ms,
     p1ResolutionTimeP95Ms,
     lowIncidentVolumeWarning,
+    emailProviderConfigured: Boolean(env.RESEND_API_KEY || env.SMTP_HOST),
+    auth2fa: {
+      required24h: auth2faRequired24h,
+      otpSuccess24h: authOtpSuccess24h,
+      invalidOtp24h: authOtpInvalid24h,
+      emailFailure24h: authOtpEmailFailure24h,
+      testEmailsSent24h: auth2faTestSent24h,
+      testEmailsFailed24h: auth2faTestFailed24h
+    },
     securityAnomalies: {
       authFails24h,
       forbidden24h,
