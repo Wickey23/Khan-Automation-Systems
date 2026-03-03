@@ -10,6 +10,7 @@ import { DemoCallCard } from "@/components/site/demo-call-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { siteConfig } from "@/lib/config";
+import { caseStudies } from "@/lib/case-studies";
 
 const outcomes: Array<{ title: string; icon: LucideIcon; copy: string }> = [
   {
@@ -173,7 +174,7 @@ export default function HomePage() {
         <SmsDemo />
       </section>
 
-      <section className="container py-14">
+      <section id="how-it-works" className="container scroll-mt-24 py-14">
         <h2 className="text-3xl font-semibold">How It Works</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-4">
           {steps.map(({ title, icon: Icon, copy }) => (
@@ -204,7 +205,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container py-14">
+      <section id="pricing" className="container scroll-mt-24 py-14">
         <h2 className="text-3xl font-semibold">Pricing</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Pilot-first pricing designed for reliable rollout, measurable outcomes, and disciplined scale.
@@ -275,7 +276,7 @@ export default function HomePage() {
         </Card>
       </section>
 
-      <section className="container grid gap-6 py-14 lg:grid-cols-[1fr_1.1fr]">
+      <section id="contact" className="container scroll-mt-24 grid gap-6 py-14 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-3">
           <h2 className="text-3xl font-semibold">Ready to tighten your lead flow?</h2>
           <p className="text-sm text-muted-foreground">
@@ -290,3 +291,25 @@ export default function HomePage() {
     </div>
   );
 }
+      <section id="case-studies" className="container scroll-mt-24 py-14">
+        <h2 className="text-3xl font-semibold">Case Studies</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Real-world examples of lead-flow improvement in service operations.
+        </p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {caseStudies.slice(0, 2).map((item) => (
+            <Card key={item.slug}>
+              <CardContent className="p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">{item.industry}</p>
+                <p className="mt-1 text-base font-semibold">{item.title}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{item.summary}</p>
+                <div className="mt-3">
+                  <Link href="/case-studies" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                    View all case studies
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
