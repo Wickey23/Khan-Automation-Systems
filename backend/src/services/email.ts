@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env";
 
+const SEND_TIMEOUT_MS = 12_000;
+
 function buildTransporter() {
   if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
     return null;
@@ -19,13 +21,44 @@ function buildTransporter() {
   });
 }
 
-async function sendOrLog(subject: string, text: string, to: string) {
-  const transporter = buildTransporter();
-  if (!transporter) {
-    // eslint-disable-next-line no-console
-    console.log("[email-stub]", subject, "\n" + text);
-    return;
+function isResendConfigured() {
+  return Boolean(env.RESEND_API_KEY && (env.RESEND_FROM || env.SMTP_FROM));
+}
+
+async function sendViaResend(subject: string, text: string, to: string) {
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("resend_not_configured");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: env.RESEND_FROM || env.SMTP_FROM,
+        to: [to],
+        subject,
+        text
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`resend_send_failed_${response.status}${body ? `_${body}` : ""}`);
+    }
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+async function sendViaSmtp(subject: string, text: string, to: string) {
+  const transporter = buildTransporter();
+  if (!transporter) throw new Error("smtp_not_configured");
 
   const sendPromise = transporter.sendMail({
     from: env.SMTP_FROM,
@@ -34,9 +67,37 @@ async function sendOrLog(subject: string, text: string, to: string) {
     text
   });
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error("smtp_send_timeout")), 12_000);
+    setTimeout(() => reject(new Error("smtp_send_timeout")), SEND_TIMEOUT_MS);
   });
   await Promise.race([sendPromise, timeoutPromise]);
+}
+
+async function sendOrLog(subject: string, text: string, to: string) {
+  const errors: string[] = [];
+  if (isResendConfigured()) {
+    try {
+      await sendViaResend(subject, text, to);
+      return;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "resend_unknown_error");
+    }
+  }
+
+  if (isSmtpConfigured()) {
+    try {
+      await sendViaSmtp(subject, text, to);
+      return;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "smtp_unknown_error");
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`email_send_failed:${errors.join("|")}`);
+  }
+
+  // eslint-disable-next-line no-console
+  console.log("[email-stub]", subject, "\n" + text);
 }
 
 export async function sendLeadNotificationEmail(payload: {
@@ -98,6 +159,10 @@ export async function sendClientWelcomeEmail(payload: {
 
 export function isSmtpConfigured() {
   return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.SMTP_FROM);
+}
+
+export function isEmailProviderConfigured() {
+  return isResendConfigured() || isSmtpConfigured();
 }
 
 export async function sendLoginOtpEmail(payload: {

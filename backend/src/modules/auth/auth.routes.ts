@@ -9,7 +9,7 @@ import { requireCsrf } from "../../middleware/csrf";
 import { signAuthToken } from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { authRateLimit } from "../../middleware/rate-limit";
-import { isSmtpConfigured, sendLoginOtpEmail } from "../../services/email";
+import { isEmailProviderConfigured, sendLoginOtpEmail } from "../../services/email";
 import {
   createRefreshSession,
   revokeAllRefreshSessionsForUser,
@@ -54,7 +54,7 @@ function trackAuthFailure(key: string) {
 }
 
 function otpEmailUnavailableInProduction() {
-  return env.SECURITY_MODE === "production" && !isSmtpConfigured();
+  return env.SECURITY_MODE === "production" && !isEmailProviderConfigured();
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, code: string): Promise<T> {
