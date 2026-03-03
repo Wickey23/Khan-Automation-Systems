@@ -82,8 +82,9 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
     const root = asObject(req.body);
     const messageRoot = asObject(root.message);
     const call = asObject(messageRoot.call);
-    const runtimeOrgId = pickString(call.orgId, call.organizationId, messageRoot.orgId);
-    const runtimeCallId = pickString(call.id, call.callId, call.providerCallId);
+    // Tool webhooks commonly put runtime ids at top-level; keep nested fallbacks for compatibility.
+    const runtimeOrgId = pickString(root.orgId, root.organizationId, call.orgId, call.organizationId, messageRoot.orgId);
+    const runtimeCallId = pickString(root.callId, root.providerCallId, call.id, call.callId, call.providerCallId);
 
     const { orgId: explicitOrgId, name, phone, message, callId: explicitCallId } = parsed.data;
     const orgId = pickString(runtimeOrgId, explicitOrgId);
