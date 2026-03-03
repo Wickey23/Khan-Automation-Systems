@@ -52,10 +52,22 @@ const steps: Array<{ title: string; icon: LucideIcon; copy: string }> = [
 ];
 
 export default function HomePage() {
-  const missedCallFacts = [
-    "Missed calls usually represent high-intent buyers who needed help now, not later.",
-    "Speed to first response often decides who wins the job in local service markets.",
-    "Delayed follow-up compounds quickly into lost revenue and lower booking consistency."
+  const missedCallFigures = [
+    {
+      figure: "20-30%",
+      title: "Calls can hit voicemail or ring out",
+      detail: "Common range when shops are busy, after-hours, or short-staffed."
+    },
+    {
+      figure: "<5 min",
+      title: "Response window for many high-intent callers",
+      detail: "Fast first response often decides who wins the booking."
+    },
+    {
+      figure: "10-20%",
+      title: "Pipeline can leak from delayed follow-up",
+      detail: "Missed or late callbacks compound into lost jobs over time."
+    }
   ];
 
   const integrationLabels = [
@@ -63,6 +75,13 @@ export default function HomePage() {
     "Scheduling calendars",
     "CRM and dispatch systems",
     "Existing intake processes"
+  ];
+
+  const serviceShopFigures = [
+    { figure: "24/7", label: "Inbound coverage" },
+    { figure: "<1 min", label: "Intake start target" },
+    { figure: "1 view", label: "Calls + leads visibility" },
+    { figure: "Weekly", label: "Optimization cadence" }
   ];
 
   return (
@@ -97,12 +116,17 @@ export default function HomePage() {
 
       <section className="border-y bg-white">
         <div className="container flex flex-col items-start justify-between gap-4 py-8 md:flex-row md:items-center">
-          <p className="text-sm font-semibold">Built for service shops</p>
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span className="rounded-full border px-3 py-1">HVAC</span>
-            <span className="rounded-full border px-3 py-1">Auto & Diesel</span>
-            <span className="rounded-full border px-3 py-1">Home Services</span>
-            <span className="rounded-full border px-3 py-1">Field Operations</span>
+          <div>
+            <p className="text-sm font-semibold">Built for service shops</p>
+            <p className="mt-1 text-xs text-muted-foreground">HVAC, Auto & Diesel, Home Services, Field Operations</p>
+          </div>
+          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-4">
+            {serviceShopFigures.map((item) => (
+              <div key={item.label} className="rounded-md border bg-background px-3 py-2">
+                <p className="text-sm font-semibold text-foreground">{item.figure}</p>
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -110,12 +134,19 @@ export default function HomePage() {
       <section className="container py-14">
         <h2 className="text-3xl font-semibold">The Cost of Missed Calls</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {missedCallFacts.map((item) => (
-            <Card key={item}>
-              <CardContent className="p-5 text-sm text-muted-foreground">{item}</CardContent>
+          {missedCallFigures.map((item) => (
+            <Card key={item.title}>
+              <CardContent className="space-y-2 p-5">
+                <p className="text-2xl font-semibold text-foreground">{item.figure}</p>
+                <p className="text-sm font-medium text-foreground">{item.title}</p>
+                <p className="text-sm text-muted-foreground">{item.detail}</p>
+              </CardContent>
             </Card>
           ))}
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Figures are directional operating benchmarks and vary by market, call volume, and response process.
+        </p>
       </section>
 
       <section className="container py-14">
