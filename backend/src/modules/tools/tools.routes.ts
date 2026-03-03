@@ -175,6 +175,21 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
       });
     }
 
+    await prisma.auditLog.create({
+      data: {
+        orgId: resolvedOrgId,
+        actorUserId: "vapi-tool",
+        actorRole: "SYSTEM",
+        action: "TOOL_CREATE_LEAD",
+        metadataJson: JSON.stringify({
+          resolvedOrgId,
+          resolvedCallId: resolvedCallId || null,
+          leadId: lead.id,
+          phone: normalizedPhone
+        })
+      }
+    });
+
     return res.json({ ok: true, data: { leadId: lead.id, orgId: resolvedOrgId, callId: resolvedCallId || null } });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);

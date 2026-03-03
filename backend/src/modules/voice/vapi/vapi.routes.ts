@@ -1,4 +1,4 @@
-import { AiProvider, type Prisma } from "@prisma/client";
+import { AiProvider, LeadSource, type Prisma } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../../../lib/prisma";
 import { verifyVapiToolSecret } from "../../../middleware/webhook-security";
@@ -67,6 +67,73 @@ function safePayloadSnippet(payload: unknown) {
   }
 }
 
+async function ensureLeadForCall(input: {
+  orgId: string;
+  callLogId: string;
+  fromNumber: string;
+  summary: string | null;
+  transcript: string | null;
+  candidateLeadId: string | null;
+  candidateName: string | null;
+}) {
+  if (!input.fromNumber || input.fromNumber === "unknown") return null;
+
+  if (input.candidateLeadId) {
+    const existing = await prisma.lead.findFirst({
+      where: { id: input.candidateLeadId, orgId: input.orgId },
+      select: { id: true }
+    });
+    if (existing?.id) {
+      await prisma.callLog.updateMany({
+        where: { orgId: input.orgId, id: input.callLogId },
+        data: { leadId: existing.id }
+      });
+      return existing.id;
+    }
+  }
+
+  const org = await prisma.organization.findUnique({ where: { id: input.orgId }, select: { name: true } });
+  if (!org) return null;
+
+  const existingLead = await prisma.lead.findFirst({
+    where: { orgId: input.orgId, phone: input.fromNumber },
+    orderBy: { createdAt: "desc" }
+  });
+
+  const fallbackName = (input.candidateName || "").trim() || existingLead?.name || "Unknown Caller";
+  const fallbackMessage = (input.summary || input.transcript || "").trim() || existingLead?.message || "";
+  const fallbackEmail = `${input.fromNumber.replace(/\D/g, "") || "unknown"}@no-email.local`;
+
+  const lead = existingLead
+    ? await prisma.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          name: fallbackName,
+          business: existingLead.business || org.name,
+          email: existingLead.email || fallbackEmail,
+          message: fallbackMessage || existingLead.message
+        }
+      })
+    : await prisma.lead.create({
+        data: {
+          orgId: input.orgId,
+          name: fallbackName,
+          business: org.name,
+          email: fallbackEmail,
+          phone: input.fromNumber,
+          message: fallbackMessage,
+          source: LeadSource.PHONE_CALL
+        }
+      });
+
+  await prisma.callLog.updateMany({
+    where: { orgId: input.orgId, id: input.callLogId },
+    data: { leadId: lead.id }
+  });
+
+  return lead.id;
+}
+
 async function logWebhookEvent(input: {
   orgId?: string | null;
   requestId?: string;
@@ -121,6 +188,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const endedByStatus = ["ended", "completed", "failed", "canceled", "cancelled", "busy", "no-answer", "timeout"].includes(callStatus);
   const successEvaluation = parseNumeric(analysis.successEvaluation ?? analysis.score ?? body.successEvaluation);
   const structuredData = asObject(analysis.structuredData);
+  const customerData = asObject(analysis.customer);
   const orgIdFromPayload = pickString(body.orgId, call.orgId) || null;
   const assistantId = pickString(body.assistantId, call.assistantId, assistant.id, assistant.assistantId) || null;
   const phoneNumberId = pickString(body.phoneNumberId, call.phoneNumberId, phoneNumber.id) || null;
@@ -277,6 +345,25 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
       }
     });
+
+    if (eventType === "end-of-call-report" || endedByStatus) {
+      const candidateName = pickString(
+        analysis.name,
+        structuredData.name,
+        structuredData.fullName,
+        customer.name,
+        customerData.name
+      ) || null;
+      await ensureLeadForCall({
+        orgId: resolvedOrgId,
+        callLogId: persistedCall.id,
+        fromNumber,
+        summary,
+        transcript,
+        candidateLeadId: leadId,
+        candidateName
+      });
+    }
 
     if (env.ROUTING_ENGINE_ENABLED === "true") {
       await transitionCallState({
