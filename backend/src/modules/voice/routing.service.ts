@@ -125,22 +125,15 @@ export function computeRoutingDecision(input: RoutingInput): RoutingDecision {
 
   const withinHours = isWithinBusinessHours(input.settings?.hoursJson);
   if (!withinHours) {
-    const afterHoursMode = String(input.settings?.afterHoursMode || "TAKE_MESSAGE").toUpperCase();
-    if (afterHoursMode === "TRANSFER" && transferNumbers.length > 0) {
-      return {
-        route: "ROUTE_TO_TRANSFER",
-        tier: 2,
-        ruleId: "after-hours-transfer",
-        reasonCode: "AFTER_HOURS_TRANSFER_MODE",
-        matchedSignals: { afterHoursMode, transferTo: transferNumbers[0] }
-      };
-    }
     return {
-      route: "ROUTE_TO_VOICEMAIL",
+      route: "ROUTE_TO_VAPI",
       tier: 2,
-      ruleId: "after-hours-voicemail",
-      reasonCode: "AFTER_HOURS_NON_TRANSFER",
-      matchedSignals: { afterHoursMode }
+      ruleId: "after-hours-context-only",
+      reasonCode: "AFTER_HOURS_VAPI_CONTEXT",
+      matchedSignals: {
+        afterHoursMode: String(input.settings?.afterHoursMode || "TAKE_MESSAGE").toUpperCase(),
+        withinBusinessHours: false
+      }
     };
   }
 
@@ -148,7 +141,7 @@ export function computeRoutingDecision(input: RoutingInput): RoutingDecision {
   const matchedUrgentKeyword = urgentKeywords.find((keyword) => detectedText.includes(keyword.toLowerCase()));
   if (input.highValueServiceDetected || matchedUrgentKeyword) {
     return {
-      route: transferNumbers.length > 0 || transferRules.urgentTransferTo ? "ROUTE_TO_TRANSFER" : "ROUTE_TO_VAPI",
+      route: "ROUTE_TO_VAPI",
       tier: 3,
       ruleId: "escalation-urgent-or-high-value",
       reasonCode: input.highValueServiceDetected ? "HIGH_VALUE_SERVICE" : "URGENT_KEYWORD",
@@ -161,7 +154,7 @@ export function computeRoutingDecision(input: RoutingInput): RoutingDecision {
 
   if ((input.callVolumeLast5m || 0) > overflowThreshold) {
     return {
-      route: transferNumbers.length > 0 ? "ROUTE_TO_TRANSFER" : "ROUTE_TO_VOICEMAIL",
+      route: "ROUTE_TO_VAPI",
       tier: 4,
       ruleId: "overflow-threshold",
       reasonCode: "CALL_VOLUME_THRESHOLD_EXCEEDED",
@@ -198,4 +191,3 @@ export function computeRoutingDecision(input: RoutingInput): RoutingDecision {
     matchedSignals: {}
   };
 }
-

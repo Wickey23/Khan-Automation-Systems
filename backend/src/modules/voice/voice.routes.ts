@@ -252,12 +252,11 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
     const recordingCallbackUrl = `${env.API_BASE_URL}/api/twilio/voice/recording?orgId=${encodedOrgId}`;
     const completionUrl = `${env.API_BASE_URL}/api/twilio/voice/complete?orgId=${encodedOrgId}`;
 
-    const shouldVoicemail =
-      forcedRoute === "ROUTE_TO_VOICEMAIL" ||
-      forcedRoute === "ROUTE_TO_SANDBOX" ||
-      forcedRoute === "ROUTE_TO_FALLBACK_SMS" ||
-      mode === "VOICEMAIL" ||
-      mode === "TAKE_MESSAGE";
+    const shouldVoicemail = routingEnabled
+      ? forcedRoute === "ROUTE_TO_VOICEMAIL" ||
+        forcedRoute === "ROUTE_TO_SANDBOX" ||
+        forcedRoute === "ROUTE_TO_FALLBACK_SMS"
+      : mode === "VOICEMAIL" || mode === "TAKE_MESSAGE";
 
     if (shouldVoicemail) {
       response.say(`Thanks for calling ${org.name}. Please leave a brief message after the beep.`);
@@ -290,11 +289,12 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
         });
       }
       response.dial(first.trim());
-    } else {
-      response.say("No transfer destination configured. Goodbye.");
-      response.hangup();
+      return res.type("text/xml").send(response.toString());
     }
 
+    // Legacy fallback only when no transfer destination exists and routing is disabled.
+    response.say("No transfer destination configured. Goodbye.");
+    response.hangup();
     return res.type("text/xml").send(response.toString());
   } catch (error) {
     // eslint-disable-next-line no-console
