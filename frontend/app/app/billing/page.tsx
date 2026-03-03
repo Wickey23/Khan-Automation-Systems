@@ -28,7 +28,7 @@ const PLAN_COPY = {
   founding: {
     title: "Founding Partner",
     price: "$249 / month",
-    subtitle: "Limited pilot cohort (contract-managed)",
+    subtitle: "Limited-time offer: first 5 founding partners (contract-managed)",
     bestFor: "Best for committed early partners participating in reliability-first pilot feedback cycles.",
     includes: [
       "Everything in Standard call handling and lead capture",
@@ -37,7 +37,7 @@ const PLAN_COPY = {
       "12-month price lock (per founding agreement)"
     ],
     notes: [
-      "Limited seat availability and contract approval required.",
+      "Limited to the first 5 approved founding partners.",
       "Founding setup credit: $200 applied in month 6 when participation requirements are met.",
       "Miss 2 consecutive or 3 total feedback cycles: plan reverts to Standard pricing."
     ]
@@ -292,8 +292,22 @@ export default function AppBillingPage() {
                 return (
                   <div
                     key={planKey}
-                    className="rounded-lg border bg-white p-4"
+                    className={`rounded-lg border p-4 ${
+                      planKey === "founding"
+                        ? "border-amber-300 bg-gradient-to-b from-amber-50 to-white shadow-[0_0_0_1px_rgba(245,158,11,0.12)]"
+                        : "bg-white"
+                    }`}
                   >
+                    {planKey === "founding" ? (
+                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                          Limited Time
+                        </span>
+                        <span className="inline-flex rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                          First 5 Seats
+                        </span>
+                      </div>
+                    ) : null}
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-base font-semibold">{PLAN_COPY[planKey].title}</h3>
                       <Badge variant="outline" className="border-zinc-300">
@@ -301,6 +315,9 @@ export default function AppBillingPage() {
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">{PLAN_COPY[planKey].subtitle}</p>
+                    {planKey === "founding" ? (
+                      <p className="mt-1 text-xs font-medium text-amber-800">Enrollment closes once all 5 seats are filled.</p>
+                    ) : null}
                     <p className="mt-3 rounded-md border bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
                       {PLAN_COPY[planKey].bestFor}
                     </p>
@@ -319,6 +336,7 @@ export default function AppBillingPage() {
                     <div className="mt-4">
                       <Button
                         variant={planKey === "starter" ? "default" : "outline"}
+                        className={planKey === "founding" ? "border-amber-300 text-amber-800 hover:bg-amber-50" : undefined}
                         onClick={() => {
                           if (planKey === "none") return;
                           if (planKey === "founding") return;
