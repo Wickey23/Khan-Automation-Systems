@@ -22,6 +22,7 @@ export const authRouter = Router();
 const OTP_EXP_MINUTES = 10;
 const LOGIN_FAILS = new Map<string, { count: number; lastAt: number }>();
 const MAX_BACKOFF_MS = 10_000;
+const OTP_CHALLENGE_TIMEOUT_MS = 15_000;
 
 function hashOtp(code: string) {
   return crypto.createHash("sha256").update(`${code}:${process.env.JWT_SECRET || "fallback-secret"}`).digest("hex");
@@ -54,6 +55,13 @@ function trackAuthFailure(key: string) {
 
 function otpEmailUnavailableInProduction() {
   return env.SECURITY_MODE === "production" && !isSmtpConfigured();
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, code: string): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(code)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]);
 }
 
 async function auditAuthEvent(action: string, metadata: Record<string, unknown>) {
@@ -216,8 +224,7 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
     }
 
     const requiresTwoFactor =
-      ((env.ADMIN_2FA_REQUIRED_IN_PROD === "true" && env.SECURITY_MODE === "production") ||
-        process.env.ADMIN_2FA_ENABLED === "true") &&
+      process.env.ADMIN_2FA_ENABLED === "true" &&
       (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN);
     if (requiresTwoFactor) {
       if (otpEmailUnavailableInProduction()) {
@@ -234,12 +241,22 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
 
       let challenge;
       try {
-        challenge = await createAndSendLoginChallenge(user);
-      } catch {
+        challenge = await withTimeout(
+          createAndSendLoginChallenge(user),
+          OTP_CHALLENGE_TIMEOUT_MS,
+          "otp_challenge_timeout"
+        );
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("OTP challenge creation failed", {
+          userId: user.id,
+          email: user.email,
+          reason: error instanceof Error ? error.message : "unknown_error"
+        });
         await auditAuthEvent("AUTH_LOGIN_FAIL", {
           userId: user.id,
           email: user.email,
-          reason: "otp_email_send_failed"
+          reason: error instanceof Error ? error.message : "otp_email_send_failed"
         });
         return res.status(503).json({
           ok: false,
@@ -409,12 +426,22 @@ authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Re
 
     let next;
     try {
-      next = await createAndSendLoginChallenge(challenge.user);
-    } catch {
+      next = await withTimeout(
+        createAndSendLoginChallenge(challenge.user),
+        OTP_CHALLENGE_TIMEOUT_MS,
+        "otp_challenge_timeout_resend"
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("OTP resend challenge failed", {
+        userId: challenge.user.id,
+        email: challenge.user.email,
+        reason: error instanceof Error ? error.message : "unknown_error"
+      });
       await auditAuthEvent("AUTH_LOGIN_FAIL", {
         userId: challenge.user.id,
         email: challenge.user.email,
-        reason: "otp_email_send_failed_resend"
+        reason: error instanceof Error ? error.message : "otp_email_send_failed_resend"
       });
       return res.status(503).json({
         ok: false,
