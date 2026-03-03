@@ -266,7 +266,7 @@ export default function AppBillingPage() {
                 ? "Compare plans below to see exactly what is included before you change tiers."
                 : "Choose a plan to activate billing and unlock live production workflow."}
             </p>
-            <div className="grid gap-3 lg:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2">
               {(["none", "founding", "starter", "pro"] as const).map((planKey: PlanKey) => {
                 const isCurrentPlan =
                   planKey !== "founding" &&
@@ -292,7 +292,7 @@ export default function AppBillingPage() {
                 return (
                   <div
                     key={planKey}
-                    className={`rounded-lg border p-4 ${
+                    className={`flex h-full flex-col rounded-lg border p-4 ${
                       planKey === "founding"
                         ? "border-amber-300 bg-gradient-to-b from-amber-50 to-white shadow-[0_0_0_1px_rgba(245,158,11,0.12)]"
                         : "bg-white"
