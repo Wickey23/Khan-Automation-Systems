@@ -9,7 +9,7 @@ import { requireCsrf } from "../../middleware/csrf";
 import { signAuthToken } from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { authRateLimit } from "../../middleware/rate-limit";
-import { sendLoginOtpEmail } from "../../services/email";
+import { isSmtpConfigured, sendLoginOtpEmail } from "../../services/email";
 import {
   createRefreshSession,
   revokeAllRefreshSessionsForUser,
@@ -50,6 +50,10 @@ function trackAuthFailure(key: string) {
   const count = current && now - current.lastAt < 15 * 60 * 1000 ? current.count + 1 : 1;
   LOGIN_FAILS.set(key, { count, lastAt: now });
   return Math.min(MAX_BACKOFF_MS, Math.max(0, (count - 2) * 750));
+}
+
+function otpEmailUnavailableInProduction() {
+  return env.SECURITY_MODE === "production" && !isSmtpConfigured();
 }
 
 async function auditAuthEvent(action: string, metadata: Record<string, unknown>) {
@@ -216,7 +220,33 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
         process.env.ADMIN_2FA_ENABLED === "true") &&
       (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN);
     if (requiresTwoFactor) {
-      const challenge = await createAndSendLoginChallenge(user);
+      if (otpEmailUnavailableInProduction()) {
+        await auditAuthEvent("AUTH_LOGIN_FAIL", {
+          userId: user.id,
+          email: user.email,
+          reason: "otp_email_not_configured"
+        });
+        return res.status(503).json({
+          ok: false,
+          message: "Two-factor email is not configured. Contact support to complete login."
+        });
+      }
+
+      let challenge;
+      try {
+        challenge = await createAndSendLoginChallenge(user);
+      } catch {
+        await auditAuthEvent("AUTH_LOGIN_FAIL", {
+          userId: user.id,
+          email: user.email,
+          reason: "otp_email_send_failed"
+        });
+        return res.status(503).json({
+          ok: false,
+          message: "Could not send verification code email. Please try again or contact support."
+        });
+      }
+
       await auditAuthEvent("AUTH_2FA_REQUIRED", { userId: user.id, role: user.role });
       return res.json({
         ok: true,
@@ -365,7 +395,32 @@ authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Re
       return res.status(429).json({ ok: false, message: "Please wait before requesting another code." });
     }
 
-    const next = await createAndSendLoginChallenge(challenge.user);
+    if (otpEmailUnavailableInProduction()) {
+      await auditAuthEvent("AUTH_LOGIN_FAIL", {
+        userId: challenge.user.id,
+        email: challenge.user.email,
+        reason: "otp_email_not_configured_resend"
+      });
+      return res.status(503).json({
+        ok: false,
+        message: "Two-factor email is not configured. Contact support to complete login."
+      });
+    }
+
+    let next;
+    try {
+      next = await createAndSendLoginChallenge(challenge.user);
+    } catch {
+      await auditAuthEvent("AUTH_LOGIN_FAIL", {
+        userId: challenge.user.id,
+        email: challenge.user.email,
+        reason: "otp_email_send_failed_resend"
+      });
+      return res.status(503).json({
+        ok: false,
+        message: "Could not resend verification code email. Please try again or contact support."
+      });
+    }
     return res.json({
       ok: true,
       data: {

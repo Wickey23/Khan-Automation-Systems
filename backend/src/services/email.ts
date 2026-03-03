@@ -89,6 +89,10 @@ export async function sendClientWelcomeEmail(payload: {
   await sendOrLog(subject, text, payload.email);
 }
 
+export function isSmtpConfigured() {
+  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.SMTP_FROM);
+}
+
 export async function sendLoginOtpEmail(payload: {
   email: string;
   code: string;
