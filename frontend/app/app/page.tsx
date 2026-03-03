@@ -19,6 +19,7 @@ import type {
   OrgSubscription
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoHint } from "@/components/ui/info-hint";
 
 export default function AppOverviewPage() {
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -61,7 +62,10 @@ export default function AppOverviewPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Organization</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              Organization
+              <InfoHint text="Current organization identity and lifecycle status." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>{organization?.name || "-"}</p>
@@ -70,7 +74,10 @@ export default function AppOverviewPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Onboarding</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              Onboarding
+              <InfoHint text="Progress of required setup steps before stable go-live." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>{submission?.status || "DRAFT"}</p>
@@ -79,7 +86,10 @@ export default function AppOverviewPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Subscription</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              Subscription
+              <InfoHint text="Current billing status and subscribed plan for this workspace." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>{subscription?.status || "inactive"}</p>
@@ -88,7 +98,10 @@ export default function AppOverviewPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">System Health</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              System Health
+              <InfoHint text="Overall readiness signal derived from operational checks." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>{health?.level === "GREEN" ? "All systems operational" : "Action needed"}</p>
@@ -97,7 +110,10 @@ export default function AppOverviewPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Assigned Number</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              Assigned Number
+              <InfoHint text="Primary inbound number currently mapped to this organization." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>{assignedPhoneNumber || "Not assigned yet"}</p>
@@ -106,7 +122,10 @@ export default function AppOverviewPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Data Quality</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              Data Quality
+              <InfoHint text="Lead-linkage and caller-name quality indicators for this org." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>Unknown names: {Math.round((dataQuality?.unknownNameRate || 0) * 100)}%</p>
@@ -115,7 +134,10 @@ export default function AppOverviewPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Messaging Readiness</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1 text-base">
+              Messaging Readiness
+              <InfoHint text="SMS compliance/readiness state and current blockers, if any." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p>{messagingReadiness?.state || "Unknown"}</p>

@@ -6,6 +6,7 @@ import { BarChart3, Lock } from "lucide-react";
 import { fetchOrgAnalytics, getBillingStatus } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgAnalytics } from "@/lib/types";
+import { InfoHint } from "@/components/ui/info-hint";
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -74,7 +75,11 @@ export default function AppAnalyticsPage() {
             Revenue and operations view of call handling, lead capture, and messaging performance.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Data freshness: {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "n/a"}
+            <span className="inline-flex items-center gap-1">
+              Data freshness
+              <InfoHint text="Timestamp of the latest analytics aggregation used in this view." />
+            </span>
+            : {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "n/a"}
           </p>
         </div>
         <div className="inline-flex rounded-md border bg-white p-1">
@@ -107,36 +112,60 @@ export default function AppAnalyticsPage() {
       ) : null}
 
       <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
-        <div className="rounded-lg border bg-white p-4" title="Answered calls divided by total calls.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Answer Rate</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Answer Rate
+            <InfoHint text="Answered calls divided by total calls in selected range." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.answerRate) : "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Phone-call leads created divided by total calls.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Lead Capture Rate</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Lead Capture Rate
+            <InfoHint text="Phone-call leads created divided by total calls." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.leadCaptureRate) : "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Average call duration during the selected range.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Avg Call Duration</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Avg Call Duration
+            <InfoHint text="Average call duration in the selected time range." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? duration(kpis.avgCallDurationSec) : "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Threads with both inbound and outbound messages over all threads.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">SMS Engagement Rate</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            SMS Engagement Rate
+            <InfoHint text="Threads with both inbound and outbound SMS over total threads." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.smsEngagementRate) : "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Calls that requested appointments in the selected range.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointment Requests</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Appointment Requests
+            <InfoHint text="Number of calls marked as appointment requested in selected range." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis?.appointmentRequests ?? "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Calls marked MISSED in the selected range.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Missed Calls</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Missed Calls
+            <InfoHint text="Calls marked MISSED in the selected range." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis?.missedCalls ?? "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Average quality score for calls with computed quality.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Call Quality Avg</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Call Quality Avg
+            <InfoHint text="Average computed quality score for calls that have scoring data." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? Math.round(kpis.callQualityAverage) : "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-4" title="Percent of newly created leads still using placeholder names.">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Unknown Name Rate</p>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Unknown Name Rate
+            <InfoHint text="Percent of newly created leads still using placeholder names." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.unknownNameRate) : "-"}</p>
         </div>
       </div>

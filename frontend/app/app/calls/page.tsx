@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
 import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { OrgCallRecord } from "@/lib/types";
+import { InfoHint } from "@/components/ui/info-hint";
 
 function formatPercent(value: number) {
   return `${Math.round(value)}%`;
@@ -50,26 +51,52 @@ function getSuccessBadgeClasses(score: number) {
 }
 
 function extractCallerName(call: OrgCallRecord) {
-  const transcript = call.transcript || "";
-  const summary = call.aiSummary || call.summary || "";
-  const sources = [transcript, summary];
-  const bannedNames = new Set(["the user", "user", "caller", "unknown", "from", "customer"]);
+  const source = (call.transcript || "").trim();
+  if (!source) return "";
+
+  const stopWords = new Set([
+    "sorry",
+    "help",
+    "issue",
+    "problem",
+    "phone",
+    "number",
+    "looking",
+    "escalating",
+    "customer",
+    "caller",
+    "unknown",
+    "support",
+    "service",
+    "name",
+    "from"
+  ]);
 
   const patterns = [
-    /my name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
-    /this is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
-    /i(?:'| a)?m\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})/i,
-    /^([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\s+called\b/i
+    /\bmy name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bthis is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bi(?:'m| am)\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,1})\b/i
   ];
 
-  for (const source of sources) {
-    for (const pattern of patterns) {
-      const match = source.match(pattern);
-      const candidate = match?.[1]?.trim() || "";
-      if (!candidate) continue;
-      if (bannedNames.has(candidate.toLowerCase())) continue;
-      return candidate;
-    }
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    const raw = match?.[1]?.trim() || "";
+    if (!raw) continue;
+
+    const cleaned = raw
+      .replace(/\b(from|and|but)\b.*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned) continue;
+
+    const parts = cleaned.split(" ").filter(Boolean);
+    if (!parts.length || parts.length > 3) continue;
+    if (parts.some((part) => stopWords.has(part.toLowerCase()))) continue;
+    if (parts.length === 1 && parts[0].length < 2) continue;
+
+    return parts
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
   }
 
   return "";
@@ -225,19 +252,31 @@ export default function AppCallsPage() {
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Success rating</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Success rating
+            <InfoHint text="Directional score based on call outcomes, transcript presence, and recording coverage." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.successRate)}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total calls</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Total calls
+            <InfoHint text="Total inbound calls in the currently loaded call-log set." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{metrics.total}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Transfer rate</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Transfer rate
+            <InfoHint text="Share of calls that ended with a transfer outcome." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.transferRate)}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointments</p>
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Appointments
+            <InfoHint text="Share of calls marked as appointment requested." />
+          </p>
           <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.appointmentRate)}</p>
         </div>
       </div>

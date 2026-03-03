@@ -6,6 +6,7 @@ import type { OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useToast } from "@/components/site/toast-provider";
 
 const PLAN_COPY: Record<
@@ -197,7 +198,10 @@ export default function AppBillingPage() {
 
         <div className="mt-4 rounded-lg border bg-white p-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Billing plan preview (temporary)</p>
+            <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Billing plan preview (temporary)
+              <InfoHint text="Preview mode only changes UI visuals and does not modify your real Stripe subscription." />
+            </p>
             {previewEnabled ? (
               <Button
                 size="sm"
@@ -245,15 +249,24 @@ export default function AppBillingPage() {
         <CardContent className="space-y-4 text-sm">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Plan</p>
+              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+                Plan
+                <InfoHint text="Active plan tier used for feature access and pricing." />
+              </p>
               <p className="mt-1 text-base font-semibold">{effectiveSubscription?.plan || "No active plan"}</p>
             </div>
             <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+                Status
+                <InfoHint text="Billing state from Stripe (for example active, trialing, or past_due)." />
+              </p>
               <p className="mt-1 text-base font-semibold">{effectiveSubscription ? formatStatus(effectiveSubscription.status) : "not active"}</p>
             </div>
             <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Current period end</p>
+              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+                Current period end
+                <InfoHint text="Date the current paid billing period ends before renewal." />
+              </p>
               <p className="mt-1 text-base font-semibold">
                 {effectiveSubscription?.currentPeriodEnd ? new Date(effectiveSubscription.currentPeriodEnd).toLocaleDateString() : "-"}
               </p>
