@@ -12,7 +12,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:push:prod": "prisma db push",
-    "seed:admin": "ts-node --transpile-only prisma/seed.ts"
+    "seed:admin": "ts-node --transpile-only prisma/seed.ts",
+    "backfill:call-leads": "ts-node --transpile-only scripts/backfill-call-leads.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
