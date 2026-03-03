@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchOrgSettings, updateOrgSettings } from "@/lib/api";
+import { deleteOrgKnowledgeFile, fetchOrgKnowledgeFiles, fetchOrgSettings, updateOrgSettings, uploadOrgKnowledgeFile } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { OrgKnowledgeFile } from "@/lib/types";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -104,10 +105,12 @@ export default function AppSettingsPage() {
   const { showToast } = useToast();
   const [state, setState] = useState<FormState>(defaults);
   const [saving, setSaving] = useState(false);
+  const [knowledgeFiles, setKnowledgeFiles] = useState<OrgKnowledgeFile[]>([]);
+  const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
 
   useEffect(() => {
-    void fetchOrgSettings()
-      .then(({ settings }) => {
+    void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles()])
+      .then(([{ settings }, { files }]) => {
         const hoursRoot = fromJsonObject(settings.hoursJson);
         const scheduleRaw =
           hoursRoot && typeof hoursRoot.schedule === "object" && hoursRoot.schedule !== null && !Array.isArray(hoursRoot.schedule)
@@ -144,6 +147,7 @@ export default function AppSettingsPage() {
           recordingConsentEnabled: settings.recordingConsentEnabled,
           hours: parsedHours
         });
+        setKnowledgeFiles(files || []);
       })
       .catch((error) =>
         showToast({
@@ -153,6 +157,57 @@ export default function AppSettingsPage() {
         })
       );
   }, [showToast]);
+
+  async function onKnowledgeFileSelected(file: File | null) {
+    if (!file) return;
+    const allowed = ["text/plain", "text/markdown", "application/json", "text/csv"];
+    if (!allowed.includes(file.type || "text/plain")) {
+      showToast({
+        title: "Unsupported file type",
+        description: "Use .txt, .md, .json, or .csv files.",
+        variant: "error"
+      });
+      return;
+    }
+    if (file.size > 200_000) {
+      showToast({
+        title: "File too large",
+        description: "Max file size is 200 KB.",
+        variant: "error"
+      });
+      return;
+    }
+
+    setUploadingKnowledge(true);
+    try {
+      const contentText = await file.text();
+      const { file: saved } = await uploadOrgKnowledgeFile({
+        fileName: file.name,
+        mimeType: file.type || "text/plain",
+        sizeBytes: file.size,
+        contentText
+      });
+      setKnowledgeFiles((prev) => [saved, ...prev]);
+      showToast({
+        title: "Knowledge file uploaded",
+        description: "Run Generate AI Prompt in Admin to apply this context to the assistant."
+      });
+    } catch (error) {
+      showToast({ title: "Upload failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+    } finally {
+      setUploadingKnowledge(false);
+    }
+  }
+
+  async function onDeleteKnowledgeFile(fileId: string) {
+    try {
+      await deleteOrgKnowledgeFile(fileId);
+      setKnowledgeFiles((prev) => prev.filter((item) => item.id !== fileId));
+      showToast({ title: "Knowledge file removed" });
+    } catch (error) {
+      showToast({ title: "Delete failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+    }
+  }
 
   const readinessHints = useMemo(() => {
     const transfer = fromLines(state.transferNumbers);
@@ -258,6 +313,45 @@ export default function AppSettingsPage() {
             <option value="TRANSFER">Transfer</option>
             <option value="VOICEMAIL">Voicemail</option>
           </select>
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="text-lg font-semibold">Assistant Knowledge Files</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Upload business detail files so your assistant can answer with your exact policies, services, and process details.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Input
+            type="file"
+            accept=".txt,.md,.json,.csv,text/plain,text/markdown,application/json,text/csv"
+            onChange={(event) => void onKnowledgeFileSelected(event.target.files?.[0] || null)}
+            disabled={uploadingKnowledge}
+            className="max-w-sm"
+          />
+          {uploadingKnowledge ? <span className="text-xs text-muted-foreground">Uploading...</span> : null}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Allowed: .txt, .md, .json, .csv. Max 200KB per file. Keep documents concise and factual.
+        </p>
+        <div className="mt-3 space-y-2">
+          {knowledgeFiles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No knowledge files uploaded yet.</p>
+          ) : (
+            knowledgeFiles.map((file) => (
+              <div key={file.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <div>
+                  <p className="font-medium">{file.fileName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {file.mimeType} • {(file.sizeBytes / 1024).toFixed(1)} KB • {new Date(file.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => void onDeleteKnowledgeFile(file.id)}>
+                  Remove
+                </Button>
+              </div>
+            ))
+          )}
         </div>
       </section>
 

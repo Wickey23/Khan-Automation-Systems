@@ -20,10 +20,12 @@ import type {
   ReadinessReport,
   Organization,
   OrgCallRecord,
+  CustomerBaseRecord,
   OrgMessageThread,
   OrgSubscription,
   OrgAnalytics,
   OrgHealth,
+  OrgKnowledgeFile,
   PublicSystemStatus,
   PhoneLine,
   Setting,
@@ -350,6 +352,25 @@ export async function fetchOrgCalls() {
   }>("/api/org/calls");
 }
 
+export async function fetchCustomerBase() {
+  return request<{
+    customers: CustomerBaseRecord[];
+    summary: { total: number; vip: number; withLead: number; repeatCallers: number };
+  }>("/api/org/customer-base");
+}
+
+export async function importCustomerBase(rows: Array<Record<string, unknown>>, sourceFileName?: string) {
+  return request<{
+    imported: number;
+    skipped: number;
+    updatedProfiles: number;
+    updatedLeads: number;
+  }>("/api/org/customer-base/import", {
+    method: "POST",
+    body: JSON.stringify({ rows, sourceFileName })
+  });
+}
+
 export async function fetchOrgAnalytics(params: { range?: "7d" | "30d" | "custom"; start?: string; end?: string }) {
   const query = new URLSearchParams();
   if (params.range) query.set("range", params.range);
@@ -391,6 +412,28 @@ export async function updateOrgSettings(body: Partial<BusinessSettings>) {
   return request<{ settings: BusinessSettings }>("/api/org/settings", {
     method: "PATCH",
     body: JSON.stringify(body)
+  });
+}
+
+export async function fetchOrgKnowledgeFiles() {
+  return request<{ files: OrgKnowledgeFile[] }>("/api/org/knowledge-files");
+}
+
+export async function uploadOrgKnowledgeFile(payload: {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  contentText: string;
+}) {
+  return request<{ file: OrgKnowledgeFile }>("/api/org/knowledge-files", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteOrgKnowledgeFile(fileId: string) {
+  return request<{ id: string }>(`/api/org/knowledge-files/${fileId}`, {
+    method: "DELETE"
   });
 }
 

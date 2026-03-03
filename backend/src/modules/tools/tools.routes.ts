@@ -44,6 +44,12 @@ const transferSchema = z.object({
   reason: z.string().optional()
 });
 
+const callerContextSchema = z.object({
+  orgId: z.string().min(1),
+  callId: z.string().optional(),
+  callerPhone: z.string().optional()
+});
+
 function toolError(res: Response, code: string, message: string, status = 400) {
   return res.status(status).json({ ok: false, error: { code, message } });
 }
@@ -246,6 +252,112 @@ toolsRouter.post("/transfer-call", async (req, res) => {
       data: {
         transferTo: parsed.data.transferTo,
         instructions: "Return TwiML <Dial> with transferTo in Twilio action flow."
+      }
+    });
+  } catch (error) {
+    return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
+  }
+});
+
+toolsRouter.post("/get-caller-context", async (req, res) => {
+  try {
+    const parsed = callerContextSchema.safeParse(req.body);
+    if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-caller-context payload.");
+
+    const { orgId, callId, callerPhone } = parsed.data;
+    let resolvedPhone = normalizePhone(callerPhone || "");
+
+    if (!callerPhone && callId) {
+      const call = await prisma.callLog.findFirst({
+        where: { orgId, OR: [{ id: callId }, { providerCallId: callId }] },
+        select: { fromNumber: true }
+      });
+      if (call?.fromNumber) {
+        resolvedPhone = normalizePhone(call.fromNumber);
+      }
+    }
+
+    if (!resolvedPhone) {
+      return res.json({
+        ok: true,
+        data: {
+          found: false,
+          reason: "caller_phone_not_resolved"
+        }
+      });
+    }
+
+    const [callerProfile, latestLead, recentCalls, latestThread] = await Promise.all([
+      prisma.callerProfile.findUnique({
+        where: { orgId_phoneNumber: { orgId, phoneNumber: resolvedPhone } },
+        select: {
+          totalCalls: true,
+          firstCallAt: true,
+          lastCallAt: true,
+          lastOutcome: true,
+          flaggedVIP: true
+        }
+      }),
+      prisma.lead.findFirst({
+        where: { orgId, phone: resolvedPhone },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          business: true,
+          email: true,
+          urgency: true,
+          notes: true,
+          createdAt: true
+        }
+      }),
+      prisma.callLog.findMany({
+        where: { orgId, fromNumber: resolvedPhone },
+        orderBy: { startedAt: "desc" },
+        take: 3,
+        select: {
+          startedAt: true,
+          outcome: true,
+          aiSummary: true,
+          appointmentRequested: true
+        }
+      }),
+      prisma.messageThread.findFirst({
+        where: { orgId, channel: "SMS", contactPhone: resolvedPhone },
+        orderBy: { lastMessageAt: "desc" },
+        include: {
+          messages: { orderBy: { createdAt: "desc" }, take: 1 }
+        }
+      })
+    ]);
+
+    const lastMessage = latestThread?.messages?.[0];
+    const contextSummary = [
+      callerProfile ? `repeat caller (${callerProfile.totalCalls} calls)` : "new/unknown caller",
+      latestLead?.name ? `name on file: ${latestLead.name}` : null,
+      latestLead?.urgency ? `prior urgency: ${latestLead.urgency}` : null,
+      callerProfile?.lastOutcome ? `last outcome: ${callerProfile.lastOutcome}` : null,
+      recentCalls[0]?.aiSummary ? `recent summary: ${recentCalls[0].aiSummary}` : null
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    return res.json({
+      ok: true,
+      data: {
+        found: Boolean(callerProfile || latestLead || recentCalls.length || latestThread),
+        callerPhone: resolvedPhone,
+        callerProfile,
+        latestLead,
+        recentCalls,
+        latestMessage: lastMessage
+          ? {
+              direction: lastMessage.direction,
+              body: lastMessage.body,
+              createdAt: lastMessage.createdAt
+            }
+          : null,
+        contextSummary
       }
     });
   } catch (error) {

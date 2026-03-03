@@ -186,6 +186,7 @@ model Organization {
   billingWebhookEvents BillingWebhookEvent[]
   messageThreads       MessageThread[]
   messages             Message[]
+  knowledgeFiles       OrganizationKnowledgeFile[]
   callerProfiles       CallerProfile[]
   autoRecoveryDedupes  AutoRecoveryDedupe[]
   createdAt            DateTime               @default(now())
@@ -255,6 +256,21 @@ model OnboardingSubmission {
   notesFromAdmin String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+}
+
+model OrganizationKnowledgeFile {
+  id              String       @id @default(cuid())
+  orgId            String
+  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  contentText      String
+  uploadedByUserId String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([orgId, createdAt])
 }
 
 model PhoneNumber {

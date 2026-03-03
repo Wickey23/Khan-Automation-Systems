@@ -99,6 +99,21 @@ function parseIsoDate(value: string | undefined) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function buildKnowledgeContextSnippet(files: Array<{ fileName: string; contentText: string }>) {
+  if (!files.length) return "";
+  const sections = files
+    .map((file) => {
+      const normalized = String(file.contentText || "").replace(/\r\n/g, "\n").trim();
+      if (!normalized) return "";
+      return `Source: ${file.fileName}\n${normalized}`;
+    })
+    .filter(Boolean);
+  if (!sections.length) return "";
+  return `\n\nBusiness knowledge documents:\nUse these details as business facts when answering callers. If unsure or conflicting, ask a clarification question.\n\n${sections.join(
+    "\n\n---\n\n"
+  )}`;
+}
+
 async function snapshotAiConfigVersion(input: {
   orgId: string;
   aiConfigId: string;
@@ -1258,13 +1273,18 @@ adminRouter.post("/orgs/:id/provisioning/sync-business-settings", async (req: Au
 });
 
 adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: AuthenticatedRequest, res) => {
-  const [configPackageRecord, settings] = await Promise.all([
+  const [configPackageRecord, settings, knowledgeFiles] = await Promise.all([
     generateConfigPackage({
       prisma,
       orgId: req.params.id,
       generatedByUserId: req.auth?.userId
     }),
-    prisma.businessSettings.findUnique({ where: { orgId: req.params.id } })
+    prisma.businessSettings.findUnique({ where: { orgId: req.params.id } }),
+    prisma.organizationKnowledgeFile.findMany({
+      where: { orgId: req.params.id },
+      orderBy: { createdAt: "desc" },
+      select: { fileName: true, contentText: true }
+    })
   ]);
   await ensureDefaultTestScenarios(prisma, req.params.id);
   const configPackage = (configPackageRecord.json || {}) as Record<string, unknown>;
@@ -1276,7 +1296,7 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
         languagesJson: settings.languagesJson
       }
     : {};
-  const systemPrompt = buildVapiSystemPrompt(configPackage, businessSettings);
+  const systemPrompt = `${buildVapiSystemPrompt(configPackage, businessSettings)}${buildKnowledgeContextSnippet(knowledgeFiles)}`;
   const tools = buildVapiTools(env.API_BASE_URL).map((tool) => ({
     ...tool,
     constraints: {

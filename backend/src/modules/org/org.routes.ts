@@ -1,5 +1,6 @@
 import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
 import { Router } from "express";
+import { z } from "zod";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
@@ -20,6 +21,9 @@ import {
 export const orgRouter = Router();
 
 orgRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT, UserRole.SUPER_ADMIN]));
+const KNOWLEDGE_FILE_MAX_BYTES = 200_000;
+const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
+const ALLOWED_KNOWLEDGE_MIME = new Set(["text/plain", "text/markdown", "application/json", "text/csv"]);
 
 function normalizePhone(input: string) {
   const digits = input.replace(/\D/g, "");
@@ -28,6 +32,54 @@ function normalizePhone(input: string) {
   if (digits.startsWith("1") && digits.length === 11) return `+${digits}`;
   if (input.trim().startsWith("+")) return input.trim();
   return `+${digits}`;
+}
+
+function normalizePhoneE164(input: string) {
+  const raw = String(input || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (raw.startsWith("+")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
+}
+
+function parseOptionalDate(input: unknown) {
+  if (!input) return null;
+  const text = String(input).trim();
+  if (!text) return null;
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function parseBooleanLike(input: unknown) {
+  if (typeof input === "boolean") return input;
+  const text = String(input || "").trim().toLowerCase();
+  if (["true", "1", "yes", "y"].includes(text)) return true;
+  if (["false", "0", "no", "n"].includes(text)) return false;
+  return null;
+}
+
+function normalizeOutcome(input: unknown) {
+  const raw = String(input || "").trim().toUpperCase().replace(/\s+/g, "_");
+  if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"].includes(raw)) {
+    return raw as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  }
+  return null;
+}
+
+function pickRowValue(row: Record<string, unknown>, keys: string[]) {
+  const map = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(row)) {
+    map.set(String(key).trim().toLowerCase(), value);
+  }
+  for (const key of keys) {
+    const value = map.get(key);
+    if (value !== undefined && String(value).trim() !== "") return value;
+  }
+  return undefined;
 }
 
 orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
@@ -100,6 +152,104 @@ orgRouter.patch("/settings", async (req: AuthenticatedRequest, res) => {
   }
 
   return res.json({ ok: true, data: { settings } });
+});
+
+orgRouter.get("/knowledge-files", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const files = await prisma.organizationKnowledgeFile.findMany({
+    where: { orgId: req.auth.orgId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      fileName: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  });
+  return res.json({ ok: true, data: { files } });
+});
+
+orgRouter.post("/knowledge-files", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const fileName = String(req.body?.fileName || "").trim();
+  const mimeType = String(req.body?.mimeType || "text/plain").trim().toLowerCase();
+  const contentText = String(req.body?.contentText || "");
+  const sizeBytes = Number(req.body?.sizeBytes || Buffer.byteLength(contentText, "utf8"));
+
+  if (!fileName) return res.status(400).json({ ok: false, message: "fileName is required." });
+  if (!contentText.trim()) return res.status(400).json({ ok: false, message: "File content is empty." });
+  if (!ALLOWED_KNOWLEDGE_MIME.has(mimeType)) {
+    return res.status(400).json({ ok: false, message: "Only .txt, .md, .json, and .csv files are supported." });
+  }
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > KNOWLEDGE_FILE_MAX_BYTES) {
+    return res.status(400).json({ ok: false, message: `File too large. Max ${KNOWLEDGE_FILE_MAX_BYTES} bytes.` });
+  }
+
+  const current = await prisma.organizationKnowledgeFile.findMany({
+    where: { orgId: req.auth.orgId },
+    select: { id: true, contentText: true }
+  });
+  const usedChars = current.reduce((sum: number, row: { contentText: string }) => sum + row.contentText.length, 0);
+  if (usedChars + contentText.length > KNOWLEDGE_TOTAL_MAX_CHARS) {
+    return res.status(400).json({
+      ok: false,
+      message: `Knowledge storage limit reached. Max ${KNOWLEDGE_TOTAL_MAX_CHARS} text characters per organization.`
+    });
+  }
+
+  const file = await prisma.organizationKnowledgeFile.create({
+    data: {
+      orgId: req.auth.orgId,
+      fileName: fileName.slice(0, 180),
+      mimeType,
+      sizeBytes,
+      contentText: contentText.trim(),
+      uploadedByUserId: req.auth.userId
+    },
+    select: {
+      id: true,
+      fileName: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      orgId: req.auth.orgId,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      action: "KNOWLEDGE_FILE_UPLOADED",
+      metadataJson: JSON.stringify({ fileId: file.id, fileName: file.fileName, sizeBytes: file.sizeBytes })
+    }
+  });
+
+  return res.json({ ok: true, data: { file } });
+});
+
+orgRouter.delete("/knowledge-files/:fileId", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const existing = await prisma.organizationKnowledgeFile.findFirst({
+    where: { id: req.params.fileId, orgId: req.auth.orgId }
+  });
+  if (!existing) return res.status(404).json({ ok: false, message: "Knowledge file not found." });
+
+  await prisma.organizationKnowledgeFile.delete({ where: { id: existing.id } });
+  await prisma.auditLog.create({
+    data: {
+      orgId: req.auth.orgId,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      action: "KNOWLEDGE_FILE_DELETED",
+      metadataJson: JSON.stringify({ fileId: existing.id, fileName: existing.fileName })
+    }
+  });
+
+  return res.json({ ok: true, data: { id: existing.id } });
 });
 
 orgRouter.get("/onboarding", async (req: AuthenticatedRequest, res) => {
@@ -298,6 +448,265 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
       assignedPhoneNumber: activePhone?.e164Number || null,
       assignedNumberProvider: activePhone?.provider || null
     }
+  });
+});
+
+orgRouter.get("/customer-base", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+
+  const profiles = await prisma.callerProfile.findMany({
+    where: { orgId: req.auth.orgId },
+    orderBy: { lastCallAt: "desc" },
+    take: 400
+  });
+  const phones = profiles.map((p) => p.phoneNumber);
+
+  const [leads, calls, threads] = await Promise.all([
+    prisma.lead.findMany({
+      where: { orgId: req.auth.orgId },
+      select: {
+        id: true,
+        name: true,
+        business: true,
+        email: true,
+        phone: true,
+        urgency: true,
+        notes: true,
+        createdAt: true
+      },
+      take: 1000
+    }),
+    prisma.callLog.findMany({
+      where: { orgId: req.auth.orgId, fromNumber: { in: phones.length ? phones : ["__none__"] } },
+      orderBy: { startedAt: "desc" },
+      select: {
+        fromNumber: true,
+        startedAt: true,
+        outcome: true,
+        aiSummary: true,
+        appointmentRequested: true
+      },
+      take: 2000
+    }),
+    prisma.messageThread.findMany({
+      where: { orgId: req.auth.orgId, channel: "SMS", contactPhone: { in: phones.length ? phones : ["__none__"] } },
+      select: { contactPhone: true, lastMessageAt: true },
+      take: 1000
+    })
+  ]);
+
+  const leadByPhone = new Map<string, (typeof leads)[number]>();
+  for (const lead of leads) {
+    const key = normalizePhoneE164(lead.phone);
+    if (!key) continue;
+    if (!leadByPhone.has(key)) {
+      leadByPhone.set(key, lead);
+      continue;
+    }
+    const existing = leadByPhone.get(key)!;
+    if (new Date(lead.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+      leadByPhone.set(key, lead);
+    }
+  }
+
+  const callsByPhone = new Map<string, Array<(typeof calls)[number]>>();
+  for (const call of calls) {
+    const key = normalizePhoneE164(call.fromNumber);
+    if (!key) continue;
+    const list = callsByPhone.get(key) || [];
+    if (list.length < 5) list.push(call);
+    callsByPhone.set(key, list);
+  }
+
+  const threadByPhone = new Map<string, (typeof threads)[number]>();
+  for (const thread of threads) {
+    const key = normalizePhoneE164(thread.contactPhone);
+    if (!key) continue;
+    if (!threadByPhone.has(key)) {
+      threadByPhone.set(key, thread);
+      continue;
+    }
+    const existing = threadByPhone.get(key)!;
+    if (new Date(thread.lastMessageAt).getTime() > new Date(existing.lastMessageAt).getTime()) {
+      threadByPhone.set(key, thread);
+    }
+  }
+
+  const customers = profiles.map((profile) => {
+    const key = normalizePhoneE164(profile.phoneNumber);
+    const lead = leadByPhone.get(key) || null;
+    const recentCalls = callsByPhone.get(key) || [];
+    const lastThread = threadByPhone.get(key) || null;
+    return {
+      phoneNumber: profile.phoneNumber,
+      totalCalls: profile.totalCalls,
+      firstCallAt: profile.firstCallAt,
+      lastCallAt: profile.lastCallAt,
+      lastOutcome: profile.lastOutcome,
+      flaggedVIP: profile.flaggedVIP,
+      lead: lead
+        ? {
+            id: lead.id,
+            name: lead.name,
+            business: lead.business,
+            email: lead.email,
+            urgency: lead.urgency,
+            notes: lead.notes
+          }
+        : null,
+      recentCalls: recentCalls.map((call) => ({
+        startedAt: call.startedAt,
+        outcome: call.outcome,
+        aiSummary: call.aiSummary,
+        appointmentRequested: call.appointmentRequested
+      })),
+      lastSmsAt: lastThread?.lastMessageAt || null
+    };
+  });
+
+  return res.json({
+    ok: true,
+    data: {
+      customers,
+      summary: {
+        total: customers.length,
+        vip: customers.filter((c) => c.flaggedVIP).length,
+        withLead: customers.filter((c) => Boolean(c.lead)).length,
+        repeatCallers: customers.filter((c) => c.totalCalls > 1).length
+      }
+    }
+  });
+});
+
+const customerBaseImportSchema = z.object({
+  sourceFileName: z.string().max(260).optional(),
+  rows: z
+    .array(z.record(z.unknown()))
+    .min(1)
+    .max(5000)
+});
+
+orgRouter.post("/customer-base/import", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = customerBaseImportSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
+  }
+
+  const rows = parsed.data.rows;
+  let imported = 0;
+  let skipped = 0;
+  let updatedProfiles = 0;
+  let updatedLeads = 0;
+
+  for (const row of rows) {
+    const phoneValue = pickRowValue(row, ["phone", "phone number", "customer phone", "mobile", "caller phone"]);
+    const phone = normalizePhoneE164(String(phoneValue || ""));
+    if (!phone) {
+      skipped += 1;
+      continue;
+    }
+
+    const name = String(pickRowValue(row, ["name", "full name", "customer name"]) || "Unknown Caller").trim();
+    const business = String(pickRowValue(row, ["business", "company", "business name"]) || "Imported Customer").trim();
+    const emailRaw = String(pickRowValue(row, ["email", "email address"]) || "").trim();
+    const email = emailRaw || `${phone.replace(/\D/g, "") || "unknown"}@import.local`;
+    const urgency = String(pickRowValue(row, ["urgency", "priority"]) || "").trim() || null;
+    const notes = String(pickRowValue(row, ["notes", "note", "summary"]) || "").trim() || null;
+    const totalCallsRaw = Number(pickRowValue(row, ["total calls", "total_calls", "calls"]) || 1);
+    const totalCalls = Number.isFinite(totalCallsRaw) && totalCallsRaw > 0 ? Math.floor(totalCallsRaw) : 1;
+    const lastCallAt = parseOptionalDate(pickRowValue(row, ["last call at", "last_call_at", "last call", "last contact"]));
+    const firstCallAt = parseOptionalDate(pickRowValue(row, ["first call at", "first_call_at", "first call"]));
+    const lastOutcome = normalizeOutcome(pickRowValue(row, ["last outcome", "outcome", "status"]));
+    const flaggedVIP = parseBooleanLike(pickRowValue(row, ["vip", "flagged vip", "is vip"])) === true;
+
+    const profile = await prisma.callerProfile.findUnique({
+      where: { orgId_phoneNumber: { orgId: req.auth.orgId, phoneNumber: phone } }
+    });
+
+    if (profile) {
+      await prisma.callerProfile.update({
+        where: { orgId_phoneNumber: { orgId: req.auth.orgId, phoneNumber: phone } },
+        data: {
+          totalCalls: Math.max(profile.totalCalls, totalCalls),
+          firstCallAt: firstCallAt || profile.firstCallAt,
+          lastCallAt: lastCallAt || profile.lastCallAt,
+          lastOutcome: lastOutcome || profile.lastOutcome,
+          flaggedVIP: flaggedVIP || profile.flaggedVIP
+        }
+      });
+      updatedProfiles += 1;
+    } else {
+      await prisma.callerProfile.create({
+        data: {
+          orgId: req.auth.orgId,
+          phoneNumber: phone,
+          totalCalls,
+          firstCallAt: firstCallAt || lastCallAt || new Date(),
+          lastCallAt: lastCallAt || new Date(),
+          lastOutcome,
+          flaggedVIP
+        }
+      });
+      updatedProfiles += 1;
+    }
+
+    const existingLead = await prisma.lead.findFirst({
+      where: { orgId: req.auth.orgId, phone },
+      orderBy: { createdAt: "desc" }
+    });
+    if (existingLead) {
+      await prisma.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          name: name || existingLead.name,
+          business: business || existingLead.business,
+          email: email || existingLead.email,
+          urgency: urgency || existingLead.urgency,
+          notes: notes || existingLead.notes
+        }
+      });
+      updatedLeads += 1;
+    } else {
+      await prisma.lead.create({
+        data: {
+          orgId: req.auth.orgId,
+          name: name || "Unknown Caller",
+          business: business || "Imported Customer",
+          email,
+          phone,
+          urgency,
+          notes,
+          source: "PHONE_CALL",
+          sourcePage: "customer-base-import"
+        }
+      });
+      updatedLeads += 1;
+    }
+
+    imported += 1;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      orgId: req.auth.orgId,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      action: "CUSTOMER_BASE_IMPORTED",
+      metadataJson: JSON.stringify({
+        sourceFileName: parsed.data.sourceFileName || null,
+        rowCount: rows.length,
+        imported,
+        skipped,
+        updatedProfiles,
+        updatedLeads
+      })
+    }
+  });
+
+  return res.json({
+    ok: true,
+    data: { imported, skipped, updatedProfiles, updatedLeads }
   });
 });
 

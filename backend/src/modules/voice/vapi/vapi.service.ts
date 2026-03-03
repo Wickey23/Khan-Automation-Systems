@@ -33,6 +33,9 @@ export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: 
     `Booking mode: ${String(booking.mode || "staff_review")}`,
     `Booking link: ${String(booking.bookingLink || "")}`,
     "Goals: collect caller details, determine urgency, offer next steps, escalate when rules match.",
+    "Caller memory: at the start of each call, run get_caller_context using orgId and callId (or callerPhone) to check if this is a repeat caller.",
+    "If context is found, acknowledge briefly (for example, 'welcome back') and confirm key details before continuing.",
+    "Never assume old details are still correct; confirm changes quickly.",
     `Transfer numbers: ${JSON.stringify(transferNumbers)}`,
     `Transfer rules: ${JSON.stringify(transferRules)}`,
     `Policies: ${JSON.stringify(policies)}`,
@@ -42,6 +45,7 @@ export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: 
 
 export function buildVapiTools(apiBaseUrl: string) {
   return [
+    { name: "get_caller_context", url: `${apiBaseUrl}/api/tools/get-caller-context`, method: "POST" },
     { name: "create_lead_from_call", url: `${apiBaseUrl}/api/tools/create-lead-from-call`, method: "POST" },
     { name: "send_sms", url: `${apiBaseUrl}/api/tools/send-sms`, method: "POST" },
     { name: "notify_manager", url: `${apiBaseUrl}/api/tools/notify-manager`, method: "POST" },

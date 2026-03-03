@@ -227,6 +227,30 @@ export type OrgMessageThread = {
   messages: OrgMessage[];
 };
 
+export type CustomerBaseRecord = {
+  phoneNumber: string;
+  totalCalls: number;
+  firstCallAt: string;
+  lastCallAt: string;
+  lastOutcome: string | null;
+  flaggedVIP: boolean;
+  lead: {
+    id: string;
+    name: string;
+    business: string;
+    email: string;
+    urgency: string | null;
+    notes: string | null;
+  } | null;
+  recentCalls: Array<{
+    startedAt: string;
+    outcome: string;
+    aiSummary: string | null;
+    appointmentRequested: boolean | null;
+  }>;
+  lastSmsAt: string | null;
+};
+
 export type AdminMessageThread = OrgMessageThread & {
   organization?: {
     id: string;
@@ -248,6 +272,15 @@ export type BusinessSettings = {
   timezone: string;
   servicesJson: string;
   policiesJson: string;
+  updatedAt: string;
+};
+
+export type OrgKnowledgeFile = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
   updatedAt: string;
 };
 

@@ -13,6 +13,7 @@ const navItems = [
   { href: "/app/billing", label: "Billing" },
   { href: "/app/settings", label: "Settings" },
   { href: "/app/calls", label: "Calls" },
+  { href: "/app/customer-base", label: "Customer Base" },
   { href: "/app/messages", label: "Messages" },
   { href: "/app/leads", label: "Leads" },
   { href: "/app/analytics", label: "Analytics" }
