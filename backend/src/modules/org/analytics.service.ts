@@ -68,7 +68,7 @@ export async function computeOrgAnalytics(
     }),
     prisma.lead.findMany({
       where: { orgId, createdAt: whereWindow },
-      select: { id: true, createdAt: true, source: true }
+      select: { id: true, name: true, createdAt: true, source: true }
     }),
     prisma.messageThread.findMany({
       where: { orgId, channel: "SMS", createdAt: whereWindow },
@@ -89,6 +89,10 @@ export async function computeOrgAnalytics(
   const totalDuration = calls.reduce((sum, call) => sum + (call.durationSec || 0), 0);
   const avgCallDurationSec = totalCalls ? totalDuration / totalCalls : 0;
   const leadsCreated = leads.filter((lead) => lead.source === "PHONE_CALL").length;
+  const unknownLeadNames = leads.filter((lead) => {
+    const name = String((lead as unknown as { name?: string }).name || "").trim().toLowerCase();
+    return name === "unknown caller" || name === "unknown contact" || !name;
+  }).length;
 
   const messageStatsByThread = new Map<string, { inbound: number; outbound: number }>();
   for (const message of messages) {
@@ -117,6 +121,19 @@ export async function computeOrgAnalytics(
   const autoRecoveryLeadConversions = messages.filter(
     (message) => recoveryThreadIds.has(message.threadId) && message.direction === "INBOUND" && Boolean(message.leadId)
   ).length;
+
+  const latestCallAt = calls
+    .map((call) => call.startedAt.getTime())
+    .sort((a, b) => b - a)[0];
+  const latestLeadAt = leads
+    .map((lead) => lead.createdAt.getTime())
+    .sort((a, b) => b - a)[0];
+  const latestMessageAt = messages
+    .map((message) => message.createdAt.getTime())
+    .sort((a, b) => b - a)[0];
+  const dataFreshnessAt = [latestCallAt, latestLeadAt, latestMessageAt]
+    .filter((value): value is number => Number.isFinite(value))
+    .sort((a, b) => b - a)[0];
 
   const dayKeys: string[] = [];
   const callsByDay = new Map<string, number>();
@@ -164,7 +181,9 @@ export async function computeOrgAnalytics(
       missedCalls,
       callQualityAverage,
       autoRecoverySent,
-      autoRecoveryLeadConversions
+      autoRecoveryLeadConversions,
+      unknownNameRate: safeDivide(unknownLeadNames, leads.length),
+      dataFreshnessAt: dataFreshnessAt ? new Date(dataFreshnessAt).toISOString() : null
     },
     charts: {
       callsPerDay: dayKeys.map((day) => ({ day, value: callsByDay.get(day) || 0 })),

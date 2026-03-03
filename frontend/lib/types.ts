@@ -229,6 +229,8 @@ export type OrgMessageThread = {
 
 export type CustomerBaseRecord = {
   phoneNumber: string;
+  displayName: string;
+  nameConfidence: "HIGH" | "MEDIUM" | "LOW";
   totalCalls: number;
   firstCallAt: string;
   lastCallAt: string;
@@ -412,12 +414,64 @@ export type OrgAnalytics = {
     smsEngagementRate: number;
     appointmentRequests: number;
     missedCalls: number;
+    callQualityAverage: number;
+    autoRecoverySent: number;
+    autoRecoveryLeadConversions: number;
+    unknownNameRate: number;
+    dataFreshnessAt: string | null;
   };
   charts: {
     callsPerDay: Array<{ day: string; value: number }>;
     leadsPerDay: Array<{ day: string; value: number }>;
     outcomeBreakdown: Array<{ outcome: string; value: number }>;
   };
+};
+
+export type OrgDataQuality = {
+  window: "30d";
+  unknownNameRate: number;
+  unknownNameCount: number;
+  leadCount: number;
+  missingLeadLinkageCount: number;
+  completedCallCount: number;
+  duplicateLeadCandidates: Array<{ phone: string; count: number }>;
+};
+
+export type OrgMessagingReadiness = {
+  state: "A2P_REGISTERED" | "A2P_PENDING" | "A2P_BLOCKED";
+  provider: "TWILIO" | "VAPI" | null;
+  assignedNumber: string | null;
+  plan: "STARTER" | "PRO" | null;
+  subscriptionStatus: string | null;
+  billingActive: boolean;
+  canSendOperationalSms: boolean;
+  reasons: string[];
+};
+
+export type AdminSystemDashboard = {
+  inboundCalls: { last5m: number; last1h: number; last24h: number };
+  webhookSuccessRate: number;
+  twilioErrorRate: number;
+  vapiProcessingErrorRate: number;
+  slaSeverityByOrg: Array<{ orgId: string; orgName: string; severity: "INFO" | "WARN" | "CRITICAL" }>;
+  callsByRoutingTier: Array<{ tier: number; count: number }>;
+  autoRecoveryVolumeLast24h: number;
+  callsMissingLeadLinkage: number;
+  callsStuckNonTerminalOver1h: number;
+};
+
+export type AdminSystemReadiness = {
+  webhookSuccessRate: number;
+  avgCallQuality: number;
+  autoRecoveryRate: number;
+  leadLinkageRate: number;
+  P1IncidentCountLast30d: number;
+  SLAStatusDistribution: {
+    INFO: number;
+    WARN: number;
+    CRITICAL: number;
+  };
+  DataIntegrityAnomalies: number;
 };
 
 export type OrgHealth = {

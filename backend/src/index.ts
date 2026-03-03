@@ -25,6 +25,7 @@ import { vapiRouter } from "./modules/voice/vapi/vapi.routes";
 import { voiceRouter } from "./modules/voice/voice.routes";
 import { backfillMissedVapiCalls } from "./modules/admin/backfill.service";
 import { runSlaMonitorTick } from "./modules/ops/sla-monitor.service";
+import { runDataIntegrityGuardTick } from "./modules/ops/data-integrity-guard.service";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -119,6 +120,7 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 const PORT = process.env.PORT || "3001";
 let backfillTimer: NodeJS.Timeout | null = null;
 let slaMonitorTimer: NodeJS.Timeout | null = null;
+let dataIntegrityGuardTimer: NodeJS.Timeout | null = null;
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -147,13 +149,37 @@ function startVapiBackfillWorker() {
         if (result.resolved > 0 || result.skipped > 0) {
           // eslint-disable-next-line no-console
           console.log(
-            `[vapi-backfill] scanned=${result.scanned} resolved=${result.resolved} skipped=${result.skipped}`
+            JSON.stringify({
+              orgId: "-",
+              provider: "VAPI",
+              endpoint: "worker:vapi-backfill",
+              eventType: "BACKFILL_TICK",
+              requestId: "-",
+              providerCallId: "-",
+              latencyMs: null,
+              status: "OK",
+              scanned: result.scanned,
+              resolved: result.resolved,
+              skipped: result.skipped
+            })
           );
         }
       })
       .catch((error) => {
         // eslint-disable-next-line no-console
-        console.error("[vapi-backfill] failed", error);
+        console.error(
+          JSON.stringify({
+            orgId: "-",
+            provider: "VAPI",
+            endpoint: "worker:vapi-backfill",
+            eventType: "BACKFILL_TICK",
+            requestId: "-",
+            providerCallId: "-",
+            latencyMs: null,
+            status: "ERROR",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        );
       });
   }, interval);
 }
@@ -166,8 +192,65 @@ function startSlaMonitorWorker() {
   slaMonitorTimer = setInterval(() => {
     void runSlaMonitorTick(prisma).catch((error) => {
       // eslint-disable-next-line no-console
-      console.error("[sla-monitor] failed", error);
+      console.error(
+        JSON.stringify({
+          orgId: "-",
+          provider: "SYSTEM",
+          endpoint: "worker:sla-monitor",
+          eventType: "SLA_MONITOR_TICK",
+          requestId: "-",
+          providerCallId: "-",
+          latencyMs: null,
+          status: "ERROR",
+          message: error instanceof Error ? error.message : "unknown_error"
+        })
+      );
     });
+  }, interval);
+}
+
+function startDataIntegrityGuardWorker() {
+  if (env.DATA_INTEGRITY_GUARD_ENABLED !== "true") return;
+  const interval = Number.parseInt(env.DATA_INTEGRITY_GUARD_INTERVAL_MS, 10);
+  if (!Number.isFinite(interval) || interval < 60_000) return;
+
+  dataIntegrityGuardTimer = setInterval(() => {
+    void runDataIntegrityGuardTick(prisma)
+      .then((result) => {
+        if (result.anomaliesLogged > 0 || result.repairedLeadLinks > 0) {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify({
+              orgId: "-",
+              provider: "SYSTEM",
+              endpoint: "worker:data-integrity-guard",
+              eventType: "DATA_INTEGRITY_TICK",
+              requestId: "-",
+              providerCallId: "-",
+              latencyMs: null,
+              status: "OK",
+              anomaliesLogged: result.anomaliesLogged,
+              repairedLeadLinks: result.repairedLeadLinks
+            })
+          );
+        }
+      })
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify({
+            orgId: "-",
+            provider: "SYSTEM",
+            endpoint: "worker:data-integrity-guard",
+            eventType: "DATA_INTEGRITY_TICK",
+            requestId: "-",
+            providerCallId: "-",
+            latencyMs: null,
+            status: "ERROR",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        );
+      });
   }, interval);
 }
 
@@ -175,6 +258,7 @@ void (async () => {
   await ensureAdminUser();
   startVapiBackfillWorker();
   startSlaMonitorWorker();
+  startDataIntegrityGuardWorker();
   app.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -184,6 +268,7 @@ void (async () => {
 const shutdown = async () => {
   if (backfillTimer) clearInterval(backfillTimer);
   if (slaMonitorTimer) clearInterval(slaMonitorTimer);
+  if (dataIntegrityGuardTimer) clearInterval(dataIntegrityGuardTimer);
   await prisma.$disconnect();
   process.exit(0);
 };

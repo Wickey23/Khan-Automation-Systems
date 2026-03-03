@@ -126,3 +126,13 @@ export const eventsFilterSchema = z.object({
   to: z.string().optional(),
   limit: z.string().optional()
 });
+
+export const relinkCallSchema = z.object({
+  callId: z.string().min(1),
+  leadId: z.string().min(1)
+});
+
+export const mergeLeadsSchema = z.object({
+  primaryLeadId: z.string().min(1),
+  duplicateLeadIds: z.array(z.string().min(1)).min(1).max(50)
+});

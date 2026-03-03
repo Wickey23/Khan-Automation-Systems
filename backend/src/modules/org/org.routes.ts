@@ -70,6 +70,58 @@ function normalizeOutcome(input: unknown) {
   return null;
 }
 
+function inferNameFromSummary(summary: string) {
+  const source = String(summary || "").trim();
+  if (!source) return "";
+  const stopWords = new Set([
+    "sorry",
+    "help",
+    "issue",
+    "problem",
+    "phone",
+    "number",
+    "looking",
+    "escalating",
+    "customer",
+    "caller",
+    "unknown",
+    "support",
+    "service",
+    "name",
+    "from"
+  ]);
+  const patterns = [
+    /\bmy name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bthis is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
+    /\bi(?:'m| am)\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,1})\b/i,
+    /\b([A-Za-z][A-Za-z'-]+\s+[A-Za-z][A-Za-z'-]+)\s+called\b/i
+  ];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    const raw = match?.[1]?.trim() || "";
+    if (!raw) continue;
+    const cleaned = raw
+      .replace(/\b(from|and|but)\b.*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned) continue;
+    const parts = cleaned.split(" ").filter(Boolean);
+    if (!parts.length || parts.length > 3) continue;
+    if (parts.some((part) => stopWords.has(part.toLowerCase()))) continue;
+    if (parts.length === 1 && parts[0].length < 2) continue;
+    return parts
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return "";
+}
+
+function isPlaceholderName(input: string) {
+  const value = String(input || "").trim().toLowerCase();
+  if (!value) return true;
+  return value === "unknown caller" || value === "unknown contact";
+}
+
 function pickRowValue(row: Record<string, unknown>, keys: string[]) {
   const map = new Map<string, unknown>();
   for (const [key, value] of Object.entries(row)) {
@@ -537,8 +589,22 @@ orgRouter.get("/customer-base", async (req: AuthenticatedRequest, res) => {
     const lead = leadByPhone.get(key) || null;
     const recentCalls = callsByPhone.get(key) || [];
     const lastThread = threadByPhone.get(key) || null;
+    const leadName = String(lead?.name || "").trim();
+    const summaryName = recentCalls
+      .map((call) => inferNameFromSummary(String(call.aiSummary || "")))
+      .find((name) => Boolean(name));
+    const displayName = !isPlaceholderName(leadName)
+      ? leadName
+      : summaryName || (leadName || "Unknown contact");
+    const nameConfidence: "HIGH" | "MEDIUM" | "LOW" = !isPlaceholderName(leadName)
+      ? "HIGH"
+      : summaryName
+        ? "MEDIUM"
+        : "LOW";
     return {
       phoneNumber: profile.phoneNumber,
+      displayName,
+      nameConfidence,
       totalCalls: profile.totalCalls,
       firstCallAt: profile.firstCallAt,
       lastCallAt: profile.lastCallAt,
@@ -574,6 +640,127 @@ orgRouter.get("/customer-base", async (req: AuthenticatedRequest, res) => {
         withLead: customers.filter((c) => Boolean(c.lead)).length,
         repeatCallers: customers.filter((c) => c.totalCalls > 1).length
       }
+    }
+  });
+});
+
+orgRouter.get("/data-quality", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [leads, completedCalls, allLeadPhones] = await Promise.all([
+    prisma.lead.findMany({
+      where: { orgId: req.auth.orgId, createdAt: { gte: since30d } },
+      select: { id: true, name: true, phone: true }
+    }),
+    prisma.callLog.findMany({
+      where: {
+        orgId: req.auth.orgId,
+        startedAt: { gte: since30d },
+        OR: [{ completedAt: { not: null } }, { endedAt: { not: null } }, { state: "COMPLETED" }]
+      },
+      select: { id: true, leadId: true }
+    }),
+    prisma.lead.findMany({
+      where: { orgId: req.auth.orgId, phone: { not: "" } },
+      select: { phone: true }
+    })
+  ]);
+
+  const unknownLeadNames = leads.filter((lead) => isPlaceholderName(lead.name)).length;
+  const missingLeadCount = completedCalls.filter((call) => !call.leadId).length;
+  const phoneCounts = new Map<string, number>();
+  for (const lead of allLeadPhones) {
+    const key = normalizePhoneE164(lead.phone);
+    if (!key) continue;
+    phoneCounts.set(key, (phoneCounts.get(key) || 0) + 1);
+  }
+  const duplicateLeadCandidates = [...phoneCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([phone, count]) => ({ phone, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 100);
+
+  return res.json({
+    ok: true,
+    data: {
+      window: "30d",
+      unknownNameRate: leads.length ? unknownLeadNames / leads.length : 0,
+      unknownNameCount: unknownLeadNames,
+      leadCount: leads.length,
+      missingLeadLinkageCount: missingLeadCount,
+      completedCallCount: completedCalls.length,
+      duplicateLeadCandidates
+    }
+  });
+});
+
+orgRouter.get("/messaging-readiness", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [subscription, activePhone, recentFailures, recentSuccessCount] = await Promise.all([
+    prisma.subscription.findFirst({
+      where: { orgId: req.auth.orgId },
+      orderBy: { createdAt: "desc" },
+      select: { plan: true, status: true }
+    }),
+    prisma.phoneNumber.findFirst({
+      where: { orgId: req.auth.orgId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { provider: true, e164Number: true }
+    }),
+    prisma.message.findMany({
+      where: { orgId: req.auth.orgId, provider: "TWILIO", status: "FAILED", createdAt: { gte: since7d } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { errorText: true }
+    }),
+    prisma.message.count({
+      where: {
+        orgId: req.auth.orgId,
+        provider: "TWILIO",
+        direction: "OUTBOUND",
+        status: { in: ["SENT", "DELIVERED"] },
+        createdAt: { gte: since30d }
+      }
+    })
+  ]);
+
+  const billingActive = Boolean(
+    subscription && ["active", "trialing"].includes(String(subscription.status || "").toLowerCase())
+  );
+  const proPlan = subscription?.plan === "PRO";
+  const reasons: string[] = [];
+  if (!activePhone) reasons.push("No active phone number is assigned.");
+  if (!proPlan) reasons.push("Messaging automation is Pro-only.");
+  if (!billingActive) reasons.push("Billing is not active.");
+  if (activePhone?.provider !== "TWILIO") reasons.push("SMS readiness currently requires a Twilio number.");
+
+  const a2pBlockedFailure = recentFailures.find((message) => {
+    const text = String(message.errorText || "").toLowerCase();
+    return text.includes("a2p") || text.includes("10dlc") || text.includes("30034") || text.includes("30007");
+  });
+  if (a2pBlockedFailure) reasons.push("Recent outbound failures indicate A2P registration or filtering issues.");
+
+  const state =
+    reasons.length > 0
+      ? "A2P_BLOCKED"
+      : recentSuccessCount > 0
+        ? "A2P_REGISTERED"
+        : "A2P_PENDING";
+
+  return res.json({
+    ok: true,
+    data: {
+      state,
+      provider: activePhone?.provider || null,
+      assignedNumber: activePhone?.e164Number || null,
+      plan: subscription?.plan || null,
+      subscriptionStatus: subscription?.status || null,
+      billingActive,
+      canSendOperationalSms: state !== "A2P_BLOCKED" && proPlan && billingActive && activePhone?.provider === "TWILIO",
+      reasons
     }
   });
 });

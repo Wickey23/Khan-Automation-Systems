@@ -25,13 +25,17 @@ import {
   updateProspectSchema,
   updateAiConfigSchema,
   updateClientStatusSchema,
-  updateLeadSchema
+  updateLeadSchema,
+  relinkCallSchema,
+  mergeLeadsSchema
 } from "./admin.schema";
 import { backfillMissedVapiCalls } from "./backfill.service";
 import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./provisioning.service";
 import { computeReadinessReport } from "./readiness.service";
 import { computeOrgHealth } from "../org/health.service";
 import { ensureDefaultTestScenarios, getTestPassSummary } from "./testing.service";
+import { validateGoLiveBusinessConfig } from "./config-validation.service";
+import { computeOperatorDashboard, computeSystemReadiness } from "./system-ops.service";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
@@ -860,6 +864,16 @@ adminRouter.get("/events", async (req, res) => {
   return res.json({ ok: true, data: { events } });
 });
 
+adminRouter.get("/system/dashboard", async (_req: AuthenticatedRequest, res) => {
+  const dashboard = await computeOperatorDashboard(prisma);
+  return res.json({ ok: true, data: dashboard });
+});
+
+adminRouter.get("/system/readiness", async (_req: AuthenticatedRequest, res) => {
+  const readiness = await computeSystemReadiness(prisma);
+  return res.json({ ok: true, data: readiness });
+});
+
 adminRouter.get("/vapi/resources", async (_req, res) => {
   if (!env.VAPI_API_KEY) {
     return res.json({
@@ -1569,6 +1583,15 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
       data: { missingChecks: missing, readiness }
     });
   }
+  const settings = await prisma.businessSettings.findUnique({ where: { orgId: req.params.id } });
+  const configValidation = validateGoLiveBusinessConfig(settings);
+  if (!configValidation.ok) {
+    return res.status(400).json({
+      ok: false,
+      message: "Go-live blocked by configuration validation.",
+      data: { issues: configValidation.issues }
+    });
+  }
   const org = await prisma.organization.update({
     where: { id: req.params.id },
     data: { live: true, status: "LIVE", goLiveAt: new Date() }
@@ -1582,6 +1605,111 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
     action: "LIVE_ENABLED"
   });
   return res.json({ ok: true, data: { org } });
+});
+
+adminRouter.post("/orgs/:id/repair/relink-call", async (req: AuthenticatedRequest, res) => {
+  const parsed = relinkCallSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid relink payload.", errors: parsed.error.flatten() });
+  }
+
+  const call = await prisma.callLog.findFirst({
+    where: { orgId: req.params.id, OR: [{ id: parsed.data.callId }, { providerCallId: parsed.data.callId }] },
+    select: { id: true, providerCallId: true }
+  });
+  if (!call) return res.status(404).json({ ok: false, message: "Call not found for this organization." });
+
+  const lead = await prisma.lead.findFirst({
+    where: { orgId: req.params.id, id: parsed.data.leadId },
+    select: { id: true }
+  });
+  if (!lead) return res.status(404).json({ ok: false, message: "Lead not found for this organization." });
+
+  await prisma.callLog.update({ where: { id: call.id }, data: { leadId: lead.id } });
+
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "DATA_REPAIR_RELINK_CALL",
+    metadata: {
+      orgId: req.params.id,
+      provider: "SYSTEM",
+      endpoint: "/api/admin/orgs/:id/repair/relink-call",
+      eventType: "DATA_REPAIR",
+      requestId: req.requestId || "-",
+      providerCallId: call.providerCallId || "-",
+      latencyMs: null,
+      status: "OK",
+      callId: call.id,
+      leadId: lead.id
+    }
+  });
+
+  return res.json({ ok: true, data: { callId: call.id, leadId: lead.id } });
+});
+
+adminRouter.post("/orgs/:id/repair/merge-leads", async (req: AuthenticatedRequest, res) => {
+  const parsed = mergeLeadsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid merge payload.", errors: parsed.error.flatten() });
+  }
+  const duplicateLeadIds = parsed.data.duplicateLeadIds.filter((id) => id !== parsed.data.primaryLeadId);
+  if (!duplicateLeadIds.length) return res.status(400).json({ ok: false, message: "No duplicate leads to merge." });
+
+  const primaryLead = await prisma.lead.findFirst({
+    where: { orgId: req.params.id, id: parsed.data.primaryLeadId },
+    select: { id: true }
+  });
+  if (!primaryLead) return res.status(404).json({ ok: false, message: "Primary lead not found for this organization." });
+
+  const duplicates = await prisma.lead.findMany({
+    where: { orgId: req.params.id, id: { in: duplicateLeadIds } },
+    select: { id: true }
+  });
+  if (!duplicates.length) return res.status(404).json({ ok: false, message: "Duplicate leads not found for this organization." });
+  const mergeIds = duplicates.map((row) => row.id);
+
+  await prisma.$transaction([
+    prisma.callLog.updateMany({
+      where: { orgId: req.params.id, leadId: { in: mergeIds } },
+      data: { leadId: primaryLead.id }
+    }),
+    prisma.messageThread.updateMany({
+      where: { orgId: req.params.id, leadId: { in: mergeIds } },
+      data: { leadId: primaryLead.id }
+    }),
+    prisma.message.updateMany({
+      where: { orgId: req.params.id, leadId: { in: mergeIds } },
+      data: { leadId: primaryLead.id }
+    }),
+    prisma.lead.deleteMany({
+      where: { orgId: req.params.id, id: { in: mergeIds } }
+    })
+  ]);
+
+  await writeAuditLog({
+    prisma,
+    orgId: req.params.id,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role,
+    action: "DATA_REPAIR_MERGE_LEADS",
+    metadata: {
+      orgId: req.params.id,
+      provider: "SYSTEM",
+      endpoint: "/api/admin/orgs/:id/repair/merge-leads",
+      eventType: "DATA_REPAIR",
+      requestId: req.requestId || "-",
+      providerCallId: "-",
+      latencyMs: null,
+      status: "OK",
+      primaryLeadId: primaryLead.id,
+      duplicateLeadIds: mergeIds
+    }
+  });
+
+  return res.json({ ok: true, data: { primaryLeadId: primaryLead.id, mergedLeadIds: mergeIds } });
 });
 
 adminRouter.post("/orgs/:id/pause", async (req: AuthenticatedRequest, res) => {

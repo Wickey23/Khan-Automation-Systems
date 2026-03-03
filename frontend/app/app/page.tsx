@@ -2,8 +2,22 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fetchOrgHealth, fetchOrgOnboarding, fetchOrgProfile, getBillingStatus } from "@/lib/api";
-import type { OnboardingSubmission, Organization, OrgHealth, OrgSubscription } from "@/lib/types";
+import {
+  fetchOrgDataQuality,
+  fetchOrgHealth,
+  fetchOrgMessagingReadiness,
+  fetchOrgOnboarding,
+  fetchOrgProfile,
+  getBillingStatus
+} from "@/lib/api";
+import type {
+  OnboardingSubmission,
+  Organization,
+  OrgDataQuality,
+  OrgHealth,
+  OrgMessagingReadiness,
+  OrgSubscription
+} from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AppOverviewPage() {
@@ -13,16 +27,27 @@ export default function AppOverviewPage() {
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [health, setHealth] = useState<OrgHealth | null>(null);
+  const [dataQuality, setDataQuality] = useState<OrgDataQuality | null>(null);
+  const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
 
   useEffect(() => {
-    void Promise.all([fetchOrgProfile(), fetchOrgOnboarding(), getBillingStatus(), fetchOrgHealth()])
-      .then(([org, onboarding, billing, orgHealth]) => {
+    void Promise.all([
+      fetchOrgProfile(),
+      fetchOrgOnboarding(),
+      getBillingStatus(),
+      fetchOrgHealth(),
+      fetchOrgDataQuality(),
+      fetchOrgMessagingReadiness()
+    ])
+      .then(([org, onboarding, billing, orgHealth, orgDataQuality, orgMessagingReadiness]) => {
         setOrganization(org.organization);
         setAssignedPhoneNumber(org.assignedPhoneNumber);
         setAssignedNumberProvider(org.assignedNumberProvider);
         setSubmission(onboarding.submission);
         setSubscription(billing.subscription);
         setHealth(orgHealth);
+        setDataQuality(orgDataQuality);
+        setMessagingReadiness(orgMessagingReadiness);
       })
       .catch(() => null);
   }, []);
@@ -77,6 +102,24 @@ export default function AppOverviewPage() {
           <CardContent className="text-sm">
             <p>{assignedPhoneNumber || "Not assigned yet"}</p>
             <p className="text-muted-foreground">Provider: {assignedNumberProvider || "-"}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Data Quality</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>Unknown names: {Math.round((dataQuality?.unknownNameRate || 0) * 100)}%</p>
+            <p className="text-muted-foreground">Missing lead links: {dataQuality?.missingLeadLinkageCount ?? "-"}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Messaging Readiness</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>{messagingReadiness?.state || "Unknown"}</p>
+            <p className="text-muted-foreground">{messagingReadiness?.reasons?.[0] || "No blocking issues detected."}</p>
           </CardContent>
         </Card>
       </div>

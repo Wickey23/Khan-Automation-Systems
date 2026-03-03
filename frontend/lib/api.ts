@@ -24,9 +24,13 @@ import type {
   OrgMessageThread,
   OrgSubscription,
   OrgAnalytics,
+  OrgDataQuality,
   OrgHealth,
   OrgKnowledgeFile,
+  OrgMessagingReadiness,
   PublicSystemStatus,
+  AdminSystemDashboard,
+  AdminSystemReadiness,
   PhoneLine,
   Setting,
   TestScenario
@@ -379,6 +383,14 @@ export async function fetchOrgAnalytics(params: { range?: "7d" | "30d" | "custom
   return request<OrgAnalytics>(`/api/org/analytics${query.toString() ? `?${query.toString()}` : ""}`);
 }
 
+export async function fetchOrgDataQuality() {
+  return request<OrgDataQuality>("/api/org/data-quality");
+}
+
+export async function fetchOrgMessagingReadiness() {
+  return request<OrgMessagingReadiness>("/api/org/messaging-readiness");
+}
+
 export async function fetchOrgHealth() {
   return request<OrgHealth>("/api/org/health");
 }
@@ -629,6 +641,14 @@ export async function backfillMissedVapiCalls() {
   return request<{ scanned: number; resolved: number; skipped: number }>("/api/admin/system/backfill-vapi-calls", {
     method: "POST"
   });
+}
+
+export async function fetchAdminSystemDashboard() {
+  return request<AdminSystemDashboard>("/api/admin/system/dashboard");
+}
+
+export async function fetchAdminSystemReadiness() {
+  return request<AdminSystemReadiness>("/api/admin/system/readiness");
 }
 
 export async function fetchProspects(query: string) {

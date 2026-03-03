@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lock } from "lucide-react";
-import { fetchOrgMessages, getBillingStatus, sendOrgMessage } from "@/lib/api";
+import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, sendOrgMessage } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
-import type { OrgMessageThread } from "@/lib/types";
+import type { OrgMessageThread, OrgMessagingReadiness } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 
 function formatWhen(value: string) {
@@ -24,10 +24,15 @@ export default function AppMessagesPage() {
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [canSendMessages, setCanSendMessages] = useState(false);
+  const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [messagesData, billingData] = await Promise.all([fetchOrgMessages(), getBillingStatus()]);
+      const [messagesData, billingData, readinessData] = await Promise.all([
+        fetchOrgMessages(),
+        getBillingStatus(),
+        fetchOrgMessagingReadiness()
+      ]);
       const subscription = billingData.subscription;
       const featureAccess = resolvePlanFeatures({
         plan: subscription?.plan,
@@ -37,6 +42,7 @@ export default function AppMessagesPage() {
       setSubscriptionPlan(featureAccess.plan);
       setSubscriptionStatus(subscription?.status || null);
       setCanSendMessages(featureAccess.messaging);
+      setMessagingReadiness(readinessData);
 
       const data = messagesData;
       setThreads(data.threads);
@@ -50,6 +56,7 @@ export default function AppMessagesPage() {
       setSubscriptionPlan(null);
       setSubscriptionStatus(null);
       setCanSendMessages(false);
+      setMessagingReadiness(null);
     }
   }, []);
 
@@ -122,6 +129,16 @@ export default function AppMessagesPage() {
       <div className="rounded-lg border bg-white p-3 text-sm">
         Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
         {assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}
+      </div>
+      <div className="rounded-lg border bg-white p-3 text-sm">
+        Messaging readiness: <span className="font-medium">{messagingReadiness?.state || "Unknown"}</span>
+        {messagingReadiness?.reasons?.length ? (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+            {messagingReadiness.reasons.slice(0, 3).map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">

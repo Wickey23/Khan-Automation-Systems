@@ -5,73 +5,6 @@ import { fetchCustomerBase, importCustomerBase } from "@/lib/api";
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 
-function extractCallerName(text: string) {
-  const source = String(text || "").trim();
-  if (!source) return "";
-
-  const stopWords = new Set([
-    "sorry",
-    "help",
-    "issue",
-    "problem",
-    "phone",
-    "number",
-    "looking",
-    "escalating",
-    "customer",
-    "caller",
-    "unknown",
-    "support",
-    "service",
-    "name",
-    "from"
-  ]);
-
-  const patterns = [
-    /\bmy name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
-    /\bthis is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
-    /\bi(?:'m| am)\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,1})\b/i,
-    /\b([A-Za-z][A-Za-z'-]+\s+[A-Za-z][A-Za-z'-]+)\s+called\b/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = source.match(pattern);
-    const raw = match?.[1]?.trim() || "";
-    if (!raw) continue;
-
-    const cleaned = raw
-      .replace(/\b(from|and|but)\b.*$/i, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!cleaned) continue;
-
-    const parts = cleaned.split(" ").filter(Boolean);
-    if (!parts.length || parts.length > 3) continue;
-    if (parts.some((part) => stopWords.has(part.toLowerCase()))) continue;
-    if (parts.length === 1 && parts[0].length < 2) continue;
-
-    return parts
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(" ");
-  }
-
-  return "";
-}
-
-function getDisplayName(customer: CustomerBaseRecord) {
-  const leadName = (customer.lead?.name || "").trim();
-  if (leadName && leadName.toLowerCase() !== "unknown caller" && leadName.toLowerCase() !== "unknown contact") {
-    return leadName;
-  }
-
-  for (const call of customer.recentCalls || []) {
-    const guessed = extractCallerName(call.aiSummary || "");
-    if (guessed) return guessed;
-  }
-
-  return leadName || "Unknown contact";
-}
-
 export default function CustomerBasePage() {
   const { showToast } = useToast();
   const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
@@ -235,13 +168,14 @@ export default function CustomerBasePage() {
             {filtered.map((customer) => (
               <div key={customer.phoneNumber} className="rounded-md border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold">{getDisplayName(customer)}</p>
+                  <p className="font-semibold">{customer.displayName || "Unknown contact"}</p>
                   <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Calls: {customer.totalCalls} | Last outcome: {customer.lastOutcome || "n/a"} | Last call:{" "}
                   {new Date(customer.lastCallAt).toLocaleString()}
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">Name confidence: {customer.nameConfidence}</p>
                 {customer.lead ? (
                   <p className="mt-1 text-sm">
                     {customer.lead.business} {customer.lead.email ? `| ${customer.lead.email}` : ""}

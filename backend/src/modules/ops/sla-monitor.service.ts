@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
 import { emitRuntimeEvent } from "../runtime/runtime-events.service";
+import { escalateIncident, openIncident, resolveIncident } from "./incident.service";
 
 export type SlaSeverity = "INFO" | "WARN" | "CRITICAL";
 
@@ -149,7 +150,39 @@ export async function runSlaMonitorTick(prisma: PrismaClient) {
         orgId,
         payload
       });
+      if (next.severity === "WARN") {
+        await openIncident({
+          prisma,
+          orgId,
+          severity: "P2",
+          rootCauseHint: "SLA_WARN_THRESHOLD_BREACH",
+          provider: "SYSTEM",
+          endpoint: "sla-monitor",
+          eventType: "SLA",
+          status: "OPEN",
+          details: payload
+        });
+      } else if (next.severity === "CRITICAL") {
+        await escalateIncident({
+          prisma,
+          orgId,
+          reason: "SLA escalated to CRITICAL",
+          details: payload
+        });
+      }
+    } else if (prev.severity !== "INFO" && next.severity === "INFO") {
+      await resolveIncident({
+        prisma,
+        orgId,
+        resolution: "SLA recovered to INFO",
+        details: {
+          previousSeverity: prev.severity,
+          severity: next.severity,
+          webhookFailures: webhookFailuresCount,
+          twilioErrors: twilioErrorsCount,
+          vapiErrors: vapiErrorsCount
+        }
+      });
     }
   }
 }
-

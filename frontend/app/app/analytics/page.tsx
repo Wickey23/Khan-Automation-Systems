@@ -73,6 +73,9 @@ export default function AppAnalyticsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Revenue and operations view of call handling, lead capture, and messaging performance.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Data freshness: {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "n/a"}
+          </p>
         </div>
         <div className="inline-flex rounded-md border bg-white p-1">
           {(["7d", "30d"] as const).map((option) => (
@@ -127,6 +130,14 @@ export default function AppAnalyticsPage() {
         <div className="rounded-lg border bg-white p-4" title="Calls marked MISSED in the selected range.">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Missed Calls</p>
           <p className="mt-1 text-2xl font-semibold">{kpis?.missedCalls ?? "-"}</p>
+        </div>
+        <div className="rounded-lg border bg-white p-4" title="Average quality score for calls with computed quality.">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Call Quality Avg</p>
+          <p className="mt-1 text-2xl font-semibold">{kpis ? Math.round(kpis.callQualityAverage) : "-"}</p>
+        </div>
+        <div className="rounded-lg border bg-white p-4" title="Percent of newly created leads still using placeholder names.">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Unknown Name Rate</p>
+          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.unknownNameRate) : "-"}</p>
         </div>
       </div>
 
