@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import {
   cancelOrgAppointment,
   completeOrgAppointment,
+  createOrgAppointment,
+  fetchAppointmentAvailability,
+  fetchCalendarProviders,
   fetchOrgAppointments,
   getMe,
   patchOrgAppointment
 } from "@/lib/api";
-import type { Appointment } from "@/lib/types";
+import type { Appointment, CalendarConnection } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 
@@ -19,8 +22,18 @@ export default function AppAppointmentsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [canWrite, setCanWrite] = useState(false);
+  const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
+  const [slotDate, setSlotDate] = useState("");
+  const [slotTimezone, setSlotTimezone] = useState("America/New_York");
+  const [slotProvider, setSlotProvider] = useState<"INTERNAL" | "GOOGLE" | "OUTLOOK">("INTERNAL");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [issueSummary, setIssueSummary] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<Array<{ startAt: string; endAt: string }>>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [creatingSlot, setCreatingSlot] = useState<string | null>(null);
 
   async function load(nextStatus: Appointment["status"] | "ALL" = status, nextFrom = fromDate, nextTo = toDate) {
     setLoading(true);
@@ -48,10 +61,17 @@ export default function AppAppointmentsPage() {
     void getMe()
       .then((me) => {
         setCanWrite(me.user.role !== "CLIENT");
+        if (me.user.role !== "CLIENT") {
+          void fetchCalendarProviders()
+            .then((data) => setCalendarProviders(data.providers || []))
+            .catch(() => setCalendarProviders([]));
+        }
       })
       .catch(() => {
         setCanWrite(false);
       });
+    const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (localTz) setSlotTimezone(localTz);
   }, []);
 
   async function onConfirm(id: string) {
@@ -104,6 +124,73 @@ export default function AppAppointmentsPage() {
       setSavingId(null);
     }
   }
+
+  async function onFetchSlots() {
+    if (!slotDate) {
+      showToast({ title: "Select a date", description: "Choose a date before fetching availability.", variant: "error" });
+      return;
+    }
+    setLoadingSlots(true);
+    try {
+      const from = new Date(`${slotDate}T00:00:00`);
+      const to = new Date(`${slotDate}T23:59:59`);
+      const data = await fetchAppointmentAvailability({
+        from: from.toISOString(),
+        to: to.toISOString()
+      });
+      setAvailableSlots(data.slots || []);
+      if ((data.slots || []).length === 0) {
+        showToast({ title: "No slots found", description: "No available times for the selected day." });
+      }
+    } catch (error) {
+      setAvailableSlots([]);
+      showToast({
+        title: "Could not fetch slots",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setLoadingSlots(false);
+    }
+  }
+
+  async function onCreateFromSlot(slot: { startAt: string; endAt: string }) {
+    if (!customerName.trim() || !customerPhone.trim() || !issueSummary.trim()) {
+      showToast({
+        title: "Missing details",
+        description: "Add customer name, phone, and issue summary before booking.",
+        variant: "error"
+      });
+      return;
+    }
+    setCreatingSlot(slot.startAt);
+    try {
+      await createOrgAppointment({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        issueSummary: issueSummary.trim(),
+        startAt: slot.startAt,
+        endAt: slot.endAt,
+        timezone: slotTimezone,
+        calendarProvider: slotProvider,
+        idempotencyKey: `slot-${new Date(slot.startAt).getTime()}-${Date.now()}`
+      });
+      showToast({ title: "Appointment created" });
+      setAvailableSlots([]);
+      await load();
+    } catch (error) {
+      showToast({
+        title: "Could not create appointment",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setCreatingSlot(null);
+    }
+  }
+
+  const hasGoogle = calendarProviders.some((provider) => provider.provider === "GOOGLE" && provider.isActive);
+  const hasOutlook = calendarProviders.some((provider) => provider.provider === "OUTLOOK" && provider.isActive);
 
   return (
     <div className="space-y-4">
@@ -160,6 +247,86 @@ export default function AppAppointmentsPage() {
           </label>
         </div>
       </div>
+
+      {canWrite ? (
+        <div className="rounded-lg border bg-white p-4">
+          <h2 className="text-lg font-semibold">Create appointment</h2>
+          <p className="text-sm text-muted-foreground">Select a day, pull available slots, then book a confirmed or internal pending appointment.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer name</span>
+              <input
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="Jane Smith"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer phone</span>
+              <input
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={customerPhone}
+                onChange={(event) => setCustomerPhone(event.target.value)}
+                placeholder="+15165551234"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Calendar provider</span>
+              <select
+                value={slotProvider}
+                onChange={(event) => setSlotProvider(event.target.value as "INTERNAL" | "GOOGLE" | "OUTLOOK")}
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              >
+                <option value="INTERNAL">INTERNAL</option>
+                {hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
+                {hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Date</span>
+              <input
+                type="date"
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={slotDate}
+                onChange={(event) => setSlotDate(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="mt-3 block text-sm">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue summary</span>
+            <input
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              value={issueSummary}
+              onChange={(event) => setIssueSummary(event.target.value)}
+              placeholder="No heat, furnace inspection requested"
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => void onFetchSlots()} disabled={loadingSlots}>
+              {loadingSlots ? "Loading slots..." : "Find available slots"}
+            </Button>
+            <span className="text-xs text-muted-foreground">Timezone: {slotTimezone}</span>
+          </div>
+          {availableSlots.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {availableSlots.map((slot) => (
+                <Button
+                  key={slot.startAt}
+                  size="sm"
+                  variant="outline"
+                  disabled={creatingSlot === slot.startAt}
+                  onClick={() => void onCreateFromSlot(slot)}
+                >
+                  {creatingSlot === slot.startAt
+                    ? "Booking..."
+                    : `${new Date(slot.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} - ${new Date(slot.endAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-lg border bg-white">
         <table className="w-full min-w-[980px] text-left text-sm">
