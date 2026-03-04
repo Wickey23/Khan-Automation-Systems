@@ -282,6 +282,19 @@ teamRouter.post("/invite", requireCsrf, async (req: AuthenticatedRequest, res) =
     }
   });
   if (existingActive) return res.status(409).json({ ok: false, message: "User is already an active team member." });
+  const existingInvite = await prisma.organizationMembership.findFirst({
+    where: {
+      organizationId: orgId,
+      status: TeamMembershipStatus.INVITED,
+      invitedEmail: email
+    }
+  });
+  if (existingInvite) {
+    return res.status(409).json({
+      ok: false,
+      message: "An invite is already pending for this email."
+    });
+  }
 
   const token = crypto.randomBytes(32).toString("base64url");
   const inviteRole = toTeamRole(parsed.data.role);
