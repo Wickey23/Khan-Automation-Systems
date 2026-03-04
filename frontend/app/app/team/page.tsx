@@ -53,15 +53,33 @@ export default function TeamPage() {
   async function load() {
     setLoading(true);
     try {
-      const [data, me, billing] = await Promise.all([fetchTeamMembers(), getMe(), getBillingStatus()]);
+      const [me, billing] = await Promise.all([getMe(), getBillingStatus()]);
+      setCurrentUserId(me.user.userId || null);
+      const isProActive =
+        (billing.subscription?.plan || null) === "PRO" &&
+        ["active", "trialing"].includes(String(billing.subscription?.status || "").toLowerCase());
+      setProEnabled(isProActive);
+      if (!isProActive) {
+        setCanManage(false);
+        setMembers([]);
+        setSeats((prev) => ({
+          ...prev,
+          includedSeats: 1,
+          purchasedSeats: 0,
+          allowedSeats: 1,
+          activeMembers: 1,
+          pendingInvites: 0,
+          upgradeHint: "Upgrade to Pro to unlock team seats and invites."
+        }));
+        return;
+      }
+      const data = await fetchTeamMembers();
       setCanManage(data.canManage);
       setMembers(data.members || []);
       setSeats((prev) => ({
         ...prev,
         ...data.seats
       }));
-      setCurrentUserId(me.user.userId || null);
-      setProEnabled((billing.subscription?.plan || null) === "PRO" && ["active", "trialing"].includes(String(billing.subscription?.status || "").toLowerCase()));
     } catch (error) {
       showToast({
         title: "Could not load team",
