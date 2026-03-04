@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { sendBillingConfirmationEmail } from "../../services/email";
 import { deriveOrgLifecycleFromBilling } from "./billing-lifecycle.service";
 import {
   changePlanSchema,
@@ -27,12 +28,28 @@ function planFromPrice(priceId: string | null | undefined): SubscriptionPlan {
   return SubscriptionPlan.STARTER;
 }
 
-function priceIdForPlan(plan: "starter" | "pro"): string {
-  return plan === "starter" ? env.STRIPE_STARTER_PRICE_ID : env.STRIPE_PRO_PRICE_ID;
+type CheckoutPlan = "starter" | "pro" | "founding";
+
+function priceIdForPlan(plan: CheckoutPlan): string {
+  if (plan === "starter") return env.STRIPE_STARTER_PRICE_ID;
+  if (plan === "pro") return env.STRIPE_PRO_PRICE_ID;
+  return env.STRIPE_FOUNDING_PRICE_ID || "";
+}
+
+function setupFeePriceIdForPlan(plan: CheckoutPlan): string {
+  if (plan === "starter") return env.STRIPE_STARTER_SETUP_FEE_PRICE_ID || "";
+  if (plan === "pro") return env.STRIPE_PRO_SETUP_FEE_PRICE_ID || "";
+  return env.STRIPE_FOUNDING_SETUP_FEE_PRICE_ID || "";
 }
 
 function subscriptionPlanFromInput(plan: "starter" | "pro"): SubscriptionPlan {
   return plan === "pro" ? SubscriptionPlan.PRO : SubscriptionPlan.STARTER;
+}
+
+function labelFromPlanInput(plan: CheckoutPlan): string {
+  if (plan === "pro") return "Growth/Pro";
+  if (plan === "founding") return "Founding Partner";
+  return "Standard";
 }
 
 function normalizeSubscriptionStatus(status: string | null | undefined): string {
@@ -288,7 +305,8 @@ billingRouter.post(
     try {
       const org = await ensureOrgContext(req);
 
-      const priceId = priceIdForPlan(parsed.data.plan);
+      const selectedPlan = parsed.data.plan as CheckoutPlan;
+      const priceId = priceIdForPlan(selectedPlan);
       if (!priceId || priceId.includes("placeholder")) {
         return res.status(500).json({
           ok: false,
@@ -307,15 +325,30 @@ billingRouter.post(
           message: "Stripe success/cancel URLs are not configured."
         });
       }
+      const latest = await prisma.subscription.findFirst({
+        where: { orgId: org.orgId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, status: true }
+      });
+      const hasActiveSubscription = Boolean(latest && isBillingActive(latest.status));
+      const setupFeePriceId = setupFeePriceIdForPlan(selectedPlan);
+      const includeSetupFee = !hasActiveSubscription && Boolean(setupFeePriceId && !setupFeePriceId.includes("placeholder"));
+
       const checkoutMetadata = {
         orgId: org.orgId,
         userId: req.auth.userId,
-        plan: parsed.data.plan
+        plan: selectedPlan,
+        setupFeeIncluded: includeSetupFee ? "true" : "false"
       };
+
+      const lineItems: Array<{ price: string; quantity: number }> = [{ price: priceId, quantity: 1 }];
+      if (includeSetupFee && setupFeePriceId) {
+        lineItems.push({ price: setupFeePriceId, quantity: 1 });
+      }
 
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: lineItems,
         success_url: env.STRIPE_SUCCESS_URL,
         cancel_url: env.STRIPE_CANCEL_URL,
         customer: org.stripeCustomerId || undefined,
@@ -835,6 +868,7 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
       const orgId = session.metadata?.orgId || null;
       const planValue = (session.metadata?.plan || "starter").toLowerCase();
       const plan = planValue === "pro" ? SubscriptionPlan.PRO : SubscriptionPlan.STARTER;
+      const planLabel = labelFromPlanInput((planValue === "founding" ? "founding" : planValue === "pro" ? "pro" : "starter") as CheckoutPlan);
       const stripeCustomerId =
         typeof session.customer === "string" ? session.customer : session.customer?.id || null;
       const stripeSubscriptionId =
@@ -888,6 +922,33 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         status: "active",
         billingActive: true
       });
+
+      const email =
+        session.customer_details?.email ||
+        session.customer_email ||
+        (session.metadata?.userId
+          ? (
+              await prisma.user.findUnique({
+                where: { id: session.metadata.userId },
+                select: { email: true }
+              })
+            )?.email
+          : null);
+      if (email) {
+        void sendBillingConfirmationEmail({
+          email,
+          planLabel,
+          statusLabel: "active",
+          source: "checkout"
+        }).catch((error) => {
+          logBillingEvent("error", {
+            ...baseLog,
+            message: "billing_confirmation_email_failed",
+            email,
+            error: error instanceof Error ? error.message : "unknown_error"
+          });
+        });
+      }
       return res.status(200).json({ received: true });
     }
 
@@ -1002,6 +1063,11 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         return res.status(200).json({ received: true, processed: false });
       }
 
+      const existingBefore = await prisma.subscription.findUnique({
+        where: { stripeSubscriptionId },
+        select: { plan: true, status: true }
+      });
+
       await upsertSubscriptionAndOrg({
         orgId,
         stripeCustomerId,
@@ -1026,6 +1092,33 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
           processingError: null
         }
       });
+
+      const normalizedStatus = normalizeSubscriptionStatus(subscription.status);
+      const changed = !existingBefore || existingBefore.plan !== currentPlan || normalizeSubscriptionStatus(existingBefore.status) !== normalizedStatus;
+      if (changed) {
+        const user = await prisma.user.findFirst({
+          where: { orgId, role: { in: [UserRole.CLIENT_ADMIN, UserRole.CLIENT] } },
+          orderBy: { createdAt: "asc" },
+          select: { email: true }
+        });
+        if (user?.email) {
+          const planLabel = currentPlan === SubscriptionPlan.PRO ? "Growth/Pro" : "Standard";
+          void sendBillingConfirmationEmail({
+            email: user.email,
+            planLabel,
+            statusLabel: normalizedStatus,
+            effectiveAt: currentPeriodEnd?.toISOString() || null,
+            source: "subscription_update"
+          }).catch((error) => {
+            logBillingEvent("error", {
+              ...baseLog,
+              message: "billing_confirmation_email_failed",
+              email: user.email,
+              error: error instanceof Error ? error.message : "unknown_error"
+            });
+          });
+        }
+      }
       return res.status(200).json({ received: true });
     }
 

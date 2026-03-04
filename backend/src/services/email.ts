@@ -179,3 +179,24 @@ export async function sendLoginOtpEmail(payload: {
   ].join("\n");
   await sendOrLog(subject, text, payload.email);
 }
+
+export async function sendBillingConfirmationEmail(payload: {
+  email: string;
+  planLabel: string;
+  statusLabel: string;
+  effectiveAt?: string | null;
+  source: "checkout" | "subscription_update";
+}) {
+  const subject = "Your Khan Systems billing update";
+  const text = [
+    "Your billing update is confirmed.",
+    `Plan: ${payload.planLabel}`,
+    `Status: ${payload.statusLabel}`,
+    payload.effectiveAt ? `Effective at: ${payload.effectiveAt}` : null,
+    `Source: ${payload.source}`,
+    "If this change was not expected, contact support immediately."
+  ]
+    .filter(Boolean)
+    .join("\n");
+  await sendOrLog(subject, text, payload.email);
+}

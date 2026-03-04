@@ -219,7 +219,7 @@ export async function getMe() {
   return request<{ user: AuthUser; org: Organization | null }>("/api/auth/me");
 }
 
-export async function createStripeCheckoutSession(plan: "starter" | "pro") {
+export async function createStripeCheckoutSession(plan: "starter" | "pro" | "founding") {
   return request<{ url: string }>("/api/billing/create-checkout-session", {
     method: "POST",
     body: JSON.stringify({ plan })

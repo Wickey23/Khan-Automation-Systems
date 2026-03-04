@@ -88,7 +88,7 @@ const PLAN_COPY = {
 } as const;
 
 type PlanKey = keyof typeof PLAN_COPY;
-type StripePlanKey = "starter" | "pro";
+type StripePlanKey = "starter" | "pro" | "founding";
 const PLAN_ORDER: PlanKey[] = ["none", "starter", "founding", "pro"];
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
@@ -218,7 +218,7 @@ export default function AppBillingPage() {
     }
   }
 
-  async function onChangePlan(plan: StripePlanKey) {
+  async function onChangePlan(plan: "starter" | "pro") {
     const isDowngrade = plan === "starter";
     const confirmed = window.confirm(
       isDowngrade
@@ -418,7 +418,7 @@ export default function AppBillingPage() {
                   ? "Current plan"
                   : isNoPlanCurrent
                     ? "Current plan"
-                  : planKey === "founding"
+                  : planKey === "founding" && isActiveSubscription
                     ? "Contract-managed tier"
                   : planKey === "none"
                     ? "No active subscription"
@@ -490,7 +490,7 @@ export default function AppBillingPage() {
                         }}
                         disabled={
                           planKey === "none" ||
-                          planKey === "founding" ||
+                          (planKey === "founding" && isActiveSubscription) ||
                           isNoPlanCurrent ||
                           isCurrentPlan ||
                           startingPlan !== null ||

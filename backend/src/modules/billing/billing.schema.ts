@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createCheckoutSessionSchema = z.object({
-  plan: z.enum(["starter", "pro"])
+  plan: z.enum(["starter", "pro", "founding"])
 });
 
 export const changePlanSchema = z.object({
