@@ -14,6 +14,7 @@ import { computeOrgAnalytics } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
 import { dedupeOrgCallRows } from "./call-log-dedupe.service";
 import { generateAvailabilitySlots, validateSlotWithinBusinessHours } from "../appointments/slotting.service";
+import { bookAppointmentWithHold } from "../appointments/booking.service";
 import {
   consumeCalendarOauthState,
   createCalendarConnectUrl,
@@ -920,7 +921,7 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
 
   const settings = await prisma.businessSettings.findUnique({
     where: { orgId: req.auth.orgId },
-    select: { hoursJson: true, timezone: true }
+    select: { hoursJson: true, timezone: true, appointmentBufferMinutes: true }
   });
   const toBound = parsed.data.to ? new Date(parsed.data.to) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const existingAppointments = await prisma.appointment.findMany({
@@ -1001,7 +1002,7 @@ orgRouter.post("/appointments", requireOrgWriteAccess, async (req: Authenticated
   }
   const settings = await prisma.businessSettings.findUnique({
     where: { orgId: req.auth.orgId },
-    select: { hoursJson: true, timezone: true, appointmentDurationMinutes: true, appointmentBufferMinutes: true }
+    select: { hoursJson: true, timezone: true, appointmentBufferMinutes: true }
   });
   const durationMinutes = Math.max(1, Math.round((endAt.getTime() - startAt.getTime()) / (60 * 1000)));
   const inHours = validateSlotWithinBusinessHours({
@@ -1014,110 +1015,61 @@ orgRouter.post("/appointments", requireOrgWriteAccess, async (req: Authenticated
     return res.status(400).json({ ok: false, message: "Appointment time is outside business-hour constraints." });
   }
 
-  const hold = await prisma.appointmentHold.create({
-    data: {
-      orgId: req.auth.orgId,
-      slotStart: startAt,
-      slotEnd: endAt,
-      phone: normalizePhone(parsed.data.customerPhone),
-      status: "HELD",
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000)
-    }
+  const shouldTryExternalCalendar =
+    (parsed.data.calendarProvider || "INTERNAL") !== "INTERNAL" &&
+    isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId);
+  const orgId = req.auth.orgId;
+  const userId = req.auth.userId;
+  const requestedProvider = parsed.data.calendarProvider || "INTERNAL";
+  const externalProvider = requestedProvider === "GOOGLE" || requestedProvider === "OUTLOOK" ? requestedProvider : null;
+
+  const booking = await bookAppointmentWithHold({
+    prisma,
+    orgId,
+    userId,
+    leadId: parsed.data.leadId || null,
+    callLogId: parsed.data.callLogId || null,
+    customerName: parsed.data.customerName,
+    customerPhone: normalizePhone(parsed.data.customerPhone),
+    issueSummary: parsed.data.issueSummary,
+    assignedTechnician: parsed.data.assignedTechnician || null,
+    startAt,
+    endAt,
+    timezone: parsed.data.timezone,
+    appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
+    requestedProvider,
+    idempotencyKey: parsed.data.idempotencyKey || null,
+    pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, orgId),
+    createExternalEvent: shouldTryExternalCalendar && externalProvider
+      ? async () => {
+          const connection = await prisma.calendarConnection.findFirst({
+            where: { orgId, provider: externalProvider, isActive: true },
+            orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+            select: { id: true }
+          });
+          if (!connection) {
+            return { provider: "INTERNAL", externalEventId: "" };
+          }
+          const event = await createCalendarEventFromConnection({
+            prisma,
+            connectionId: connection.id,
+            orgId,
+            title: `${parsed.data.customerName} - Service Appointment`,
+            description: parsed.data.issueSummary,
+            startAt,
+            endAt,
+            timezone: parsed.data.timezone
+          });
+          return { provider: event.provider, externalEventId: event.externalEventId || "" };
+        }
+      : undefined
   });
 
-  const overlap = await prisma.appointment.findFirst({
-    where: {
-      orgId: req.auth.orgId,
-      status: { not: "CANCELED" },
-      startAt: { lt: endAt },
-      endAt: { gt: startAt }
-    },
-    select: { id: true }
-  });
-  if (overlap) {
-    await prisma.appointmentHold.update({ where: { id: hold.id }, data: { status: "FAILED" } });
+  if (!booking.ok && booking.reason === "OVERLAP") {
     return res.status(409).json({ ok: false, message: "Appointment overlaps with an existing slot." });
   }
-
-  let calendarProvider: "GOOGLE" | "OUTLOOK" | "INTERNAL" = parsed.data.calendarProvider || "INTERNAL";
-  let externalCalendarEventId: string | null = parsed.data.externalCalendarEventId || null;
-  let status: "PENDING" | "CONFIRMED" = "PENDING";
-  try {
-    if (calendarProvider !== "INTERNAL" && isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
-      const connection = await prisma.calendarConnection.findFirst({
-        where: { orgId: req.auth.orgId, provider: calendarProvider, isActive: true },
-        orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
-        select: { id: true }
-      });
-      if (!connection) {
-        calendarProvider = "INTERNAL";
-      } else {
-        const event = await createCalendarEventFromConnection({
-          prisma,
-          connectionId: connection.id,
-          orgId: req.auth.orgId,
-          title: `${parsed.data.customerName} - Service Appointment`,
-          description: parsed.data.issueSummary,
-          startAt,
-          endAt,
-          timezone: parsed.data.timezone
-        });
-        externalCalendarEventId = event.externalEventId || null;
-        calendarProvider = event.provider;
-        status = "CONFIRMED";
-      }
-    }
-  } catch {
-    calendarProvider = "INTERNAL";
-    status = "PENDING";
-  }
-
-  const appointment = await prisma.appointment.create({
-    data: {
-      orgId: req.auth.orgId,
-      leadId: parsed.data.leadId || null,
-      callLogId: parsed.data.callLogId || null,
-      customerName: parsed.data.customerName,
-      customerPhone: normalizePhone(parsed.data.customerPhone),
-      issueSummary: parsed.data.issueSummary,
-      assignedTechnician: parsed.data.assignedTechnician || null,
-      status,
-      startAt,
-      endAt,
-      timezone: parsed.data.timezone,
-      calendarProvider,
-      externalCalendarEventId,
-      idempotencyKey: parsed.data.idempotencyKey || null,
-      createdByUserId: req.auth.userId
-    }
-  });
-
-  await prisma.appointmentHold.update({
-    where: { id: hold.id },
-    data: { status: status === "CONFIRMED" ? "CONFIRMED" : "FAILED" }
-  });
-
-  if (parsed.data.leadId && isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, req.auth?.orgId)) {
-    await prisma.lead.updateMany({
-      where: { id: parsed.data.leadId, orgId: req.auth.orgId },
-      data: { pipelineStage: status === "CONFIRMED" ? "SCHEDULED" : "NEEDS_SCHEDULING" }
-    });
-  }
-
-  await emitOrgNotification({
-    prisma,
-    orgId: req.auth.orgId,
-    type: "APPOINTMENT_BOOKED",
-    severity: "INFO",
-    title: "Appointment booked",
-    body:
-      status === "CONFIRMED"
-        ? `Appointment confirmed for ${appointment.customerName} at ${appointment.startAt.toISOString()}.`
-        : `Appointment captured for ${appointment.customerName}; scheduling follow-up needed.`,
-    metadata: { appointmentId: appointment.id, calendarProvider, status }
-  });
-
-  return res.status(201).json({ ok: true, data: { appointment } });
+  if (!booking.ok) return res.status(400).json({ ok: false, message: "Appointment booking failed." });
+  return res.status(201).json({ ok: true, data: { appointment: booking.appointment } });
 });
 
 orgRouter.patch("/appointments/:id", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
