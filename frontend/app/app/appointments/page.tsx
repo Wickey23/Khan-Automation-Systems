@@ -34,6 +34,7 @@ export default function AppAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creatingSlot, setCreatingSlot] = useState<string | null>(null);
+  const [featureDisabled, setFeatureDisabled] = useState(false);
 
   async function load(nextStatus: Appointment["status"] | "ALL" = status, nextFrom = fromDate, nextTo = toDate) {
     setLoading(true);
@@ -44,11 +45,17 @@ export default function AppAppointmentsPage() {
         ...(nextTo ? { to: new Date(`${nextTo}T23:59:59`).toISOString() } : {})
       });
       setAppointments(data.appointments || []);
+      setFeatureDisabled(false);
     } catch (error) {
       setAppointments([]);
+      const message = error instanceof Error ? error.message : "";
+      if (message.toLowerCase().includes("appointments feature is disabled")) {
+        setFeatureDisabled(true);
+        return;
+      }
       showToast({
         title: "Could not load appointments",
-        description: error instanceof Error ? error.message : "Try again.",
+        description: message || "Try again.",
         variant: "error"
       });
     } finally {
@@ -139,14 +146,20 @@ export default function AppAppointmentsPage() {
         to: to.toISOString()
       });
       setAvailableSlots(data.slots || []);
+      setFeatureDisabled(false);
       if ((data.slots || []).length === 0) {
         showToast({ title: "No slots found", description: "No available times for the selected day." });
       }
     } catch (error) {
       setAvailableSlots([]);
+      const message = error instanceof Error ? error.message : "";
+      if (message.toLowerCase().includes("appointments feature is disabled")) {
+        setFeatureDisabled(true);
+        return;
+      }
       showToast({
         title: "Could not fetch slots",
-        description: error instanceof Error ? error.message : "Try again.",
+        description: message || "Try again.",
         variant: "error"
       });
     } finally {
@@ -180,11 +193,17 @@ export default function AppAppointmentsPage() {
       });
       showToast({ title: "Appointment created" });
       setAvailableSlots([]);
+      setFeatureDisabled(false);
       await load();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.toLowerCase().includes("appointments feature is disabled")) {
+        setFeatureDisabled(true);
+        return;
+      }
       showToast({
         title: "Could not create appointment",
-        description: error instanceof Error ? error.message : "Try again.",
+        description: message || "Try again.",
         variant: "error"
       });
     } finally {
@@ -251,7 +270,13 @@ export default function AppAppointmentsPage() {
         </div>
       </div>
 
-      {canWrite ? (
+      {featureDisabled ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Appointments are currently disabled for this workspace. Ask an admin to enable the feature flag for your org.
+        </div>
+      ) : null}
+
+      {canWrite && !featureDisabled ? (
         <div className="rounded-lg border bg-white p-4">
           <h2 className="text-lg font-semibold">Create appointment</h2>
           <p className="text-sm text-muted-foreground">Select a day, pull available slots, then book a confirmed or internal pending appointment.</p>

@@ -249,9 +249,11 @@ export default function AppSettingsPage() {
     setNotificationsBusy(true);
     try {
       await markOrgNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((row) => (row.id === id ? { ...row, readAt: row.readAt || new Date().toISOString() } : row))
-      );
+      setNotifications((prev) => {
+        const next = prev.map((row) => (row.id === id ? { ...row, readAt: row.readAt || new Date().toISOString() } : row));
+        setNotificationCount(next.length);
+        return next;
+      });
     } finally {
       setNotificationsBusy(false);
     }
@@ -262,7 +264,11 @@ export default function AppSettingsPage() {
     try {
       await markAllOrgNotificationsRead();
       const now = new Date().toISOString();
-      setNotifications((prev) => prev.map((row) => ({ ...row, readAt: row.readAt || now })));
+      setNotifications((prev) => {
+        const next = prev.map((row) => ({ ...row, readAt: row.readAt || now }));
+        setNotificationCount(next.length);
+        return next;
+      });
     } finally {
       setNotificationsBusy(false);
     }
