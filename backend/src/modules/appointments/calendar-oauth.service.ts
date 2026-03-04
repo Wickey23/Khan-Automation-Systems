@@ -311,7 +311,12 @@ async function createGoogleEvent(input: {
       end: { dateTime: input.endAt.toISOString(), timeZone: input.timezone }
     })
   });
-  if (!response.ok) throw new Error("google_event_create_failed");
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("google_event_auth_failed");
+    }
+    throw new Error("google_event_create_failed");
+  }
   const payload = response.payload as { id?: string };
   return String(payload?.id || "");
 }
@@ -337,7 +342,12 @@ async function createOutlookEvent(input: {
       end: { dateTime: input.endAt.toISOString(), timeZone: input.timezone }
     })
   });
-  if (!response.ok) throw new Error("outlook_event_create_failed");
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("outlook_event_auth_failed");
+    }
+    throw new Error("outlook_event_create_failed");
+  }
   const payload = response.payload as { id?: string };
   return String(payload?.id || "");
 }
@@ -387,7 +397,12 @@ export async function createCalendarEventFromConnection(input: {
     return { provider, externalEventId };
   } catch (error) {
     // Graceful degradation: deactivate broken tokens.
-    if (String((error as Error)?.message || "").includes("token")) {
+    const message = String((error as Error)?.message || "");
+    if (
+      message.includes("token") ||
+      message.includes("auth_failed") ||
+      message.includes("unauthorized")
+    ) {
       await input.prisma.calendarConnection.update({
         where: { id: connection.id },
         data: { isActive: false }
@@ -396,4 +411,3 @@ export async function createCalendarEventFromConnection(input: {
     throw error;
   }
 }
-
