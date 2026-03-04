@@ -17,7 +17,7 @@ const navItems: Array<{ href: string; label: string; requiredPlan?: Exclude<Plan
   { href: "/app/calls", label: "Calls" },
   { href: "/app/leads", label: "Leads" },
   { href: "/app/appointments", label: "Appointments", requiredPlan: "STARTER" },
-  { href: "/app/messages", label: "Messages", requiredPlan: "PRO" },
+  { href: "/app/messages", label: "Messages" },
   { href: "/app/analytics", label: "Analytics", requiredPlan: "STARTER" },
   { href: "/app/settings", label: "Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
