@@ -12,3 +12,12 @@ test("returns false for non-schema errors", () => {
   assert.equal(isPrismaMissingColumnError(error), false);
 });
 
+test("detects missing-column shape via Prisma-like code property", () => {
+  const error = { code: "P2022", message: "Column missing" } as unknown;
+  assert.equal(isPrismaMissingColumnError(error), true);
+});
+
+test("does not misclassify unrelated Prisma codes", () => {
+  const error = { code: "P2002", message: "Unique violation" } as unknown;
+  assert.equal(isPrismaMissingColumnError(error), false);
+});
