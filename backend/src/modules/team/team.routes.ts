@@ -21,6 +21,7 @@ import {
   resendTeamInviteSchema,
   updateTeamRoleSchema
 } from "./team.schema";
+import { buildSeatSnapshot, canInviteSeat } from "./team-seat.service";
 
 export const teamRouter = Router();
 
@@ -107,29 +108,21 @@ async function resolveSeatSnapshot(db: PrismaClient, orgId: string) {
   const activeStatus = new Set(["active", "trialing"]);
   const subStatus = String(subscription?.status || "").toLowerCase();
   const isPro = subscription?.plan === SubscriptionPlan.PRO && activeStatus.has(subStatus);
-  const includedSeats = isPro ? 3 : 1;
-  const purchasedSeats = Math.max(0, org?.purchasedSeats || 0);
-  const allowedSeats = includedSeats + purchasedSeats;
+  const snapshot = buildSeatSnapshot({
+    isPro,
+    purchasedSeats: org?.purchasedSeats || 0,
+    activeMembers,
+    pendingInvites
+  });
 
-  if (org && (org.includedSeats !== includedSeats || org.purchasedSeats !== purchasedSeats)) {
+  if (org && (org.includedSeats !== snapshot.includedSeats || org.purchasedSeats !== snapshot.purchasedSeats)) {
     await db.organization.update({
       where: { id: orgId },
-      data: { includedSeats, purchasedSeats }
+      data: { includedSeats: snapshot.includedSeats, purchasedSeats: snapshot.purchasedSeats }
     });
   }
 
-  return {
-    seatPolicy: "activeMembers + pendingInvites <= allowedSeats",
-    includedSeats,
-    purchasedSeats,
-    allowedSeats,
-    activeMembers,
-    pendingInvites,
-    upgradeHint:
-      activeMembers + pendingInvites >= allowedSeats
-        ? "Seat limit reached. Upgrade plan or add seat add-ons to invite more users."
-        : ""
-  };
+  return snapshot;
 }
 
 function canManageTeam(req: AuthenticatedRequest) {
@@ -264,7 +257,7 @@ teamRouter.post("/invite", requireCsrf, async (req: AuthenticatedRequest, res) =
 
   await syncLegacyOrgUsersToMemberships(prisma, orgId);
   const seat = await resolveSeatSnapshot(prisma, orgId);
-  if (seat.activeMembers + seat.pendingInvites >= seat.allowedSeats) {
+  if (!canInviteSeat(seat)) {
     return res.status(409).json({
       ok: false,
       message: "You have reached your seat limit. Add additional seats to invite more users."
