@@ -8,6 +8,7 @@ import {
   createOrgAppointment,
   fetchAppointmentAvailability,
   fetchCalendarProviders,
+  fetchOrgProfile,
   fetchOrgAppointments,
   getMe,
   patchOrgAppointment
@@ -67,8 +68,16 @@ export default function AppAppointmentsPage() {
 
   useEffect(() => {
     void load();
-    void getMe()
-      .then((me) => {
+    void Promise.all([
+      getMe(),
+      fetchOrgProfile().catch(() => ({
+        organization: null,
+        assignedPhoneNumber: null,
+        assignedNumberProvider: null,
+        features: {}
+      }))
+    ])
+      .then(([me, profile]) => {
         const role = me.user.role;
         const writable =
           role === "CLIENT_STAFF" ||
@@ -81,10 +90,15 @@ export default function AppAppointmentsPage() {
           role === "SUPER_ADMIN";
         setCanWrite(writable);
         setCanManageCalendar(calendarManage);
-        if (calendarManage) {
+        const calendarEnabled =
+          ((profile as { features?: Record<string, unknown> } | null | undefined)?.features || {})
+            .calendarOauthEnabled === true;
+        if (calendarManage && calendarEnabled) {
           void fetchCalendarProviders()
             .then((data) => setCalendarProviders(data.providers || []))
             .catch(() => setCalendarProviders([]));
+        } else {
+          setCalendarProviders([]);
         }
       })
       .catch(() => {
