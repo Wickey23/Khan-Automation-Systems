@@ -11,6 +11,8 @@ import {
   fetchOrgKnowledgeFiles,
   fetchOrgNotifications,
   fetchOrgSettings,
+  markAllOrgNotificationsRead,
+  markOrgNotificationRead,
   runCalendarSyncTest,
   sendAuthTestOtpEmail,
   updateOrgSettings,
@@ -21,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { AuthSecurityStatus, CalendarConnection, OrgKnowledgeFile } from "@/lib/types";
+import type { AuthSecurityStatus, CalendarConnection, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -150,6 +152,8 @@ export default function AppSettingsPage() {
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [notificationCount, setNotificationCount] = useState<number>(0);
+  const [notifications, setNotifications] = useState<OrgNotification[]>([]);
+  const [notificationsBusy, setNotificationsBusy] = useState(false);
 
   useEffect(() => {
     void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles(), fetchCalendarProviders().catch(() => ({ providers: [] })), fetchOrgNotifications().catch(() => ({ notifications: [] }))])
@@ -205,6 +209,7 @@ export default function AppSettingsPage() {
         });
         setKnowledgeFiles(files || []);
         setCalendarProviders(calendar.providers || []);
+        setNotifications(notifications.notifications || []);
         setNotificationCount((notifications.notifications || []).length);
       })
       .catch((error) =>
@@ -237,6 +242,29 @@ export default function AppSettingsPage() {
       });
     } finally {
       setSendingTestEmail(false);
+    }
+  }
+
+  async function onMarkNotificationRead(id: string) {
+    setNotificationsBusy(true);
+    try {
+      await markOrgNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((row) => (row.id === id ? { ...row, readAt: row.readAt || new Date().toISOString() } : row))
+      );
+    } finally {
+      setNotificationsBusy(false);
+    }
+  }
+
+  async function onMarkAllNotificationsRead() {
+    setNotificationsBusy(true);
+    try {
+      await markAllOrgNotificationsRead();
+      const now = new Date().toISOString();
+      setNotifications((prev) => prev.map((row) => ({ ...row, readAt: row.readAt || now })));
+    } finally {
+      setNotificationsBusy(false);
     }
   }
 
@@ -597,6 +625,45 @@ export default function AppSettingsPage() {
             <input type="checkbox" checked={state.classificationShadowMode} onChange={(e) => setState((p) => ({ ...p, classificationShadowMode: e.target.checked }))} />
             Classification shadow mode (log only, do not mutate lead fields)
           </label>
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold">Notifications</h2>
+            <p className="text-sm text-muted-foreground">Operational alerts for leads, appointments, missed recovery, and emergencies.</p>
+          </div>
+          <Button size="sm" variant="outline" disabled={notificationsBusy || notifications.length === 0} onClick={() => void onMarkAllNotificationsRead()}>
+            Mark all read
+          </Button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {notifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No notifications yet.</p>
+          ) : (
+            notifications.slice(0, 20).map((item) => (
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-2 text-sm">
+                <div>
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.body}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {item.severity} · {new Date(item.createdAt).toLocaleString()} · {item.readAt ? "Read" : "Unread"}
+                  </p>
+                </div>
+                {!item.readAt ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={notificationsBusy}
+                    onClick={() => void onMarkNotificationRead(item.id)}
+                  >
+                    Mark read
+                  </Button>
+                ) : null}
+              </div>
+            ))
+          )}
         </div>
       </section>
 
