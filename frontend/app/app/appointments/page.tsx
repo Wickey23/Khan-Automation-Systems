@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   cancelOrgAppointment,
   completeOrgAppointment,
@@ -40,7 +40,7 @@ export default function AppAppointmentsPage() {
   const [featureDisabled, setFeatureDisabled] = useState(false);
   const [calendarFeatureEnabled, setCalendarFeatureEnabled] = useState(false);
 
-  async function load(nextStatus: Appointment["status"] | "ALL" = status, nextFrom = fromDate, nextTo = toDate) {
+  const load = useCallback(async (nextStatus: Appointment["status"] | "ALL", nextFrom: string, nextTo: string) => {
     setLoading(true);
     try {
       const data = await fetchOrgAppointments({
@@ -65,7 +65,7 @@ export default function AppAppointmentsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast]);
 
   useEffect(() => {
     void Promise.all([
@@ -101,7 +101,7 @@ export default function AppAppointmentsPage() {
           setLoading(false);
           return;
         }
-        void load();
+        void load("ALL", "", "");
         if (calendarManage && calendarEnabled) {
           void fetchCalendarProviders()
             .then((data) => setCalendarProviders(data.providers || []))
@@ -119,14 +119,14 @@ export default function AppAppointmentsPage() {
       });
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (localTz) setSlotTimezone(localTz);
-  }, []);
+  }, [load]);
 
   async function onConfirm(id: string) {
     setSavingId(id);
     try {
       await patchOrgAppointment(id, { status: "CONFIRMED" });
       showToast({ title: "Appointment confirmed" });
-      await load();
+      await load(status, fromDate, toDate);
     } catch (error) {
       showToast({
         title: "Could not confirm appointment",
@@ -143,7 +143,7 @@ export default function AppAppointmentsPage() {
     try {
       await cancelOrgAppointment(id);
       showToast({ title: "Appointment canceled" });
-      await load();
+      await load(status, fromDate, toDate);
     } catch (error) {
       showToast({
         title: "Could not cancel appointment",
@@ -160,7 +160,7 @@ export default function AppAppointmentsPage() {
     try {
       await completeOrgAppointment(id);
       showToast({ title: "Appointment completed" });
-      await load();
+      await load(status, fromDate, toDate);
     } catch (error) {
       showToast({
         title: "Could not complete appointment",
@@ -234,7 +234,7 @@ export default function AppAppointmentsPage() {
       showToast({ title: "Appointment created" });
       setAvailableSlots([]);
       setFeatureDisabled(false);
-      await load();
+      await load(status, fromDate, toDate);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (message.toLowerCase().includes("appointments feature is disabled")) {
@@ -269,7 +269,7 @@ export default function AppAppointmentsPage() {
               onChange={(event) => {
                 const next = event.target.value as Appointment["status"] | "ALL";
                 setStatus(next);
-                void load(next);
+                void load(next, fromDate, toDate);
               }}
               className="mt-1 h-10 rounded-md border bg-background px-3"
             >

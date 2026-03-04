@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   fetchTeamMembers,
@@ -50,7 +50,7 @@ export default function TeamPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [proEnabled, setProEnabled] = useState(true);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [me, billing] = await Promise.all([getMe(), getBillingStatus()]);
@@ -92,11 +92,11 @@ export default function TeamPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const activeCount = useMemo(
     () => members.filter((member) => member.status === "ACTIVE").length,
