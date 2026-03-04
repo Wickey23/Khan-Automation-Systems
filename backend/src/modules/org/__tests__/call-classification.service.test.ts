@@ -174,3 +174,32 @@ test("classification short-circuits cleanly when feature flag disabled", async (
     (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = previous;
   }
 });
+
+test("llm-unavailable fallback stays RULES method for cap accounting integrity", async () => {
+  const previous = (env as any).FEATURE_CLASSIFICATION_V1_ENABLED;
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = "true";
+  process.env.OPENAI_API_KEY = "";
+  try {
+    const mock = createPrismaMock({
+      outcome: "MESSAGE_TAKEN",
+      summary: "ambiguous short call",
+      transcript: "hello",
+      llmDailyCap: 100,
+      llmCountToday: 0
+    });
+    const result = await classifyCallAndMaybeUpdateLead({
+      prisma: mock.prisma,
+      orgId: "org_1",
+      callLogId: "call_1",
+      leadId: "lead_1"
+    });
+    assert.equal(result.skipped, false);
+    if (result.skipped) return;
+    assert.equal(result.method, "RULES");
+    assert.equal(mock.classificationLogs[0]?.method, "RULES");
+  } finally {
+    (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = previous;
+    process.env.OPENAI_API_KEY = previousApiKey;
+  }
+});

@@ -121,7 +121,7 @@ async function classifyWithLlmFallback(input: {
     return {
       classification: input.defaultClassification,
       confidence: input.defaultConfidence,
-      method: ClassificationMethod.LLM_FALLBACK,
+      method: ClassificationMethod.RULES,
       signals: ["llm_unavailable_no_api_key"]
     };
   }
@@ -153,7 +153,7 @@ async function classifyWithLlmFallback(input: {
       return {
         classification: input.defaultClassification,
         confidence: input.defaultConfidence,
-        method: ClassificationMethod.LLM_FALLBACK,
+        method: ClassificationMethod.RULES,
         signals: ["llm_http_error"]
       };
     }
@@ -176,7 +176,7 @@ async function classifyWithLlmFallback(input: {
     return {
       classification: input.defaultClassification,
       confidence: input.defaultConfidence,
-      method: ClassificationMethod.LLM_FALLBACK,
+      method: ClassificationMethod.RULES,
       signals: ["llm_parse_or_network_error"]
     };
   }
