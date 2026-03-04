@@ -24,6 +24,7 @@ import {
 import { emitOrgNotification } from "../notifications/notification.service";
 import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
 import { isFeatureEnabledForOrg } from "./feature-gates";
+import { canManageOrgAdminFeature, canWriteOrgFeature } from "./org-rbac.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -38,14 +39,14 @@ orgRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIEN
 
 function requireOrgWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const role = req.auth?.role;
-  if (role === UserRole.CLIENT_ADMIN || role === UserRole.CLIENT_STAFF || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
+  if (canWriteOrgFeature(role)) {
     return next();
   }
   return res.status(403).json({ ok: false, message: "Forbidden" });
 }
 function requireOrgAdminAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const role = req.auth?.role;
-  if (role === UserRole.CLIENT_ADMIN || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
+  if (canManageOrgAdminFeature(role)) {
     return next();
   }
   return res.status(403).json({ ok: false, message: "Forbidden" });
