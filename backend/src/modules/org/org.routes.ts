@@ -125,10 +125,6 @@ function parseOptionalDate(input: unknown) {
   return date;
 }
 
-function overlapsLocked(existingStart: Date, existingEnd: Date, newStart: Date, newEnd: Date) {
-  return existingStart.getTime() < newEnd.getTime() && existingEnd.getTime() > newStart.getTime();
-}
-
 function parseBooleanLike(input: unknown) {
   if (typeof input === "boolean") return input;
   const text = String(input || "").trim().toLowerCase();

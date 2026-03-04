@@ -1,3 +1,4 @@
+import { overlapsWithBufferLocked } from "./overlap.service";
 type HoursWindow = { start: string; end: string };
 type HoursSchedule = Record<string, HoursWindow[]>;
 
@@ -115,20 +116,6 @@ function getWindowsForDay(schedule: HoursSchedule, weekdayShort: string): Array<
     .filter(Boolean) as Array<{ startMin: number; endMin: number }>;
 }
 
-function overlapsWithLockedPredicate(existingStart: Date, existingEnd: Date, newStart: Date, newEnd: Date) {
-  // Locked overlap boundaries:
-  // existing.endAt == new.startAt => NOT overlap
-  // existing.startAt == new.endAt => NOT overlap
-  return existingStart.getTime() < newEnd.getTime() && existingEnd.getTime() > newStart.getTime();
-}
-
-function overlapsWithBuffer(existingStart: Date, existingEnd: Date, newStart: Date, newEnd: Date, bufferMinutes: number) {
-  const bufferMs = Math.max(0, bufferMinutes) * 60 * 1000;
-  const expandedStart = new Date(existingStart.getTime() - bufferMs);
-  const expandedEnd = new Date(existingEnd.getTime() + bufferMs);
-  return overlapsWithLockedPredicate(expandedStart, expandedEnd, newStart, newEnd);
-}
-
 export function validateSlotWithinBusinessHours(input: ValidateSlotInput) {
   const parsed = parseHoursPayload(input.hoursJson);
   const timeZone = String(input.timezone || parsed.timezone || "America/New_York");
@@ -211,7 +198,7 @@ export function generateAvailabilitySlots(input: GenerateSlotsInput): SlotWindow
             slotEndMin % 60
           );
           const hasOverlap = existingAppointments.some((existing) =>
-            overlapsWithBuffer(existing.startAt, existing.endAt, startAt, endAt, buffer)
+            overlapsWithBufferLocked(existing.startAt, existing.endAt, startAt, endAt, buffer)
           );
           if (!hasOverlap) {
             results.push({ startAt, endAt });
