@@ -13,6 +13,20 @@ type EmitNotificationInput = {
   sendEmail?: boolean;
 };
 
+export function resolveNotificationTargetRoleMin(input: {
+  type: NotificationType;
+  severity: NotificationSeverity;
+  targetRoleMin?: "VIEWER" | "MANAGER" | "ADMIN";
+}) {
+  if (input.targetRoleMin) return input.targetRoleMin;
+
+  if (input.type === "EMERGENCY_CALL_FLAGGED") return "MANAGER";
+  if (input.type === "MISSED_CALL_RECOVERY_NEEDED") return "MANAGER";
+  if (input.severity === "URGENT") return "MANAGER";
+  if (input.severity === "ACTION_REQUIRED") return "MANAGER";
+  return "VIEWER";
+}
+
 function parseJsonStringArray(value: string | null | undefined) {
   if (!value) return [];
   try {
@@ -68,7 +82,7 @@ export async function emitOrgNotification(input: EmitNotificationInput) {
       severity: input.severity,
       title: input.title,
       body: input.body,
-      targetRoleMin: input.targetRoleMin || "VIEWER",
+      targetRoleMin: resolveNotificationTargetRoleMin(input),
       metadataJson: (input.metadata || undefined) as Prisma.InputJsonValue | undefined
     }
   });

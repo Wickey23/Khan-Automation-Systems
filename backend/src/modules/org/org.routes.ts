@@ -239,7 +239,7 @@ orgRouter.patch("/profile", requireOrgWriteAccess, async (req: AuthenticatedRequ
   return res.json({ ok: true, data: { organization } });
 });
 
-orgRouter.get("/settings", async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/settings", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const settings = await prisma.businessSettings.upsert({
     where: { orgId: req.auth.orgId },
@@ -1321,6 +1321,7 @@ orgRouter.post("/calendar/sync-test", requireOrgAdminAccess, async (req: Authent
     severity: success ? "INFO" : "ACTION_REQUIRED",
     title: success ? "Calendar sync test succeeded" : "Calendar sync test failed",
     body: message,
+    targetRoleMin: "ADMIN",
     metadata: { provider: active.provider, accountEmail: active.accountEmail, success },
     sendEmail: !success
   });

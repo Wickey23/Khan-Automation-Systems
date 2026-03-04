@@ -554,6 +554,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
             severity: "URGENT",
             title: "Emergency call flagged",
             body: `A call was classified as emergency from ${fromNumber}.`,
+            targetRoleMin: "MANAGER",
             metadata: { callLogId: persistedCall.id, leadId: resolvedLeadId || null, confidence: classification.confidence }
           });
         } else if (classification.classification === "MISSED_CALL_RECOVERY") {
@@ -564,6 +565,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
             severity: "ACTION_REQUIRED",
             title: "Missed-call recovery needed",
             body: `A missed call requires recovery workflow for ${fromNumber}.`,
+            targetRoleMin: "MANAGER",
             metadata: { callLogId: persistedCall.id, leadId: resolvedLeadId || null }
           });
         }
