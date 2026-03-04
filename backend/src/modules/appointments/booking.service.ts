@@ -1,6 +1,7 @@
 import type { CalendarProvider, PrismaClient } from "@prisma/client";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { overlapsWithBufferLocked } from "./overlap.service";
+import { validateSlotWithinBusinessHours } from "./slotting.service";
 
 type BookingInput = {
   prisma: PrismaClient;
@@ -20,9 +21,29 @@ type BookingInput = {
   idempotencyKey?: string | null;
   createExternalEvent?: () => Promise<{ provider: CalendarProvider; externalEventId: string }>;
   pipelineFeatureEnabled?: boolean;
+  businessHoursValidation?: {
+    hoursJson?: string | null;
+    timezone?: string | null;
+  };
 };
 
 export async function bookAppointmentWithHold(input: BookingInput) {
+  if (input.businessHoursValidation) {
+    const durationMinutes = Math.max(
+      1,
+      Math.round((input.endAt.getTime() - input.startAt.getTime()) / (60 * 1000))
+    );
+    const withinHours = validateSlotWithinBusinessHours({
+      hoursJson: input.businessHoursValidation.hoursJson || null,
+      timezone: input.businessHoursValidation.timezone || input.timezone,
+      slotStartAt: input.startAt,
+      appointmentDurationMinutes: durationMinutes
+    });
+    if (!withinHours.ok) {
+      return { ok: false as const, reason: "OUTSIDE_BUSINESS_HOURS" as const };
+    }
+  }
+
   const hold = await input.prisma.appointmentHold.create({
     data: {
       orgId: input.orgId,

@@ -219,3 +219,34 @@ test("booking returns existing appointment on idempotency duplicate", async () =
   if (!result.ok) return;
   assert.equal(result.appointment.id, "appt_existing");
 });
+
+test("booking rejects when slot exceeds business-hours close constraint", async () => {
+  const mock = createPrismaMock();
+  const result = await bookAppointmentWithHold({
+    prisma: mock.prisma,
+    orgId: "org_1",
+    userId: "user_1",
+    customerName: "Late Slot",
+    customerPhone: "+15165555555",
+    issueSummary: "After-hours attempt",
+    startAt: new Date("2026-03-02T21:30:00.000Z"), // 16:30 America/New_York
+    endAt: new Date("2026-03-02T22:30:00.000Z"), // 17:30 America/New_York
+    timezone: "America/New_York",
+    requestedProvider: "INTERNAL",
+    businessHoursValidation: {
+      timezone: "America/New_York",
+      hoursJson: JSON.stringify({
+        timezone: "America/New_York",
+        schedule: {
+          mon: [{ start: "08:00", end: "17:00" }]
+        }
+      })
+    }
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.reason, "OUTSIDE_BUSINESS_HOURS");
+  assert.equal(mock.holds.length, 0);
+  assert.equal(mock.appointments.length, 0);
+});

@@ -1106,6 +1106,10 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
     appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
     requestedProvider,
     idempotencyKey: parsed.data.idempotencyKey || null,
+    businessHoursValidation: {
+      hoursJson: settings?.hoursJson || null,
+      timezone: settings?.timezone || parsed.data.timezone || "America/New_York"
+    },
     pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, orgId),
     createExternalEvent: shouldTryExternalCalendar && externalProvider
       ? async () => {
@@ -1134,6 +1138,9 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
 
   if (!booking.ok && booking.reason === "OVERLAP") {
     return res.status(409).json({ ok: false, message: "Appointment overlaps with an existing slot." });
+  }
+  if (!booking.ok && booking.reason === "OUTSIDE_BUSINESS_HOURS") {
+    return res.status(400).json({ ok: false, message: "Appointment time is outside business-hour constraints." });
   }
   if (!booking.ok) return res.status(400).json({ ok: false, message: "Appointment booking failed." });
   return res.status(201).json({ ok: true, data: { appointment: booking.appointment } });
