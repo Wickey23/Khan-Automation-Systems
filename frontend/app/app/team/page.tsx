@@ -67,7 +67,7 @@ export default function TeamPage() {
           includedSeats: 1,
           purchasedSeats: 0,
           allowedSeats: 1,
-          activeMembers: 1,
+          activeMembers: 0,
           pendingInvites: 0,
           upgradeHint: "Upgrade to Pro to unlock team seats and invites."
         }));
