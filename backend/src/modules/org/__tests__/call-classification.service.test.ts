@@ -233,3 +233,31 @@ test("llm-unavailable fallback stays RULES method for cap accounting integrity",
     process.env.OPENAI_API_KEY = previousApiKey;
   }
 });
+
+test("classification falls back to default settings when business-settings columns are missing", async () => {
+  const previous = (env as any).FEATURE_CLASSIFICATION_V1_ENABLED;
+  (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = "true";
+  try {
+    const mock = createPrismaMock({
+      outcome: "MESSAGE_TAKEN",
+      summary: "general question",
+      transcript: "hello"
+    });
+    mock.prisma.businessSettings.findUnique = async () => {
+      throw new Error("P2022: The column BusinessSettings.classificationShadowMode does not exist");
+    };
+    const result = await classifyCallAndMaybeUpdateLead({
+      prisma: mock.prisma,
+      orgId: "org_1",
+      callLogId: "call_1",
+      leadId: "lead_1"
+    });
+    assert.equal(result.skipped, false);
+    if (result.skipped) return;
+    assert.equal(result.shadowMode, true);
+    assert.equal(mock.classificationLogs.length, 1);
+    assert.equal(mock.leadUpdates.length, 0);
+  } finally {
+    (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = previous;
+  }
+});

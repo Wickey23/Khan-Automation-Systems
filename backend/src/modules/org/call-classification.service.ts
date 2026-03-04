@@ -1,5 +1,6 @@
 import { ClassificationMethod, LeadClassification, type PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
+import { isPrismaMissingColumnError } from "../../lib/prisma-errors";
 import { isFeatureEnabledForOrg } from "./feature-gates";
 
 type RuleResult = {
@@ -234,10 +235,16 @@ export async function classifyCallAndMaybeUpdateLead(input: {
   });
   if (existingLog) return { skipped: true as const, reason: "already_classified" };
 
-  const settings = await input.prisma.businessSettings.findUnique({
-    where: { orgId: input.orgId },
-    select: { classificationShadowMode: true, classificationLlmDailyCap: true }
-  });
+  let settings: { classificationShadowMode: boolean | null; classificationLlmDailyCap: number | null } | null = null;
+  try {
+    settings = await input.prisma.businessSettings.findUnique({
+      where: { orgId: input.orgId },
+      select: { classificationShadowMode: true, classificationLlmDailyCap: true }
+    });
+  } catch (error) {
+    if (!isPrismaMissingColumnError(error)) throw error;
+    settings = null;
+  }
   const shadowMode = settings?.classificationShadowMode ?? true;
   const llmDailyCap = Math.max(0, settings?.classificationLlmDailyCap ?? 100);
 
