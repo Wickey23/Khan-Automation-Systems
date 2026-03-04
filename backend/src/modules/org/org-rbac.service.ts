@@ -23,6 +23,23 @@ export function canManageOrgAdminFeature(role: UserRole | string | null | undefi
   return role === UserRole.CLIENT_ADMIN || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
 }
 
+export function canReadAppointments(role: UserRole | string | null | undefined) {
+  return canReadOrgFeature(role);
+}
+
+export function canWriteAppointments(role: UserRole | string | null | undefined) {
+  return (
+    role === UserRole.CLIENT_STAFF ||
+    role === UserRole.CLIENT_ADMIN ||
+    role === UserRole.ADMIN ||
+    role === UserRole.SUPER_ADMIN
+  );
+}
+
+export function canManageCalendar(role: UserRole | string | null | undefined) {
+  return role === UserRole.CLIENT_ADMIN || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+}
+
 type NotificationRoleMin = "VIEWER" | "MANAGER" | "ADMIN";
 
 function roleTier(role: UserRole | string | null | undefined) {

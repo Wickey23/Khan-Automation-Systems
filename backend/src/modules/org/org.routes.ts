@@ -25,7 +25,14 @@ import {
 import { emitOrgNotification } from "../notifications/notification.service";
 import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
 import { isFeatureEnabledForOrg } from "./feature-gates";
-import { canManageOrgAdminFeature, canViewNotificationForRole, canWriteOrgFeature } from "./org-rbac.service";
+import {
+  canManageCalendar,
+  canManageOrgAdminFeature,
+  canReadAppointments,
+  canViewNotificationForRole,
+  canWriteAppointments,
+  canWriteOrgFeature
+} from "./org-rbac.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -48,6 +55,27 @@ function requireOrgWriteAccess(req: AuthenticatedRequest, res: Response, next: N
 function requireOrgAdminAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const role = req.auth?.role;
   if (canManageOrgAdminFeature(role)) {
+    return next();
+  }
+  return res.status(403).json({ ok: false, message: "Forbidden" });
+}
+function requireAppointmentsReadAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const role = req.auth?.role;
+  if (canReadAppointments(role)) {
+    return next();
+  }
+  return res.status(403).json({ ok: false, message: "Forbidden" });
+}
+function requireAppointmentsWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const role = req.auth?.role;
+  if (canWriteAppointments(role)) {
+    return next();
+  }
+  return res.status(403).json({ ok: false, message: "Forbidden" });
+}
+function requireCalendarManageAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const role = req.auth?.role;
+  if (canManageCalendar(role)) {
     return next();
   }
   return res.status(403).json({ ok: false, message: "Forbidden" });
@@ -915,7 +943,7 @@ orgRouter.get("/messaging-readiness", async (req: AuthenticatedRequest, res) => 
   });
 });
 
-orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
@@ -975,7 +1003,7 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
   });
 });
 
-orgRouter.get("/appointments", async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/appointments", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
@@ -1000,7 +1028,7 @@ orgRouter.get("/appointments", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { appointments } });
 });
 
-orgRouter.post("/appointments", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
@@ -1085,7 +1113,7 @@ orgRouter.post("/appointments", requireOrgWriteAccess, async (req: Authenticated
   return res.status(201).json({ ok: true, data: { appointment: booking.appointment } });
 });
 
-orgRouter.patch("/appointments/:id", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.patch("/appointments/:id", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
@@ -1110,7 +1138,7 @@ orgRouter.patch("/appointments/:id", requireOrgWriteAccess, async (req: Authenti
   return res.json({ ok: true, data: { appointment: updated } });
 });
 
-orgRouter.post("/appointments/:id/cancel", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/appointments/:id/cancel", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
@@ -1126,7 +1154,7 @@ orgRouter.post("/appointments/:id/cancel", requireOrgWriteAccess, async (req: Au
   return res.json({ ok: true, data: { appointment: updated } });
 });
 
-orgRouter.post("/appointments/:id/complete", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/appointments/:id/complete", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
@@ -1142,7 +1170,7 @@ orgRouter.post("/appointments/:id/complete", requireOrgWriteAccess, async (req: 
   return res.json({ ok: true, data: { appointment: updated } });
 });
 
-orgRouter.get("/calendar/providers", async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/calendar/providers", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
@@ -1154,7 +1182,7 @@ orgRouter.get("/calendar/providers", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { providers } });
 });
 
-orgRouter.post("/calendar/google/connect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/calendar/google/connect", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
@@ -1204,7 +1232,7 @@ orgRouter.get("/calendar/google/callback", async (req: AuthenticatedRequest, res
   }
 });
 
-orgRouter.post("/calendar/outlook/connect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/calendar/outlook/connect", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
@@ -1254,7 +1282,7 @@ orgRouter.get("/calendar/outlook/callback", async (req: AuthenticatedRequest, re
   }
 });
 
-orgRouter.post("/calendar/disconnect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/calendar/disconnect", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
@@ -1272,7 +1300,7 @@ orgRouter.post("/calendar/disconnect", requireOrgAdminAccess, async (req: Authen
   return res.json({ ok: true, data: { disconnected: result.count } });
 });
 
-orgRouter.post("/calendar/sync-test", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/calendar/sync-test", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }

@@ -8,6 +8,7 @@ import {
   deleteOrgKnowledgeFile,
   fetchCalendarProviders,
   fetchAuthSecurityStatus,
+  getMe,
   fetchOrgKnowledgeFiles,
   fetchOrgNotifications,
   fetchOrgSettings,
@@ -155,6 +156,7 @@ export default function AppSettingsPage() {
   const [notificationCount, setNotificationCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [canManageCalendar, setCanManageCalendar] = useState(false);
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.readAt).length, [notifications]);
 
   useEffect(() => {
@@ -227,6 +229,12 @@ export default function AppSettingsPage() {
     void fetchAuthSecurityStatus()
       .then((data) => setSecurity(data))
       .catch(() => setSecurity(null));
+    void getMe()
+      .then((data) => {
+        const role = data.user.role;
+        setCanManageCalendar(role === "CLIENT_ADMIN" || role === "ADMIN" || role === "SUPER_ADMIN");
+      })
+      .catch(() => setCanManageCalendar(false));
   }, []);
 
   async function onSendTestVerificationEmail() {
@@ -494,7 +502,7 @@ export default function AppSettingsPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             variant="outline"
-            disabled={calendarBusy}
+            disabled={calendarBusy || !canManageCalendar}
             onClick={() =>
               void (async () => {
                 setCalendarBusy(true);
@@ -513,7 +521,7 @@ export default function AppSettingsPage() {
           </Button>
           <Button
             variant="outline"
-            disabled={calendarBusy}
+            disabled={calendarBusy || !canManageCalendar}
             onClick={() =>
               void (async () => {
                 setCalendarBusy(true);
@@ -534,7 +542,7 @@ export default function AppSettingsPage() {
             className="h-10 rounded-md border bg-background px-3 text-sm"
             value={calendarSyncProvider}
             onChange={(event) => setCalendarSyncProvider(event.target.value as "" | "GOOGLE" | "OUTLOOK")}
-            disabled={calendarBusy}
+            disabled={calendarBusy || !canManageCalendar}
           >
             <option value="">Any active provider</option>
             <option value="GOOGLE">Google</option>
@@ -542,7 +550,7 @@ export default function AppSettingsPage() {
           </select>
           <Button
             variant="outline"
-            disabled={calendarBusy}
+            disabled={calendarBusy || !canManageCalendar}
             onClick={() =>
               void (async () => {
                 setCalendarBusy(true);
@@ -562,6 +570,11 @@ export default function AppSettingsPage() {
             Run sync test
           </Button>
         </div>
+        {!canManageCalendar ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Calendar connection management requires an admin role.
+          </p>
+        ) : null}
         <div className="mt-3 space-y-2 text-sm">
           {calendarProviders.length ? calendarProviders.map((provider) => (
             <div key={provider.id} className="flex items-center justify-between rounded border p-2">
@@ -574,6 +587,7 @@ export default function AppSettingsPage() {
               <Button
                 size="sm"
                 variant="outline"
+                disabled={!canManageCalendar}
                 onClick={() =>
                   void (async () => {
                     await disconnectCalendar({ provider: provider.provider as "GOOGLE" | "OUTLOOK", accountEmail: provider.accountEmail });
