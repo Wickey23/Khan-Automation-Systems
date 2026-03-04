@@ -38,3 +38,36 @@ test("readiness blocks go-live when billing is inactive", async () => {
   assert.equal(report.checks.billingActive.ok, false);
   assert.equal(report.canGoLive, false);
 });
+
+test("readiness degrades safely when business settings query fails", async () => {
+  const prisma = {
+    subscription: { findFirst: async () => ({ status: "active" }) },
+    onboardingSubmission: { findUnique: async () => ({ status: "APPROVED" }) },
+    businessSettings: {
+      findUnique: async () => {
+        throw new Error("P2022 schema drift");
+      }
+    },
+    phoneNumber: { findFirst: async () => ({ e164Number: "+15555550123", status: "ACTIVE" }) },
+    aiAgentConfig: { findFirst: async () => ({ id: "ai_1", status: "ACTIVE" }) },
+    provisioningChecklist: { findUnique: async () => ({ stepsJson: "[]" }) },
+    testScenario: {
+      findMany: async () => [
+        { id: "s1", tagsJson: "[\"after_hours\"]", testRuns: [{ status: "PASS", createdAt: new Date() }] },
+        { id: "s2", tagsJson: "[\"transfer\"]", testRuns: [{ status: "PASS", createdAt: new Date() }] },
+        { id: "s3", tagsJson: "[\"intake\"]", testRuns: [{ status: "PASS", createdAt: new Date() }] },
+        { id: "s4", tagsJson: "[\"intake\"]", testRuns: [{ status: "PASS", createdAt: new Date() }] },
+        { id: "s5", tagsJson: "[\"intake\"]", testRuns: [{ status: "PASS", createdAt: new Date() }] }
+      ]
+    }
+  } as any;
+
+  const report = await computeReadinessReport({
+    prisma,
+    org: { id: "org_1", status: "PROVISIONING", live: false } as any,
+    env: { VAPI_TOOL_SECRET: "1234" }
+  });
+
+  assert.equal(report.checks.businessSettingsValid.ok, false);
+  assert.equal(report.canGoLive, false);
+});
