@@ -8,6 +8,7 @@ import { env } from "../../config/env";
 import { randomUUID } from "crypto";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { isFeatureEnabledForOrg } from "../org/feature-gates";
+import { isPrismaMissingColumnError } from "../../lib/prisma-errors";
 
 export const leadRouter = Router();
 
@@ -38,8 +39,7 @@ async function createLeadResilient(data: {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    const isSchemaDrift =
-      message.includes("column") || message.includes("p2022") || message.includes("invalid `prisma.lead.create()`");
+    const isSchemaDrift = isPrismaMissingColumnError(error) || message.includes("invalid `prisma.lead.create()`");
     if (!isSchemaDrift) throw error;
 
     const legacyId = `lead_${Date.now()}_${randomUUID().slice(0, 8)}`;

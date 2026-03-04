@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { isPrismaMissingColumnError } from "../../lib/prisma-errors";
 
 type AnalyticsRange = "7d" | "30d" | "custom";
 
@@ -79,7 +80,8 @@ export async function computeOrgAnalytics(
       select: { threadId: true, direction: true, createdAt: true, metadataJson: true, leadId: true }
     })
   ]);
-  const [appointmentsBooked, qualifiedLeads, missedCallsRecovered, settings] = await Promise.all([
+  let settings: { averageJobValueUsd: number | null } | null = null;
+  const [appointmentsBooked, qualifiedLeads, missedCallsRecovered] = await Promise.all([
     prisma.appointment.count({
       where: { orgId, status: { in: ["CONFIRMED", "COMPLETED"] }, createdAt: whereWindow }
     }),
@@ -88,12 +90,17 @@ export async function computeOrgAnalytics(
     }),
     prisma.callClassificationLog.count({
       where: { orgId, createdAt: whereWindow, classification: "MISSED_CALL_RECOVERY" }
-    }),
-    prisma.businessSettings.findUnique({
-      where: { orgId },
-      select: { averageJobValueUsd: true }
     })
   ]);
+  try {
+    settings = await prisma.businessSettings.findUnique({
+      where: { orgId },
+      select: { averageJobValueUsd: true }
+    });
+  } catch (error) {
+    if (!isPrismaMissingColumnError(error)) throw error;
+    settings = null;
+  }
 
   const totalCalls = calls.length;
   const answeredCalls = calls.filter((call) => call.outcome !== "MISSED").length;

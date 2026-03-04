@@ -1,5 +1,6 @@
 import type { NotificationSeverity, NotificationType, Prisma, PrismaClient, UserRole } from "@prisma/client";
 import { env } from "../../config/env";
+import { isPrismaMissingColumnError } from "../../lib/prisma-errors";
 import { isFeatureEnabledForOrg } from "../org/feature-gates";
 import { sendOrgOperationalNotificationEmail } from "../../services/email";
 
@@ -60,9 +61,7 @@ async function resolveEmailRecipients(input: { prisma: PrismaClient; orgId: stri
       select: { notificationEmailRecipientsJson: true, notificationTogglesJson: true }
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : "";
-    const schemaDrift = message.includes("p2022") || message.includes("column");
-    if (!schemaDrift) throw error;
+    if (!isPrismaMissingColumnError(error)) throw error;
     settings = null;
   }
   const toggles = parseJsonObject(settings?.notificationTogglesJson);

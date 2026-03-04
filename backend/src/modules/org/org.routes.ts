@@ -4,6 +4,7 @@ import { z } from "zod";
 import { env } from "../../config/env";
 import { decryptField, encryptField } from "../../lib/crypto-fields";
 import { prisma } from "../../lib/prisma";
+import { isPrismaMissingColumnError } from "../../lib/prisma-errors";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { hasProMessaging } from "../billing/plan-features";
 import { sendSmsMessage } from "../twilio/twilio.service";
@@ -959,17 +960,30 @@ orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, asyn
     return res.status(400).json({ ok: false, message: "Invalid range: from must be before or equal to to." });
   }
 
-  const settings = await prisma.businessSettings.findUnique({
-    where: { orgId: req.auth.orgId },
-    select: {
-      hoursJson: true,
-      timezone: true,
-      appointmentDurationMinutes: true,
-      appointmentBufferMinutes: true,
-      bookingLeadTimeHours: true,
-      bookingMaxDaysAhead: true
-    }
-  });
+  let settings: {
+    hoursJson: string | null;
+    timezone: string | null;
+    appointmentDurationMinutes: number | null;
+    appointmentBufferMinutes: number | null;
+    bookingLeadTimeHours: number | null;
+    bookingMaxDaysAhead: number | null;
+  } | null = null;
+  try {
+    settings = await prisma.businessSettings.findUnique({
+      where: { orgId: req.auth.orgId },
+      select: {
+        hoursJson: true,
+        timezone: true,
+        appointmentDurationMinutes: true,
+        appointmentBufferMinutes: true,
+        bookingLeadTimeHours: true,
+        bookingMaxDaysAhead: true
+      }
+    });
+  } catch (error) {
+    if (!isPrismaMissingColumnError(error)) throw error;
+    settings = null;
+  }
   const toBound = parsed.data.to ? new Date(parsed.data.to) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const existingAppointments = await prisma.appointment.findMany({
     where: {
@@ -1055,10 +1069,16 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
     return res.status(400).json({ ok: false, message: "Invalid appointment time window." });
   }
-  const settings = await prisma.businessSettings.findUnique({
-    where: { orgId: req.auth.orgId },
-    select: { hoursJson: true, timezone: true, appointmentBufferMinutes: true }
-  });
+  let settings: { hoursJson: string | null; timezone: string | null; appointmentBufferMinutes: number | null } | null = null;
+  try {
+    settings = await prisma.businessSettings.findUnique({
+      where: { orgId: req.auth.orgId },
+      select: { hoursJson: true, timezone: true, appointmentBufferMinutes: true }
+    });
+  } catch (error) {
+    if (!isPrismaMissingColumnError(error)) throw error;
+    settings = null;
+  }
   const durationMinutes = Math.max(1, Math.round((endAt.getTime() - startAt.getTime()) / (60 * 1000)));
   const inHours = validateSlotWithinBusinessHours({
     hoursJson: settings?.hoursJson || null,
