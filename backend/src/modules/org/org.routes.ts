@@ -25,7 +25,7 @@ import {
 import { emitOrgNotification } from "../notifications/notification.service";
 import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
 import { isFeatureEnabledForOrg } from "./feature-gates";
-import { canManageOrgAdminFeature, canWriteOrgFeature } from "./org-rbac.service";
+import { canManageOrgAdminFeature, canViewNotificationForRole, canWriteOrgFeature } from "./org-rbac.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -1337,7 +1337,8 @@ orgRouter.get("/notifications", async (req: AuthenticatedRequest, res) => {
     orderBy: { createdAt: "desc" },
     take: 200
   });
-  return res.json({ ok: true, data: { notifications } });
+  const filtered = notifications.filter((row) => canViewNotificationForRole(req.auth?.role, row.targetRoleMin));
+  return res.json({ ok: true, data: { notifications: filtered } });
 });
 
 orgRouter.post("/notifications/:id/read", async (req: AuthenticatedRequest, res) => {
@@ -1349,6 +1350,9 @@ orgRouter.post("/notifications/:id/read", async (req: AuthenticatedRequest, res)
     where: { id: req.params.id, orgId: req.auth.orgId }
   });
   if (!notification) return res.status(404).json({ ok: false, message: "Notification not found." });
+  if (!canViewNotificationForRole(req.auth?.role, notification.targetRoleMin)) {
+    return res.status(404).json({ ok: false, message: "Notification not found." });
+  }
   const updated = await prisma.orgNotification.update({
     where: { id: notification.id },
     data: { readAt: new Date() }
@@ -1361,8 +1365,18 @@ orgRouter.post("/notifications/read-all", async (req: AuthenticatedRequest, res)
     return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const result = await prisma.orgNotification.updateMany({
+  const visibleIds = await prisma.orgNotification.findMany({
     where: { orgId: req.auth.orgId, readAt: null },
+    select: { id: true, targetRoleMin: true }
+  });
+  const ids = visibleIds
+    .filter((row) => canViewNotificationForRole(req.auth?.role, row.targetRoleMin))
+    .map((row) => row.id);
+  if (!ids.length) {
+    return res.json({ ok: true, data: { updated: 0 } });
+  }
+  const result = await prisma.orgNotification.updateMany({
+    where: { id: { in: ids } },
     data: { readAt: new Date() }
   });
   return res.json({ ok: true, data: { updated: result.count } });
