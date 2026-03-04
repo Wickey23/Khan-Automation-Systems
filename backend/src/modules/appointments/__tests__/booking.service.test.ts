@@ -22,6 +22,7 @@ function createPrismaMock() {
     },
     appointment: {
       overlapHit: false,
+      duplicateKeyHit: false,
       findMany: async () =>
         (prisma.appointment as any).overlapHit
           ? [
@@ -32,7 +33,25 @@ function createPrismaMock() {
               }
             ]
           : [],
+      findFirst: async ({ where }: any) => {
+        if (where?.id && (prisma.appointment as any).overlapHit) {
+          return {
+            id: "appt_existing_overlap",
+            startAt: new Date("2026-03-05T19:30:00.000Z"),
+            endAt: new Date("2026-03-05T20:30:00.000Z")
+          };
+        }
+        if (where?.idempotencyKey) {
+          return appointments.find((row) => row.idempotencyKey === where.idempotencyKey) || null;
+        }
+        return null;
+      },
       create: async ({ data }: any) => {
+        if ((prisma.appointment as any).duplicateKeyHit) {
+          const err = new Error("unique violation") as Error & { code?: string };
+          err.code = "P2002";
+          throw err;
+        }
         const row = { id: `appt_${appointments.length + 1}`, ...data };
         appointments.push(row);
         return row;
@@ -152,4 +171,51 @@ test("booking overlap respects buffer minutes between appointments", async () =>
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.equal(result.reason, "OVERLAP");
+});
+
+test("booking returns existing appointment on idempotency duplicate", async () => {
+  const mock = createPrismaMock();
+  (mock.prisma.appointment as any).duplicateKeyHit = true;
+  (mock.prisma.appointment as any).findMany = async () => [];
+  (mock.prisma.appointment as any).findFirst = async ({ where }: any) => {
+    if (where?.idempotencyKey === "idem_123") {
+      return {
+        id: "appt_existing",
+        orgId: "org_1",
+        leadId: null,
+        callLogId: null,
+        customerName: "Eli",
+        customerPhone: "+15165554444",
+        issueSummary: "Existing booking",
+        assignedTechnician: null,
+        status: "CONFIRMED",
+        startAt: new Date("2026-03-05T13:00:00.000Z"),
+        endAt: new Date("2026-03-05T14:00:00.000Z"),
+        timezone: "America/New_York",
+        calendarProvider: "INTERNAL",
+        externalCalendarEventId: null,
+        idempotencyKey: "idem_123",
+        createdByUserId: "user_1"
+      };
+    }
+    return null;
+  };
+
+  const result = await bookAppointmentWithHold({
+    prisma: mock.prisma,
+    orgId: "org_1",
+    userId: "user_1",
+    customerName: "Eli",
+    customerPhone: "+15165554444",
+    issueSummary: "Duplicate request",
+    startAt: new Date("2026-03-05T13:00:00.000Z"),
+    endAt: new Date("2026-03-05T14:00:00.000Z"),
+    timezone: "America/New_York",
+    requestedProvider: "INTERNAL",
+    idempotencyKey: "idem_123"
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.appointment.id, "appt_existing");
 });

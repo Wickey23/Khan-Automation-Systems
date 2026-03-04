@@ -74,25 +74,43 @@ export async function bookAppointmentWithHold(input: BookingInput) {
     status = "PENDING";
   }
 
-  const appointment = await input.prisma.appointment.create({
-    data: {
-      orgId: input.orgId,
-      leadId: input.leadId || null,
-      callLogId: input.callLogId || null,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      issueSummary: input.issueSummary,
-      assignedTechnician: input.assignedTechnician || null,
-      status,
-      startAt: input.startAt,
-      endAt: input.endAt,
-      timezone: input.timezone,
-      calendarProvider: provider,
-      externalCalendarEventId,
-      idempotencyKey: input.idempotencyKey || null,
-      createdByUserId: input.userId
+  let appointment: Awaited<ReturnType<typeof input.prisma.appointment.create>>;
+  try {
+    appointment = await input.prisma.appointment.create({
+      data: {
+        orgId: input.orgId,
+        leadId: input.leadId || null,
+        callLogId: input.callLogId || null,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        issueSummary: input.issueSummary,
+        assignedTechnician: input.assignedTechnician || null,
+        status,
+        startAt: input.startAt,
+        endAt: input.endAt,
+        timezone: input.timezone,
+        calendarProvider: provider,
+        externalCalendarEventId,
+        idempotencyKey: input.idempotencyKey || null,
+        createdByUserId: input.userId
+      }
+    });
+  } catch (error) {
+    const code = String((error as { code?: string } | null)?.code || "");
+    if (code === "P2002" && input.idempotencyKey) {
+      const existing = await input.prisma.appointment.findFirst({
+        where: { orgId: input.orgId, idempotencyKey: input.idempotencyKey }
+      });
+      if (existing) {
+        await input.prisma.appointmentHold.update({
+          where: { id: hold.id },
+          data: { status: existing.status === "CONFIRMED" ? "CONFIRMED" : "FAILED" }
+        });
+        return { ok: true as const, appointment: existing };
+      }
     }
-  });
+    throw error;
+  }
 
   await input.prisma.appointmentHold.update({
     where: { id: hold.id },
