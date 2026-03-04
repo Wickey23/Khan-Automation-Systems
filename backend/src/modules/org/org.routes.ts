@@ -1126,6 +1126,18 @@ orgRouter.patch("/appointments/:id", requireAppointmentsWriteAccess, async (req:
     where: { id: req.params.id, orgId: req.auth.orgId }
   });
   if (!appointment) return res.status(404).json({ ok: false, message: "Appointment not found." });
+  if (parsed.data.status === "COMPLETED" || parsed.data.status === "CANCELED") {
+    return res.status(400).json({
+      ok: false,
+      message: `Set status ${parsed.data.status} via dedicated complete/cancel endpoint.`
+    });
+  }
+  if (parsed.data.status === "CONFIRMED" && appointment.status !== "PENDING") {
+    return res.status(409).json({ ok: false, message: "Only pending appointments can be confirmed." });
+  }
+  if (parsed.data.status === "NO_SHOW" && appointment.status === "CANCELED") {
+    return res.status(409).json({ ok: false, message: "Canceled appointments cannot be marked as no-show." });
+  }
   const updated = await prisma.appointment.update({
     where: { id: appointment.id },
     data: {
@@ -1146,6 +1158,12 @@ orgRouter.post("/appointments/:id/cancel", requireAppointmentsWriteAccess, async
     where: { id: req.params.id, orgId: req.auth.orgId }
   });
   if (!appointment) return res.status(404).json({ ok: false, message: "Appointment not found." });
+  if (appointment.status === "COMPLETED") {
+    return res.status(409).json({ ok: false, message: "Completed appointments cannot be canceled." });
+  }
+  if (appointment.status === "CANCELED") {
+    return res.json({ ok: true, data: { appointment } });
+  }
   const updated = await prisma.appointment.update({
     where: { id: appointment.id },
     data: { status: "CANCELED" }
@@ -1162,6 +1180,12 @@ orgRouter.post("/appointments/:id/complete", requireAppointmentsWriteAccess, asy
     where: { id: req.params.id, orgId: req.auth.orgId }
   });
   if (!appointment) return res.status(404).json({ ok: false, message: "Appointment not found." });
+  if (appointment.status === "CANCELED") {
+    return res.status(409).json({ ok: false, message: "Canceled appointments cannot be completed." });
+  }
+  if (appointment.status === "COMPLETED") {
+    return res.json({ ok: true, data: { appointment } });
+  }
   const updated = await prisma.appointment.update({
     where: { id: appointment.id },
     data: { status: "COMPLETED" }
