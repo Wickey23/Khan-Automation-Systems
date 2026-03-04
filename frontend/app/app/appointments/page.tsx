@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   cancelOrgAppointment,
@@ -22,6 +23,7 @@ export default function AppAppointmentsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [canWrite, setCanWrite] = useState(false);
+  const [canManageCalendar, setCanManageCalendar] = useState(false);
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
   const [slotDate, setSlotDate] = useState("");
   const [slotTimezone, setSlotTimezone] = useState("America/New_York");
@@ -73,8 +75,13 @@ export default function AppAppointmentsPage() {
           role === "CLIENT_ADMIN" ||
           role === "ADMIN" ||
           role === "SUPER_ADMIN";
+        const calendarManage =
+          role === "CLIENT_ADMIN" ||
+          role === "ADMIN" ||
+          role === "SUPER_ADMIN";
         setCanWrite(writable);
-        if (writable) {
+        setCanManageCalendar(calendarManage);
+        if (calendarManage) {
           void fetchCalendarProviders()
             .then((data) => setCalendarProviders(data.providers || []))
             .catch(() => setCalendarProviders([]));
@@ -82,6 +89,7 @@ export default function AppAppointmentsPage() {
       })
       .catch(() => {
         setCanWrite(false);
+        setCanManageCalendar(false);
       });
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (localTz) setSlotTimezone(localTz);
@@ -316,6 +324,9 @@ export default function AppAppointmentsPage() {
                 {hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
                 {hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
               </select>
+              {!canManageCalendar ? (
+                <p className="mt-1 text-xs text-muted-foreground">Google/Outlook booking is admin-managed in Settings.</p>
+              ) : null}
             </label>
             <label className="text-sm">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">Date</span>
@@ -390,8 +401,26 @@ export default function AppAppointmentsPage() {
                   <td className="p-3">{appointment.customerPhone}</td>
                   <td className="p-3 max-w-[320px]">{appointment.issueSummary}</td>
                   <td className="p-3 text-xs text-muted-foreground">
-                    <div>Lead: {appointment.leadId || "-"}</div>
-                    <div>Call: {appointment.callLogId || "-"}</div>
+                    <div>
+                      Lead:{" "}
+                      {appointment.leadId ? (
+                        <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(appointment.leadId)}`}>
+                          {appointment.leadId}
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
+                    </div>
+                    <div>
+                      Call:{" "}
+                      {appointment.callLogId ? (
+                        <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(appointment.callLogId)}`}>
+                          {appointment.callLogId}
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
+                    </div>
                   </td>
                   <td className="p-3">{appointment.assignedTechnician || "-"}</td>
                   <td className="p-3">{appointment.status}</td>
