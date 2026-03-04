@@ -1,10 +1,12 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import {
+  Prisma,
   TeamMembershipRole,
   TeamMembershipStatus,
   UserRole,
   type PrismaClient,
+  type Prisma as PrismaTypes,
   SubscriptionPlan
 } from "@prisma/client";
 import { Router } from "express";
@@ -26,6 +28,22 @@ import { buildSeatSnapshot, canAcceptSeat, canInviteSeat } from "./team-seat.ser
 export const teamRouter = Router();
 
 const INVITE_EXP_HOURS = 72;
+const TX_ISOLATION = Prisma.TransactionIsolationLevel.Serializable;
+type DbClient = PrismaClient | PrismaTypes.TransactionClient;
+
+class TeamCapacityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TeamCapacityError";
+  }
+}
+
+class TeamConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TeamConflictError";
+  }
+}
 
 function toUserRole(role: TeamMembershipRole): UserRole {
   if (role === TeamMembershipRole.ADMIN) return UserRole.CLIENT_ADMIN;
@@ -55,7 +73,7 @@ function normalizeEmail(email: string) {
   return String(email || "").trim().toLowerCase();
 }
 
-async function syncLegacyOrgUsersToMemberships(db: PrismaClient, orgId: string) {
+async function syncLegacyOrgUsersToMemberships(db: DbClient, orgId: string) {
   const users = await db.user.findMany({
     where: { orgId },
     select: { id: true, email: true, role: true, createdAt: true, updatedAt: true }
@@ -86,7 +104,7 @@ async function syncLegacyOrgUsersToMemberships(db: PrismaClient, orgId: string) 
   }
 }
 
-async function resolveSeatSnapshot(db: PrismaClient, orgId: string) {
+async function resolveSeatSnapshot(db: DbClient, orgId: string) {
   const [org, subscription, activeMembers, pendingInvites] = await Promise.all([
     db.organization.findUnique({
       where: { id: orgId },
@@ -155,56 +173,72 @@ teamRouter.post("/accept", async (req, res) => {
     return res.status(409).json({ ok: false, message: "This email already belongs to another organization." });
   }
 
-  await syncLegacyOrgUsersToMemberships(prisma, invite.organizationId);
-  const seatSnapshot = await resolveSeatSnapshot(prisma, invite.organizationId);
-  if (!canAcceptSeat(seatSnapshot)) {
-    return res.status(409).json({
-      ok: false,
-      message: "Seat limit reached. Ask your admin to add seats before accepting this invite."
-    });
-  }
-
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  const user =
-    existingUser ||
-    (await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        role: toUserRole(invite.role),
-        orgId: invite.organizationId
-      }
-    }));
+  let userId = existingUser?.id || null;
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        await syncLegacyOrgUsersToMemberships(tx, invite.organizationId);
+        const seatSnapshot = await resolveSeatSnapshot(tx, invite.organizationId);
+        if (!canAcceptSeat(seatSnapshot)) {
+          throw new TeamCapacityError("Seat limit reached. Ask your admin to add seats before accepting this invite.");
+        }
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        role: toUserRole(invite.role),
-        orgId: invite.organizationId,
-        ...(existingUser ? {} : { passwordHash })
-      }
-    }),
-    prisma.organizationMembership.update({
-      where: { id: invite.id },
-      data: {
-        userId: user.id,
-        status: TeamMembershipStatus.ACTIVE,
-        acceptedAt: new Date(),
-        inviteTokenHash: null,
-        inviteExpiresAt: null
-      }
-    }),
-    prisma.auditLog.create({
-      data: {
-        orgId: invite.organizationId,
-        actorUserId: user.id,
-        actorRole: toUserRole(invite.role),
-        action: "TEAM_INVITE_ACCEPTED",
-        metadataJson: JSON.stringify({ membershipId: invite.id, email })
-      }
-    })
-  ]);
+        if (!userId) {
+          const createdUser = await tx.user.create({
+            data: {
+              email,
+              passwordHash,
+              role: toUserRole(invite.role),
+              orgId: invite.organizationId
+            }
+          });
+          userId = createdUser.id;
+        }
+
+        await tx.user.update({
+          where: { id: String(userId) },
+          data: {
+            role: toUserRole(invite.role),
+            orgId: invite.organizationId,
+            ...(existingUser ? {} : { passwordHash })
+          }
+        });
+        await tx.organizationMembership.update({
+          where: { id: invite.id },
+          data: {
+            userId: String(userId),
+            status: TeamMembershipStatus.ACTIVE,
+            acceptedAt: new Date(),
+            inviteTokenHash: null,
+            inviteExpiresAt: null
+          }
+        });
+        await tx.auditLog.create({
+          data: {
+            orgId: invite.organizationId,
+            actorUserId: String(userId),
+            actorRole: toUserRole(invite.role),
+            action: "TEAM_INVITE_ACCEPTED",
+            metadataJson: JSON.stringify({ membershipId: invite.id, email })
+          }
+        });
+      },
+      { isolationLevel: TX_ISOLATION }
+    );
+  } catch (error) {
+    if (error instanceof TeamCapacityError) {
+      return res.status(409).json({ ok: false, message: error.message });
+    }
+    const code = String((error as { code?: string } | null)?.code || "");
+    if (code === "P2034" || code === "P2002") {
+      return res.status(409).json({
+        ok: false,
+        message: "Invite acceptance conflicted with a concurrent seat update. Please try again."
+      });
+    }
+    throw error;
+  }
 
   return res.json({ ok: true, data: { accepted: true, orgName: invite.organization.name } });
 });
@@ -260,57 +294,73 @@ teamRouter.get("/", async (req: AuthenticatedRequest, res) => {
 teamRouter.post("/invite", requireCsrf, async (req: AuthenticatedRequest, res) => {
   if (!canManageTeam(req)) return res.status(403).json({ ok: false, message: "Forbidden" });
   const orgId = req.auth?.orgId;
-  if (!orgId || !req.auth?.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const actorUserId = req.auth?.userId;
+  const actorRole = req.auth?.role;
+  if (!orgId || !actorUserId || !actorRole) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = inviteTeamMemberSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid invite payload." });
 
-  await syncLegacyOrgUsersToMemberships(prisma, orgId);
-  const seat = await resolveSeatSnapshot(prisma, orgId);
-  if (!canInviteSeat(seat)) {
-    return res.status(409).json({
-      ok: false,
-      message: "You have reached your seat limit. Add additional seats to invite more users."
-    });
-  }
-
   const email = normalizeEmail(parsed.data.email);
-  const existingActive = await prisma.organizationMembership.findFirst({
-    where: {
-      organizationId: orgId,
-      status: TeamMembershipStatus.ACTIVE,
-      invitedEmail: email
-    }
-  });
-  if (existingActive) return res.status(409).json({ ok: false, message: "User is already an active team member." });
-  const existingInvite = await prisma.organizationMembership.findFirst({
-    where: {
-      organizationId: orgId,
-      status: TeamMembershipStatus.INVITED,
-      invitedEmail: email
-    }
-  });
-  if (existingInvite) {
-    return res.status(409).json({
-      ok: false,
-      message: "An invite is already pending for this email."
-    });
-  }
-
   const token = crypto.randomBytes(32).toString("base64url");
   const inviteRole = toTeamRole(parsed.data.role);
-  const invite = await prisma.organizationMembership.create({
-    data: {
-      organizationId: orgId,
-      role: inviteRole,
-      status: TeamMembershipStatus.INVITED,
-      invitedEmail: email,
-      invitedBy: req.auth.userId,
-      invitedAt: new Date(),
-      inviteTokenHash: hashToken(token),
-      inviteExpiresAt: new Date(Date.now() + INVITE_EXP_HOURS * 60 * 60 * 1000)
-    },
-    include: { organization: { select: { name: true } } }
-  });
+  let invite: PrismaTypes.OrganizationMembershipGetPayload<{
+    include: { organization: { select: { name: true } } };
+  }>;
+  try {
+    invite = await prisma.$transaction(
+      async (tx) => {
+        await syncLegacyOrgUsersToMemberships(tx, orgId);
+        const seat = await resolveSeatSnapshot(tx, orgId);
+        if (!canInviteSeat(seat)) {
+          throw new TeamCapacityError("You have reached your seat limit. Add additional seats to invite more users.");
+        }
+
+        const existingActive = await tx.organizationMembership.findFirst({
+          where: {
+            organizationId: orgId,
+            status: TeamMembershipStatus.ACTIVE,
+            invitedEmail: email
+          }
+        });
+        if (existingActive) throw new TeamConflictError("User is already an active team member.");
+        const existingInvite = await tx.organizationMembership.findFirst({
+          where: {
+            organizationId: orgId,
+            status: TeamMembershipStatus.INVITED,
+            invitedEmail: email
+          }
+        });
+        if (existingInvite) throw new TeamConflictError("An invite is already pending for this email.");
+
+        return tx.organizationMembership.create({
+          data: {
+            organizationId: orgId,
+            role: inviteRole,
+            status: TeamMembershipStatus.INVITED,
+            invitedEmail: email,
+            invitedBy: actorUserId,
+            invitedAt: new Date(),
+            inviteTokenHash: hashToken(token),
+            inviteExpiresAt: new Date(Date.now() + INVITE_EXP_HOURS * 60 * 60 * 1000)
+          },
+          include: { organization: { select: { name: true } } }
+        });
+      },
+      { isolationLevel: TX_ISOLATION }
+    );
+  } catch (error) {
+    if (error instanceof TeamCapacityError || error instanceof TeamConflictError) {
+      return res.status(409).json({ ok: false, message: error.message });
+    }
+    const code = String((error as { code?: string } | null)?.code || "");
+    if (code === "P2034" || code === "P2002") {
+      return res.status(409).json({
+        ok: false,
+        message: "Invite conflicted with a concurrent update. Please retry."
+      });
+    }
+    throw error;
+  }
 
   const inviteUrl = `${env.FRONTEND_APP_URL}/auth/accept-invite?token=${encodeURIComponent(token)}`;
   try {
@@ -332,8 +382,8 @@ teamRouter.post("/invite", requireCsrf, async (req: AuthenticatedRequest, res) =
   await prisma.auditLog.create({
     data: {
       orgId,
-      actorUserId: req.auth.userId,
-      actorRole: req.auth.role,
+      actorUserId,
+      actorRole,
       action: "TEAM_INVITE_SENT",
       metadataJson: JSON.stringify({ invitedEmail: email, role: inviteRole })
     }
