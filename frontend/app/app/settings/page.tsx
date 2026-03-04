@@ -10,6 +10,7 @@ import {
   fetchAuthSecurityStatus,
   getMe,
   fetchOrgKnowledgeFiles,
+  fetchOrgProfile,
   fetchOrgNotifications,
   fetchOrgSettings,
   markAllOrgNotificationsRead,
@@ -157,11 +158,28 @@ export default function AppSettingsPage() {
   const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
   const [canManageCalendar, setCanManageCalendar] = useState(false);
+  const [featureFlags, setFeatureFlags] = useState({
+    calendarOauthEnabled: false,
+    notificationsEnabled: false,
+    classificationEnabled: false
+  });
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.readAt).length, [notifications]);
 
   useEffect(() => {
-    void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles(), fetchCalendarProviders().catch(() => ({ providers: [] })), fetchOrgNotifications().catch(() => ({ notifications: [] }))])
-      .then(([{ settings }, { files }, calendar, notifications]) => {
+    void Promise.all([
+      fetchOrgSettings(),
+      fetchOrgKnowledgeFiles(),
+      fetchOrgProfile().catch(() => ({
+        organization: null,
+        assignedPhoneNumber: null,
+        assignedNumberProvider: null,
+        features: {}
+      })),
+      fetchCalendarProviders().catch(() => ({ providers: [] })),
+      fetchOrgNotifications().catch(() => ({ notifications: [] }))
+    ])
+      .then(([{ settings }, { files }, profile, calendar, notifications]) => {
+        const profileFeatures = (profile as { features?: Record<string, unknown> } | null | undefined)?.features || {};
         const hoursRoot = fromJsonObject(settings.hoursJson);
         const scheduleRaw =
           hoursRoot && typeof hoursRoot.schedule === "object" && hoursRoot.schedule !== null && !Array.isArray(hoursRoot.schedule)
@@ -212,6 +230,11 @@ export default function AppSettingsPage() {
           hours: parsedHours
         });
         setKnowledgeFiles(files || []);
+        setFeatureFlags({
+          calendarOauthEnabled: profileFeatures.calendarOauthEnabled === true,
+          notificationsEnabled: profileFeatures.notificationsEnabled === true,
+          classificationEnabled: profileFeatures.classificationEnabled === true
+        });
         setCalendarProviders(calendar.providers || []);
         setNotifications(notifications.notifications || []);
         setNotificationCount((notifications.notifications || []).length);
@@ -496,13 +519,18 @@ export default function AppSettingsPage() {
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-lg font-semibold">Calendar Connections</h2>
+        {!featureFlags.calendarOauthEnabled ? (
+          <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Calendar OAuth is currently disabled for this workspace.
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-muted-foreground">
           Connect Google or Outlook for create-only appointment event writes.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             variant="outline"
-            disabled={calendarBusy || !canManageCalendar}
+            disabled={calendarBusy || !canManageCalendar || !featureFlags.calendarOauthEnabled}
             onClick={() =>
               void (async () => {
                 setCalendarBusy(true);
@@ -521,7 +549,7 @@ export default function AppSettingsPage() {
           </Button>
           <Button
             variant="outline"
-            disabled={calendarBusy || !canManageCalendar}
+            disabled={calendarBusy || !canManageCalendar || !featureFlags.calendarOauthEnabled}
             onClick={() =>
               void (async () => {
                 setCalendarBusy(true);
@@ -542,7 +570,7 @@ export default function AppSettingsPage() {
             className="h-10 rounded-md border bg-background px-3 text-sm"
             value={calendarSyncProvider}
             onChange={(event) => setCalendarSyncProvider(event.target.value as "" | "GOOGLE" | "OUTLOOK")}
-            disabled={calendarBusy || !canManageCalendar}
+            disabled={calendarBusy || !canManageCalendar || !featureFlags.calendarOauthEnabled}
           >
             <option value="">Any active provider</option>
             <option value="GOOGLE">Google</option>
@@ -550,7 +578,7 @@ export default function AppSettingsPage() {
           </select>
           <Button
             variant="outline"
-            disabled={calendarBusy || !canManageCalendar}
+            disabled={calendarBusy || !canManageCalendar || !featureFlags.calendarOauthEnabled}
             onClick={() =>
               void (async () => {
                 setCalendarBusy(true);
@@ -587,7 +615,7 @@ export default function AppSettingsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!canManageCalendar}
+                disabled={!canManageCalendar || !featureFlags.calendarOauthEnabled}
                 onClick={() =>
                   void (async () => {
                     await disconnectCalendar({ provider: provider.provider as "GOOGLE" | "OUTLOOK", accountEmail: provider.accountEmail });
@@ -632,7 +660,13 @@ export default function AppSettingsPage() {
           </div>
           <div>
             <Label>LLM classification daily cap</Label>
-            <Input type="number" min={0} value={state.classificationLlmDailyCap} onChange={(e) => setState((p) => ({ ...p, classificationLlmDailyCap: Number(e.target.value || 100) }))} />
+            <Input
+              type="number"
+              min={0}
+              disabled={!featureFlags.classificationEnabled}
+              value={state.classificationLlmDailyCap}
+              onChange={(e) => setState((p) => ({ ...p, classificationLlmDailyCap: Number(e.target.value || 100) }))}
+            />
           </div>
           <div className="sm:col-span-2 lg:col-span-3">
             <Label>Notification email recipients (one per line)</Label>
@@ -658,9 +692,19 @@ export default function AppSettingsPage() {
             Email on emergency call flagged
           </label>
           <label className="sm:col-span-2 lg:col-span-3 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={state.classificationShadowMode} onChange={(e) => setState((p) => ({ ...p, classificationShadowMode: e.target.checked }))} />
+            <input
+              type="checkbox"
+              checked={state.classificationShadowMode}
+              disabled={!featureFlags.classificationEnabled}
+              onChange={(e) => setState((p) => ({ ...p, classificationShadowMode: e.target.checked }))}
+            />
             Classification shadow mode (log only, do not mutate lead fields)
           </label>
+          {!featureFlags.classificationEnabled ? (
+            <p className="sm:col-span-2 lg:col-span-3 text-xs text-muted-foreground">
+              Classification controls are unavailable while classification is disabled for this workspace.
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -670,12 +714,22 @@ export default function AppSettingsPage() {
             <h2 className="text-lg font-semibold">Notifications</h2>
             <p className="text-sm text-muted-foreground">Operational alerts for leads, appointments, missed recovery, and emergencies.</p>
           </div>
-          <Button size="sm" variant="outline" disabled={notificationsBusy || notifications.length === 0} onClick={() => void onMarkAllNotificationsRead()}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={notificationsBusy || notifications.length === 0 || !featureFlags.notificationsEnabled}
+            onClick={() => void onMarkAllNotificationsRead()}
+          >
             Mark all read
           </Button>
         </div>
+        {!featureFlags.notificationsEnabled ? (
+          <p className="mt-2 text-sm text-muted-foreground">Notifications v1 is disabled for this workspace.</p>
+        ) : null}
         <div className="mt-3 space-y-2">
-          {notifications.length === 0 ? (
+          {!featureFlags.notificationsEnabled ? (
+            <p className="text-sm text-muted-foreground">Enable notifications feature to view operational alerts.</p>
+          ) : notifications.length === 0 ? (
             <p className="text-sm text-muted-foreground">No notifications yet.</p>
           ) : (
             notifications.slice(0, 20).map((item) => (
@@ -691,7 +745,7 @@ export default function AppSettingsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={notificationsBusy}
+                    disabled={notificationsBusy || !featureFlags.notificationsEnabled}
                     onClick={() => void onMarkNotificationRead(item.id)}
                   >
                     Mark read
