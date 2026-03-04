@@ -85,11 +85,7 @@ const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
 const ALLOWED_KNOWLEDGE_MIME = new Set(["text/plain", "text/markdown", "application/json", "text/csv"]);
 const appointmentsAvailabilitySchema = z.object({
   from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-  appointmentDurationMinutes: z.number().int().positive().max(480).optional(),
-  appointmentBufferMinutes: z.number().int().min(0).max(240).optional(),
-  bookingLeadTimeHours: z.number().int().min(0).max(168).optional(),
-  bookingMaxDaysAhead: z.number().int().min(1).max(90).optional()
+  to: z.string().datetime().optional()
 });
 const listAppointmentsSchema = z.object({
   from: z.string().datetime().optional(),
@@ -979,10 +975,10 @@ orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, asyn
   const slots = generateAvailabilitySlots({
     hoursJson: settings?.hoursJson || null,
     timezone: settings?.timezone || "America/New_York",
-    appointmentDurationMinutes: parsed.data.appointmentDurationMinutes ?? settings?.appointmentDurationMinutes ?? 60,
-    appointmentBufferMinutes: parsed.data.appointmentBufferMinutes ?? settings?.appointmentBufferMinutes ?? 15,
-    bookingLeadTimeHours: parsed.data.bookingLeadTimeHours ?? settings?.bookingLeadTimeHours ?? 2,
-    bookingMaxDaysAhead: parsed.data.bookingMaxDaysAhead ?? settings?.bookingMaxDaysAhead ?? 14,
+    appointmentDurationMinutes: settings?.appointmentDurationMinutes ?? 60,
+    appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
+    bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
+    bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14,
     existingAppointments
   });
 

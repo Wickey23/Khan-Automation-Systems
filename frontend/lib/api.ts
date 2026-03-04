@@ -634,10 +634,6 @@ export async function completeOrgAppointment(id: string) {
 export async function fetchAppointmentAvailability(payload: {
   from?: string;
   to?: string;
-  appointmentDurationMinutes?: number;
-  appointmentBufferMinutes?: number;
-  bookingLeadTimeHours?: number;
-  bookingMaxDaysAhead?: number;
 }) {
   if (!siteConfig.apiBase) {
     throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
