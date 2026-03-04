@@ -87,3 +87,27 @@ test("returns max 10 slots sorted ascending", () => {
     assert.equal(slots[i - 1].startAt.getTime() <= slots[i].startAt.getTime(), true);
   }
 });
+
+test("returns deterministic slot ordering for identical input", () => {
+  const input = {
+    hoursJson: HOURS_JSON,
+    timezone: "America/New_York",
+    appointmentDurationMinutes: 60,
+    appointmentBufferMinutes: 15,
+    bookingLeadTimeHours: 1,
+    bookingMaxDaysAhead: 2,
+    now: new Date("2026-03-02T08:07:00-05:00"),
+    existingAppointments: [
+      {
+        startAt: new Date("2026-03-02T12:00:00-05:00"),
+        endAt: new Date("2026-03-02T13:00:00-05:00"),
+        status: "CONFIRMED"
+      }
+    ],
+    maxSlots: 10
+  };
+
+  const runA = generateAvailabilitySlots(input).map((slot) => `${slot.startAt.toISOString()}|${slot.endAt.toISOString()}`);
+  const runB = generateAvailabilitySlots(input).map((slot) => `${slot.startAt.toISOString()}|${slot.endAt.toISOString()}`);
+  assert.deepEqual(runA, runB);
+});

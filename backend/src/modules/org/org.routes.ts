@@ -921,7 +921,14 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
 
   const settings = await prisma.businessSettings.findUnique({
     where: { orgId: req.auth.orgId },
-    select: { hoursJson: true, timezone: true, appointmentBufferMinutes: true }
+    select: {
+      hoursJson: true,
+      timezone: true,
+      appointmentDurationMinutes: true,
+      appointmentBufferMinutes: true,
+      bookingLeadTimeHours: true,
+      bookingMaxDaysAhead: true
+    }
   });
   const toBound = parsed.data.to ? new Date(parsed.data.to) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const existingAppointments = await prisma.appointment.findMany({
@@ -938,10 +945,10 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
   const slots = generateAvailabilitySlots({
     hoursJson: settings?.hoursJson || null,
     timezone: settings?.timezone || "America/New_York",
-    appointmentDurationMinutes: parsed.data.appointmentDurationMinutes ?? 60,
-    appointmentBufferMinutes: parsed.data.appointmentBufferMinutes ?? 15,
-    bookingLeadTimeHours: parsed.data.bookingLeadTimeHours ?? 2,
-    bookingMaxDaysAhead: parsed.data.bookingMaxDaysAhead ?? 14,
+    appointmentDurationMinutes: parsed.data.appointmentDurationMinutes ?? settings?.appointmentDurationMinutes ?? 60,
+    appointmentBufferMinutes: parsed.data.appointmentBufferMinutes ?? settings?.appointmentBufferMinutes ?? 15,
+    bookingLeadTimeHours: parsed.data.bookingLeadTimeHours ?? settings?.bookingLeadTimeHours ?? 2,
+    bookingMaxDaysAhead: parsed.data.bookingMaxDaysAhead ?? settings?.bookingMaxDaysAhead ?? 14,
     existingAppointments
   });
 
