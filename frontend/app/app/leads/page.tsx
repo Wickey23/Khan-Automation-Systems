@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { fetchOrgLeads, getBillingStatus } from "@/lib/api";
+import { fetchOrgLeads, getBillingStatus, updateLeadPipelineStage } from "@/lib/api";
 import { InfoHint } from "@/components/ui/info-hint";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { Lead } from "@/lib/types";
+import { useToast } from "@/components/site/toast-provider";
 
 export default function AppLeadsPage() {
+  const { showToast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [plan, setPlan] = useState<"NONE" | "STARTER" | "PRO">("NONE");
   const [query, setQuery] = useState("");
@@ -61,6 +63,21 @@ export default function AppLeadsPage() {
   const planStatusCopy = plan === "PRO"
     ? "Pro active: use Leads for pipeline, and Customer Base for advanced caller memory."
     : "Standard active: this is your main lead pipeline workspace.";
+
+  async function onPipelineChange(leadId: string, pipelineStage: "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED") {
+    try {
+      await updateLeadPipelineStage(leadId, pipelineStage);
+      setLeads((current) =>
+        current.map((lead) => (lead.id === leadId ? { ...lead, pipelineStage } : lead))
+      );
+    } catch (error) {
+      showToast({
+        title: "Could not update pipeline stage",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -145,6 +162,8 @@ export default function AppLeadsPage() {
               <th className="p-3">Source</th>
               <th className="p-3">DNC</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Pipeline</th>
+              <th className="p-3">Classified</th>
             </tr>
           </thead>
           <tbody>
@@ -160,11 +179,43 @@ export default function AppLeadsPage() {
                 <td className="p-3">{lead.source || "-"}</td>
                 <td className="p-3">{lead.dnc ? "Yes" : "No"}</td>
                 <td className="p-3">{lead.status}</td>
+                <td className="p-3">
+                  <select
+                    value={lead.pipelineStage || "NEW_LEAD"}
+                    onChange={(event) =>
+                      void onPipelineChange(
+                        lead.id,
+                        event.target.value as "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED"
+                      )
+                    }
+                    className="h-8 rounded-md border bg-background px-2 text-xs"
+                  >
+                    <option value="NEW_LEAD">NEW_LEAD</option>
+                    <option value="QUOTED">QUOTED</option>
+                    <option value="NEEDS_SCHEDULING">NEEDS_SCHEDULING</option>
+                    <option value="SCHEDULED">SCHEDULED</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                  </select>
+                </td>
+                <td className="p-3">
+                  {lead.classification ? (
+                    <div className="text-xs">
+                      <div>{lead.classification}</div>
+                      <div className="text-muted-foreground">
+                        {typeof lead.classificationConfidence === "number"
+                          ? `${Math.round(lead.classificationConfidence * 100)}%`
+                          : "-"}
+                      </div>
+                    </div>
+                  ) : (
+                    "-"
+                  )}
+                </td>
               </tr>
             ))}
             {!filtered.length ? (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={8}>
+                <td className="p-3 text-muted-foreground" colSpan={10}>
                   No leads match this filter yet.
                 </td>
               </tr>

@@ -51,6 +51,13 @@ const envSchema = z.object({
   WEBHOOK_STRICT_MODE: z.string().default("true"),
   LOG_REDACTION_ENABLED: z.string().default("true"),
   ENCRYPTION_KEY_BASE64: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_OAUTH_CALLBACK_URL: z.string().optional(),
+  OUTLOOK_OAUTH_CLIENT_ID: z.string().optional(),
+  OUTLOOK_OAUTH_CLIENT_SECRET: z.string().optional(),
+  OUTLOOK_OAUTH_CALLBACK_URL: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
   ADMIN_2FA_REQUIRED_IN_PROD: z.string().default("true"),
   AUTH_2FA_ENFORCE_ALL_USERS: z.string().default("false"),
   AUTH_2FA_TRUST_DAYS: z.string().default("1"),
@@ -79,7 +86,12 @@ const envSchema = z.object({
   GUIDED_DEMO_UPGRADE_SMS_COOLDOWN_HOURS: z.string().default("24"),
   GUIDED_DEMO_UPGRADE_SMS_TEMPLATE: z.string().default(
     "Thanks for calling {{businessName}}. Your guided demo call limit has been reached. Reply here or upgrade in your billing portal to continue AI call handling."
-  )
+  ),
+  FEATURE_APPOINTMENTS_ENABLED: z.string().default("false"),
+  FEATURE_CALENDAR_OAUTH_ENABLED: z.string().default("false"),
+  FEATURE_NOTIFICATIONS_V1_ENABLED: z.string().default("false"),
+  FEATURE_CLASSIFICATION_V1_ENABLED: z.string().default("false"),
+  FEATURE_PIPELINE_STAGE_ENABLED: z.string().default("false")
 });
 
 const parsed = envSchema.safeParse(process.env);

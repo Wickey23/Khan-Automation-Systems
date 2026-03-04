@@ -79,6 +79,21 @@ export async function computeOrgAnalytics(
       select: { threadId: true, direction: true, createdAt: true, metadataJson: true, leadId: true }
     })
   ]);
+  const [appointmentsBooked, qualifiedLeads, missedCallsRecovered, settings] = await Promise.all([
+    prisma.appointment.count({
+      where: { orgId, status: { in: ["CONFIRMED", "COMPLETED"] }, createdAt: whereWindow }
+    }),
+    prisma.lead.count({
+      where: { orgId, createdAt: whereWindow, qualified: true }
+    }),
+    prisma.callClassificationLog.count({
+      where: { orgId, createdAt: whereWindow, classification: "MISSED_CALL_RECOVERY" }
+    }),
+    prisma.businessSettings.findUnique({
+      where: { orgId },
+      select: { averageJobValueUsd: true }
+    })
+  ]);
 
   const totalCalls = calls.length;
   const answeredCalls = calls.filter((call) => call.outcome !== "MISSED").length;
@@ -121,6 +136,9 @@ export async function computeOrgAnalytics(
   const autoRecoveryLeadConversions = messages.filter(
     (message) => recoveryThreadIds.has(message.threadId) && message.direction === "INBOUND" && Boolean(message.leadId)
   ).length;
+  const conversionRate = qualifiedLeads > 0 ? appointmentsBooked / qualifiedLeads : 0;
+  const averageJobValueUsd = Math.max(0, settings?.averageJobValueUsd || 650);
+  const estimatedRevenueOpportunityUsd = appointmentsBooked * averageJobValueUsd;
 
   const latestCallAt = calls
     .map((call) => call.startedAt.getTime())
@@ -183,7 +201,13 @@ export async function computeOrgAnalytics(
       autoRecoverySent,
       autoRecoveryLeadConversions,
       unknownNameRate: safeDivide(unknownLeadNames, leads.length),
-      dataFreshnessAt: dataFreshnessAt ? new Date(dataFreshnessAt).toISOString() : null
+      dataFreshnessAt: dataFreshnessAt ? new Date(dataFreshnessAt).toISOString() : null,
+      appointmentsBooked,
+      qualifiedLeads,
+      missedCallsRecovered,
+      conversionRate,
+      averageJobValueUsd,
+      estimatedRevenueOpportunityUsd
     },
     charts: {
       callsPerDay: dayKeys.map((day) => ({ day, value: callsByDay.get(day) || 0 })),

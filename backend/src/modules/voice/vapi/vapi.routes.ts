@@ -9,6 +9,8 @@ import { computeCallQuality } from "../../org/call-quality.service";
 import { evaluateAndSendAutoRecovery } from "../../sms/auto-recovery.service";
 import { transitionCallState } from "../call-state.service";
 import { updateCallerProfileOutcome } from "../caller-profile.service";
+import { classifyCallAndMaybeUpdateLead } from "../../org/call-classification.service";
+import { emitOrgNotification } from "../../notifications/notification.service";
 
 export const vapiRouter = Router();
 const vapiEnvelopeSchema = z.object({
@@ -39,6 +41,10 @@ function normalizeToE164(input: string) {
   if (normalized.length === 10) return `+1${normalized}`;
   if (normalized.length === 11 && normalized.startsWith("1")) return `+${normalized}`;
   return `+${normalized}`;
+}
+
+function featureEnabled(value: string | undefined) {
+  return String(value || "").toLowerCase() === "true";
 }
 
 function toBoolean(value: unknown) {
@@ -469,6 +475,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       }
     });
 
+    let resolvedLeadId: string | null = persistedCall.leadId || null;
     if (eventType === "end-of-call-report" || endedByStatus) {
       const candidateName = pickString(
         analysis.name,
@@ -477,7 +484,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         customer.name,
         customerData.name
       ) || null;
-      await ensureLeadForCall({
+      resolvedLeadId = await ensureLeadForCall({
         orgId: resolvedOrgId,
         callLogId: persistedCall.id,
         fromNumber,
@@ -522,6 +529,13 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     }
 
     if (eventType === "end-of-call-report" || endedByStatus) {
+      const classification = await classifyCallAndMaybeUpdateLead({
+        prisma,
+        orgId: resolvedOrgId,
+        callLogId: persistedCall.id,
+        leadId: resolvedLeadId
+      }).catch(() => null);
+
       if (env.ROUTING_ENGINE_ENABLED === "true") {
         await computeCallQuality({ prisma, callLogId: persistedCall.id });
         await updateCallerProfileOutcome({
@@ -533,6 +547,29 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       }
       if (env.AUTO_RECOVERY_ENABLED === "true") {
         await evaluateAndSendAutoRecovery({ prisma, callLogId: persistedCall.id });
+      }
+      if (featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED) && classification && !classification.skipped) {
+        if (classification.classification === "EMERGENCY") {
+          await emitOrgNotification({
+            prisma,
+            orgId: resolvedOrgId,
+            type: "EMERGENCY_CALL_FLAGGED",
+            severity: "URGENT",
+            title: "Emergency call flagged",
+            body: `A call was classified as emergency from ${fromNumber}.`,
+            metadata: { callLogId: persistedCall.id, leadId: resolvedLeadId || null, confidence: classification.confidence }
+          });
+        } else if (classification.classification === "MISSED_CALL_RECOVERY") {
+          await emitOrgNotification({
+            prisma,
+            orgId: resolvedOrgId,
+            type: "MISSED_CALL_RECOVERY_NEEDED",
+            severity: "ACTION_REQUIRED",
+            title: "Missed-call recovery needed",
+            body: `A missed call requires recovery workflow for ${fromNumber}.`,
+            metadata: { callLogId: persistedCall.id, leadId: resolvedLeadId || null }
+          });
+        }
       }
     }
 

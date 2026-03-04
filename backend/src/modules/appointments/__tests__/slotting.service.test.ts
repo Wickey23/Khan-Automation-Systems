@@ -48,3 +48,42 @@ test("15-minute step alignment plus close constraint returns deterministic valid
   assert.equal(slots.some((slot) => slot.startAt.toISOString() === "2026-03-02T21:15:00.000Z"), false);
 });
 
+test("excludes overlapping slots using locked overlap predicate and keeps boundary non-overlap", () => {
+  const slots = generateAvailabilitySlots({
+    hoursJson: HOURS_JSON,
+    timezone: "America/New_York",
+    appointmentDurationMinutes: 60,
+    appointmentBufferMinutes: 0,
+    bookingLeadTimeHours: 0,
+    bookingMaxDaysAhead: 1,
+    now: new Date("2026-03-02T08:00:00-05:00"),
+    existingAppointments: [
+      {
+        startAt: new Date("2026-03-02T10:00:00-05:00"),
+        endAt: new Date("2026-03-02T11:00:00-05:00"),
+        status: "CONFIRMED"
+      }
+    ]
+  });
+
+  const starts = slots.map((slot) => slot.startAt.toISOString());
+  assert.equal(starts.includes("2026-03-02T15:00:00.000Z"), false); // 10:00 local blocked
+  assert.equal(starts.includes("2026-03-02T16:00:00.000Z"), true); // 11:00 local allowed boundary
+});
+
+test("returns max 10 slots sorted ascending", () => {
+  const slots = generateAvailabilitySlots({
+    hoursJson: HOURS_JSON,
+    timezone: "America/New_York",
+    appointmentDurationMinutes: 15,
+    appointmentBufferMinutes: 0,
+    bookingLeadTimeHours: 0,
+    bookingMaxDaysAhead: 10,
+    now: new Date("2026-03-02T08:00:00-05:00"),
+    maxSlots: 10
+  });
+  assert.equal(slots.length, 10);
+  for (let i = 1; i < slots.length; i += 1) {
+    assert.equal(slots[i - 1].startAt.getTime() <= slots[i].startAt.getTime(), true);
+  }
+});

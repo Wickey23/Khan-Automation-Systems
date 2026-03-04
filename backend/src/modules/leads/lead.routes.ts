@@ -6,8 +6,13 @@ import bcrypt from "bcryptjs";
 import { ClientStatus, OrganizationStatus, TeamMembershipRole, TeamMembershipStatus, UserRole } from "@prisma/client";
 import { env } from "../../config/env";
 import { randomUUID } from "crypto";
+import { emitOrgNotification } from "../notifications/notification.service";
 
 export const leadRouter = Router();
+
+function featureEnabled(value: string | undefined) {
+  return String(value || "").toLowerCase() === "true";
+}
 
 async function createLeadResilient(data: {
   name: string;
@@ -183,6 +188,18 @@ leadRouter.post("/", async (req: Request, res: Response) => {
       ip,
       userAgent
     });
+
+    if (resolvedOrgId && featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+      await emitOrgNotification({
+        prisma,
+        orgId: resolvedOrgId,
+        type: "NEW_LEAD_CAPTURED",
+        severity: "INFO",
+        title: "New lead captured",
+        body: `Lead captured: ${parsed.data.name} (${parsed.data.phone}).`,
+        metadata: { leadId: lead.id, source: parsed.data.source || "WEB_FORM" }
+      });
+    }
 
     try {
       await sendLeadNotificationEmail({

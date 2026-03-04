@@ -14,15 +14,15 @@ type ClientRole = AuthUser["role"];
 
 const navItems: Array<{ href: string; label: string; requiredPlan?: Exclude<PlanTier, null>; requiredRoles?: ClientRole[] }> = [
   { href: "/app", label: "Overview" },
-  { href: "/app/onboarding", label: "Onboarding" },
-  { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
-  { href: "/app/settings", label: "Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/calls", label: "Calls" },
-  { href: "/app/team", label: "Team", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
-  { href: "/app/customer-base", label: "Customer Base", requiredPlan: "PRO" },
-  { href: "/app/messages", label: "Messages", requiredPlan: "PRO" },
   { href: "/app/leads", label: "Leads" },
-  { href: "/app/analytics", label: "Analytics", requiredPlan: "PRO" }
+  { href: "/app/appointments", label: "Appointments", requiredPlan: "STARTER" },
+  { href: "/app/messages", label: "Messages", requiredPlan: "PRO" },
+  { href: "/app/analytics", label: "Analytics", requiredPlan: "STARTER" },
+  { href: "/app/settings", label: "Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
+  { href: "/app/team", label: "Team", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/onboarding", label: "Onboarding" }
 ];
 
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {

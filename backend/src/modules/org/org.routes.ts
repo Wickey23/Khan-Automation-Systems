@@ -13,7 +13,16 @@ import { buildConfigPackage, generateConfigPackage } from "./config-package";
 import { computeOrgAnalytics } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
 import { dedupeOrgCallRows } from "./call-log-dedupe.service";
-import { generateAvailabilitySlots } from "../appointments/slotting.service";
+import { generateAvailabilitySlots, validateSlotWithinBusinessHours } from "../appointments/slotting.service";
+import {
+  consumeCalendarOauthState,
+  createCalendarConnectUrl,
+  createCalendarEventFromConnection,
+  exchangeCalendarCode,
+  upsertCalendarConnection
+} from "../appointments/calendar-oauth.service";
+import { emitOrgNotification } from "../notifications/notification.service";
+import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -33,6 +42,13 @@ function requireOrgWriteAccess(req: AuthenticatedRequest, res: Response, next: N
   }
   return res.status(403).json({ ok: false, message: "Forbidden" });
 }
+function requireOrgAdminAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const role = req.auth?.role;
+  if (role === UserRole.CLIENT_ADMIN || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
+    return next();
+  }
+  return res.status(403).json({ ok: false, message: "Forbidden" });
+}
 const KNOWLEDGE_FILE_MAX_BYTES = 200_000;
 const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
 const ALLOWED_KNOWLEDGE_MIME = new Set(["text/plain", "text/markdown", "application/json", "text/csv"]);
@@ -43,6 +59,40 @@ const appointmentsAvailabilitySchema = z.object({
   appointmentBufferMinutes: z.number().int().min(0).max(240).optional(),
   bookingLeadTimeHours: z.number().int().min(0).max(168).optional(),
   bookingMaxDaysAhead: z.number().int().min(1).max(90).optional()
+});
+const listAppointmentsSchema = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "CANCELED", "NO_SHOW"]).optional()
+});
+const createAppointmentSchema = z.object({
+  leadId: z.string().optional(),
+  callLogId: z.string().optional(),
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(5),
+  issueSummary: z.string().min(1),
+  assignedTechnician: z.string().optional(),
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime(),
+  timezone: z.string().min(1),
+  calendarProvider: z.enum(["GOOGLE", "OUTLOOK", "INTERNAL"]).optional(),
+  externalCalendarEventId: z.string().optional(),
+  idempotencyKey: z.string().optional()
+});
+const patchAppointmentSchema = z.object({
+  assignedTechnician: z.string().nullable().optional(),
+  issueSummary: z.string().min(1).optional(),
+  status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "CANCELED", "NO_SHOW"]).optional()
+});
+const updateLeadPipelineSchema = z.object({
+  pipelineStage: z.enum(["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"])
+});
+const createCalendarTestEventSchema = z.object({
+  provider: z.enum(["GOOGLE", "OUTLOOK"]).optional()
+});
+const disconnectCalendarSchema = z.object({
+  provider: z.enum(["GOOGLE", "OUTLOOK"]).optional(),
+  accountEmail: z.string().email().optional()
 });
 
 function normalizePhone(input: string) {
@@ -72,6 +122,14 @@ function parseOptionalDate(input: unknown) {
   const date = new Date(text);
   if (Number.isNaN(date.getTime())) return null;
   return date;
+}
+
+function featureEnabled(value: string | undefined) {
+  return String(value || "").toLowerCase() === "true";
+}
+
+function overlapsLocked(existingStart: Date, existingEnd: Date, newStart: Date, newEnd: Date) {
+  return existingStart.getTime() < newEnd.getTime() && existingEnd.getTime() > newStart.getTime();
 }
 
 function parseBooleanLike(input: unknown) {
@@ -516,11 +574,31 @@ orgRouter.get("/leads", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { leads } });
 });
 
+orgRouter.patch("/leads/:id/pipeline", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if (!featureEnabled(env.FEATURE_PIPELINE_STAGE_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Lead pipeline feature is disabled." });
+  }
+  const parsed = updateLeadPipelineSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid pipeline payload." });
+  const lead = await prisma.lead.findFirst({
+    where: { id: req.params.id, orgId: req.auth.orgId },
+    select: { id: true }
+  });
+  if (!lead) return res.status(404).json({ ok: false, message: "Lead not found." });
+  const updated = await prisma.lead.update({
+    where: { id: lead.id },
+    data: { pipelineStage: parsed.data.pipelineStage }
+  });
+  return res.json({ ok: true, data: { lead: updated } });
+});
+
 orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const orgId = req.auth.orgId;
   const [calls, activePhone] = await Promise.all([
     prisma.callLog.findMany({
-      where: { orgId: req.auth.orgId },
+      where: { orgId },
       orderBy: { startedAt: "desc" }
     }),
     prisma.phoneNumber.findFirst({
@@ -551,6 +629,19 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     ...call,
     summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
   }));
+  if (featureEnabled(env.FEATURE_CLASSIFICATION_V1_ENABLED)) {
+    const topForClassification = enrichedCalls.slice(0, 50);
+    await Promise.all(
+      topForClassification.map((call) =>
+        classifyCallAndMaybeUpdateLead({
+          prisma,
+          orgId,
+          callLogId: call.id,
+          leadId: call.leadId || null
+        }).catch(() => null)
+      )
+    );
+  }
   return res.json({
     ok: true,
     data: {
@@ -824,6 +915,9 @@ orgRouter.get("/messaging-readiness", async (req: AuthenticatedRequest, res) => 
 });
 
 orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = appointmentsAvailabilitySchema.safeParse(req.body || {});
   if (!parsed.success) {
@@ -834,6 +928,17 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
     where: { orgId: req.auth.orgId },
     select: { hoursJson: true, timezone: true }
   });
+  const toBound = parsed.data.to ? new Date(parsed.data.to) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const existingAppointments = await prisma.appointment.findMany({
+    where: {
+      orgId: req.auth.orgId,
+      status: { not: "CANCELED" },
+      startAt: { lte: toBound }
+    },
+    select: { startAt: true, endAt: true, status: true },
+    orderBy: { startAt: "asc" },
+    take: 500
+  });
 
   const slots = generateAvailabilitySlots({
     hoursJson: settings?.hoursJson || null,
@@ -841,7 +946,8 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
     appointmentDurationMinutes: parsed.data.appointmentDurationMinutes ?? 60,
     appointmentBufferMinutes: parsed.data.appointmentBufferMinutes ?? 15,
     bookingLeadTimeHours: parsed.data.bookingLeadTimeHours ?? 2,
-    bookingMaxDaysAhead: parsed.data.bookingMaxDaysAhead ?? 14
+    bookingMaxDaysAhead: parsed.data.bookingMaxDaysAhead ?? 14,
+    existingAppointments
   });
 
   const fromMs = parsed.data.from ? new Date(parsed.data.from).getTime() : null;
@@ -853,15 +959,460 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
     return true;
   });
 
-  return res.json({
-    ok: true,
+  return res.status(200).json({
+    slots: filtered.slice(0, 10).map((slot) => ({
+      startAt: slot.startAt.toISOString(),
+      endAt: slot.endAt.toISOString()
+    }))
+  });
+});
+
+orgRouter.get("/appointments", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = listAppointmentsSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment filters." });
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      orgId: req.auth.orgId,
+      ...(parsed.data.status ? { status: parsed.data.status } : {}),
+      ...(parsed.data.from || parsed.data.to
+        ? {
+            startAt: {
+              ...(parsed.data.from ? { gte: new Date(parsed.data.from) } : {}),
+              ...(parsed.data.to ? { lte: new Date(parsed.data.to) } : {})
+            }
+          }
+        : {})
+    },
+    orderBy: { startAt: "asc" }
+  });
+  return res.json({ ok: true, data: { appointments } });
+});
+
+orgRouter.post("/appointments", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = createAppointmentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment payload.", errors: parsed.error.flatten() });
+
+  const startAt = new Date(parsed.data.startAt);
+  const endAt = new Date(parsed.data.endAt);
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
+    return res.status(400).json({ ok: false, message: "Invalid appointment time window." });
+  }
+  const settings = await prisma.businessSettings.findUnique({
+    where: { orgId: req.auth.orgId },
+    select: { hoursJson: true, timezone: true, appointmentDurationMinutes: true, appointmentBufferMinutes: true }
+  });
+  const durationMinutes = Math.max(1, Math.round((endAt.getTime() - startAt.getTime()) / (60 * 1000)));
+  const inHours = validateSlotWithinBusinessHours({
+    hoursJson: settings?.hoursJson || null,
+    timezone: settings?.timezone || parsed.data.timezone || "America/New_York",
+    slotStartAt: startAt,
+    appointmentDurationMinutes: durationMinutes
+  });
+  if (!inHours.ok) {
+    return res.status(400).json({ ok: false, message: "Appointment time is outside business-hour constraints." });
+  }
+
+  const hold = await prisma.appointmentHold.create({
     data: {
-      slots: filtered.slice(0, 10).map((slot) => ({
-        startAt: slot.startAt.toISOString(),
-        endAt: slot.endAt.toISOString()
-      }))
+      orgId: req.auth.orgId,
+      slotStart: startAt,
+      slotEnd: endAt,
+      phone: normalizePhone(parsed.data.customerPhone),
+      status: "HELD",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000)
     }
   });
+
+  const overlap = await prisma.appointment.findFirst({
+    where: {
+      orgId: req.auth.orgId,
+      status: { not: "CANCELED" },
+      startAt: { lt: endAt },
+      endAt: { gt: startAt }
+    },
+    select: { id: true }
+  });
+  if (overlap) {
+    await prisma.appointmentHold.update({ where: { id: hold.id }, data: { status: "FAILED" } });
+    return res.status(409).json({ ok: false, message: "Appointment overlaps with an existing slot." });
+  }
+
+  let calendarProvider: "GOOGLE" | "OUTLOOK" | "INTERNAL" = parsed.data.calendarProvider || "INTERNAL";
+  let externalCalendarEventId: string | null = parsed.data.externalCalendarEventId || null;
+  let status: "PENDING" | "CONFIRMED" = "PENDING";
+  try {
+    if (calendarProvider !== "INTERNAL" && featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+      const connection = await prisma.calendarConnection.findFirst({
+        where: { orgId: req.auth.orgId, provider: calendarProvider, isActive: true },
+        orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+        select: { id: true }
+      });
+      if (!connection) {
+        calendarProvider = "INTERNAL";
+      } else {
+        const event = await createCalendarEventFromConnection({
+          prisma,
+          connectionId: connection.id,
+          orgId: req.auth.orgId,
+          title: `${parsed.data.customerName} - Service Appointment`,
+          description: parsed.data.issueSummary,
+          startAt,
+          endAt,
+          timezone: parsed.data.timezone
+        });
+        externalCalendarEventId = event.externalEventId || null;
+        calendarProvider = event.provider;
+        status = "CONFIRMED";
+      }
+    }
+  } catch {
+    calendarProvider = "INTERNAL";
+    status = "PENDING";
+  }
+
+  const appointment = await prisma.appointment.create({
+    data: {
+      orgId: req.auth.orgId,
+      leadId: parsed.data.leadId || null,
+      callLogId: parsed.data.callLogId || null,
+      customerName: parsed.data.customerName,
+      customerPhone: normalizePhone(parsed.data.customerPhone),
+      issueSummary: parsed.data.issueSummary,
+      assignedTechnician: parsed.data.assignedTechnician || null,
+      status,
+      startAt,
+      endAt,
+      timezone: parsed.data.timezone,
+      calendarProvider,
+      externalCalendarEventId,
+      idempotencyKey: parsed.data.idempotencyKey || null,
+      createdByUserId: req.auth.userId
+    }
+  });
+
+  await prisma.appointmentHold.update({
+    where: { id: hold.id },
+    data: { status: status === "CONFIRMED" ? "CONFIRMED" : "FAILED" }
+  });
+
+  if (parsed.data.leadId && featureEnabled(env.FEATURE_PIPELINE_STAGE_ENABLED)) {
+    await prisma.lead.updateMany({
+      where: { id: parsed.data.leadId, orgId: req.auth.orgId },
+      data: { pipelineStage: status === "CONFIRMED" ? "SCHEDULED" : "NEEDS_SCHEDULING" }
+    });
+  }
+
+  await emitOrgNotification({
+    prisma,
+    orgId: req.auth.orgId,
+    type: "APPOINTMENT_BOOKED",
+    severity: "INFO",
+    title: "Appointment booked",
+    body:
+      status === "CONFIRMED"
+        ? `Appointment confirmed for ${appointment.customerName} at ${appointment.startAt.toISOString()}.`
+        : `Appointment captured for ${appointment.customerName}; scheduling follow-up needed.`,
+    metadata: { appointmentId: appointment.id, calendarProvider, status }
+  });
+
+  return res.status(201).json({ ok: true, data: { appointment } });
+});
+
+orgRouter.patch("/appointments/:id", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if ("startAt" in (req.body || {}) || "endAt" in (req.body || {})) {
+    return res.status(400).json({ ok: false, message: "Rescheduling is not supported in Phase 1." });
+  }
+  const parsed = patchAppointmentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment patch payload." });
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: req.params.id, orgId: req.auth.orgId }
+  });
+  if (!appointment) return res.status(404).json({ ok: false, message: "Appointment not found." });
+  const updated = await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: {
+      ...(parsed.data.assignedTechnician !== undefined ? { assignedTechnician: parsed.data.assignedTechnician } : {}),
+      ...(parsed.data.issueSummary !== undefined ? { issueSummary: parsed.data.issueSummary } : {}),
+      ...(parsed.data.status ? { status: parsed.data.status } : {})
+    }
+  });
+  return res.json({ ok: true, data: { appointment: updated } });
+});
+
+orgRouter.post("/appointments/:id/cancel", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: req.params.id, orgId: req.auth.orgId }
+  });
+  if (!appointment) return res.status(404).json({ ok: false, message: "Appointment not found." });
+  const updated = await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { status: "CANCELED" }
+  });
+  return res.json({ ok: true, data: { appointment: updated } });
+});
+
+orgRouter.post("/appointments/:id/complete", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: req.params.id, orgId: req.auth.orgId }
+  });
+  if (!appointment) return res.status(404).json({ ok: false, message: "Appointment not found." });
+  const updated = await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { status: "COMPLETED" }
+  });
+  return res.json({ ok: true, data: { appointment: updated } });
+});
+
+orgRouter.get("/calendar/providers", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const providers = await prisma.calendarConnection.findMany({
+    where: { orgId: req.auth.orgId },
+    select: { id: true, provider: true, accountEmail: true, isActive: true, isPrimary: true, expiresAt: true, createdAt: true }
+  });
+  return res.json({ ok: true, data: { providers } });
+});
+
+orgRouter.post("/calendar/google/connect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  try {
+    const url = createCalendarConnectUrl({
+      provider: "GOOGLE",
+      orgId: req.auth.orgId,
+      userId: req.auth.userId
+    });
+    return res.json({ ok: true, data: { url } });
+  } catch (error) {
+    return res.status(503).json({ ok: false, message: error instanceof Error ? error.message : "Calendar OAuth unavailable." });
+  }
+});
+
+orgRouter.get("/calendar/google/callback", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const state = String(req.query.state || "");
+  const code = String(req.query.code || "");
+  if (!state || !code) return res.status(400).json({ ok: false, message: "Missing OAuth callback parameters." });
+  const accepted = consumeCalendarOauthState({
+    provider: "GOOGLE",
+    state,
+    orgId: req.auth.orgId,
+    userId: req.auth.userId
+  });
+  if (!accepted) return res.status(400).json({ ok: false, message: "OAuth state is invalid or expired." });
+  try {
+    const token = await exchangeCalendarCode({ provider: "GOOGLE", code });
+    await upsertCalendarConnection({
+      prisma,
+      orgId: req.auth.orgId,
+      provider: "GOOGLE",
+      accountEmail: token.accountEmail,
+      accessToken: token.accessToken,
+      refreshToken: token.refreshToken,
+      expiresAt: token.expiresAt,
+      scopes: token.scopes
+    });
+    return res.redirect(`${env.FRONTEND_APP_URL}/app/settings?calendar=google_connected`);
+  } catch (error) {
+    return res.status(503).json({ ok: false, message: error instanceof Error ? error.message : "Google calendar connect failed." });
+  }
+});
+
+orgRouter.post("/calendar/outlook/connect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  try {
+    const url = createCalendarConnectUrl({
+      provider: "OUTLOOK",
+      orgId: req.auth.orgId,
+      userId: req.auth.userId
+    });
+    return res.json({ ok: true, data: { url } });
+  } catch (error) {
+    return res.status(503).json({ ok: false, message: error instanceof Error ? error.message : "Calendar OAuth unavailable." });
+  }
+});
+
+orgRouter.get("/calendar/outlook/callback", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const state = String(req.query.state || "");
+  const code = String(req.query.code || "");
+  if (!state || !code) return res.status(400).json({ ok: false, message: "Missing OAuth callback parameters." });
+  const accepted = consumeCalendarOauthState({
+    provider: "OUTLOOK",
+    state,
+    orgId: req.auth.orgId,
+    userId: req.auth.userId
+  });
+  if (!accepted) return res.status(400).json({ ok: false, message: "OAuth state is invalid or expired." });
+  try {
+    const token = await exchangeCalendarCode({ provider: "OUTLOOK", code });
+    await upsertCalendarConnection({
+      prisma,
+      orgId: req.auth.orgId,
+      provider: "OUTLOOK",
+      accountEmail: token.accountEmail,
+      accessToken: token.accessToken,
+      refreshToken: token.refreshToken,
+      expiresAt: token.expiresAt,
+      scopes: token.scopes
+    });
+    return res.redirect(`${env.FRONTEND_APP_URL}/app/settings?calendar=outlook_connected`);
+  } catch (error) {
+    return res.status(503).json({ ok: false, message: error instanceof Error ? error.message : "Outlook calendar connect failed." });
+  }
+});
+
+orgRouter.post("/calendar/disconnect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = disconnectCalendarSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid calendar disconnect payload." });
+  const result = await prisma.calendarConnection.updateMany({
+    where: {
+      orgId: req.auth.orgId,
+      ...(parsed.data.provider ? { provider: parsed.data.provider } : {}),
+      ...(parsed.data.accountEmail ? { accountEmail: parsed.data.accountEmail } : {})
+    },
+    data: { isActive: false }
+  });
+  return res.json({ ok: true, data: { disconnected: result.count } });
+});
+
+orgRouter.post("/calendar/sync-test", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = createCalendarTestEventSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid sync test payload." });
+  const active = await prisma.calendarConnection.findFirst({
+    where: {
+      orgId: req.auth.orgId,
+      isActive: true,
+      ...(parsed.data.provider ? { provider: parsed.data.provider } : {})
+    },
+    orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }]
+  });
+  if (!active) {
+    return res.status(409).json({ ok: false, message: "No active calendar connection found." });
+  }
+  let success = false;
+  let message = "Calendar sync test failed.";
+  try {
+    const startAt = new Date(Date.now() + 10 * 60 * 1000);
+    const endAt = new Date(startAt.getTime() + 15 * 60 * 1000);
+    await createCalendarEventFromConnection({
+      prisma,
+      connectionId: active.id,
+      orgId: req.auth.orgId,
+      title: "Khan Systems sync test",
+      description: "Connectivity check from KHAN Systems.",
+      startAt,
+      endAt,
+      timezone: "America/New_York"
+    });
+    success = true;
+    message = "Calendar sync test event created successfully.";
+  } catch {
+    success = false;
+    message = "Could not create test event. Connection may be revoked or missing scopes.";
+  }
+  await prisma.auditLog.create({
+    data: {
+      orgId: req.auth.orgId,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      action: "CALENDAR_SYNC_TEST_REQUESTED",
+      metadataJson: JSON.stringify({ provider: active.provider, accountEmail: active.accountEmail, success })
+    }
+  });
+  await emitOrgNotification({
+    prisma,
+    orgId: req.auth.orgId,
+    type: "APPOINTMENT_BOOKED",
+    severity: success ? "INFO" : "ACTION_REQUIRED",
+    title: success ? "Calendar sync test succeeded" : "Calendar sync test failed",
+    body: message,
+    metadata: { provider: active.provider, accountEmail: active.accountEmail, success },
+    sendEmail: !success
+  });
+  return res.json({ ok: true, data: { success, message } });
+});
+
+orgRouter.get("/notifications", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const notifications = await prisma.orgNotification.findMany({
+    where: { orgId: req.auth.orgId },
+    orderBy: { createdAt: "desc" },
+    take: 200
+  });
+  return res.json({ ok: true, data: { notifications } });
+});
+
+orgRouter.post("/notifications/:id/read", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const notification = await prisma.orgNotification.findFirst({
+    where: { id: req.params.id, orgId: req.auth.orgId }
+  });
+  if (!notification) return res.status(404).json({ ok: false, message: "Notification not found." });
+  const updated = await prisma.orgNotification.update({
+    where: { id: notification.id },
+    data: { readAt: new Date() }
+  });
+  return res.json({ ok: true, data: { notification: updated } });
+});
+
+orgRouter.post("/notifications/read-all", async (req: AuthenticatedRequest, res) => {
+  if (!featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+    return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const result = await prisma.orgNotification.updateMany({
+    where: { orgId: req.auth.orgId, readAt: null },
+    data: { readAt: new Date() }
+  });
+  return res.json({ ok: true, data: { updated: result.count } });
 });
 
 const customerBaseImportSchema = z.object({

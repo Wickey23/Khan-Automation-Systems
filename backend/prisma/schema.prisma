@@ -111,6 +111,63 @@ enum SubscriptionPlan {
   PRO
 }
 
+enum LeadPipelineStage {
+  NEW_LEAD
+  QUOTED
+  NEEDS_SCHEDULING
+  SCHEDULED
+  COMPLETED
+}
+
+enum LeadClassification {
+  BOOKED_JOB
+  QUOTE_REQUEST
+  EMERGENCY
+  CUSTOMER_SUPPORT
+  SPAM
+  MISSED_CALL_RECOVERY
+  GENERAL_INQUIRY
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+enum CalendarProvider {
+  GOOGLE
+  OUTLOOK
+  INTERNAL
+}
+
+enum AppointmentHoldStatus {
+  HELD
+  CONFIRMED
+  FAILED
+  EXPIRED
+}
+
+enum NotificationSeverity {
+  INFO
+  ACTION_REQUIRED
+  URGENT
+}
+
+enum NotificationType {
+  NEW_LEAD_CAPTURED
+  APPOINTMENT_BOOKED
+  MISSED_CALL_RECOVERY_NEEDED
+  EMERGENCY_CALL_FLAGGED
+}
+
+enum ClassificationMethod {
+  RULES
+  LLM_FALLBACK
+}
+
 enum TeamMembershipRole {
   ADMIN
   MANAGER
@@ -222,6 +279,11 @@ model Organization {
   autoRecoveryDedupes  AutoRecoveryDedupe[]
   scaleGateDecisions   ScaleGateDecisionLog[]
   memberships          OrganizationMembership[]
+  appointments         Appointment[]
+  appointmentHolds     AppointmentHold[]
+  calendarConnections  CalendarConnection[]
+  orgNotifications     OrgNotification[]
+  callClassificationLogs CallClassificationLog[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -403,6 +465,9 @@ model CallLog {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   stateTransitions CallStateTransition[]
+  sourceLeads    Lead[]         @relation("LeadSourceCall")
+  appointments   Appointment[]
+  classificationLogs CallClassificationLog[]
 
   @@unique([orgId, providerCallId])
 }
@@ -525,6 +590,15 @@ model Lead {
   status           LeadStatus @default(NEW)
   tags             String     @default("")
   notes            String?
+  pipelineStage    LeadPipelineStage @default(NEW_LEAD)
+  serviceRequested String?
+  serviceAddress   String?
+  sourceCallLogId  String?
+  sourceCallLog    CallLog?          @relation("LeadSourceCall", fields: [sourceCallLogId], references: [id], onDelete: SetNull)
+  qualified        Boolean           @default(true)
+  qualificationReason String?
+  classification   LeadClassification?
+  classificationConfidence Float?
   source           LeadSource @default(WEB_FORM)
   dnc              Boolean    @default(false)
   ip               String?
@@ -532,6 +606,7 @@ model Lead {
   callLogs         CallLog[]
   messageThreads   MessageThread[]
   messages         Message[]
+  appointments     Appointment[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 }
@@ -610,14 +685,120 @@ model BusinessSettings {
   transferNumbersJson     String   @default("[]")
   notificationEmailsJson  String   @default("[]")
   notificationPhonesJson  String   @default("[]")
+  notificationEmailRecipientsJson String @default("[]")
+  notificationTogglesJson String   @default("{}")
   languagesJson           String   @default("[\"English\"]")
   recordingConsentEnabled Boolean  @default(false)
   smsConsentText          String   @default("")
   timezone                String   @default("America/New_York")
+  averageJobValueUsd      Int      @default(650)
+  appointmentDurationMinutes Int   @default(60)
+  appointmentBufferMinutes Int     @default(15)
+  bookingLeadTimeHours    Int      @default(2)
+  bookingMaxDaysAhead     Int      @default(14)
+  classificationShadowMode Boolean @default(true)
+  classificationLlmDailyCap Int    @default(100)
   servicesJson            String   @default("[]")
   policiesJson            String   @default("{}")
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+}
+
+model Appointment {
+  id                    String           @id @default(cuid())
+  orgId                 String
+  organization          Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId                String?
+  lead                  Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  callLogId             String?
+  callLog               CallLog?         @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  customerName          String
+  customerPhone         String
+  issueSummary          String
+  assignedTechnician    String?
+  status                AppointmentStatus @default(PENDING)
+  startAt               DateTime
+  endAt                 DateTime
+  timezone              String
+  calendarProvider      CalendarProvider @default(INTERNAL)
+  externalCalendarEventId String?
+  idempotencyKey        String?          @unique
+  createdByUserId       String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([orgId, startAt])
+  @@index([orgId, status])
+}
+
+model AppointmentHold {
+  id           String               @id @default(cuid())
+  orgId        String
+  organization Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  slotStart    DateTime
+  slotEnd      DateTime
+  phone        String
+  status       AppointmentHoldStatus @default(HELD)
+  expiresAt    DateTime
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([orgId, slotStart, slotEnd])
+  @@index([orgId, expiresAt])
+  @@index([orgId, status])
+}
+
+model CalendarConnection {
+  id              String           @id @default(cuid())
+  orgId           String
+  organization    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider        CalendarProvider
+  accountEmail    String
+  accessTokenEnc  String
+  refreshTokenEnc String
+  expiresAt       DateTime
+  scopesJson      String           @default("[]")
+  isActive        Boolean          @default(true)
+  isPrimary       Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([orgId, provider, accountEmail])
+  @@index([orgId, isActive])
+}
+
+model OrgNotification {
+  id            String              @id @default(cuid())
+  orgId         String
+  organization  Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  type          NotificationType
+  severity      NotificationSeverity
+  title         String
+  body          String
+  targetRoleMin String
+  readAt        DateTime?
+  metadataJson  Json?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([orgId, readAt])
+}
+
+model CallClassificationLog {
+  id             String               @id @default(cuid())
+  orgId          String
+  organization   Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callLogId      String
+  callLog        CallLog              @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  method         ClassificationMethod
+  classification LeadClassification
+  confidence     Float
+  signalsJson    Json
+  createdAt      DateTime             @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([orgId, callLogId, createdAt])
 }
 
 model LoginChallenge {

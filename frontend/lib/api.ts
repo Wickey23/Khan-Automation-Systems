@@ -41,7 +41,10 @@ import type {
   TestScenario
   ,
   TeamMember,
-  TeamSeatSnapshot
+  TeamSeatSnapshot,
+  Appointment,
+  CalendarConnection,
+  OrgNotification
 } from "@/lib/types";
 import type { LeadUpdateInput } from "@/lib/validation";
 
@@ -573,6 +576,152 @@ export async function updateOrgSettings(body: Partial<BusinessSettings>) {
   return request<{ settings: BusinessSettings }>("/api/org/settings", {
     method: "PATCH",
     body: JSON.stringify(body)
+  });
+}
+
+export async function fetchOrgAppointments(params: { from?: string; to?: string; status?: Appointment["status"] }) {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.status) query.set("status", params.status);
+  return request<{ appointments: Appointment[] }>(`/api/org/appointments${query.toString() ? `?${query.toString()}` : ""}`);
+}
+
+export async function createOrgAppointment(payload: {
+  leadId?: string;
+  callLogId?: string;
+  customerName: string;
+  customerPhone: string;
+  issueSummary: string;
+  assignedTechnician?: string;
+  startAt: string;
+  endAt: string;
+  timezone: string;
+  calendarProvider?: "GOOGLE" | "OUTLOOK" | "INTERNAL";
+  idempotencyKey?: string;
+}) {
+  return request<{ appointment: Appointment }>("/api/org/appointments", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function patchOrgAppointment(id: string, payload: {
+  assignedTechnician?: string | null;
+  issueSummary?: string;
+  status?: Appointment["status"];
+}) {
+  return request<{ appointment: Appointment }>(`/api/org/appointments/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function cancelOrgAppointment(id: string) {
+  return request<{ appointment: Appointment }>(`/api/org/appointments/${id}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function completeOrgAppointment(id: string) {
+  return request<{ appointment: Appointment }>(`/api/org/appointments/${id}/complete`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function fetchAppointmentAvailability(payload: {
+  from?: string;
+  to?: string;
+  appointmentDurationMinutes?: number;
+  appointmentBufferMinutes?: number;
+  bookingLeadTimeHours?: number;
+  bookingMaxDaysAhead?: number;
+}) {
+  if (!siteConfig.apiBase) {
+    throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
+  }
+  let csrfToken = readCookie("kas_csrf_token");
+  if (!csrfToken) {
+    await fetch(`${siteConfig.apiBase}/api/auth/csrf-token`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store"
+    });
+    csrfToken = readCookie("kas_csrf_token");
+  }
+  const response = await fetch(`${siteConfig.apiBase}/api/org/appointments/availability`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrfToken ? { "x-csrf-token": csrfToken } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status}).`);
+  }
+  const raw = (await response.json()) as { slots?: Array<{ startAt: string; endAt: string }> };
+  return { slots: Array.isArray(raw.slots) ? raw.slots : [] };
+}
+
+export async function fetchCalendarProviders() {
+  return request<{ providers: CalendarConnection[] }>("/api/org/calendar/providers");
+}
+
+export async function connectGoogleCalendar() {
+  return request<{ url: string }>("/api/org/calendar/google/connect", {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function connectOutlookCalendar() {
+  return request<{ url: string }>("/api/org/calendar/outlook/connect", {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function disconnectCalendar(payload: { provider?: "GOOGLE" | "OUTLOOK"; accountEmail?: string }) {
+  return request<{ disconnected: number }>("/api/org/calendar/disconnect", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function runCalendarSyncTest(payload: { provider?: "GOOGLE" | "OUTLOOK" }) {
+  return request<{ success: boolean; message: string }>("/api/org/calendar/sync-test", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchOrgNotifications() {
+  return request<{ notifications: OrgNotification[] }>("/api/org/notifications");
+}
+
+export async function markOrgNotificationRead(id: string) {
+  return request<{ notification: OrgNotification }>(`/api/org/notifications/${id}/read`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function markAllOrgNotificationsRead() {
+  return request<{ updated: number }>("/api/org/notifications/read-all", {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function updateLeadPipelineStage(leadId: string, pipelineStage: "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED") {
+  return request<{ lead: Lead }>(`/api/org/leads/${leadId}/pipeline`, {
+    method: "PATCH",
+    body: JSON.stringify({ pipelineStage })
   });
 }
 

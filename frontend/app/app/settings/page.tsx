@@ -2,10 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  connectGoogleCalendar,
+  connectOutlookCalendar,
+  disconnectCalendar,
   deleteOrgKnowledgeFile,
+  fetchCalendarProviders,
   fetchAuthSecurityStatus,
   fetchOrgKnowledgeFiles,
+  fetchOrgNotifications,
   fetchOrgSettings,
+  runCalendarSyncTest,
   sendAuthTestOtpEmail,
   updateOrgSettings,
   uploadOrgKnowledgeFile
@@ -15,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { AuthSecurityStatus, OrgKnowledgeFile } from "@/lib/types";
+import type { AuthSecurityStatus, CalendarConnection, OrgKnowledgeFile } from "@/lib/types";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -36,6 +42,14 @@ type FormState = {
   smsMarketingBlurb: string;
   smsConsentText: string;
   recordingConsentEnabled: boolean;
+  averageJobValueUsd: number;
+  appointmentDurationMinutes: number;
+  appointmentBufferMinutes: number;
+  bookingLeadTimeHours: number;
+  bookingMaxDaysAhead: number;
+  classificationShadowMode: boolean;
+  classificationLlmDailyCap: number;
+  notificationEmailRecipients: string;
   hours: Record<DayKey, HoursRow>;
 };
 
@@ -75,6 +89,14 @@ const defaults: FormState = {
   smsMarketingBlurb: "",
   smsConsentText: "",
   recordingConsentEnabled: false,
+  averageJobValueUsd: 650,
+  appointmentDurationMinutes: 60,
+  appointmentBufferMinutes: 15,
+  bookingLeadTimeHours: 2,
+  bookingMaxDaysAhead: 14,
+  classificationShadowMode: true,
+  classificationLlmDailyCap: 100,
+  notificationEmailRecipients: "",
   hours: defaultHours()
 };
 
@@ -117,10 +139,13 @@ export default function AppSettingsPage() {
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
   const [security, setSecurity] = useState<AuthSecurityStatus | null>(null);
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
+  const [calendarBusy, setCalendarBusy] = useState(false);
+  const [notificationCount, setNotificationCount] = useState<number>(0);
 
   useEffect(() => {
-    void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles()])
-      .then(([{ settings }, { files }]) => {
+    void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles(), fetchCalendarProviders().catch(() => ({ providers: [] })), fetchOrgNotifications().catch(() => ({ notifications: [] }))])
+      .then(([{ settings }, { files }, calendar, notifications]) => {
         const hoursRoot = fromJsonObject(settings.hoursJson);
         const scheduleRaw =
           hoursRoot && typeof hoursRoot.schedule === "object" && hoursRoot.schedule !== null && !Array.isArray(hoursRoot.schedule)
@@ -155,9 +180,19 @@ export default function AppSettingsPage() {
           smsMarketingBlurb: String(policies.smsMarketingBlurb || ""),
           smsConsentText: settings.smsConsentText,
           recordingConsentEnabled: settings.recordingConsentEnabled,
+          averageJobValueUsd: settings.averageJobValueUsd || 650,
+          appointmentDurationMinutes: settings.appointmentDurationMinutes || 60,
+          appointmentBufferMinutes: settings.appointmentBufferMinutes || 15,
+          bookingLeadTimeHours: settings.bookingLeadTimeHours || 2,
+          bookingMaxDaysAhead: settings.bookingMaxDaysAhead || 14,
+          classificationShadowMode: settings.classificationShadowMode ?? true,
+          classificationLlmDailyCap: settings.classificationLlmDailyCap || 100,
+          notificationEmailRecipients: toLines(fromJsonArray(settings.notificationEmailRecipientsJson)),
           hours: parsedHours
         });
         setKnowledgeFiles(files || []);
+        setCalendarProviders(calendar.providers || []);
+        setNotificationCount((notifications.notifications || []).length);
       })
       .catch((error) =>
         showToast({
@@ -294,6 +329,7 @@ export default function AppSettingsPage() {
         notificationEmailsJson: JSON.stringify(emails),
         notificationPhonesJson: JSON.stringify(phones),
         languagesJson: JSON.stringify(fromLines(state.languages)),
+        notificationEmailRecipientsJson: JSON.stringify(fromLines(state.notificationEmailRecipients)),
         servicesJson: JSON.stringify(fromLines(state.services)),
         policiesJson: JSON.stringify({
           warrantyPolicy: state.warrantyPolicy.trim(),
@@ -304,7 +340,14 @@ export default function AppSettingsPage() {
           smsMarketingBlurb: state.smsMarketingBlurb.trim()
         }),
         smsConsentText: state.smsConsentText.trim(),
-        recordingConsentEnabled: state.recordingConsentEnabled
+        recordingConsentEnabled: state.recordingConsentEnabled,
+        averageJobValueUsd: state.averageJobValueUsd,
+        appointmentDurationMinutes: state.appointmentDurationMinutes,
+        appointmentBufferMinutes: state.appointmentBufferMinutes,
+        bookingLeadTimeHours: state.bookingLeadTimeHours,
+        bookingMaxDaysAhead: state.bookingMaxDaysAhead,
+        classificationShadowMode: state.classificationShadowMode,
+        classificationLlmDailyCap: state.classificationLlmDailyCap
       });
       showToast({ title: "Business settings saved", description: "Readiness should now pass business settings checks." });
     } catch (error) {
@@ -385,6 +428,140 @@ export default function AppSettingsPage() {
             <option value="TRANSFER">Transfer</option>
             <option value="VOICEMAIL">Voicemail</option>
           </select>
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="text-lg font-semibold">Calendar Connections</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Connect Google or Outlook for create-only appointment event writes.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={calendarBusy}
+            onClick={() =>
+              void (async () => {
+                setCalendarBusy(true);
+                try {
+                  const data = await connectGoogleCalendar();
+                  window.location.href = data.url;
+                } catch (error) {
+                  showToast({ title: "Google connect failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+                } finally {
+                  setCalendarBusy(false);
+                }
+              })()
+            }
+          >
+            Connect Google
+          </Button>
+          <Button
+            variant="outline"
+            disabled={calendarBusy}
+            onClick={() =>
+              void (async () => {
+                setCalendarBusy(true);
+                try {
+                  const data = await connectOutlookCalendar();
+                  window.location.href = data.url;
+                } catch (error) {
+                  showToast({ title: "Outlook connect failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+                } finally {
+                  setCalendarBusy(false);
+                }
+              })()
+            }
+          >
+            Connect Outlook
+          </Button>
+          <Button
+            variant="outline"
+            disabled={calendarBusy}
+            onClick={() =>
+              void (async () => {
+                setCalendarBusy(true);
+                try {
+                  const result = await runCalendarSyncTest({});
+                  showToast({ title: "Calendar sync test", description: result.message });
+                } catch (error) {
+                  showToast({ title: "Sync test failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+                } finally {
+                  setCalendarBusy(false);
+                }
+              })()
+            }
+          >
+            Run sync test
+          </Button>
+        </div>
+        <div className="mt-3 space-y-2 text-sm">
+          {calendarProviders.length ? calendarProviders.map((provider) => (
+            <div key={provider.id} className="flex items-center justify-between rounded border p-2">
+              <div>
+                <p className="font-medium">{provider.provider} - {provider.accountEmail}</p>
+                <p className="text-xs text-muted-foreground">
+                  {provider.isActive ? "Active" : "Inactive"} • Expires {new Date(provider.expiresAt).toLocaleString()}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  void (async () => {
+                    await disconnectCalendar({ provider: provider.provider as "GOOGLE" | "OUTLOOK", accountEmail: provider.accountEmail });
+                    setCalendarProviders((prev) => prev.map((row) => row.id === provider.id ? { ...row, isActive: false } : row));
+                  })()
+                }
+              >
+                Disconnect
+              </Button>
+            </div>
+          )) : (
+            <p className="text-muted-foreground">No calendar providers connected.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="text-lg font-semibold">Operations Controls</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure ROI defaults, scheduling windows, notification recipients, and classification policy.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <Label>Average job value (USD)</Label>
+            <Input type="number" min={0} value={state.averageJobValueUsd} onChange={(e) => setState((p) => ({ ...p, averageJobValueUsd: Number(e.target.value || 0) }))} />
+          </div>
+          <div>
+            <Label>Appointment duration (minutes)</Label>
+            <Input type="number" min={5} value={state.appointmentDurationMinutes} onChange={(e) => setState((p) => ({ ...p, appointmentDurationMinutes: Number(e.target.value || 60) }))} />
+          </div>
+          <div>
+            <Label>Appointment buffer (minutes)</Label>
+            <Input type="number" min={0} value={state.appointmentBufferMinutes} onChange={(e) => setState((p) => ({ ...p, appointmentBufferMinutes: Number(e.target.value || 15) }))} />
+          </div>
+          <div>
+            <Label>Booking lead time (hours)</Label>
+            <Input type="number" min={0} value={state.bookingLeadTimeHours} onChange={(e) => setState((p) => ({ ...p, bookingLeadTimeHours: Number(e.target.value || 2) }))} />
+          </div>
+          <div>
+            <Label>Max days ahead</Label>
+            <Input type="number" min={1} value={state.bookingMaxDaysAhead} onChange={(e) => setState((p) => ({ ...p, bookingMaxDaysAhead: Number(e.target.value || 14) }))} />
+          </div>
+          <div>
+            <Label>LLM classification daily cap</Label>
+            <Input type="number" min={0} value={state.classificationLlmDailyCap} onChange={(e) => setState((p) => ({ ...p, classificationLlmDailyCap: Number(e.target.value || 100) }))} />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Label>Notification email recipients (one per line)</Label>
+            <Textarea value={state.notificationEmailRecipients} onChange={(e) => setState((p) => ({ ...p, notificationEmailRecipients: e.target.value }))} />
+            <p className="mt-1 text-xs text-muted-foreground">Current notification events: {notificationCount}</p>
+          </div>
+          <label className="sm:col-span-2 lg:col-span-3 flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={state.classificationShadowMode} onChange={(e) => setState((p) => ({ ...p, classificationShadowMode: e.target.checked }))} />
+            Classification shadow mode (log only, do not mutate lead fields)
+          </label>
         </div>
       </section>
 

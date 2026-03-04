@@ -32,7 +32,15 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [canManage, setCanManage] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [seats, setSeats] = useState({ includedSeats: 1, purchasedSeats: 0, allowedSeats: 1, activeMembers: 0 });
+  const [seats, setSeats] = useState({
+    seatPolicy: "activeMembers + pendingInvites <= allowedSeats",
+    includedSeats: 1,
+    purchasedSeats: 0,
+    allowedSeats: 1,
+    activeMembers: 0,
+    pendingInvites: 0,
+    upgradeHint: ""
+  });
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "manager" | "viewer">("viewer");
   const [inviting, setInviting] = useState(false);
@@ -45,7 +53,10 @@ export default function TeamPage() {
       const [data, me] = await Promise.all([fetchTeamMembers(), getMe()]);
       setCanManage(data.canManage);
       setMembers(data.members || []);
-      setSeats(data.seats);
+      setSeats((prev) => ({
+        ...prev,
+        ...data.seats
+      }));
       setCurrentUserId(me.user.userId || null);
     } catch (error) {
       showToast({
@@ -151,13 +162,15 @@ export default function TeamPage() {
           <CardTitle>Seat usage</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm md:grid-cols-4">
-          <div>Active members: <span className="font-semibold">{activeCount}</span></div>
+          <div>Active members: <span className="font-semibold">{seats.activeMembers ?? activeCount}</span></div>
+          <div>Pending invites: <span className="font-semibold">{seats.pendingInvites ?? 0}</span></div>
           <div>Included seats: <span className="font-semibold">{seats.includedSeats}</span></div>
           <div>Purchased seats: <span className="font-semibold">{seats.purchasedSeats}</span></div>
           <div>Allowed seats: <span className="font-semibold">{seats.allowedSeats}</span></div>
-          {activeCount >= seats.allowedSeats ? (
+          <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
+          {(seats.activeMembers + (seats.pendingInvites ?? 0)) >= seats.allowedSeats ? (
             <p className="md:col-span-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-              You have reached your seat limit. Add additional seats to invite more users.
+              {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
             </p>
           ) : null}
         </CardContent>

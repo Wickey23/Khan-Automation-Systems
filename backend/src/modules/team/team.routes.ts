@@ -86,7 +86,7 @@ async function syncLegacyOrgUsersToMemberships(db: PrismaClient, orgId: string) 
 }
 
 async function resolveSeatSnapshot(db: PrismaClient, orgId: string) {
-  const [org, subscription, activeMembers] = await Promise.all([
+  const [org, subscription, activeMembers, pendingInvites] = await Promise.all([
     db.organization.findUnique({
       where: { id: orgId },
       select: { includedSeats: true, purchasedSeats: true }
@@ -98,6 +98,9 @@ async function resolveSeatSnapshot(db: PrismaClient, orgId: string) {
     }),
     db.organizationMembership.count({
       where: { organizationId: orgId, status: TeamMembershipStatus.ACTIVE }
+    }),
+    db.organizationMembership.count({
+      where: { organizationId: orgId, status: TeamMembershipStatus.INVITED }
     })
   ]);
 
@@ -116,10 +119,16 @@ async function resolveSeatSnapshot(db: PrismaClient, orgId: string) {
   }
 
   return {
+    seatPolicy: "activeMembers + pendingInvites <= allowedSeats",
     includedSeats,
     purchasedSeats,
     allowedSeats,
-    activeMembers
+    activeMembers,
+    pendingInvites,
+    upgradeHint:
+      activeMembers + pendingInvites >= allowedSeats
+        ? "Seat limit reached. Upgrade plan or add seat add-ons to invite more users."
+        : ""
   };
 }
 
@@ -255,7 +264,7 @@ teamRouter.post("/invite", requireCsrf, async (req: AuthenticatedRequest, res) =
 
   await syncLegacyOrgUsersToMemberships(prisma, orgId);
   const seat = await resolveSeatSnapshot(prisma, orgId);
-  if (seat.activeMembers >= seat.allowedSeats) {
+  if (seat.activeMembers + seat.pendingInvites >= seat.allowedSeats) {
     return res.status(409).json({
       ok: false,
       message: "You have reached your seat limit. Add additional seats to invite more users."

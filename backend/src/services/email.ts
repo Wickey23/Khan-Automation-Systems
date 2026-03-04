@@ -232,3 +232,19 @@ export async function sendTeamInviteEmail(payload: {
   ].join("\n");
   await sendOrLog(subject, text, payload.email);
 }
+
+export async function sendOrgOperationalNotificationEmail(payload: {
+  to: string;
+  title: string;
+  body: string;
+  severity: "INFO" | "ACTION_REQUIRED" | "URGENT";
+}) {
+  const subjectPrefix =
+    payload.severity === "URGENT"
+      ? "[URGENT]"
+      : payload.severity === "ACTION_REQUIRED"
+        ? "[Action Required]"
+        : "[Info]";
+  const subject = `${subjectPrefix} ${payload.title}`;
+  await sendOrLog(subject, payload.body, payload.to);
+}

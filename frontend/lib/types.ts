@@ -1,4 +1,13 @@
 export type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "WON" | "LOST";
+export type LeadPipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
+export type LeadClassification =
+  | "BOOKED_JOB"
+  | "QUOTE_REQUEST"
+  | "EMERGENCY"
+  | "CUSTOMER_SUPPORT"
+  | "SPAM"
+  | "MISSED_CALL_RECOVERY"
+  | "GENERAL_INQUIRY";
 
 export type Lead = {
   id: string;
@@ -12,8 +21,15 @@ export type Lead = {
   urgency: string | null;
   sourcePage: string | null;
   status: LeadStatus;
+  pipelineStage?: LeadPipelineStage;
   tags: string;
   notes: string | null;
+  serviceRequested?: string | null;
+  serviceAddress?: string | null;
+  qualified?: boolean;
+  qualificationReason?: string | null;
+  classification?: LeadClassification | null;
+  classificationConfidence?: number | null;
   source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
   dnc?: boolean;
   createdAt: string;
@@ -135,10 +151,13 @@ export type TeamMember = {
 };
 
 export type TeamSeatSnapshot = {
+  seatPolicy?: string;
   includedSeats: number;
   purchasedSeats: number;
   allowedSeats: number;
   activeMembers: number;
+  pendingInvites?: number;
+  upgradeHint?: string;
 };
 
 export type Organization = {
@@ -387,12 +406,69 @@ export type BusinessSettings = {
   transferNumbersJson: string;
   notificationEmailsJson: string;
   notificationPhonesJson: string;
+  notificationEmailRecipientsJson?: string;
+  notificationTogglesJson?: string;
   languagesJson: string;
   recordingConsentEnabled: boolean;
   smsConsentText: string;
   timezone: string;
+  averageJobValueUsd?: number;
+  appointmentDurationMinutes?: number;
+  appointmentBufferMinutes?: number;
+  bookingLeadTimeHours?: number;
+  bookingMaxDaysAhead?: number;
+  classificationShadowMode?: boolean;
+  classificationLlmDailyCap?: number;
   servicesJson: string;
   policiesJson: string;
+  updatedAt: string;
+};
+
+export type CalendarConnection = {
+  id: string;
+  provider: "GOOGLE" | "OUTLOOK" | "INTERNAL";
+  accountEmail: string;
+  isActive: boolean;
+  isPrimary?: boolean;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED" | "NO_SHOW";
+export type CalendarProvider = "GOOGLE" | "OUTLOOK" | "INTERNAL";
+
+export type Appointment = {
+  id: string;
+  orgId: string;
+  leadId: string | null;
+  callLogId: string | null;
+  customerName: string;
+  customerPhone: string;
+  issueSummary: string;
+  assignedTechnician: string | null;
+  status: AppointmentStatus;
+  startAt: string;
+  endAt: string;
+  timezone: string;
+  calendarProvider: CalendarProvider;
+  externalCalendarEventId: string | null;
+  idempotencyKey: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrgNotification = {
+  id: string;
+  orgId: string;
+  type: "NEW_LEAD_CAPTURED" | "APPOINTMENT_BOOKED" | "MISSED_CALL_RECOVERY_NEEDED" | "EMERGENCY_CALL_FLAGGED";
+  severity: "INFO" | "ACTION_REQUIRED" | "URGENT";
+  title: string;
+  body: string;
+  targetRoleMin: string;
+  readAt: string | null;
+  metadataJson?: Record<string, unknown> | null;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -538,6 +614,12 @@ export type OrgAnalytics = {
     autoRecoveryLeadConversions: number;
     unknownNameRate: number;
     dataFreshnessAt: string | null;
+    appointmentsBooked?: number;
+    qualifiedLeads?: number;
+    missedCallsRecovered?: number;
+    conversionRate?: number;
+    averageJobValueUsd?: number;
+    estimatedRevenueOpportunityUsd?: number;
   };
   charts: {
     callsPerDay: Array<{ day: string; value: number }>;

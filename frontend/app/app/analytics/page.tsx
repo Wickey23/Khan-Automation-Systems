@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Lock } from "lucide-react";
-import { fetchOrgAnalytics, getBillingStatus } from "@/lib/api";
+import { fetchOrgAnalytics, getBillingStatus, getMe } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgAnalytics } from "@/lib/types";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -25,19 +25,24 @@ export default function AppAnalyticsPage() {
   const [data, setData] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPro, setIsPro] = useState(false);
+  const [role, setRole] = useState<"CLIENT" | "CLIENT_STAFF" | "CLIENT_ADMIN" | "ADMIN" | "SUPER_ADMIN" | null>(null);
 
   useEffect(() => {
     let active = true;
-    void getBillingStatus()
-      .then((billing) => {
+    void Promise.all([getBillingStatus(), getMe()])
+      .then(([billing, me]) => {
         if (!active) return;
         const access = resolvePlanFeatures({
           plan: billing.subscription?.plan,
           status: billing.subscription?.status
         });
         setIsPro(access.analytics);
+        setRole(me.user.role);
       })
-      .catch(() => setIsPro(false));
+      .catch(() => {
+        setIsPro(false);
+        setRole(null);
+      });
     return () => {
       active = false;
     };
@@ -65,6 +70,7 @@ export default function AppAnalyticsPage() {
   }, [range]);
 
   const kpis = useMemo(() => data?.kpis, [data]);
+  const isViewer = role === "CLIENT";
 
   return (
     <div className="space-y-5">
@@ -163,6 +169,20 @@ export default function AppAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+            ROI Estimate
+            <InfoHint text="Estimated revenue opportunity = appointments booked × average job value." />
+          </p>
+          <p className="mt-1 text-2xl font-semibold">
+            {kpis?.estimatedRevenueOpportunityUsd
+              ? `$${kpis.estimatedRevenueOpportunityUsd.toLocaleString()}`
+              : "$0"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {kpis?.appointmentsBooked ?? 0} booked × ${kpis?.averageJobValueUsd ?? 650}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-white p-4">
+          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
             Unknown Name Rate
             <InfoHint text="Percent of newly created leads still using placeholder names." />
           </p>
@@ -170,6 +190,13 @@ export default function AppAnalyticsPage() {
         </div>
       </div>
 
+      {isViewer ? (
+        <div className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-900">
+          Viewer role access: summary KPI cards only.
+        </div>
+      ) : null}
+
+      {!isViewer ? (
       <div className={`grid gap-4 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
         <section className="rounded-lg border bg-white p-4 lg:col-span-2">
           <div className="mb-3 flex items-center gap-2">
@@ -214,7 +241,9 @@ export default function AppAnalyticsPage() {
           )}
         </section>
       </div>
+      ) : null}
 
+      {!isViewer ? (
       <section className={`rounded-lg border bg-white p-4 ${!isPro ? "opacity-60" : ""}`}>
         <h2 className="mb-3 font-semibold">Leads per day</h2>
         {data?.charts.leadsPerDay?.length ? (
@@ -230,6 +259,7 @@ export default function AppAnalyticsPage() {
           <p className="text-sm text-muted-foreground">No lead data in this range.</p>
         )}
       </section>
+      ) : null}
     </div>
   );
 }
