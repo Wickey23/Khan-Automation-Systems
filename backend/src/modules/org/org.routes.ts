@@ -1076,6 +1076,12 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
   const orgId = req.auth.orgId;
   const userId = req.auth.userId;
   const requestedProvider = parsed.data.calendarProvider || "INTERNAL";
+  if (requestedProvider !== "INTERNAL" && !isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
+    return res.status(400).json({
+      ok: false,
+      message: "Calendar OAuth feature is disabled for this workspace."
+    });
+  }
   if (requestedProvider !== "INTERNAL" && !canManageCalendar(req.auth?.role)) {
     return res.status(403).json({
       ok: false,
