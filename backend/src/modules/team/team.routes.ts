@@ -286,6 +286,11 @@ teamRouter.get("/", async (req: AuthenticatedRequest, res) => {
     data: {
       canManage: canManageTeam(req),
       seats: seat,
+      seatPolicy: seat.seatPolicy,
+      activeMembers: seat.activeMembers,
+      pendingInvites: seat.pendingInvites,
+      allowedSeats: seat.allowedSeats,
+      upgradeHint: seat.upgradeHint,
       members
     }
   });
