@@ -948,6 +948,9 @@ orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, asyn
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid availability payload.", errors: parsed.error.flatten() });
   }
+  if (parsed.data.from && parsed.data.to && new Date(parsed.data.from).getTime() > new Date(parsed.data.to).getTime()) {
+    return res.status(400).json({ ok: false, message: "Invalid range: from must be before or equal to to." });
+  }
 
   const settings = await prisma.businessSettings.findUnique({
     where: { orgId: req.auth.orgId },

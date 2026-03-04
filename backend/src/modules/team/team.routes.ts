@@ -21,7 +21,7 @@ import {
   resendTeamInviteSchema,
   updateTeamRoleSchema
 } from "./team.schema";
-import { buildSeatSnapshot, canInviteSeat } from "./team-seat.service";
+import { buildSeatSnapshot, canAcceptSeat, canInviteSeat } from "./team-seat.service";
 
 export const teamRouter = Router();
 
@@ -153,6 +153,15 @@ teamRouter.post("/accept", async (req, res) => {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser?.orgId && existingUser.orgId !== invite.organizationId) {
     return res.status(409).json({ ok: false, message: "This email already belongs to another organization." });
+  }
+
+  await syncLegacyOrgUsersToMemberships(prisma, invite.organizationId);
+  const seatSnapshot = await resolveSeatSnapshot(prisma, invite.organizationId);
+  if (!canAcceptSeat(seatSnapshot)) {
+    return res.status(409).json({
+      ok: false,
+      message: "Seat limit reached. Ask your admin to add seats before accepting this invite."
+    });
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);

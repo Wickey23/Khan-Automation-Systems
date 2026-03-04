@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSeatSnapshot, canInviteSeat } from "../team-seat.service";
+import { buildSeatSnapshot, canAcceptSeat, canInviteSeat } from "../team-seat.service";
 
 test("standard plan includes one seat", () => {
   const snapshot = buildSeatSnapshot({
@@ -37,3 +37,20 @@ test("seat enforcement allows invite below boundary", () => {
   assert.equal(canInviteSeat(snapshot), true);
 });
 
+test("acceptance enforcement blocks when active seats already full", () => {
+  const full = buildSeatSnapshot({
+    isPro: false,
+    purchasedSeats: 0,
+    activeMembers: 1,
+    pendingInvites: 0
+  });
+  assert.equal(canAcceptSeat(full), false);
+
+  const available = buildSeatSnapshot({
+    isPro: true,
+    purchasedSeats: 0,
+    activeMembers: 2,
+    pendingInvites: 1
+  });
+  assert.equal(canAcceptSeat(available), true);
+});
