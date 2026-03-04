@@ -19,6 +19,7 @@ type AdminTab = {
 type AdminTabGroup = {
   label: string;
   icon: ComponentType<{ className?: string }>;
+  tone: string;
   tabs: AdminTab[];
 };
 
@@ -26,6 +27,7 @@ const adminTabGroups: AdminTabGroup[] = [
   {
     label: "Revenue",
     icon: ClipboardList,
+    tone: "from-emerald-50 to-white border-emerald-100",
     tabs: [
       { label: "Leads", href: "/admin/leads", matches: ["/admin/leads"], description: "Captured demand and pipeline hygiene." },
       { label: "Prospects", href: "/admin/prospects", matches: ["/admin/prospects"], description: "Outbound pipeline and sourcing." }
@@ -34,6 +36,7 @@ const adminTabGroups: AdminTabGroup[] = [
   {
     label: "Conversations",
     icon: MessageSquare,
+    tone: "from-sky-50 to-white border-sky-100",
     tabs: [
       { label: "Calls", href: "/admin/calls", matches: ["/admin/calls"], description: "Inbound call quality and outcomes." },
       { label: "Messages", href: "/admin/messages", matches: ["/admin/messages"], description: "SMS threads and delivery health." },
@@ -43,6 +46,7 @@ const adminTabGroups: AdminTabGroup[] = [
   {
     label: "Operations",
     icon: Settings,
+    tone: "from-violet-50 to-white border-violet-100",
     tabs: [
       { label: "Organizations", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"], description: "Tenant readiness and lifecycle." },
       { label: "Users", href: "/admin/users", matches: ["/admin/users"], description: "Account access and login activity." },
@@ -150,7 +154,7 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
   }
 
   return (
-    <div className={cn("mb-4 space-y-3", className)}>
+    <div className={cn("mb-5 space-y-3", className)}>
       {banner ? (
         <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -161,13 +165,15 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
           </div>
         </div>
       ) : null}
-      <div className="rounded-xl border bg-white/90 p-3">
+      <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-white to-zinc-50 p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-semibold">Admin Control Center</p>
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white">
+              <Shield className="h-4 w-4 text-zinc-600" />
+            </span>
+            <p className="text-sm font-semibold tracking-wide">Admin Control Center</p>
             {activeTab ? (
-              <span className="rounded-md border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
+              <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-0.5 text-xs text-muted-foreground">
                 {activeTab.label}
               </span>
             ) : null}
@@ -186,8 +192,8 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
           {adminTabGroups.map((group) => {
             const Icon = group.icon;
             return (
-              <div key={group.label} className="rounded-lg border bg-white p-2">
-                <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div key={group.label} className={cn("rounded-xl border bg-gradient-to-b p-2.5", group.tone)}>
+                <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
                   <Icon className="h-3.5 w-3.5" />
                   {group.label}
                 </p>
@@ -197,10 +203,10 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
                       key={tab.href}
                       href={tab.href}
                       className={cn(
-                        "rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                        "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                         isActive(tab)
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-zinc-200 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-white bg-white/80 text-zinc-600 hover:bg-white hover:text-zinc-900"
                       )}
                     >
                       {tab.label}
