@@ -163,6 +163,9 @@ export default function AppAppointmentsPage() {
       });
       return;
     }
+    const stableIdempotencyKey = `slot:${slot.startAt}:${slot.endAt}:${customerPhone.trim().toLowerCase()}:${customerName
+      .trim()
+      .toLowerCase()}`;
     setCreatingSlot(slot.startAt);
     try {
       await createOrgAppointment({
@@ -173,7 +176,7 @@ export default function AppAppointmentsPage() {
         endAt: slot.endAt,
         timezone: slotTimezone,
         calendarProvider: slotProvider,
-        idempotencyKey: `slot-${new Date(slot.startAt).getTime()}-${Date.now()}`
+        idempotencyKey: stableIdempotencyKey
       });
       showToast({ title: "Appointment created" });
       setAvailableSlots([]);
