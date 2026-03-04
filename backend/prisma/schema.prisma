@@ -111,6 +111,17 @@ enum SubscriptionPlan {
   PRO
 }
 
+enum TeamMembershipRole {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+enum TeamMembershipStatus {
+  ACTIVE
+  INVITED
+}
+
 enum CallOutcome {
   AI_HANDLED
   TRANSFERRED
@@ -175,6 +186,8 @@ model Organization {
   stripeCustomerId     String?                @unique
   subscriptionStatus   String                 @default("inactive")
   billingActive        Boolean                @default(false)
+  includedSeats        Int                    @default(1)
+  purchasedSeats       Int                    @default(0)
   routingEngineOverride OrgOverrideMode       @default(DEFAULT)
   autoRecoveryOverride  OrgOverrideMode       @default(DEFAULT)
   smsSendOverride       OrgOverrideMode       @default(DEFAULT)
@@ -208,6 +221,7 @@ model Organization {
   callerProfiles       CallerProfile[]
   autoRecoveryDedupes  AutoRecoveryDedupe[]
   scaleGateDecisions   ScaleGateDecisionLog[]
+  memberships          OrganizationMembership[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -247,6 +261,31 @@ model User {
   updatedAt    DateTime  @updatedAt
   loginChallenges LoginChallenge[]
   refreshSessions RefreshSession[]
+  passwordResetTokens PasswordResetToken[]
+  memberships      OrganizationMembership[]
+}
+
+model OrganizationMembership {
+  id             String               @id @default(cuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role           TeamMembershipRole
+  status         TeamMembershipStatus
+  invitedEmail   String
+  invitedBy      String?
+  invitedAt      DateTime?
+  acceptedAt     DateTime?
+  inviteTokenHash String?
+  inviteExpiresAt DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status])
+  @@index([invitedEmail, status])
+  @@index([inviteTokenHash])
 }
 
 model Subscription {
@@ -593,6 +632,21 @@ model LoginChallenge {
   maxAttempts Int      @default(5)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email      String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([userId, createdAt])
   @@index([email, createdAt])

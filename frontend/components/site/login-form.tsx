@@ -120,6 +120,11 @@ export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
+            <div className="text-right">
+              <Link href="/auth/forgot-password" className="text-sm font-medium text-primary">
+                Forgot password?
+              </Link>
+            </div>
           </form>
         ) : (
           <div className="space-y-4">

@@ -23,7 +23,6 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<(typeof roleOptions)[number]>("ALL");
   const [actorRole, setActorRole] = useState<string>("");
   const [draftRoleByUserId, setDraftRoleByUserId] = useState<Record<string, AdminUserRecord["role"]>>({});
-  const [draftEmailByUserId, setDraftEmailByUserId] = useState<Record<string, string>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
 
   const query = useMemo(() => {
@@ -48,7 +47,6 @@ export default function AdminUsersPage() {
         const rows = data.users || [];
         setUsers(rows);
         setDraftRoleByUserId(Object.fromEntries(rows.map((user) => [user.id, user.role])) as Record<string, AdminUserRecord["role"]>);
-        setDraftEmailByUserId(Object.fromEntries(rows.map((user) => [user.id, user.email])));
       })
       .catch(() => {
         if (!active) return;
@@ -64,14 +62,12 @@ export default function AdminUsersPage() {
   async function saveUser(user: AdminUserRecord) {
     if (!canEditUsers) return;
     const nextRole = draftRoleByUserId[user.id] || user.role;
-    const nextEmail = String(draftEmailByUserId[user.id] || user.email).trim().toLowerCase();
-    if (nextRole === user.role && nextEmail === user.email.toLowerCase()) return;
+    if (nextRole === user.role) return;
 
     setSavingUserId(user.id);
     try {
       const result = await updateAdminUser(user.id, {
-        role: nextRole,
-        email: nextEmail !== user.email.toLowerCase() ? nextEmail : undefined
+        role: nextRole
       });
       setUsers((current) => current.map((row) => (row.id === user.id ? { ...row, ...result.user } : row)));
       showToast({ title: "User updated", description: `${result.user.email} updated successfully.` });
@@ -91,7 +87,6 @@ export default function AdminUsersPage() {
     const rows = data.users || [];
     setUsers(rows);
     setDraftRoleByUserId(Object.fromEntries(rows.map((user) => [user.id, user.role])) as Record<string, AdminUserRecord["role"]>);
-    setDraftEmailByUserId(Object.fromEntries(rows.map((user) => [user.id, user.email])));
   }
 
   return (
@@ -147,20 +142,7 @@ export default function AdminUsersPage() {
               {users.map((user) => (
                 <tr key={user.id} className="border-t align-top">
                   <td className="p-3">
-                    {canEditUsers ? (
-                      <Input
-                        className="h-8"
-                        value={draftEmailByUserId[user.id] || user.email}
-                        onChange={(event) =>
-                          setDraftEmailByUserId((current) => ({
-                            ...current,
-                            [user.id]: event.target.value
-                          }))
-                        }
-                      />
-                    ) : (
-                      <p className="font-medium">{user.email}</p>
-                    )}
+                    <p className="font-medium">{user.email}</p>
                     <p className="font-mono text-xs text-muted-foreground">{user.id}</p>
                   </td>
                   <td className="p-3">
@@ -239,4 +221,3 @@ export default function AdminUsersPage() {
     </AdminGuard>
   );
 }
-

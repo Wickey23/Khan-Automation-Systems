@@ -115,6 +115,32 @@ export type AuthUser = {
   orgId?: string | null;
 };
 
+export type TeamRole = "ADMIN" | "MANAGER" | "VIEWER";
+export type TeamStatus = "ACTIVE" | "INVITED";
+
+export type TeamMember = {
+  id: string;
+  role: TeamRole;
+  status: TeamStatus;
+  invitedEmail: string;
+  invitedAt: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+};
+
+export type TeamSeatSnapshot = {
+  includedSeats: number;
+  purchasedSeats: number;
+  allowedSeats: number;
+  activeMembers: number;
+};
+
 export type Organization = {
   id: string;
   name: string;

@@ -1,5 +1,5 @@
 import { OnboardingStatus, OrganizationStatus, UserRole } from "@prisma/client";
-import { Router } from "express";
+import { Router, type NextFunction, type Response } from "express";
 import { z } from "zod";
 import { env } from "../../config/env";
 import { decryptField, encryptField } from "../../lib/crypto-fields";
@@ -24,6 +24,14 @@ import {
 export const orgRouter = Router();
 
 orgRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT, UserRole.SUPER_ADMIN]));
+
+function requireOrgWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const role = req.auth?.role;
+  if (role === UserRole.CLIENT_ADMIN || role === UserRole.CLIENT_STAFF || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
+    return next();
+  }
+  return res.status(403).json({ ok: false, message: "Forbidden" });
+}
 const KNOWLEDGE_FILE_MAX_BYTES = 200_000;
 const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
 const ALLOWED_KNOWLEDGE_MIME = new Set(["text/plain", "text/markdown", "application/json", "text/csv"]);
@@ -158,7 +166,7 @@ orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
   });
 });
 
-orgRouter.patch("/profile", async (req: AuthenticatedRequest, res) => {
+orgRouter.patch("/profile", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = updateOrgProfileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid profile payload.", errors: parsed.error.flatten() });
@@ -185,7 +193,7 @@ orgRouter.get("/settings", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { settings: hydrated } });
 });
 
-orgRouter.patch("/settings", async (req: AuthenticatedRequest, res) => {
+orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = updateBusinessSettingsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid settings payload.", errors: parsed.error.flatten() });
@@ -246,7 +254,7 @@ orgRouter.get("/knowledge-files", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { files } });
 });
 
-orgRouter.post("/knowledge-files", async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/knowledge-files", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const fileName = String(req.body?.fileName || "").trim();
   const mimeType = String(req.body?.mimeType || "text/plain").trim().toLowerCase();
@@ -306,7 +314,7 @@ orgRouter.post("/knowledge-files", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { file } });
 });
 
-orgRouter.delete("/knowledge-files/:fileId", async (req: AuthenticatedRequest, res) => {
+orgRouter.delete("/knowledge-files/:fileId", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const existing = await prisma.organizationKnowledgeFile.findFirst({
     where: { id: req.params.fileId, orgId: req.auth.orgId }
@@ -342,7 +350,7 @@ orgRouter.get("/config-package", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { configPackage } });
 });
 
-orgRouter.put("/onboarding", async (req: AuthenticatedRequest, res) => {
+orgRouter.put("/onboarding", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = saveOnboardingSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid onboarding payload.", errors: parsed.error.flatten() });
@@ -377,7 +385,7 @@ orgRouter.put("/onboarding", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { submission } });
 });
 
-orgRouter.post("/onboarding/preview", async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/onboarding/preview", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = saveOnboardingSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid onboarding payload.", errors: parsed.error.flatten() });
@@ -385,7 +393,7 @@ orgRouter.post("/onboarding/preview", async (req: AuthenticatedRequest, res) => 
   return res.json({ ok: true, data: { configPackage } });
 });
 
-orgRouter.post("/onboarding/submit", async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/onboarding/submit", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = submitOnboardingSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid onboarding submit payload.", errors: parsed.error.flatten() });

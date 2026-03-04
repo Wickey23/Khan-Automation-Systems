@@ -8,7 +8,12 @@ export type AppPermission =
   | "ADMIN_SYSTEM_MUTATE"
   | "ORG_OVERRIDE_MUTATE"
   | "GO_LIVE_OVERRIDE_CRITICAL"
-  | "DATA_REPAIR_EXECUTE";
+  | "DATA_REPAIR_EXECUTE"
+  | "billing.manage"
+  | "team.manage"
+  | "assistant.settings.write"
+  | "calls.read"
+  | "calls.export";
 
 const PERMISSIONS_BY_ROLE: Record<UserRole, Set<AppPermission>> = {
   SUPER_ADMIN: new Set([
@@ -16,12 +21,27 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, Set<AppPermission>> = {
     "ADMIN_SYSTEM_MUTATE",
     "ORG_OVERRIDE_MUTATE",
     "GO_LIVE_OVERRIDE_CRITICAL",
-    "DATA_REPAIR_EXECUTE"
+    "DATA_REPAIR_EXECUTE",
+    "billing.manage",
+    "team.manage",
+    "assistant.settings.write",
+    "calls.read",
+    "calls.export"
   ]),
-  ADMIN: new Set(["ADMIN_SYSTEM_VIEW", "ADMIN_SYSTEM_MUTATE", "ORG_OVERRIDE_MUTATE", "DATA_REPAIR_EXECUTE"]),
-  CLIENT_ADMIN: new Set([]),
-  CLIENT_STAFF: new Set([]),
-  CLIENT: new Set([])
+  ADMIN: new Set([
+    "ADMIN_SYSTEM_VIEW",
+    "ADMIN_SYSTEM_MUTATE",
+    "ORG_OVERRIDE_MUTATE",
+    "DATA_REPAIR_EXECUTE",
+    "billing.manage",
+    "team.manage",
+    "assistant.settings.write",
+    "calls.read",
+    "calls.export"
+  ]),
+  CLIENT_ADMIN: new Set(["billing.manage", "team.manage", "assistant.settings.write", "calls.read", "calls.export"]),
+  CLIENT_STAFF: new Set(["assistant.settings.write", "calls.read", "calls.export"]),
+  CLIENT: new Set(["calls.read"])
 };
 
 function deny(req: AuthenticatedRequest, res: Response, reason: string) {
@@ -60,4 +80,3 @@ export function requirePermission(permission: AppPermission) {
     return next();
   };
 }
-

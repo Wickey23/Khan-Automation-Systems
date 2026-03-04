@@ -3,7 +3,7 @@ import { createLeadSchema } from "./lead.schema";
 import { prisma } from "../../lib/prisma";
 import { sendClientWelcomeEmail, sendLeadNotificationEmail } from "../../services/email";
 import bcrypt from "bcryptjs";
-import { ClientStatus, OrganizationStatus, UserRole } from "@prisma/client";
+import { ClientStatus, OrganizationStatus, TeamMembershipRole, TeamMembershipStatus, UserRole } from "@prisma/client";
 import { env } from "../../config/env";
 import { randomUUID } from "crypto";
 
@@ -131,13 +131,36 @@ leadRouter.post("/", async (req: Request, res: Response) => {
         }
       });
 
-      await prisma.user.create({
+      const createdUser = await prisma.user.create({
         data: {
           email,
           passwordHash: accountPasswordHash,
           role: UserRole.CLIENT_ADMIN,
           orgId: org.id,
           clientId: client.id
+        }
+      });
+      await prisma.organizationMembership.upsert({
+        where: {
+          organizationId_userId: {
+            organizationId: org.id,
+            userId: createdUser.id
+          }
+        },
+        update: {
+          role: TeamMembershipRole.ADMIN,
+          status: TeamMembershipStatus.ACTIVE,
+          invitedEmail: createdUser.email,
+          acceptedAt: new Date()
+        },
+        create: {
+          organizationId: org.id,
+          userId: createdUser.id,
+          role: TeamMembershipRole.ADMIN,
+          status: TeamMembershipStatus.ACTIVE,
+          invitedEmail: createdUser.email,
+          invitedAt: new Date(),
+          acceptedAt: new Date()
         }
       });
       void sendClientWelcomeEmail({

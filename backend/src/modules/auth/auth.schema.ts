@@ -23,3 +23,12 @@ export const signupSchema = z.object({
   password: z.string().min(8),
   industry: z.string().optional()
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20),
+  password: z.string().min(8)
+});

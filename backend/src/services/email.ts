@@ -200,3 +200,35 @@ export async function sendBillingConfirmationEmail(payload: {
     .join("\n");
   await sendOrLog(subject, text, payload.email);
 }
+
+export async function sendPasswordResetEmail(payload: {
+  email: string;
+  resetUrl: string;
+  expiresMinutes: number;
+}) {
+  const subject = "Reset your Khan Systems password";
+  const text = [
+    "We received a request to reset your password.",
+    `Reset link: ${payload.resetUrl}`,
+    `This link expires in ${payload.expiresMinutes} minutes.`,
+    "If you did not request this change, you can ignore this email."
+  ].join("\n");
+  await sendOrLog(subject, text, payload.email);
+}
+
+export async function sendTeamInviteEmail(payload: {
+  email: string;
+  organizationName: string;
+  roleLabel: "Admin" | "Manager" | "Viewer";
+  inviteUrl: string;
+  expiresHours: number;
+}) {
+  const subject = `You're invited to ${payload.organizationName} on Khan Systems`;
+  const text = [
+    `You've been invited to join ${payload.organizationName}.`,
+    `Role: ${payload.roleLabel}`,
+    `Accept invite: ${payload.inviteUrl}`,
+    `This invite expires in ${payload.expiresHours} hours.`
+  ].join("\n");
+  await sendOrLog(subject, text, payload.email);
+}

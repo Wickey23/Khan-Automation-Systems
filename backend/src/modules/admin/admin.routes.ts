@@ -1009,6 +1009,9 @@ adminRouter.get("/users", async (req, res) => {
 
 adminRouter.patch("/users/:id", async (req: AuthenticatedRequest, res) => {
   if (!requireSuperAdmin(req, res)) return;
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "email")) {
+    return res.status(400).json({ ok: false, message: "Email/login identity cannot be edited." });
+  }
   const parsed = updateAdminUserSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid user update payload." });
 
@@ -1025,8 +1028,7 @@ adminRouter.patch("/users/:id", async (req: AuthenticatedRequest, res) => {
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
-        role: parsed.data.role ?? undefined,
-        email: parsed.data.email ? parsed.data.email.toLowerCase() : undefined
+        role: parsed.data.role ?? undefined
       },
       select: {
         id: true,
@@ -1048,7 +1050,7 @@ adminRouter.patch("/users/:id", async (req: AuthenticatedRequest, res) => {
       metadata: {
         targetUserId: updated.id,
         changedRole: parsed.data.role || null,
-        changedEmail: parsed.data.email ? true : false
+        changedEmail: false
       }
     });
 

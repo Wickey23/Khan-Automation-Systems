@@ -1,21 +1,28 @@
 import bcrypt from "bcryptjs";
-import { ClientStatus, OrganizationStatus, UserRole } from "@prisma/client";
+import { ClientStatus, OrganizationStatus, TeamMembershipRole, TeamMembershipStatus, UserRole } from "@prisma/client";
 import crypto from "crypto";
 import { Router, type Request, type Response } from "express";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { issueCsrfCookie } from "../../middleware/csrf";
 import { requireCsrf } from "../../middleware/csrf";
-import { signAuthToken, signTrusted2faToken, verifyTrusted2faToken } from "../../lib/auth";
+import { hashToken, signAuthToken, signTrusted2faToken, verifyTrusted2faToken } from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { authRateLimit } from "../../middleware/rate-limit";
-import { isEmailProviderConfigured, sendLoginOtpEmail } from "../../services/email";
+import { isEmailProviderConfigured, sendLoginOtpEmail, sendPasswordResetEmail } from "../../services/email";
 import {
   createRefreshSession,
   revokeAllRefreshSessionsForUser,
   rotateRefreshSession
 } from "./refresh-session.service";
-import { loginSchema, resendLoginOtpSchema, signupSchema, verifyLoginOtpSchema } from "./auth.schema";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  resendLoginOtpSchema,
+  resetPasswordSchema,
+  signupSchema,
+  verifyLoginOtpSchema
+} from "./auth.schema";
 
 export const authRouter = Router();
 
@@ -24,6 +31,7 @@ const LOGIN_FAILS = new Map<string, { count: number; lastAt: number }>();
 const MAX_BACKOFF_MS = 10_000;
 const OTP_CHALLENGE_TIMEOUT_MS = 15_000;
 const TRUSTED_2FA_COOKIE = "kas_2fa_trust";
+const PASSWORD_RESET_TIMEOUT_MS = 15_000;
 
 function hashOtp(code: string) {
   return crypto.createHash("sha256").update(`${code}:${process.env.JWT_SECRET || "fallback-secret"}`).digest("hex");
@@ -138,6 +146,16 @@ async function createAndSendLoginChallenge(user: { id: string; email: string }) 
   return challenge;
 }
 
+function genericForgotPasswordResponse(res: Response) {
+  return res.json({
+    ok: true,
+    data: {
+      sent: true,
+      message: "If that email exists, a password reset link has been sent."
+    }
+  });
+}
+
 authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = signupSchema.safeParse(req.body);
@@ -197,6 +215,30 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
       orgId: organization.id
     }
   });
+
+    await prisma.organizationMembership.upsert({
+      where: {
+        organizationId_userId: {
+          organizationId: organization.id,
+          userId: user.id
+        }
+      },
+      update: {
+        role: TeamMembershipRole.ADMIN,
+        status: TeamMembershipStatus.ACTIVE,
+        invitedEmail: user.email,
+        acceptedAt: new Date()
+      },
+      create: {
+        organizationId: organization.id,
+        userId: user.id,
+        role: TeamMembershipRole.ADMIN,
+        status: TeamMembershipStatus.ACTIVE,
+        invitedEmail: user.email,
+        invitedAt: new Date(),
+        acceptedAt: new Date()
+      }
+    });
 
     await prisma.setting.create({
     data: {
@@ -566,6 +608,148 @@ authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Re
     // eslint-disable-next-line no-console
     console.error("OTP resend failed", error);
     return res.status(500).json({ ok: false, message: "Could not resend code." });
+  }
+});
+
+authRouter.post("/forgot-password", authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return genericForgotPasswordResponse(res);
+
+    const email = parsed.data.email.toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true }
+    });
+
+    if (!user) {
+      await auditAuthEvent("AUTH_PASSWORD_RESET_REQUESTED", {
+        email,
+        reason: "user_not_found"
+      });
+      return genericForgotPasswordResponse(res);
+    }
+
+    if (otpEmailUnavailableInProduction()) {
+      await auditAuthEvent("AUTH_PASSWORD_RESET_REQUESTED", {
+        userId: user.id,
+        email: user.email,
+        reason: "email_provider_not_configured"
+      });
+      return genericForgotPasswordResponse(res);
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("base64url");
+    const expiresMinutes = Number.parseInt(env.PASSWORD_RESET_TTL_MINUTES, 10);
+    const expiresAt = new Date(
+      Date.now() + (Number.isFinite(expiresMinutes) && expiresMinutes > 0 ? expiresMinutes : 30) * 60 * 1000
+    );
+
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() }
+    });
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        email: user.email,
+        tokenHash: hashToken(rawToken),
+        expiresAt
+      }
+    });
+
+    const resetUrl = `${env.FRONTEND_APP_URL}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
+    try {
+      await withTimeout(
+        sendPasswordResetEmail({
+          email: user.email,
+          resetUrl,
+          expiresMinutes: Number.isFinite(expiresMinutes) && expiresMinutes > 0 ? expiresMinutes : 30
+        }),
+        PASSWORD_RESET_TIMEOUT_MS,
+        "password_reset_email_timeout"
+      );
+      await auditAuthEvent("AUTH_PASSWORD_RESET_REQUESTED", {
+        userId: user.id,
+        email: user.email,
+        expiresAt: expiresAt.toISOString()
+      });
+    } catch (error) {
+      await prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          tokenHash: hashToken(rawToken),
+          usedAt: null
+        },
+        data: { usedAt: new Date() }
+      });
+      await auditAuthEvent("AUTH_PASSWORD_RESET_REQUESTED", {
+        userId: user.id,
+        email: user.email,
+        reason: error instanceof Error ? error.message : "password_reset_email_failed"
+      });
+    }
+
+    return genericForgotPasswordResponse(res);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Forgot password failed", error);
+    return genericForgotPasswordResponse(res);
+  }
+});
+
+authRouter.post("/reset-password", authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid reset payload." });
+
+    const tokenHash = hashToken(parsed.data.token);
+    const tokenRow = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true }
+    });
+
+    if (!tokenRow || tokenRow.usedAt || tokenRow.expiresAt.getTime() < Date.now()) {
+      await auditAuthEvent("AUTH_PASSWORD_RESET_FAILED", {
+        reason: "invalid_or_expired_token"
+      });
+      return res.status(400).json({ ok: false, message: "Reset link is invalid or expired." });
+    }
+
+    const nextPasswordHash = await bcrypt.hash(parsed.data.password, 12);
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: tokenRow.userId },
+        data: { passwordHash: nextPasswordHash }
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: tokenRow.id },
+        data: { usedAt: now }
+      }),
+      prisma.passwordResetToken.updateMany({
+        where: { userId: tokenRow.userId, id: { not: tokenRow.id }, usedAt: null },
+        data: { usedAt: now }
+      })
+    ]);
+
+    await revokeAllRefreshSessionsForUser(prisma, tokenRow.userId);
+    res.clearCookie("kas_auth_token", { ...authCookieOptions(), path: "/" });
+    res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
+    res.clearCookie(TRUSTED_2FA_COOKIE, { ...authCookieOptions(), path: "/" });
+    res.clearCookie("kas_csrf_token", { ...authCookieOptions(), path: "/" });
+
+    await auditAuthEvent("AUTH_PASSWORD_RESET_COMPLETED", {
+      userId: tokenRow.userId,
+      email: tokenRow.email
+    });
+
+    return res.json({ ok: true, data: { reset: true } });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Reset password failed", error);
+    return res.status(500).json({ ok: false, message: "Could not reset password." });
   }
 });
 

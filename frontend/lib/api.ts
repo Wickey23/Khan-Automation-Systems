@@ -39,6 +39,9 @@ import type {
   PhoneLine,
   Setting,
   TestScenario
+  ,
+  TeamMember,
+  TeamSeatSnapshot
 } from "@/lib/types";
 import type { LeadUpdateInput } from "@/lib/validation";
 
@@ -187,6 +190,20 @@ export async function authResendLoginOtp(email: string, challengeId: string) {
   });
 }
 
+export async function requestPasswordReset(email: string) {
+  return request<{ sent: true; message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
+}
+
+export async function resetPasswordWithToken(token: string, password: string) {
+  return request<{ reset: true }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password })
+  });
+}
+
 export async function fetchAuthSecurityStatus() {
   return request<AuthSecurityStatus>("/api/auth/security-status");
 }
@@ -279,7 +296,7 @@ export async function fetchAdminUsers(query = "") {
   return request<{ users: AdminUserRecord[] }>(`/api/admin/users${query}`);
 }
 
-export async function updateAdminUser(id: string, payload: { role?: AdminUserRecord["role"]; email?: string }) {
+export async function updateAdminUser(id: string, payload: { role?: AdminUserRecord["role"] }) {
   return request<{ user: AdminUserRecord }>(`/api/admin/users/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload)
@@ -288,6 +305,45 @@ export async function updateAdminUser(id: string, payload: { role?: AdminUserRec
 
 export async function fetchAdminRevenue() {
   return request<AdminRevenueSummary>("/api/admin/revenue");
+}
+
+export async function fetchTeamMembers() {
+  return request<{ canManage: boolean; seats: TeamSeatSnapshot; members: TeamMember[] }>("/api/team");
+}
+
+export async function inviteTeamMember(payload: { email: string; role: "admin" | "manager" | "viewer" }) {
+  return request<{ invited: boolean; membershipId: string }>("/api/team/invite", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function resendTeamInvite(membershipId: string) {
+  return request<{ resent: boolean }>("/api/team/resend", {
+    method: "POST",
+    body: JSON.stringify({ membershipId })
+  });
+}
+
+export async function acceptTeamInvite(payload: { token: string; password: string }) {
+  return request<{ accepted: boolean; orgName: string }>("/api/team/accept", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateTeamMemberRole(payload: { membershipId: string; role: "admin" | "manager" | "viewer" }) {
+  return request<{ updated: boolean }>("/api/team/role", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function removeTeamMember(membershipId: string) {
+  return request<{ removed: boolean }>("/api/team/member", {
+    method: "DELETE",
+    body: JSON.stringify({ membershipId })
+  });
 }
 
 export async function deleteAdminCall(id: string, password: string) {

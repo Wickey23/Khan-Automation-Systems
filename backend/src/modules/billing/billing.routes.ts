@@ -125,6 +125,7 @@ async function upsertSubscriptionAndOrg(input: {
   stripeSubscriptionId: string;
   status: string;
   plan: SubscriptionPlan;
+  purchasedSeats?: number | null;
   currentPeriodEnd?: Date | null;
   pendingPlan?: SubscriptionPlan | null;
   pendingPlanEffectiveAt?: Date | null;
@@ -192,10 +193,20 @@ async function upsertSubscriptionAndOrg(input: {
       stripeCustomerId: input.stripeCustomerId,
       subscriptionStatus: normalizedStatus,
       billingActive,
+      includedSeats: input.plan === SubscriptionPlan.PRO ? 3 : 1,
+      purchasedSeats: Math.max(0, input.purchasedSeats ?? 0),
       status: lifecycle.status,
       live: lifecycle.live
     }
   });
+}
+
+function extractPurchasedSeatsFromSubscription(subscription: Stripe.Subscription): number {
+  const seatPriceId = String(env.STRIPE_PRO_SEAT_PRICE_ID || "").trim();
+  if (!seatPriceId) return 0;
+  const seatItem = subscription.items.data.find((item) => item.price?.id === seatPriceId);
+  const quantity = Number(seatItem?.quantity || 0);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
 }
 
 async function resolveOrgAndPlanFromSubscription(stripeSubscriptionId: string): Promise<{
@@ -204,6 +215,7 @@ async function resolveOrgAndPlanFromSubscription(stripeSubscriptionId: string): 
   stripeCustomerId: string | null;
   status: string;
   currentPeriodEnd: Date | null;
+  purchasedSeats: number;
 }> {
   const existing = await prisma.subscription.findUnique({
     where: { stripeSubscriptionId },
@@ -221,7 +233,8 @@ async function resolveOrgAndPlanFromSubscription(stripeSubscriptionId: string): 
       plan: existing.plan,
       stripeCustomerId: existing.stripeCustomerId,
       status: existing.status,
-      currentPeriodEnd: existing.currentPeriodEnd
+      currentPeriodEnd: existing.currentPeriodEnd,
+      purchasedSeats: 0
     };
   }
 
@@ -243,7 +256,8 @@ async function resolveOrgAndPlanFromSubscription(stripeSubscriptionId: string): 
     status: normalizeSubscriptionStatus(stripeSubscription.status),
     currentPeriodEnd: stripeSubscription.current_period_end
       ? new Date(stripeSubscription.current_period_end * 1000)
-      : null
+      : null,
+    purchasedSeats: extractPurchasedSeatsFromSubscription(stripeSubscription)
   };
 }
 
@@ -295,7 +309,7 @@ async function clearPendingIfApplied(input: {
 billingRouter.post(
   "/create-checkout-session",
   requireAuth,
-  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT]),
+  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.ADMIN, UserRole.SUPER_ADMIN]),
   async (req: AuthenticatedRequest, res) => {
     if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
 
@@ -583,7 +597,7 @@ billingRouter.post(
 billingRouter.post(
   "/change-plan",
   requireAuth,
-  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT]),
+  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.ADMIN, UserRole.SUPER_ADMIN]),
   async (req: AuthenticatedRequest, res) => {
     logBillingEvent("info", {
       action: "legacy_plan_change_route_used",
@@ -802,7 +816,11 @@ billingRouter.get("/diagnostics", requireAuth, async (req: AuthenticatedRequest,
   }
 });
 
-billingRouter.post("/customer-portal", requireAuth, async (req: AuthenticatedRequest, res) => {
+billingRouter.post(
+  "/customer-portal",
+  requireAuth,
+  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+  async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
 
   const org = await ensureOrgContext(req);
@@ -817,7 +835,8 @@ billingRouter.post("/customer-portal", requireAuth, async (req: AuthenticatedReq
   });
 
   return res.json({ ok: true, data: { url: session.url } });
-});
+  }
+);
 
 billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
   const signature = req.headers["stripe-signature"];
@@ -896,7 +915,15 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         stripeCustomerId,
         stripeSubscriptionId,
         status: "active",
-        plan
+        plan,
+        purchasedSeats:
+          stripeSubscriptionId
+            ? extractPurchasedSeatsFromSubscription(
+                await stripe.subscriptions.retrieve(stripeSubscriptionId, {
+                  expand: ["items.data.price"]
+                })
+              )
+            : 0
       });
       await clearPendingIfApplied({
         stripeSubscriptionId,
@@ -997,6 +1024,7 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         stripeSubscriptionId,
         status: nextStatus,
         plan: resolved.plan,
+        purchasedSeats: resolved.purchasedSeats,
         currentPeriodEnd: resolved.currentPeriodEnd
       });
       await clearPendingIfApplied({
@@ -1074,6 +1102,7 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         stripeSubscriptionId,
         status: normalizeSubscriptionStatus(subscription.status),
         plan: currentPlan,
+        purchasedSeats: extractPurchasedSeatsFromSubscription(subscription),
         currentPeriodEnd
       });
       await clearPendingIfApplied({
@@ -1149,7 +1178,8 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         stripeCustomerId,
         stripeSubscriptionId,
         status: "canceled",
-        plan: resolved.plan
+        plan: resolved.plan,
+        purchasedSeats: 0
       });
       await clearPendingIfApplied({
         stripeSubscriptionId,

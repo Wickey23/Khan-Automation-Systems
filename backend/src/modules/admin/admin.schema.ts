@@ -134,8 +134,7 @@ export const usersFilterSchema = z.object({
 });
 
 export const updateAdminUserSchema = z.object({
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "CLIENT_ADMIN", "CLIENT_STAFF", "CLIENT"]).optional(),
-  email: z.string().email().optional()
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "CLIENT_ADMIN", "CLIENT_STAFF", "CLIENT"]).optional()
 });
 
 export const relinkCallSchema = z.object({
