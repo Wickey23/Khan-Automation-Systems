@@ -233,6 +233,20 @@ export async function changeStripePlan(plan: "starter" | "pro") {
   });
 }
 
+export async function createPlanChangeSession(payload: { targetPlan: "starter" | "pro"; effective: "immediate" | "period_end" }) {
+  return request<{ url?: string; changed?: boolean; message?: string; code?: string; fixHint?: string }>("/api/billing/create-plan-change-session", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function scheduleDowngrade(payload: { targetPlan: "starter" }) {
+  return request<{ scheduled: boolean; effectiveAt: string }>("/api/billing/schedule-downgrade", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function getBillingStatus() {
   return request<BillingStatusPayload>("/api/billing/status");
 }

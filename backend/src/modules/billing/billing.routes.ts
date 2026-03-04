@@ -5,7 +5,12 @@ import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { deriveOrgLifecycleFromBilling } from "./billing-lifecycle.service";
-import { changePlanSchema, createCheckoutSessionSchema } from "./billing.schema";
+import {
+  changePlanSchema,
+  createCheckoutSessionSchema,
+  createPlanChangeSessionSchema,
+  scheduleDowngradeSchema
+} from "./billing.schema";
 import { getDemoState } from "./demo-access.service";
 import { computeBillingDiagnostics } from "./billing-diagnostics.service";
 
@@ -104,6 +109,9 @@ async function upsertSubscriptionAndOrg(input: {
   status: string;
   plan: SubscriptionPlan;
   currentPeriodEnd?: Date | null;
+  pendingPlan?: SubscriptionPlan | null;
+  pendingPlanEffectiveAt?: Date | null;
+  pendingPlanSource?: "STRIPE_HOSTED" | "APP_FALLBACK" | null;
 }) {
   const normalizedStatus = normalizeSubscriptionStatus(input.status);
   const billingActive = isBillingActive(normalizedStatus);
@@ -125,7 +133,10 @@ async function upsertSubscriptionAndOrg(input: {
       stripeCustomerId: input.stripeCustomerId,
       status: normalizedStatus,
       plan: input.plan,
-      currentPeriodEnd: input.currentPeriodEnd ?? null
+      currentPeriodEnd: input.currentPeriodEnd ?? null,
+      pendingPlan: input.pendingPlan,
+      pendingPlanEffectiveAt: input.pendingPlanEffectiveAt,
+      pendingPlanSource: input.pendingPlanSource
     },
     create: {
       orgId: input.orgId,
@@ -133,7 +144,10 @@ async function upsertSubscriptionAndOrg(input: {
       stripeSubscriptionId: input.stripeSubscriptionId,
       status: normalizedStatus,
       plan: input.plan,
-      currentPeriodEnd: input.currentPeriodEnd ?? null
+      currentPeriodEnd: input.currentPeriodEnd ?? null,
+      pendingPlan: input.pendingPlan,
+      pendingPlanEffectiveAt: input.pendingPlanEffectiveAt,
+      pendingPlanSource: input.pendingPlanSource
     }
   });
 
@@ -198,6 +212,13 @@ async function resolveOrgAndPlanFromSubscription(stripeSubscriptionId: string): 
   };
 }
 
+function mapPendingPlanSource(value: string | null | undefined): "STRIPE_HOSTED" | "APP_FALLBACK" | null {
+  const normalized = String(value || "").toUpperCase();
+  if (normalized === "STRIPE_HOSTED") return "STRIPE_HOSTED";
+  if (normalized === "APP_FALLBACK") return "APP_FALLBACK";
+  return null;
+}
+
 async function markEventProcessed(eventId: string, update: { processed: boolean; processingError?: string | null }) {
   await prisma.billingWebhookEvent.update({
     where: { eventId },
@@ -206,6 +227,34 @@ async function markEventProcessed(eventId: string, update: { processed: boolean;
       processingError: update.processingError || null
     }
   });
+}
+
+async function clearPendingIfApplied(input: {
+  stripeSubscriptionId: string;
+  plan: SubscriptionPlan;
+  currentPeriodEnd?: Date | null;
+}) {
+  const existing = await prisma.subscription.findUnique({
+    where: { stripeSubscriptionId: input.stripeSubscriptionId },
+    select: {
+      id: true,
+      pendingPlan: true,
+      pendingPlanEffectiveAt: true
+    }
+  });
+  if (!existing?.pendingPlan) return;
+  const now = new Date();
+  const effectivePassed = existing.pendingPlanEffectiveAt ? existing.pendingPlanEffectiveAt <= now : false;
+  if (existing.pendingPlan === input.plan || effectivePassed) {
+    await prisma.subscription.update({
+      where: { id: existing.id },
+      data: {
+        pendingPlan: null,
+        pendingPlanEffectiveAt: null,
+        pendingPlanSource: null
+      }
+    });
+  }
 }
 
 billingRouter.post(
@@ -282,10 +331,214 @@ billingRouter.post(
 );
 
 billingRouter.post(
+  "/create-plan-change-session",
+  requireAuth,
+  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+  async (req: AuthenticatedRequest, res) => {
+    if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
+
+    const parsed = createPlanChangeSessionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid plan change payload." });
+
+    try {
+      const org = await ensureOrgContext(req);
+      if (!org.stripeCustomerId) {
+        return res.status(409).json({
+          ok: false,
+          code: "stripe_customer_missing",
+          fixHint: "run_checkout_first",
+          message: "Stripe customer not found. Run checkout first."
+        });
+      }
+
+      const currentSubscription = await prisma.subscription.findFirst({
+        where: { orgId: org.orgId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      if (!currentSubscription || !isBillingActive(currentSubscription.status)) {
+        return res.status(400).json({
+          ok: false,
+          code: "no_active_subscription",
+          fixHint: "start_checkout",
+          message: "No active subscription. Start checkout first."
+        });
+      }
+
+      const targetPlan = subscriptionPlanFromInput(parsed.data.targetPlan);
+      if (currentSubscription.plan === targetPlan) {
+        return res.json({
+          ok: true,
+          data: { changed: false, message: "already_on_target_plan" }
+        });
+      }
+
+      if (parsed.data.targetPlan === "pro" && parsed.data.effective !== "immediate") {
+        return res.status(400).json({
+          ok: false,
+          message: "Upgrades must use immediate effective mode."
+        });
+      }
+      if (parsed.data.targetPlan === "starter" && parsed.data.effective !== "period_end") {
+        return res.status(400).json({
+          ok: false,
+          message: "Downgrades must use period_end effective mode."
+        });
+      }
+
+      if (parsed.data.targetPlan === "pro") {
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          line_items: [{ price: env.STRIPE_PRO_PRICE_ID, quantity: 1 }],
+          success_url: env.STRIPE_SUCCESS_URL,
+          cancel_url: env.STRIPE_CANCEL_URL,
+          customer: org.stripeCustomerId,
+          metadata: {
+            orgId: org.orgId,
+            userId: req.auth.userId,
+            plan: "pro",
+            planChange: "upgrade"
+          },
+          subscription_data: {
+            metadata: {
+              orgId: org.orgId,
+              userId: req.auth.userId,
+              plan: "pro",
+              planChange: "upgrade"
+            }
+          }
+        });
+        return res.json({ ok: true, data: { url: session.url } });
+      }
+
+      await prisma.subscription.update({
+        where: { id: currentSubscription.id },
+        data: {
+          pendingPlan: SubscriptionPlan.STARTER,
+          pendingPlanEffectiveAt: currentSubscription.currentPeriodEnd ?? null,
+          pendingPlanSource: "STRIPE_HOSTED"
+        }
+      });
+
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: org.stripeCustomerId,
+        return_url: env.STRIPE_PORTAL_RETURN_URL || `${env.FRONTEND_APP_URL}/app/billing`
+      });
+      return res.json({ ok: true, data: { url: portal.url } });
+    } catch (error) {
+      const stripeMessage =
+        error instanceof Stripe.errors.StripeError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "unknown_error";
+      logBillingEvent("error", {
+        action: "create_plan_change_session_failed",
+        userId: req.auth.userId,
+        orgId: req.auth.orgId || null,
+        message: stripeMessage
+      });
+      return res.status(500).json({
+        ok: false,
+        message: `Plan change session failed: ${stripeMessage}`
+      });
+    }
+  }
+);
+
+billingRouter.post(
+  "/schedule-downgrade",
+  requireAuth,
+  requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+  async (req: AuthenticatedRequest, res) => {
+    if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
+    const parsed = scheduleDowngradeSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid downgrade payload." });
+
+    try {
+      const org = await ensureOrgContext(req);
+      const currentSubscription = await prisma.subscription.findFirst({
+        where: { orgId: org.orgId },
+        orderBy: { createdAt: "desc" }
+      });
+      if (!currentSubscription || !currentSubscription.stripeSubscriptionId || !isBillingActive(currentSubscription.status)) {
+        return res.status(400).json({ ok: false, message: "No active subscription available for downgrade scheduling." });
+      }
+      if (currentSubscription.plan !== SubscriptionPlan.PRO) {
+        return res.status(400).json({ ok: false, message: "Downgrade scheduling is only available from Pro to Standard." });
+      }
+
+      const stripeSubscription = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId, {
+        expand: ["items.data.price"]
+      });
+      const firstItem = stripeSubscription.items.data[0];
+      const currentPriceId = firstItem?.price?.id;
+      const currentPeriodEnd = stripeSubscription.current_period_end
+        ? new Date(stripeSubscription.current_period_end * 1000)
+        : null;
+
+      if (!firstItem?.id || !currentPriceId || !currentPeriodEnd) {
+        return res.status(400).json({ ok: false, message: "Unable to schedule downgrade due to missing Stripe subscription details." });
+      }
+
+      await stripe.subscriptionSchedules.create({
+        from_subscription: stripeSubscription.id,
+        phases: [
+          {
+            start_date: "now",
+            end_date: Math.floor(currentPeriodEnd.getTime() / 1000),
+            items: [{ price: currentPriceId, quantity: 1 }]
+          },
+          {
+            items: [{ price: env.STRIPE_STARTER_PRICE_ID, quantity: 1 }]
+          }
+        ]
+      } as any);
+
+      await prisma.subscription.update({
+        where: { id: currentSubscription.id },
+        data: {
+          pendingPlan: SubscriptionPlan.STARTER,
+          pendingPlanEffectiveAt: currentPeriodEnd,
+          pendingPlanSource: "APP_FALLBACK"
+        }
+      });
+
+      return res.json({
+        ok: true,
+        data: {
+          scheduled: true,
+          effectiveAt: currentPeriodEnd.toISOString()
+        }
+      });
+    } catch (error) {
+      const stripeMessage =
+        error instanceof Stripe.errors.StripeError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "unknown_error";
+      logBillingEvent("error", {
+        action: "schedule_downgrade_failed",
+        userId: req.auth.userId,
+        orgId: req.auth.orgId || null,
+        message: stripeMessage
+      });
+      return res.status(500).json({ ok: false, message: `Schedule downgrade failed: ${stripeMessage}` });
+    }
+  }
+);
+
+billingRouter.post(
   "/change-plan",
   requireAuth,
   requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT]),
   async (req: AuthenticatedRequest, res) => {
+    logBillingEvent("info", {
+      action: "legacy_plan_change_route_used",
+      userId: req.auth?.userId || null,
+      orgId: req.auth?.orgId || null
+    });
     if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
 
     const parsed = changePlanSchema.safeParse(req.body);
@@ -443,7 +696,15 @@ billingRouter.get("/status", requireAuth, async (req: AuthenticatedRequest, res)
     subscriptionStatus: subscription?.status || null,
     allowStart: false
   });
-  return res.json({ ok: true, data: { subscription, demo } });
+  const subscriptionPayload = subscription
+    ? {
+        ...subscription,
+        pendingPlan: subscription.pendingPlan || null,
+        pendingPlanEffectiveAt: subscription.pendingPlanEffectiveAt || null,
+        pendingPlanSource: mapPendingPlanSource(subscription.pendingPlanSource)
+      }
+    : null;
+  return res.json({ ok: true, data: { subscription: subscriptionPayload, demo } });
 });
 
 billingRouter.get("/diagnostics", requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -582,6 +843,10 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         status: "active",
         plan
       });
+      await clearPendingIfApplied({
+        stripeSubscriptionId,
+        plan
+      });
 
       await prisma.billingWebhookEvent.update({
         where: { eventId: event.id },
@@ -652,6 +917,11 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         plan: resolved.plan,
         currentPeriodEnd: resolved.currentPeriodEnd
       });
+      await clearPendingIfApplied({
+        stripeSubscriptionId,
+        plan: resolved.plan,
+        currentPeriodEnd: resolved.currentPeriodEnd
+      });
 
       await prisma.billingWebhookEvent.update({
         where: { eventId: event.id },
@@ -671,6 +941,69 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         stripeCustomerId: stripeCustomerId || resolved.stripeCustomerId,
         status: nextStatus,
         billingActive: isBillingActive(nextStatus)
+      });
+      return res.status(200).json({ received: true });
+    }
+
+    if (event.type === "customer.subscription.updated") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const stripeSubscriptionId = subscription.id;
+      const stripeCustomerId =
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer?.id || null;
+      const metadataOrgId = subscription.metadata?.orgId || null;
+      const firstPriceId = subscription.items.data[0]?.price?.id || null;
+      const currentPlan = planFromPrice(firstPriceId);
+      const currentPeriodEnd = subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000)
+        : null;
+
+      let orgId = metadataOrgId;
+      if (!orgId) {
+        const existing = await prisma.subscription.findUnique({
+          where: { stripeSubscriptionId },
+          select: { orgId: true }
+        });
+        orgId = existing?.orgId || null;
+      }
+
+      if (!orgId || !stripeCustomerId) {
+        await markEventProcessed(event.id, {
+          processed: false,
+          processingError: "subscription_updated_unresolved_org_or_customer"
+        });
+        logBillingEvent("error", {
+          ...baseLog,
+          stripeSubscriptionId,
+          message: "subscription_updated_unresolved_org_or_customer"
+        });
+        return res.status(200).json({ received: true, processed: false });
+      }
+
+      await upsertSubscriptionAndOrg({
+        orgId,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        status: normalizeSubscriptionStatus(subscription.status),
+        plan: currentPlan,
+        currentPeriodEnd
+      });
+      await clearPendingIfApplied({
+        stripeSubscriptionId,
+        plan: currentPlan,
+        currentPeriodEnd
+      });
+
+      await prisma.billingWebhookEvent.update({
+        where: { eventId: event.id },
+        data: {
+          processed: true,
+          orgId,
+          stripeCustomerId,
+          stripeSubscriptionId,
+          processingError: null
+        }
       });
       return res.status(200).json({ received: true });
     }
@@ -702,6 +1035,10 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
         stripeCustomerId,
         stripeSubscriptionId,
         status: "canceled",
+        plan: resolved.plan
+      });
+      await clearPendingIfApplied({
+        stripeSubscriptionId,
         plan: resolved.plan
       });
 

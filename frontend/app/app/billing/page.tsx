@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import {
-  changeStripePlan,
+  createPlanChangeSession,
   createStripeCheckoutSession,
   createCustomerPortalSession,
   getBillingDiagnostics,
+  scheduleDowngrade,
   getBillingStatus
 } from "@/lib/api";
 import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, OrgSubscription } from "@/lib/types";
@@ -200,18 +201,39 @@ export default function AppBillingPage() {
   }
 
   async function onChangePlan(plan: StripePlanKey) {
+    const isDowngrade = plan === "starter";
+    const confirmed = window.confirm(
+      isDowngrade
+        ? "Downgrade applies at the end of the current billing period. Continue in Stripe?"
+        : "You will confirm this upgrade in Stripe. Continue?"
+    );
+    if (!confirmed) return;
+
     setChangingPlan(plan);
     try {
-      const result = await changeStripePlan(plan);
-      const latest = await getBillingStatus();
-      setSubscription(latest.subscription);
-      setDemo(latest.demo);
-      showToast({
-        title: result.changed ? "Plan updated" : "No changes made",
-        description: result.changed
-          ? `You are now on ${plan === "pro" ? "Growth/Pro" : "Standard"}.`
-          : result.message || "Plan is already set."
+      const hosted = await createPlanChangeSession({
+        targetPlan: plan,
+        effective: isDowngrade ? "period_end" : "immediate"
       });
+
+      if (hosted.url) {
+        window.location.href = hosted.url;
+        return;
+      }
+
+      if (isDowngrade) {
+        const scheduled = await scheduleDowngrade({ targetPlan: "starter" });
+        const latest = await getBillingStatus();
+        setSubscription(latest.subscription);
+        setDemo(latest.demo);
+        showToast({
+          title: "Downgrade scheduled",
+          description: `Downgrade applies on ${new Date(scheduled.effectiveAt).toLocaleDateString()}.`
+        });
+        return;
+      }
+
+      throw new Error(hosted.message || "Could not create Stripe hosted confirmation session.");
     } catch (error) {
       showToast({
         title: "Plan change failed",
@@ -301,6 +323,21 @@ export default function AppBillingPage() {
               </p>
             </div>
           </div>
+          {subscription?.pendingPlan ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4">
+              <p className="text-sm font-semibold text-amber-900">Pending change</p>
+              <p className="mt-1 text-xs text-amber-900/90">
+                {subscription.pendingPlan === "STARTER" ? "Downgrade to Standard" : "Upgrade to Growth/Pro"}
+                {subscription.pendingPlanEffectiveAt
+                  ? ` scheduled for ${new Date(subscription.pendingPlanEffectiveAt).toLocaleDateString()}`
+                  : " scheduled for the next billing cycle"}
+                .
+              </p>
+              <p className="mt-1 text-xs text-amber-900/90">
+                Source: {subscription.pendingPlanSource === "APP_FALLBACK" ? "App fallback" : "Stripe hosted"}
+              </p>
+            </div>
+          ) : null}
 
           {hasRealSubscription ? (
             <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">

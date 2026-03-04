@@ -147,6 +147,9 @@ export type OrgSubscription = {
   currentPeriodEnd: string | null;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
+  pendingPlan?: "STARTER" | "PRO" | null;
+  pendingPlanEffectiveAt?: string | null;
+  pendingPlanSource?: "STRIPE_HOSTED" | "APP_FALLBACK" | null;
 };
 
 export type OrgDemoStatus = {

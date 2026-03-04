@@ -6,7 +6,7 @@ export default function CheckoutSuccessPage() {
     <div className="container py-16">
       <h1 className="text-4xl font-bold">Subscription Successful</h1>
       <p className="mt-3 text-muted-foreground">
-        Your workspace is being prepared. Log in to complete setup.
+        Your workspace is being prepared. Plan changes finalize after Stripe confirms the update. Return to Billing to verify status.
       </p>
       <div className="mt-6 flex gap-3">
         <Button asChild>
