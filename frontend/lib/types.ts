@@ -456,6 +456,16 @@ export type Appointment = {
   createdByUserId: string | null;
   createdAt: string;
   updatedAt: string;
+  lead?: {
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null;
+  callLog?: {
+    id: string;
+    providerCallId: string | null;
+    startedAt: string;
+  } | null;
 };
 
 export type OrgNotification = {

@@ -1029,6 +1029,14 @@ orgRouter.get("/appointments", requireAppointmentsReadAccess, async (req: Authen
           }
         : {})
     },
+    include: {
+      lead: {
+        select: { id: true, name: true, phone: true }
+      },
+      callLog: {
+        select: { id: true, providerCallId: true, startedAt: true }
+      }
+    },
     orderBy: { startAt: "asc" }
   });
   return res.json({ ok: true, data: { appointments } });

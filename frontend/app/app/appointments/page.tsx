@@ -405,7 +405,7 @@ export default function AppAppointmentsPage() {
                       Lead:{" "}
                       {appointment.leadId ? (
                         <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(appointment.leadId)}`}>
-                          {appointment.leadId}
+                          {appointment.lead?.name || appointment.leadId}
                         </Link>
                       ) : (
                         "-"
@@ -415,7 +415,7 @@ export default function AppAppointmentsPage() {
                       Call:{" "}
                       {appointment.callLogId ? (
                         <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(appointment.callLogId)}`}>
-                          {appointment.callLogId}
+                          {appointment.callLog?.providerCallId || appointment.callLogId}
                         </Link>
                       ) : (
                         "-"
