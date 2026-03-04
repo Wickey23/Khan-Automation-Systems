@@ -18,6 +18,7 @@ import type {
   OrgMessagingReadiness,
   OrgSubscription
 } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 
@@ -30,6 +31,7 @@ export default function AppOverviewPage() {
   const [health, setHealth] = useState<OrgHealth | null>(null);
   const [dataQuality, setDataQuality] = useState<OrgDataQuality | null>(null);
   const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -49,101 +51,136 @@ export default function AppOverviewPage() {
         setHealth(orgHealth);
         setDataQuality(orgDataQuality);
         setMessagingReadiness(orgMessagingReadiness);
+        setLastSyncedAt(new Date().toISOString());
       })
       .catch(() => null);
   }, []);
+
+  const billingActive = subscription ? ["active", "trialing"].includes(String(subscription.status || "").toLowerCase()) : false;
+  const workspaceState = organization?.live
+    ? billingActive
+      ? "Live"
+      : "Live (billing inactive)"
+    : billingActive
+      ? "Provisioning"
+      : "Setup in progress";
+  const workspaceStateClass = organization?.live && billingActive
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : organization?.live
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-zinc-200 bg-zinc-100 text-zinc-700";
+
+  const onboardingHint = organization?.live
+    ? "Setup updates recommended to maintain operational quality."
+    : "Complete required setup before go-live.";
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Workspace Overview</h1>
         <p className="mt-2 text-sm text-muted-foreground">Track onboarding, subscription, and go-live progress.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <Badge className={workspaceStateClass}>Workspace: {workspaceState}</Badge>
+          <span className="text-muted-foreground">
+            Last synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Syncing..."}
+          </span>
+        </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              Organization
-              <InfoHint text="Current organization identity and lifecycle status." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>{organization?.name || "-"}</p>
-            <p className="text-muted-foreground">Status: {organization?.status || "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              Onboarding
-              <InfoHint text="Progress of required setup steps before stable go-live." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>{submission?.status || "DRAFT"}</p>
-            <p className="text-muted-foreground">Update setup before go-live.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              Subscription
-              <InfoHint text="Current billing status and subscribed plan for this workspace." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>{subscription?.status || "inactive"}</p>
-            <p className="text-muted-foreground">Plan: {subscription?.plan || "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              System Health
-              <InfoHint text="Overall readiness signal derived from operational checks." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>{health?.level === "GREEN" ? "All systems operational" : "Action needed"}</p>
-            <p className="text-muted-foreground">{health?.summary || "Loading health status..."}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              Assigned Number
-              <InfoHint text="Primary inbound number currently mapped to this organization." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>{assignedPhoneNumber || "Not assigned yet"}</p>
-            <p className="text-muted-foreground">Provider: {assignedNumberProvider || "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              Data Quality
-              <InfoHint text="Lead-linkage and caller-name quality indicators for this org." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>Unknown names: {Math.round((dataQuality?.unknownNameRate || 0) * 100)}%</p>
-            <p className="text-muted-foreground">Missing lead links: {dataQuality?.missingLeadLinkageCount ?? "-"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-1 text-base">
-              Messaging Readiness
-              <InfoHint text="SMS compliance/readiness state and current blockers, if any." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p>{messagingReadiness?.state || "Unknown"}</p>
-            <p className="text-muted-foreground">{messagingReadiness?.reasons?.[0] || "No blocking issues detected."}</p>
-          </CardContent>
-        </Card>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                System Health
+                <InfoHint text="Overall readiness signal derived from operational checks." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{health?.level === "GREEN" ? "All systems operational" : "Action needed"}</p>
+              <p className="text-muted-foreground">{health?.summary || "Loading health status..."}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Subscription
+                <InfoHint text="Current billing status and subscribed plan for this workspace." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{subscription?.status || "inactive"}</p>
+              <p className="text-muted-foreground">Plan: {subscription?.plan || "-"}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Onboarding
+                <InfoHint text="Progress of required setup steps before stable go-live." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{submission?.status || "DRAFT"}</p>
+              <p className="text-muted-foreground">{onboardingHint}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Organization
+                <InfoHint text="Current organization identity and lifecycle status." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{organization?.name || "-"}</p>
+              <p className="text-muted-foreground">Status: {organization?.status || "-"}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Operations</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Assigned Number
+                <InfoHint text="Primary inbound number currently mapped to this organization." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{assignedPhoneNumber || "Not assigned yet"}</p>
+              <p className="text-muted-foreground">Provider: {assignedNumberProvider || "-"}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Messaging Readiness
+                <InfoHint text="SMS compliance/readiness state and current blockers, if any." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{messagingReadiness?.state || "Unknown"}</p>
+              <p className="text-muted-foreground">{messagingReadiness?.reasons?.[0] || "No blocking issues detected."}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Data Quality
+                <InfoHint text="Lead-linkage and caller-name quality indicators for this org." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>Unknown names: {Math.round((dataQuality?.unknownNameRate || 0) * 100)}%</p>
+              <p className="text-muted-foreground">Missing lead links: {dataQuality?.missingLeadLinkageCount ?? "-"}</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
