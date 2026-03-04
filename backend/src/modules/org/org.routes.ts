@@ -1514,12 +1514,37 @@ orgRouter.get("/health", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const org = await prisma.organization.findUnique({ where: { id: req.auth.orgId } });
   if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
-  const health = await computeOrgHealth({
-    prisma,
-    org,
-    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
-  });
-  return res.json({ ok: true, data: health });
+  try {
+    const health = await computeOrgHealth({
+      prisma,
+      org,
+      env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+    });
+    return res.json({ ok: true, data: health });
+  } catch {
+    return res.json({
+      ok: true,
+      data: {
+        level: "RED",
+        score: 0,
+        checks: {},
+        summary: "Health checks are temporarily unavailable. Retry shortly.",
+        metrics: {
+          avgSuccessScore: 0,
+          avgCallQuality: 0,
+          slaSeverity: "UNKNOWN",
+          recentActivityAt: null
+        },
+        missingChecks: [
+          {
+            key: "health_unavailable",
+            reason: "Health computation temporarily failed",
+            fixHint: "/app/settings"
+          }
+        ]
+      }
+    });
+  }
 });
 
 orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {

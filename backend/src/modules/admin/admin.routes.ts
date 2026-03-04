@@ -1292,23 +1292,68 @@ adminRouter.get("/orgs/:id", async (req, res) => {
 adminRouter.get("/orgs/:id/readiness", async (req, res) => {
   const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
   if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
-  const report = await computeReadinessReport({
-    prisma,
-    org,
-    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
-  });
-  return res.json({ ok: true, data: report });
+  try {
+    const report = await computeReadinessReport({
+      prisma,
+      org,
+      env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+    });
+    return res.json({ ok: true, data: report });
+  } catch {
+    return res.json({
+      ok: true,
+      data: {
+        checks: {
+          billingActive: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          onboardingSubmitted: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          onboardingApproved: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          businessSettingsValid: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          providerLineAssigned: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          toolSecretConfigured: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          webhooksVerified: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          notificationsVerified: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" },
+          testCallsPassed: { ok: false, reason: "Readiness temporarily unavailable", fixHint: "/admin/events" }
+        },
+        canGoLive: false
+      }
+    });
+  }
 });
 
 adminRouter.get("/orgs/:id/health", async (req, res) => {
   const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
   if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
-  const health = await computeOrgHealth({
-    prisma,
-    org,
-    env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
-  });
-  return res.json({ ok: true, data: health });
+  try {
+    const health = await computeOrgHealth({
+      prisma,
+      org,
+      env: { VAPI_TOOL_SECRET: env.VAPI_TOOL_SECRET }
+    });
+    return res.json({ ok: true, data: health });
+  } catch {
+    return res.json({
+      ok: true,
+      data: {
+        level: "RED",
+        score: 0,
+        checks: {},
+        summary: "Health checks are temporarily unavailable.",
+        metrics: {
+          avgSuccessScore: 0,
+          avgCallQuality: 0,
+          slaSeverity: "UNKNOWN",
+          recentActivityAt: null
+        },
+        missingChecks: [
+          {
+            key: "health_unavailable",
+            reason: "Health computation temporarily failed",
+            fixHint: "/admin/events"
+          }
+        ]
+      }
+    });
+  }
 });
 
 adminRouter.get("/orgs/:id/messages", async (req, res) => {
