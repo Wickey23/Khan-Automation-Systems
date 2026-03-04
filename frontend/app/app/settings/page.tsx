@@ -154,6 +154,7 @@ export default function AppSettingsPage() {
   const [notificationCount, setNotificationCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.readAt).length, [notifications]);
 
   useEffect(() => {
     void Promise.all([fetchOrgSettings(), fetchOrgKnowledgeFiles(), fetchCalendarProviders().catch(() => ({ providers: [] })), fetchOrgNotifications().catch(() => ({ notifications: [] }))])
@@ -609,7 +610,9 @@ export default function AppSettingsPage() {
           <div className="sm:col-span-2 lg:col-span-3">
             <Label>Notification email recipients (one per line)</Label>
             <Textarea value={state.notificationEmailRecipients} onChange={(e) => setState((p) => ({ ...p, notificationEmailRecipients: e.target.value }))} />
-            <p className="mt-1 text-xs text-muted-foreground">Current notification events: {notificationCount}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Notifications: {unreadNotificationCount} unread / {notificationCount} total
+            </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={state.notifyNewLeadEmail} onChange={(e) => setState((p) => ({ ...p, notifyNewLeadEmail: e.target.checked }))} />
