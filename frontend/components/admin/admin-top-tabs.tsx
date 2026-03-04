@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import type { ComponentType } from "react";
+import { ArrowLeft, ClipboardList, MessageSquare, Settings, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchAdminOrgs } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -12,18 +13,43 @@ type AdminTab = {
   label: string;
   href: string;
   matches?: string[];
+  description?: string;
 };
 
-const adminTabs: AdminTab[] = [
-  { label: "Leads", href: "/admin/leads", matches: ["/admin/leads"] },
-  { label: "Prospects", href: "/admin/prospects", matches: ["/admin/prospects"] },
-  { label: "Calls", href: "/admin/calls", matches: ["/admin/calls"] },
-  { label: "Messages", href: "/admin/messages", matches: ["/admin/messages"] },
-  { label: "Demo", href: "/admin/demo", matches: ["/admin/demo"] },
-  { label: "Clients", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"] },
-  { label: "Users", href: "/admin/users", matches: ["/admin/users"] },
-  { label: "System", href: "/admin/system", matches: ["/admin/system"] },
-  { label: "Events", href: "/admin/events", matches: ["/admin/events"] }
+type AdminTabGroup = {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  tabs: AdminTab[];
+};
+
+const adminTabGroups: AdminTabGroup[] = [
+  {
+    label: "Revenue",
+    icon: ClipboardList,
+    tabs: [
+      { label: "Leads", href: "/admin/leads", matches: ["/admin/leads"], description: "Captured demand and pipeline hygiene." },
+      { label: "Prospects", href: "/admin/prospects", matches: ["/admin/prospects"], description: "Outbound pipeline and sourcing." }
+    ]
+  },
+  {
+    label: "Conversations",
+    icon: MessageSquare,
+    tabs: [
+      { label: "Calls", href: "/admin/calls", matches: ["/admin/calls"], description: "Inbound call quality and outcomes." },
+      { label: "Messages", href: "/admin/messages", matches: ["/admin/messages"], description: "SMS threads and delivery health." },
+      { label: "Demo", href: "/admin/demo", matches: ["/admin/demo"], description: "Public demo number and behavior." }
+    ]
+  },
+  {
+    label: "Operations",
+    icon: Settings,
+    tabs: [
+      { label: "Organizations", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"], description: "Tenant readiness and lifecycle." },
+      { label: "Users", href: "/admin/users", matches: ["/admin/users"], description: "Account access and login activity." },
+      { label: "System", href: "/admin/system", matches: ["/admin/system"], description: "Global reliability and scale gate." },
+      { label: "Events", href: "/admin/events", matches: ["/admin/events"], description: "Audit timeline and mutations." }
+    ]
+  }
 ];
 
 type AdminTopTabsProps = {
@@ -112,6 +138,9 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
     return matches.some((match) => pathname === match || pathname.startsWith(`${match}/`));
   }
 
+  const allTabs = adminTabGroups.flatMap((group) => group.tabs);
+  const activeTab = allTabs.find((tab) => isActive(tab)) || null;
+
   function handleBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
@@ -132,28 +161,56 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
           </div>
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-lg border bg-white p-1">
-          {adminTabs.map((tab) => (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm transition-colors",
-                isActive(tab)
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              {tab.label}
-            </Link>
-          ))}
+      <div className="rounded-xl border bg-white/90 p-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-semibold">Admin Control Center</p>
+            {activeTab ? (
+              <span className="rounded-md border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
+                {activeTab.label}
+              </span>
+            ) : null}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={handleBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back
+          </Button>
         </div>
 
-        <Button type="button" variant="outline" size="sm" onClick={handleBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back
-        </Button>
+        {activeTab?.description ? (
+          <p className="mb-3 text-xs text-muted-foreground">{activeTab.description}</p>
+        ) : null}
+
+        <div className="grid gap-3 md:grid-cols-3">
+          {adminTabGroups.map((group) => {
+            const Icon = group.icon;
+            return (
+              <div key={group.label} className="rounded-lg border bg-white p-2">
+                <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5" />
+                  {group.label}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.tabs.map((tab) => (
+                    <Link
+                      key={tab.href}
+                      href={tab.href}
+                      className={cn(
+                        "rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                        isActive(tab)
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-zinc-200 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {tab.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
