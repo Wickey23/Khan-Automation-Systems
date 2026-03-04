@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchTeamMembers,
+  getBillingStatus,
   getMe,
   inviteTeamMember,
   removeTeamMember,
@@ -46,11 +47,12 @@ export default function TeamPage() {
   const [inviting, setInviting] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [proEnabled, setProEnabled] = useState(true);
 
   async function load() {
     setLoading(true);
     try {
-      const [data, me] = await Promise.all([fetchTeamMembers(), getMe()]);
+      const [data, me, billing] = await Promise.all([fetchTeamMembers(), getMe(), getBillingStatus()]);
       setCanManage(data.canManage);
       setMembers(data.members || []);
       setSeats((prev) => ({
@@ -58,6 +60,7 @@ export default function TeamPage() {
         ...data.seats
       }));
       setCurrentUserId(me.user.userId || null);
+      setProEnabled((billing.subscription?.plan || null) === "PRO" && ["active", "trialing"].includes(String(billing.subscription?.status || "").toLowerCase()));
     } catch (error) {
       showToast({
         title: "Could not load team",
@@ -66,6 +69,7 @@ export default function TeamPage() {
       });
       setMembers([]);
       setCurrentUserId(null);
+      setProEnabled(false);
     } finally {
       setLoading(false);
     }
@@ -157,6 +161,14 @@ export default function TeamPage() {
         <p className="text-sm text-muted-foreground">Invite users, assign roles, and manage seat usage.</p>
       </div>
 
+      {!proEnabled ? (
+        <Card>
+          <CardContent className="pt-6 text-sm">
+            Team management is a Pro feature. Upgrade to Pro to invite and manage multiple users.
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Seat usage</CardTitle>
@@ -176,7 +188,7 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {canManage ? (
+      {canManage && proEnabled ? (
         <Card>
           <CardHeader>
             <CardTitle>Invite user</CardTitle>
@@ -212,7 +224,7 @@ export default function TeamPage() {
         </Card>
       ) : null}
 
-      <Card>
+      <Card className={!proEnabled ? "opacity-60" : ""}>
         <CardHeader>
           <CardTitle>Members</CardTitle>
         </CardHeader>
@@ -264,7 +276,7 @@ export default function TeamPage() {
                       <td className="p-2">{formatDate(member.invitedAt)}</td>
                       <td className="p-2">{formatDate(member.acceptedAt)}</td>
                       <td className="p-2">
-                        {canManage ? (
+                        {canManage && proEnabled ? (
                           <div className="flex gap-2">
                             {member.status === "INVITED" ? (
                               <Button size="sm" variant="outline" onClick={() => void onResend(member)} disabled={savingId === member.id}>
