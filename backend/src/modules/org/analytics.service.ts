@@ -216,3 +216,21 @@ export async function computeOrgAnalytics(
     }
   };
 }
+
+export function shapeOrgAnalyticsForRole<T extends {
+  charts: {
+    callsPerDay: unknown[];
+    leadsPerDay: unknown[];
+    outcomeBreakdown: unknown[];
+  };
+}>(data: T, role: string | null | undefined) {
+  if (role !== "CLIENT") return data;
+  return {
+    ...data,
+    charts: {
+      callsPerDay: [],
+      leadsPerDay: [],
+      outcomeBreakdown: []
+    }
+  } as T;
+}

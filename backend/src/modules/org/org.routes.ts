@@ -10,7 +10,7 @@ import { sendSmsMessage } from "../twilio/twilio.service";
 import { backfillMissedVapiCalls } from "../admin/backfill.service";
 import { hasActiveBilling } from "./runtime-access.service";
 import { buildConfigPackage, generateConfigPackage } from "./config-package";
-import { computeOrgAnalytics } from "./analytics.service";
+import { computeOrgAnalytics, shapeOrgAnalyticsForRole } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
 import { dedupeOrgCallRows } from "./call-log-dedupe.service";
 import { generateAvailabilitySlots, validateSlotWithinBusinessHours } from "../appointments/slotting.service";
@@ -1507,22 +1507,7 @@ orgRouter.get("/analytics", async (req: AuthenticatedRequest, res) => {
     start: typeof req.query.start === "string" ? req.query.start : undefined,
     end: typeof req.query.end === "string" ? req.query.end : undefined
   });
-
-  if (req.auth.role === UserRole.CLIENT) {
-    return res.json({
-      ok: true,
-      data: {
-        ...data,
-        charts: {
-          callsPerDay: [],
-          leadsPerDay: [],
-          outcomeBreakdown: []
-        }
-      }
-    });
-  }
-
-  return res.json({ ok: true, data });
+  return res.json({ ok: true, data: shapeOrgAnalyticsForRole(data, req.auth.role) });
 });
 
 orgRouter.get("/health", async (req: AuthenticatedRequest, res) => {
