@@ -83,6 +83,12 @@ export default function TeamPage() {
     () => members.filter((member) => member.status === "ACTIVE").length,
     [members]
   );
+  const pendingCount = useMemo(
+    () => members.filter((member) => member.status === "INVITED").length,
+    [members]
+  );
+  const usedSeats = (seats.activeMembers ?? activeCount) + (seats.pendingInvites ?? pendingCount);
+  const seatsFull = usedSeats >= seats.allowedSeats;
 
   async function onInvite() {
     if (!inviteEmail.trim()) return;
@@ -179,8 +185,9 @@ export default function TeamPage() {
           <div>Included seats: <span className="font-semibold">{seats.includedSeats}</span></div>
           <div>Purchased seats: <span className="font-semibold">{seats.purchasedSeats}</span></div>
           <div>Allowed seats: <span className="font-semibold">{seats.allowedSeats}</span></div>
+          <div>Used seats: <span className="font-semibold">{usedSeats}</span></div>
           <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
-          {(seats.activeMembers + (seats.pendingInvites ?? 0)) >= seats.allowedSeats ? (
+          {seatsFull ? (
             <p className="md:col-span-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
               {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
             </p>
@@ -216,10 +223,15 @@ export default function TeamPage() {
               </select>
             </div>
             <div className="flex items-end">
-              <Button className="w-full" disabled={inviting} onClick={() => void onInvite()}>
+              <Button className="w-full" disabled={inviting || seatsFull} onClick={() => void onInvite()}>
                 {inviting ? "Sending..." : "Send invite"}
               </Button>
             </div>
+            {seatsFull ? (
+              <p className="md:col-span-4 text-xs text-amber-700">
+                Invite disabled while seat usage is full (active + pending invites). Add seats, upgrade, or remove pending invites.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
