@@ -1,4 +1,6 @@
 import type { NotificationSeverity, NotificationType, Prisma, PrismaClient, UserRole } from "@prisma/client";
+import { env } from "../../config/env";
+import { isFeatureEnabledForOrg } from "../org/feature-gates";
 import { sendOrgOperationalNotificationEmail } from "../../services/email";
 
 type EmitNotificationInput = {
@@ -83,6 +85,10 @@ async function resolveEmailRecipients(input: { prisma: PrismaClient; orgId: stri
 }
 
 export async function emitOrgNotification(input: EmitNotificationInput) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, input.orgId)) {
+    return null;
+  }
+
   const notification = await input.prisma.orgNotification.create({
     data: {
       orgId: input.orgId,

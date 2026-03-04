@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { env } from "../../../config/env";
 import { emitOrgNotification, resolveNotificationTargetRoleMin } from "../notification.service";
 
 test("explicit target role override is respected", () => {
@@ -37,6 +38,8 @@ test("informational notifications default to viewer visibility", () => {
 });
 
 test("emitOrgNotification tolerates business-settings schema drift when resolving email recipients", async () => {
+  const previousFlag = (env as any).FEATURE_NOTIFICATIONS_V1_ENABLED;
+  (env as any).FEATURE_NOTIFICATIONS_V1_ENABLED = "true";
   const mockPrisma = {
     orgNotification: {
       create: async ({ data }: any) => ({ id: "notif_1", ...data })
@@ -51,15 +54,46 @@ test("emitOrgNotification tolerates business-settings schema drift when resolvin
     }
   } as any;
 
-  const notification = await emitOrgNotification({
-    prisma: mockPrisma,
-    orgId: "org_1",
-    type: "NEW_LEAD_CAPTURED",
-    severity: "INFO",
-    title: "Lead captured",
-    body: "A new lead was captured."
-  });
+  try {
+    const notification = await emitOrgNotification({
+      prisma: mockPrisma,
+      orgId: "org_1",
+      type: "NEW_LEAD_CAPTURED",
+      severity: "INFO",
+      title: "Lead captured",
+      body: "A new lead was captured."
+    });
+    assert.equal(notification?.orgId, "org_1");
+    assert.equal(notification?.type, "NEW_LEAD_CAPTURED");
+  } finally {
+    (env as any).FEATURE_NOTIFICATIONS_V1_ENABLED = previousFlag;
+  }
+});
 
-  assert.equal(notification.orgId, "org_1");
-  assert.equal(notification.type, "NEW_LEAD_CAPTURED");
+test("emitOrgNotification is a no-op when notifications feature is disabled", async () => {
+  const previousFlag = (env as any).FEATURE_NOTIFICATIONS_V1_ENABLED;
+  (env as any).FEATURE_NOTIFICATIONS_V1_ENABLED = "false";
+  let created = false;
+  const mockPrisma = {
+    orgNotification: {
+      create: async () => {
+        created = true;
+        return { id: "notif_1" };
+      }
+    }
+  } as any;
+  try {
+    const notification = await emitOrgNotification({
+      prisma: mockPrisma,
+      orgId: "org_1",
+      type: "NEW_LEAD_CAPTURED",
+      severity: "INFO",
+      title: "Lead captured",
+      body: "A new lead was captured."
+    });
+    assert.equal(notification, null);
+    assert.equal(created, false);
+  } finally {
+    (env as any).FEATURE_NOTIFICATIONS_V1_ENABLED = previousFlag;
+  }
 });
