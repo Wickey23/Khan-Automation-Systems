@@ -174,12 +174,18 @@ export default function AppSettingsPage() {
         assignedPhoneNumber: null,
         assignedNumberProvider: null,
         features: {}
-      })),
-      fetchCalendarProviders().catch(() => ({ providers: [] })),
-      fetchOrgNotifications().catch(() => ({ notifications: [] }))
+      }))
     ])
-      .then(([{ settings }, { files }, profile, calendar, notifications]) => {
+      .then(async ([{ settings }, { files }, profile]) => {
         const profileFeatures = (profile as { features?: Record<string, unknown> } | null | undefined)?.features || {};
+        const [calendar, notifications] = await Promise.all([
+          profileFeatures.calendarOauthEnabled === true
+            ? fetchCalendarProviders().catch(() => ({ providers: [] }))
+            : Promise.resolve({ providers: [] }),
+          profileFeatures.notificationsEnabled === true
+            ? fetchOrgNotifications().catch(() => ({ notifications: [] }))
+            : Promise.resolve({ notifications: [] })
+        ]);
         const hoursRoot = fromJsonObject(settings.hoursJson);
         const scheduleRaw =
           hoursRoot && typeof hoursRoot.schedule === "object" && hoursRoot.schedule !== null && !Array.isArray(hoursRoot.schedule)
