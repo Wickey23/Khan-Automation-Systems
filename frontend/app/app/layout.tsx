@@ -21,8 +21,7 @@ const navItems: Array<{ href: string; label: string; requiredPlan?: Exclude<Plan
   { href: "/app/analytics", label: "Analytics", requiredPlan: "STARTER" },
   { href: "/app/settings", label: "Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
-  { href: "/app/team", label: "Team", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
-  { href: "/app/onboarding", label: "Onboarding" }
+  { href: "/app/team", label: "Team", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
 
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {

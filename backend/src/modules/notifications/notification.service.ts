@@ -51,10 +51,18 @@ function parseJsonObject(value: string | null | undefined) {
 }
 
 async function resolveEmailRecipients(input: { prisma: PrismaClient; orgId: string; type: NotificationType }) {
-  const settings = await input.prisma.businessSettings.findUnique({
-    where: { orgId: input.orgId },
-    select: { notificationEmailRecipientsJson: true, notificationTogglesJson: true }
-  });
+  let settings: { notificationEmailRecipientsJson: string | null; notificationTogglesJson: string | null } | null = null;
+  try {
+    settings = await input.prisma.businessSettings.findUnique({
+      where: { orgId: input.orgId },
+      select: { notificationEmailRecipientsJson: true, notificationTogglesJson: true }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    const schemaDrift = message.includes("p2022") || message.includes("column");
+    if (!schemaDrift) throw error;
+    settings = null;
+  }
   const toggles = parseJsonObject(settings?.notificationTogglesJson);
   const toggleKey = `${input.type}_EMAIL_ENABLED`;
   const defaultEnabled = true;
