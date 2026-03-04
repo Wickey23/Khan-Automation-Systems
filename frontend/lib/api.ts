@@ -26,6 +26,7 @@ import type {
   BillingStatusPayload,
   BillingDiagnosticsPayload,
   OrgAnalytics,
+  OrgFeatureFlags,
   OrgDataQuality,
   OrgHealth,
   OrgKnowledgeFile,
@@ -38,8 +39,7 @@ import type {
   AuthSecurityStatus,
   PhoneLine,
   Setting,
-  TestScenario
-  ,
+  TestScenario,
   TeamMember,
   TeamSeatSnapshot,
   Appointment,
@@ -457,13 +457,7 @@ export async function fetchOrgProfile() {
     organization: Organization;
     assignedPhoneNumber: string | null;
     assignedNumberProvider: "TWILIO" | "VAPI" | null;
-    features?: {
-      appointmentsEnabled?: boolean;
-      calendarOauthEnabled?: boolean;
-      notificationsEnabled?: boolean;
-      pipelineStageEnabled?: boolean;
-      classificationEnabled?: boolean;
-    };
+    features?: OrgFeatureFlags;
   }>("/api/org/profile");
 }
 

@@ -436,6 +436,13 @@ export type CalendarConnection = {
 
 export type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED" | "NO_SHOW";
 export type CalendarProvider = "GOOGLE" | "OUTLOOK" | "INTERNAL";
+export type OrgFeatureFlags = {
+  appointmentsEnabled?: boolean;
+  calendarOauthEnabled?: boolean;
+  notificationsEnabled?: boolean;
+  pipelineStageEnabled?: boolean;
+  classificationEnabled?: boolean;
+};
 
 export type Appointment = {
   id: string;

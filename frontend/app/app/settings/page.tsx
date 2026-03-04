@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { AuthSecurityStatus, CalendarConnection, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
+import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -177,7 +177,7 @@ export default function AppSettingsPage() {
       }))
     ])
       .then(async ([{ settings }, { files }, profile]) => {
-        const profileFeatures = (profile as { features?: Record<string, unknown> } | null | undefined)?.features || {};
+        const profileFeatures: OrgFeatureFlags = profile.features || {};
         const [calendar, notifications] = await Promise.all([
           profileFeatures.calendarOauthEnabled === true
             ? fetchCalendarProviders().catch(() => ({ providers: [] }))

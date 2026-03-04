@@ -13,7 +13,7 @@ import {
   getMe,
   patchOrgAppointment
 } from "@/lib/api";
-import type { Appointment, CalendarConnection } from "@/lib/types";
+import type { Appointment, CalendarConnection, OrgFeatureFlags } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 
@@ -90,7 +90,7 @@ export default function AppAppointmentsPage() {
           role === "SUPER_ADMIN";
         setCanWrite(writable);
         setCanManageCalendar(calendarManage);
-        const features = ((profile as { features?: Record<string, unknown> } | null | undefined)?.features || {});
+        const features: OrgFeatureFlags = profile.features || {};
         const appointmentsEnabled = features.appointmentsEnabled === true;
         const calendarEnabled = features.calendarOauthEnabled === true;
         setFeatureDisabled(!appointmentsEnabled);
