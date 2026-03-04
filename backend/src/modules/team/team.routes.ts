@@ -9,7 +9,7 @@ import {
   type Prisma as PrismaTypes,
   SubscriptionPlan
 } from "@prisma/client";
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { env } from "../../config/env";
 import { hashToken } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
@@ -147,6 +147,24 @@ function canManageTeam(req: AuthenticatedRequest) {
   return req.auth?.role === UserRole.CLIENT_ADMIN || req.auth?.role === UserRole.ADMIN || req.auth?.role === UserRole.SUPER_ADMIN;
 }
 
+async function hasActiveProSubscription(db: DbClient, orgId: string) {
+  const subscription = await db.subscription.findFirst({
+    where: { orgId },
+    orderBy: { createdAt: "desc" },
+    select: { plan: true, status: true }
+  });
+  const status = String(subscription?.status || "").toLowerCase();
+  return subscription?.plan === SubscriptionPlan.PRO && (status === "active" || status === "trialing");
+}
+
+function proRequiredResponse(res: Response) {
+  return res.status(403).json({
+    ok: false,
+    code: "team_pro_required",
+    message: "Team management is a Pro feature. Upgrade to Pro to invite and manage additional users."
+  });
+}
+
 teamRouter.post("/accept", async (req, res) => {
   const parsed = acceptTeamInviteSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid invite payload." });
@@ -171,6 +189,13 @@ teamRouter.post("/accept", async (req, res) => {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser?.orgId && existingUser.orgId !== invite.organizationId) {
     return res.status(409).json({ ok: false, message: "This email already belongs to another organization." });
+  }
+  if (!(await hasActiveProSubscription(prisma, invite.organizationId))) {
+    return res.status(409).json({
+      ok: false,
+      code: "team_pro_required",
+      message: "Team invite cannot be accepted because this organization is not on an active Pro plan."
+    });
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
@@ -248,6 +273,7 @@ teamRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIE
 teamRouter.get("/", async (req: AuthenticatedRequest, res) => {
   const orgId = req.auth?.orgId;
   if (!orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if (!(await hasActiveProSubscription(prisma, orgId))) return proRequiredResponse(res);
 
   await syncLegacyOrgUsersToMemberships(prisma, orgId);
   const [memberships, seat] = await Promise.all([
@@ -302,6 +328,7 @@ teamRouter.post("/invite", requireCsrf, async (req: AuthenticatedRequest, res) =
   const actorUserId = req.auth?.userId;
   const actorRole = req.auth?.role;
   if (!orgId || !actorUserId || !actorRole) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if (!(await hasActiveProSubscription(prisma, orgId))) return proRequiredResponse(res);
   const parsed = inviteTeamMemberSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid invite payload." });
 
@@ -401,6 +428,7 @@ teamRouter.post("/resend", requireCsrf, async (req: AuthenticatedRequest, res) =
   if (!canManageTeam(req)) return res.status(403).json({ ok: false, message: "Forbidden" });
   const orgId = req.auth?.orgId;
   if (!orgId || !req.auth?.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if (!(await hasActiveProSubscription(prisma, orgId))) return proRequiredResponse(res);
   const parsed = resendTeamInviteSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid resend payload." });
 
@@ -450,6 +478,7 @@ teamRouter.patch("/role", requireCsrf, async (req: AuthenticatedRequest, res) =>
   if (!canManageTeam(req)) return res.status(403).json({ ok: false, message: "Forbidden" });
   const orgId = req.auth?.orgId;
   if (!orgId || !req.auth?.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if (!(await hasActiveProSubscription(prisma, orgId))) return proRequiredResponse(res);
   const parsed = updateTeamRoleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid role payload." });
 
@@ -490,6 +519,7 @@ teamRouter.delete("/member", requireCsrf, async (req: AuthenticatedRequest, res)
   if (!canManageTeam(req)) return res.status(403).json({ ok: false, message: "Forbidden" });
   const orgId = req.auth?.orgId;
   if (!orgId || !req.auth?.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  if (!(await hasActiveProSubscription(prisma, orgId))) return proRequiredResponse(res);
   const parsed = deleteTeamMemberSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid member payload." });
 
