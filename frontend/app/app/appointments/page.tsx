@@ -38,6 +38,7 @@ export default function AppAppointmentsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creatingSlot, setCreatingSlot] = useState<string | null>(null);
   const [featureDisabled, setFeatureDisabled] = useState(false);
+  const [calendarFeatureEnabled, setCalendarFeatureEnabled] = useState(false);
 
   async function load(nextStatus: Appointment["status"] | "ALL" = status, nextFrom = fromDate, nextTo = toDate) {
     setLoading(true);
@@ -67,7 +68,6 @@ export default function AppAppointmentsPage() {
   }
 
   useEffect(() => {
-    void load();
     void Promise.all([
       getMe(),
       fetchOrgProfile().catch(() => ({
@@ -90,9 +90,18 @@ export default function AppAppointmentsPage() {
           role === "SUPER_ADMIN";
         setCanWrite(writable);
         setCanManageCalendar(calendarManage);
-        const calendarEnabled =
-          ((profile as { features?: Record<string, unknown> } | null | undefined)?.features || {})
-            .calendarOauthEnabled === true;
+        const features = ((profile as { features?: Record<string, unknown> } | null | undefined)?.features || {});
+        const appointmentsEnabled = features.appointmentsEnabled === true;
+        const calendarEnabled = features.calendarOauthEnabled === true;
+        setFeatureDisabled(!appointmentsEnabled);
+        setCalendarFeatureEnabled(calendarEnabled);
+        if (!appointmentsEnabled) {
+          setAppointments([]);
+          setCalendarProviders([]);
+          setLoading(false);
+          return;
+        }
+        void load();
         if (calendarManage && calendarEnabled) {
           void fetchCalendarProviders()
             .then((data) => setCalendarProviders(data.providers || []))
@@ -104,6 +113,9 @@ export default function AppAppointmentsPage() {
       .catch(() => {
         setCanWrite(false);
         setCanManageCalendar(false);
+        setFeatureDisabled(true);
+        setCalendarFeatureEnabled(false);
+        setLoading(false);
       });
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (localTz) setSlotTimezone(localTz);
@@ -335,8 +347,8 @@ export default function AppAppointmentsPage() {
                 className="mt-1 h-10 w-full rounded-md border bg-background px-3"
               >
                 <option value="INTERNAL">INTERNAL</option>
-                {hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
-                {hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
+                {calendarFeatureEnabled && hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
+                {calendarFeatureEnabled && hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
               </select>
               {!canManageCalendar ? (
                 <p className="mt-1 text-xs text-muted-foreground">Google/Outlook booking is admin-managed in Settings.</p>
