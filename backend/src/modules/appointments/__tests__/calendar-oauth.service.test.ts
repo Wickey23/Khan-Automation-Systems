@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consumeCalendarOauthState, createCalendarConnectUrl } from "../calendar-oauth.service";
+import {
+  consumeCalendarOauthState,
+  createCalendarConnectUrl,
+  createCalendarEventFromConnection
+} from "../calendar-oauth.service";
 
 function withOauthEnv<T>(fn: () => T) {
   const previous = {
@@ -93,3 +97,56 @@ test("oauth state rejects mismatched org and user", () =>
     });
     assert.equal(wrongOrg, null);
   }));
+
+test("calendar event auth failure marks connection inactive", async () => {
+  const originalFetch = global.fetch;
+  const updates: Array<{ id: string; isActive: boolean }> = [];
+  global.fetch = (async () =>
+    ({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ error: "unauthorized" })
+    }) as unknown as Response) as typeof fetch;
+
+  const prisma = {
+    calendarConnection: {
+      findFirst: async () => ({
+        id: "conn_1",
+        orgId: "org_1",
+        provider: "GOOGLE",
+        accountEmail: "ops@example.com",
+        accessTokenEnc: "token_access",
+        refreshTokenEnc: "token_refresh",
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        scopesJson: "[]",
+        isActive: true,
+        isPrimary: true
+      }),
+      update: async ({ where, data }: { where: { id: string }; data: { isActive: boolean } }) => {
+        updates.push({ id: where.id, isActive: data.isActive });
+        return null;
+      }
+    }
+  } as any;
+
+  try {
+    await assert.rejects(
+      () =>
+        createCalendarEventFromConnection({
+          prisma,
+          connectionId: "conn_1",
+          orgId: "org_1",
+          title: "test",
+          description: "test",
+          startAt: new Date("2026-03-10T15:00:00.000Z"),
+          endAt: new Date("2026-03-10T15:15:00.000Z"),
+          timezone: "America/New_York"
+        }),
+      /auth_failed/
+    );
+    assert.equal(updates.length, 1);
+    assert.deepEqual(updates[0], { id: "conn_1", isActive: false });
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
