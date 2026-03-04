@@ -165,6 +165,36 @@ export type BillingStatusPayload = {
   demo: OrgDemoStatus;
 };
 
+export type BillingDiagnosticStatus = "PASS" | "WARN" | "FAIL";
+
+export type BillingDiagnosticCheck = {
+  key: string;
+  status: BillingDiagnosticStatus;
+  message: string;
+  fixHint?: string;
+  reasonCode?: string;
+  maskedRef?: string;
+};
+
+export type BillingDiagnosticsSummary = {
+  overall: "HEALTHY" | "NEEDS_ACTION" | "BLOCKED";
+  checkoutReady: boolean;
+  changePlanReady: boolean;
+  customerPortalReady: boolean;
+  topIssues: string[];
+};
+
+export type BillingDiagnosticsPayload = {
+  summary: BillingDiagnosticsSummary;
+  evaluatedAt: string;
+  detailed: boolean;
+  checks?: {
+    config: BillingDiagnosticCheck[];
+    stripe: BillingDiagnosticCheck[];
+    orgLinkage: BillingDiagnosticCheck[];
+  };
+};
+
 export type CallRecord = {
   id: string;
   clientId: string;

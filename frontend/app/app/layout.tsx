@@ -16,7 +16,7 @@ const navItems: Array<{ href: string; label: string; requiredPlan?: Exclude<Plan
   { href: "/app/billing", label: "Billing" },
   { href: "/app/settings", label: "Settings" },
   { href: "/app/calls", label: "Calls" },
-  { href: "/app/customer-base", label: "Customer Base" },
+  { href: "/app/customer-base", label: "Customer Base", requiredPlan: "PRO" },
   { href: "/app/messages", label: "Messages", requiredPlan: "PRO" },
   { href: "/app/leads", label: "Leads" },
   { href: "/app/analytics", label: "Analytics", requiredPlan: "PRO" }

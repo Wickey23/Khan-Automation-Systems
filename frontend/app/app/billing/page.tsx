@@ -1,8 +1,14 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { changeStripePlan, createStripeCheckoutSession, createCustomerPortalSession, getBillingStatus } from "@/lib/api";
-import type { OrgDemoStatus, OrgSubscription } from "@/lib/types";
+import {
+  changeStripePlan,
+  createStripeCheckoutSession,
+  createCustomerPortalSession,
+  getBillingDiagnostics,
+  getBillingStatus
+} from "@/lib/api";
+import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,25 +117,53 @@ function formatPlan(plan: OrgSubscription["plan"] | null | undefined) {
   return "No Plan";
 }
 
+function diagBadgeClass(value: BillingDiagnosticsPayload["summary"]["overall"]) {
+  if (value === "HEALTHY") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (value === "BLOCKED") return "border-red-200 bg-red-50 text-red-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function checkBadgeClass(value: BillingDiagnosticCheck["status"]) {
+  if (value === "PASS") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (value === "FAIL") return "border-red-200 bg-red-50 text-red-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
 export default function AppBillingPage() {
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [demo, setDemo] = useState<OrgDemoStatus | null>(null);
+  const [diagnostics, setDiagnostics] = useState<BillingDiagnosticsPayload | null>(null);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [startingPlan, setStartingPlan] = useState<StripePlanKey | null>(null);
   const [changingPlan, setChangingPlan] = useState<StripePlanKey | null>(null);
 
   useEffect(() => {
-    void getBillingStatus()
-      .then((data) => {
-        setSubscription(data.subscription);
-        setDemo(data.demo);
+    void Promise.all([getBillingStatus(), getBillingDiagnostics()])
+      .then(([billing, diag]) => {
+        setSubscription(billing.subscription);
+        setDemo(billing.demo);
+        setDiagnostics(diag);
+        setDiagnosticsError(null);
       })
       .catch(() => {
         setSubscription(null);
         setDemo(null);
+        setDiagnostics(null);
+        setDiagnosticsError("Diagnostics unavailable.");
       });
   }, []);
+
+  async function refreshDiagnostics() {
+    try {
+      const data = await getBillingDiagnostics();
+      setDiagnostics(data);
+      setDiagnosticsError(null);
+    } catch {
+      setDiagnosticsError("Diagnostics unavailable.");
+    }
+  }
 
   async function onOpenPortal() {
     setOpeningPortal(true);
@@ -142,6 +176,7 @@ export default function AppBillingPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+      void refreshDiagnostics();
     } finally {
       setOpeningPortal(false);
     }
@@ -158,6 +193,7 @@ export default function AppBillingPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+      void refreshDiagnostics();
     } finally {
       setStartingPlan(null);
     }
@@ -182,6 +218,7 @@ export default function AppBillingPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+      void refreshDiagnostics();
     } finally {
       setChangingPlan(null);
     }
@@ -413,6 +450,78 @@ export default function AppBillingPage() {
               })}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-slate-400 via-zinc-400 to-slate-500" />
+        <CardHeader>
+          <CardTitle>Billing diagnostics</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          {diagnosticsError ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+              {diagnosticsError} Billing actions are still available.
+            </div>
+          ) : null}
+
+          {diagnostics ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={diagBadgeClass(diagnostics.summary.overall)}>Overall: {diagnostics.summary.overall}</Badge>
+                <Badge variant="outline">Checkout: {diagnostics.summary.checkoutReady ? "Ready" : "Blocked"}</Badge>
+                <Badge variant="outline">Plan change: {diagnostics.summary.changePlanReady ? "Ready" : "Blocked"}</Badge>
+                <Badge variant="outline">Portal: {diagnostics.summary.customerPortalReady ? "Ready" : "Blocked"}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  Updated {new Date(diagnostics.evaluatedAt).toLocaleTimeString()}
+                </span>
+              </div>
+
+              {diagnostics.summary.topIssues?.length ? (
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top issues</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                    {diagnostics.summary.topIssues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {diagnostics.detailed && diagnostics.checks ? (
+                <div className="grid gap-3 md:grid-cols-3">
+                  {([
+                    ["Config checks", diagnostics.checks.config],
+                    ["Stripe checks", diagnostics.checks.stripe],
+                    ["Org linkage", diagnostics.checks.orgLinkage]
+                  ] as Array<[string, BillingDiagnosticCheck[]]>).map(([title, list]) => (
+                    <div key={title} className="rounded-md border bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+                      <div className="mt-2 space-y-2">
+                        {list.map((check) => (
+                          <div key={check.key} className="rounded border p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-medium">{check.key}</p>
+                              <Badge className={checkBadgeClass(check.status)}>{check.status}</Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">{check.message}</p>
+                            {check.fixHint ? <p className="mt-1 text-xs text-muted-foreground">Fix: {check.fixHint}</p> : null}
+                            {check.maskedRef ? (
+                              <p className="mt-1 text-xs text-muted-foreground">Ref: {check.maskedRef}</p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Summary-only diagnostics available for your role. Contact your account admin for detailed checks.
+                </p>
+              )}
+            </>
+          ) : null}
         </CardContent>
       </Card>
     </div>

@@ -23,6 +23,7 @@ import type {
   CustomerBaseRecord,
   OrgMessageThread,
   BillingStatusPayload,
+  BillingDiagnosticsPayload,
   OrgAnalytics,
   OrgDataQuality,
   OrgHealth,
@@ -234,6 +235,10 @@ export async function changeStripePlan(plan: "starter" | "pro") {
 
 export async function getBillingStatus() {
   return request<BillingStatusPayload>("/api/billing/status");
+}
+
+export async function getBillingDiagnostics() {
+  return request<BillingDiagnosticsPayload>("/api/billing/diagnostics");
 }
 
 export async function createCustomerPortalSession() {

@@ -7,6 +7,7 @@ import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../mi
 import { deriveOrgLifecycleFromBilling } from "./billing-lifecycle.service";
 import { changePlanSchema, createCheckoutSessionSchema } from "./billing.schema";
 import { getDemoState } from "./demo-access.service";
+import { computeBillingDiagnostics } from "./billing-diagnostics.service";
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20"
@@ -443,6 +444,47 @@ billingRouter.get("/status", requireAuth, async (req: AuthenticatedRequest, res)
     allowStart: false
   });
   return res.json({ ok: true, data: { subscription, demo } });
+});
+
+billingRouter.get("/diagnostics", requireAuth, async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.userId) return res.status(401).json({ ok: false, message: "Unauthorized" });
+
+  const detailed = req.auth.role === UserRole.CLIENT_ADMIN || req.auth.role === UserRole.ADMIN || req.auth.role === UserRole.SUPER_ADMIN;
+  try {
+    const diagnostics = await computeBillingDiagnostics({
+      prisma,
+      stripe,
+      auth: {
+        userId: req.auth.userId,
+        orgId: req.auth.orgId || null,
+        role: req.auth.role
+      },
+      now: new Date(),
+      detailed
+    });
+    return res.status(200).json({ ok: true, data: diagnostics });
+  } catch (error) {
+    const evaluatedAt = new Date().toISOString();
+    const fallback = {
+      summary: {
+        overall: "NEEDS_ACTION" as const,
+        checkoutReady: false,
+        changePlanReady: false,
+        customerPortalReady: false,
+        topIssues: ["diagnostics_unavailable"]
+      },
+      evaluatedAt,
+      detailed: false
+    };
+
+    logBillingEvent("error", {
+      action: "billing_diagnostics_failed",
+      userId: req.auth.userId,
+      orgId: req.auth.orgId || null,
+      message: error instanceof Error ? error.message : "unknown_error"
+    });
+    return res.status(200).json({ ok: true, data: fallback });
+  }
 });
 
 billingRouter.post("/customer-portal", requireAuth, async (req: AuthenticatedRequest, res) => {

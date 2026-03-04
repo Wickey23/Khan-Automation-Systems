@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchCustomerBase, importCustomerBase } from "@/lib/api";
+import Link from "next/link";
+import { fetchCustomerBase, getBillingStatus, importCustomerBase } from "@/lib/api";
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { InfoHint } from "@/components/ui/info-hint";
+import { resolvePlanFeatures } from "@/lib/plan-features";
 
 function formatOutcome(value: string | null | undefined) {
   const normalized = String(value || "").trim().toUpperCase();
@@ -27,6 +29,7 @@ function getDisplayEmail(value: string | null | undefined) {
 export default function CustomerBasePage() {
   const { showToast } = useToast();
   const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
+  const [canAccess, setCanAccess] = useState<boolean | null>(null);
   const [summary, setSummary] = useState<{ total: number; vip: number; withLead: number; repeatCallers: number } | null>(
     null
   );
@@ -36,11 +39,19 @@ export default function CustomerBasePage() {
 
   useEffect(() => {
     setLoading(true);
-    void fetchCustomerBase()
-      .then((data) => {
+    void Promise.all([getBillingStatus(), fetchCustomerBase()])
+      .then(([billing, data]) => {
+        const features = resolvePlanFeatures({
+          plan: billing.subscription?.plan,
+          status: billing.subscription?.status
+        });
+        const hasProCustomerBase = features.proEnabled;
+        setCanAccess(hasProCustomerBase);
+        if (!hasProCustomerBase) return;
         setCustomers(data.customers || []);
         setSummary(data.summary || null);
       })
+      .catch(() => setCanAccess(false))
       .finally(() => setLoading(false));
   }, []);
 
@@ -133,6 +144,27 @@ export default function CustomerBasePage() {
           Returning caller memory, lead linkage, and recent interaction context for your assistant.
         </p>
       </div>
+
+      {canAccess === false ? (
+        <div className="rounded-lg border bg-white p-5">
+          <h2 className="text-lg font-semibold">Customer Base is a Pro workspace</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Standard focuses on lead pipeline management. Pro unlocks caller memory, repeat-caller context, and bulk customer-base
+            imports.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/app/leads" className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+              Open Leads (Standard)
+            </Link>
+            <Link href="/app/billing" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+              Upgrade to Pro
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {canAccess === false ? null : (
+        <>
 
       <div className="grid gap-3 sm:grid-cols-4">
         <div className="rounded-lg border bg-white p-3">
@@ -230,6 +262,8 @@ export default function CustomerBasePage() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
