@@ -378,6 +378,9 @@ teamRouter.patch("/role", requireCsrf, async (req: AuthenticatedRequest, res) =>
     where: { id: parsed.data.membershipId, organizationId: orgId }
   });
   if (!membership) return res.status(404).json({ ok: false, message: "Member not found." });
+  if (membership.userId && membership.userId === req.auth.userId) {
+    return res.status(400).json({ ok: false, message: "You cannot change your own role." });
+  }
 
   const nextRole = toTeamRole(parsed.data.role);
   await prisma.organizationMembership.update({

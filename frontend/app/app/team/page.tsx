@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchTeamMembers,
+  getMe,
   inviteTeamMember,
   removeTeamMember,
   resendTeamInvite,
@@ -36,14 +37,16 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState<"admin" | "manager" | "viewer">("viewer");
   const [inviting, setInviting] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const data = await fetchTeamMembers();
+      const [data, me] = await Promise.all([fetchTeamMembers(), getMe()]);
       setCanManage(data.canManage);
       setMembers(data.members || []);
       setSeats(data.seats);
+      setCurrentUserId(me.user.userId || null);
     } catch (error) {
       showToast({
         title: "Could not load team",
@@ -51,6 +54,7 @@ export default function TeamPage() {
         variant: "error"
       });
       setMembers([]);
+      setCurrentUserId(null);
     } finally {
       setLoading(false);
     }
@@ -221,18 +225,24 @@ export default function TeamPage() {
                       <td className="p-2">{member.user?.email || member.invitedEmail}</td>
                       <td className="p-2">
                         {canManage ? (
+                          (() => {
+                            const isSelf = member.user?.id === currentUserId;
+                            return (
                           <select
                             className="h-8 rounded-md border bg-background px-2 text-xs"
                             value={toRoleInput(member.role)}
                             onChange={(event) =>
                               void onRoleChange(member, event.target.value as "admin" | "manager" | "viewer")
                             }
-                            disabled={savingId === member.id}
+                            disabled={savingId === member.id || isSelf}
+                            title={isSelf ? "You cannot change your own role." : undefined}
                           >
                             <option value="admin">Admin</option>
                             <option value="manager">Manager</option>
                             <option value="viewer">Viewer</option>
                           </select>
+                            );
+                          })()
                         ) : (
                           member.role
                         )}
@@ -248,9 +258,13 @@ export default function TeamPage() {
                                 Resend
                               </Button>
                             ) : null}
-                            <Button size="sm" variant="outline" onClick={() => void onRemove(member)} disabled={savingId === member.id}>
-                              Remove
-                            </Button>
+                            {member.user?.id === currentUserId ? (
+                              <span className="text-xs text-muted-foreground">Current user</span>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => void onRemove(member)} disabled={savingId === member.id}>
+                                Remove
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           "-"
