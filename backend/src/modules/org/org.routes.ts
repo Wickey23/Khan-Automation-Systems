@@ -1222,7 +1222,7 @@ orgRouter.post("/calendar/google/connect", requireCalendarManageAccess, async (r
   }
 });
 
-orgRouter.get("/calendar/google/callback", async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/calendar/google/callback", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
@@ -1272,7 +1272,7 @@ orgRouter.post("/calendar/outlook/connect", requireCalendarManageAccess, async (
   }
 });
 
-orgRouter.get("/calendar/outlook/callback", async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/calendar/outlook/callback", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
