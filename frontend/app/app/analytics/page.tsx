@@ -170,7 +170,7 @@ export default function AppAnalyticsPage() {
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
             ROI Estimate
-            <InfoHint text="Estimated revenue opportunity = appointments booked × average job value." />
+            <InfoHint text="Estimated revenue opportunity = appointments booked x average job value." />
           </p>
           <p className="mt-1 text-2xl font-semibold">
             {kpis?.estimatedRevenueOpportunityUsd
@@ -178,7 +178,7 @@ export default function AppAnalyticsPage() {
               : "$0"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {kpis?.appointmentsBooked ?? 0} booked × ${kpis?.averageJobValueUsd ?? 650}
+            {kpis?.appointmentsBooked ?? 0} booked x ${kpis?.averageJobValueUsd ?? 650}
           </p>
         </div>
         <div className="rounded-lg border bg-white p-4">
