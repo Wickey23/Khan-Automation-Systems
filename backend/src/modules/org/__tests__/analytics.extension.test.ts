@@ -68,3 +68,26 @@ test("analytics computes conversion and revenue opportunity from appointments an
   assert.equal(data.kpis.missedCallsRecovered, 2);
   assert.equal(typeof now.getTime(), "number");
 });
+
+test("analytics falls back to default average job value when business settings columns are unavailable", async () => {
+  const prisma = {
+    callLog: { findMany: async () => [] },
+    lead: {
+      findMany: async () => [],
+      count: async () => 2
+    },
+    messageThread: { findMany: async () => [] },
+    message: { findMany: async () => [] },
+    appointment: { count: async () => 1 },
+    callClassificationLog: { count: async () => 0 },
+    businessSettings: {
+      findUnique: async () => {
+        throw new Error("P2022: The column BusinessSettings.averageJobValueUsd does not exist");
+      }
+    }
+  } as any;
+
+  const data = await computeOrgAnalytics(prisma, "org_1", { range: "7d" });
+  assert.equal(data.kpis.averageJobValueUsd, 650);
+  assert.equal(data.kpis.estimatedRevenueOpportunityUsd, 650);
+});
