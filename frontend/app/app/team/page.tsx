@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   fetchTeamMembers,
   getBillingStatus,
@@ -190,6 +191,10 @@ export default function TeamPage() {
           {seatsFull ? (
             <p className="md:col-span-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
               {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
+              {" "}
+              <Link href="/app/billing" className="font-medium underline">
+                Manage seats in billing
+              </Link>
             </p>
           ) : null}
         </CardContent>
