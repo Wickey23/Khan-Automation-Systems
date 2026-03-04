@@ -13,6 +13,7 @@ import { buildConfigPackage, generateConfigPackage } from "./config-package";
 import { computeOrgAnalytics } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
 import { dedupeOrgCallRows } from "./call-log-dedupe.service";
+import { generateAvailabilitySlots } from "../appointments/slotting.service";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -35,6 +36,14 @@ function requireOrgWriteAccess(req: AuthenticatedRequest, res: Response, next: N
 const KNOWLEDGE_FILE_MAX_BYTES = 200_000;
 const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
 const ALLOWED_KNOWLEDGE_MIME = new Set(["text/plain", "text/markdown", "application/json", "text/csv"]);
+const appointmentsAvailabilitySchema = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  appointmentDurationMinutes: z.number().int().positive().max(480).optional(),
+  appointmentBufferMinutes: z.number().int().min(0).max(240).optional(),
+  bookingLeadTimeHours: z.number().int().min(0).max(168).optional(),
+  bookingMaxDaysAhead: z.number().int().min(1).max(90).optional()
+});
 
 function normalizePhone(input: string) {
   const digits = input.replace(/\D/g, "");
@@ -810,6 +819,47 @@ orgRouter.get("/messaging-readiness", async (req: AuthenticatedRequest, res) => 
       billingActive,
       canSendOperationalSms: state !== "A2P_BLOCKED" && proPlan && billingActive && activePhone?.provider === "TWILIO",
       reasons
+    }
+  });
+});
+
+orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, res) => {
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = appointmentsAvailabilitySchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid availability payload.", errors: parsed.error.flatten() });
+  }
+
+  const settings = await prisma.businessSettings.findUnique({
+    where: { orgId: req.auth.orgId },
+    select: { hoursJson: true, timezone: true }
+  });
+
+  const slots = generateAvailabilitySlots({
+    hoursJson: settings?.hoursJson || null,
+    timezone: settings?.timezone || "America/New_York",
+    appointmentDurationMinutes: parsed.data.appointmentDurationMinutes ?? 60,
+    appointmentBufferMinutes: parsed.data.appointmentBufferMinutes ?? 15,
+    bookingLeadTimeHours: parsed.data.bookingLeadTimeHours ?? 2,
+    bookingMaxDaysAhead: parsed.data.bookingMaxDaysAhead ?? 14
+  });
+
+  const fromMs = parsed.data.from ? new Date(parsed.data.from).getTime() : null;
+  const toMs = parsed.data.to ? new Date(parsed.data.to).getTime() : null;
+  const filtered = slots.filter((slot) => {
+    const startMs = slot.startAt.getTime();
+    if (fromMs !== null && startMs < fromMs) return false;
+    if (toMs !== null && startMs > toMs) return false;
+    return true;
+  });
+
+  return res.json({
+    ok: true,
+    data: {
+      slots: filtered.slice(0, 10).map((slot) => ({
+        startAt: slot.startAt.toISOString(),
+        endAt: slot.endAt.toISOString()
+      }))
     }
   });
 });

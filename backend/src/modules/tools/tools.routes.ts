@@ -6,6 +6,7 @@ import { prisma } from "../../lib/prisma";
 import { verifyVapiToolSecret } from "../../middleware/webhook-security";
 import { hasProMessaging } from "../billing/plan-features";
 import { sendSmsMessage } from "../twilio/twilio.service";
+import { validateSlotWithinBusinessHours } from "../appointments/slotting.service";
 
 export const toolsRouter = Router();
 toolsRouter.use(verifyVapiToolSecret);
@@ -34,7 +35,9 @@ const notifySchema = z.object({
 
 const appointmentSchema = z.object({
   orgId: z.string().min(1),
-  callId: z.string().optional()
+  callId: z.string().optional(),
+  requestedStartAt: z.string().datetime().optional(),
+  appointmentDurationMinutes: z.number().int().positive().max(480).optional()
 });
 
 const transferSchema = z.object({
@@ -400,6 +403,27 @@ toolsRouter.post("/request-appointment", async (req, res) => {
   try {
     const parsed = appointmentSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid request-appointment payload.");
+
+    if (parsed.data.requestedStartAt) {
+      const settings = await prisma.businessSettings.findUnique({
+        where: { orgId: parsed.data.orgId },
+        select: { hoursJson: true, timezone: true }
+      });
+      const slotCheck = validateSlotWithinBusinessHours({
+        hoursJson: settings?.hoursJson || null,
+        timezone: settings?.timezone || "America/New_York",
+        slotStartAt: new Date(parsed.data.requestedStartAt),
+        appointmentDurationMinutes: parsed.data.appointmentDurationMinutes ?? 60
+      });
+      if (!slotCheck.ok) {
+        return toolError(
+          res,
+          "BOOKING_OUTSIDE_BUSINESS_HOURS",
+          "Requested slot is outside business hours or extends past closing time.",
+          400
+        );
+      }
+    }
 
     if (parsed.data.callId) {
       await prisma.callLog.updateMany({
