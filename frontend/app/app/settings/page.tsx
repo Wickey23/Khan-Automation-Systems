@@ -151,6 +151,7 @@ export default function AppSettingsPage() {
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
   const [calendarBusy, setCalendarBusy] = useState(false);
+  const [calendarSyncProvider, setCalendarSyncProvider] = useState<"" | "GOOGLE" | "OUTLOOK">("");
   const [notificationCount, setNotificationCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
@@ -529,6 +530,16 @@ export default function AppSettingsPage() {
           >
             Connect Outlook
           </Button>
+          <select
+            className="h-10 rounded-md border bg-background px-3 text-sm"
+            value={calendarSyncProvider}
+            onChange={(event) => setCalendarSyncProvider(event.target.value as "" | "GOOGLE" | "OUTLOOK")}
+            disabled={calendarBusy}
+          >
+            <option value="">Any active provider</option>
+            <option value="GOOGLE">Google</option>
+            <option value="OUTLOOK">Outlook</option>
+          </select>
           <Button
             variant="outline"
             disabled={calendarBusy}
@@ -536,7 +547,9 @@ export default function AppSettingsPage() {
               void (async () => {
                 setCalendarBusy(true);
                 try {
-                  const result = await runCalendarSyncTest({});
+                  const result = await runCalendarSyncTest(
+                    calendarSyncProvider ? { provider: calendarSyncProvider } : {}
+                  );
                   showToast({ title: "Calendar sync test", description: result.message });
                 } catch (error) {
                   showToast({ title: "Sync test failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
@@ -555,7 +568,7 @@ export default function AppSettingsPage() {
               <div>
                 <p className="font-medium">{provider.provider} - {provider.accountEmail}</p>
                 <p className="text-xs text-muted-foreground">
-                  {provider.isActive ? "Active" : "Inactive"} • Expires {new Date(provider.expiresAt).toLocaleString()}
+                  {provider.isActive ? "Active" : "Inactive"} - Expires {new Date(provider.expiresAt).toLocaleString()}
                 </p>
               </div>
               <Button
