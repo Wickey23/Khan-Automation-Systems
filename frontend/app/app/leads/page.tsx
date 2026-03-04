@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { fetchOrgLeads, getBillingStatus, updateLeadPipelineStage } from "@/lib/api";
+import { fetchOrgLeads, getBillingStatus, getMe, updateLeadPipelineStage } from "@/lib/api";
 import { InfoHint } from "@/components/ui/info-hint";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { Lead } from "@/lib/types";
@@ -12,22 +12,29 @@ export default function AppLeadsPage() {
   const { showToast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [plan, setPlan] = useState<"NONE" | "STARTER" | "PRO">("NONE");
+  const [role, setRole] = useState<"CLIENT" | "CLIENT_STAFF" | "CLIENT_ADMIN" | "ADMIN" | "SUPER_ADMIN" | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Lead["status"] | "ALL">("ALL");
+  const [pipelineAvailable, setPipelineAvailable] = useState(true);
+  const [savingPipelineLeadId, setSavingPipelineLeadId] = useState<string | null>(null);
 
   useEffect(() => {
-    void Promise.all([fetchOrgLeads(), getBillingStatus()])
-      .then(([leadData, billing]) => {
+    void Promise.all([fetchOrgLeads(), getBillingStatus(), getMe()])
+      .then(([leadData, billing, me]) => {
         setLeads(leadData.leads || []);
+        setPipelineAvailable(leadData.pipelineFeatureEnabled !== false);
         const features = resolvePlanFeatures({
           plan: billing.subscription?.plan,
           status: billing.subscription?.status
         });
         setPlan(features.plan);
+        setRole(me.user.role);
       })
       .catch(() => {
         setLeads([]);
         setPlan("NONE");
+        setRole(null);
+        setPipelineAvailable(false);
       });
   }, []);
 
@@ -63,19 +70,28 @@ export default function AppLeadsPage() {
   const planStatusCopy = plan === "PRO"
     ? "Pro active: use Leads for pipeline, and Customer Base for advanced caller memory."
     : "Standard active: this is your main lead pipeline workspace.";
+  const canEditPipeline = role === "CLIENT_STAFF" || role === "CLIENT_ADMIN" || role === "ADMIN" || role === "SUPER_ADMIN";
 
   async function onPipelineChange(leadId: string, pipelineStage: "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED") {
+    if (!canEditPipeline || !pipelineAvailable) return;
+    setSavingPipelineLeadId(leadId);
     try {
       await updateLeadPipelineStage(leadId, pipelineStage);
       setLeads((current) =>
         current.map((lead) => (lead.id === leadId ? { ...lead, pipelineStage } : lead))
       );
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Try again.";
+      if (message.toLowerCase().includes("pipeline feature is disabled")) {
+        setPipelineAvailable(false);
+      }
       showToast({
         title: "Could not update pipeline stage",
-        description: error instanceof Error ? error.message : "Try again.",
+        description: message,
         variant: "error"
       });
+    } finally {
+      setSavingPipelineLeadId(null);
     }
   }
 
@@ -108,6 +124,16 @@ export default function AppLeadsPage() {
 
       <div className="rounded-lg border bg-white p-4">
         <p className="text-sm text-muted-foreground">{planStatusCopy}</p>
+        {!pipelineAvailable ? (
+          <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Pipeline stage controls are currently disabled for this workspace.
+          </p>
+        ) : null}
+        {!canEditPipeline ? (
+          <p className="mt-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            Your role has read-only access to lead pipeline stages.
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {plan === "PRO" ? (
             <Link href="/app/customer-base" className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
@@ -189,6 +215,7 @@ export default function AppLeadsPage() {
                       )
                     }
                     className="h-8 rounded-md border bg-background px-2 text-xs"
+                    disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
                   >
                     <option value="NEW_LEAD">NEW_LEAD</option>
                     <option value="QUOTED">QUOTED</option>

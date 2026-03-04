@@ -566,7 +566,13 @@ orgRouter.get("/leads", async (req: AuthenticatedRequest, res) => {
     where: { orgId: req.auth.orgId },
     orderBy: { createdAt: "desc" }
   });
-  return res.json({ ok: true, data: { leads } });
+  return res.json({
+    ok: true,
+    data: {
+      leads,
+      pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, req.auth.orgId)
+    }
+  });
 });
 
 orgRouter.patch("/leads/:id/pipeline", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {

@@ -497,7 +497,7 @@ export async function submitOrgOnboarding(answers?: Record<string, unknown>) {
 }
 
 export async function fetchOrgLeads() {
-  return request<{ leads: Lead[] }>("/api/org/leads");
+  return request<{ leads: Lead[]; pipelineFeatureEnabled?: boolean }>("/api/org/leads");
 }
 
 export async function fetchOrgCalls() {
