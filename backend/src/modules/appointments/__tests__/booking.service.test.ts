@@ -250,3 +250,34 @@ test("booking rejects when slot exceeds business-hours close constraint", async 
   assert.equal(mock.holds.length, 0);
   assert.equal(mock.appointments.length, 0);
 });
+
+test("booking accepts boundary slot that ends exactly at business close", async () => {
+  const mock = createPrismaMock();
+  const result = await bookAppointmentWithHold({
+    prisma: mock.prisma,
+    orgId: "org_1",
+    userId: "user_1",
+    customerName: "Boundary Slot",
+    customerPhone: "+15165556666",
+    issueSummary: "Boundary test",
+    startAt: new Date("2026-03-02T21:00:00.000Z"), // 16:00 America/New_York
+    endAt: new Date("2026-03-02T22:00:00.000Z"), // 17:00 America/New_York
+    timezone: "America/New_York",
+    requestedProvider: "INTERNAL",
+    businessHoursValidation: {
+      timezone: "America/New_York",
+      hoursJson: JSON.stringify({
+        timezone: "America/New_York",
+        schedule: {
+          mon: [{ start: "08:00", end: "17:00" }]
+        }
+      })
+    }
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.appointment.status, "PENDING");
+  assert.equal(mock.holds.length, 1);
+  assert.equal(mock.appointments.length, 1);
+});
