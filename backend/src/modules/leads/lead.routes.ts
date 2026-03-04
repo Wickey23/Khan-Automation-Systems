@@ -7,12 +7,9 @@ import { ClientStatus, OrganizationStatus, TeamMembershipRole, TeamMembershipSta
 import { env } from "../../config/env";
 import { randomUUID } from "crypto";
 import { emitOrgNotification } from "../notifications/notification.service";
+import { isFeatureEnabledForOrg } from "../org/feature-gates";
 
 export const leadRouter = Router();
-
-function featureEnabled(value: string | undefined) {
-  return String(value || "").toLowerCase() === "true";
-}
 
 async function createLeadResilient(data: {
   name: string;
@@ -189,7 +186,7 @@ leadRouter.post("/", async (req: Request, res: Response) => {
       userAgent
     });
 
-    if (resolvedOrgId && featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+    if (resolvedOrgId && isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, resolvedOrgId)) {
       await emitOrgNotification({
         prisma,
         orgId: resolvedOrgId,

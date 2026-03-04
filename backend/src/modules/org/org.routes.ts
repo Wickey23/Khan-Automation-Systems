@@ -23,6 +23,7 @@ import {
 } from "../appointments/calendar-oauth.service";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
+import { isFeatureEnabledForOrg } from "./feature-gates";
 import {
   saveOnboardingSchema,
   sendOrgMessageSchema,
@@ -122,10 +123,6 @@ function parseOptionalDate(input: unknown) {
   const date = new Date(text);
   if (Number.isNaN(date.getTime())) return null;
   return date;
-}
-
-function featureEnabled(value: string | undefined) {
-  return String(value || "").toLowerCase() === "true";
 }
 
 function overlapsLocked(existingStart: Date, existingEnd: Date, newStart: Date, newEnd: Date) {
@@ -576,7 +573,7 @@ orgRouter.get("/leads", async (req: AuthenticatedRequest, res) => {
 
 orgRouter.patch("/leads/:id/pipeline", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  if (!featureEnabled(env.FEATURE_PIPELINE_STAGE_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Lead pipeline feature is disabled." });
   }
   const parsed = updateLeadPipelineSchema.safeParse(req.body || {});
@@ -629,7 +626,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     ...call,
     summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
   }));
-  if (featureEnabled(env.FEATURE_CLASSIFICATION_V1_ENABLED)) {
+  if (isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, req.auth?.orgId)) {
     const topForClassification = enrichedCalls.slice(0, 50);
     await Promise.all(
       topForClassification.map((call) =>
@@ -915,7 +912,7 @@ orgRouter.get("/messaging-readiness", async (req: AuthenticatedRequest, res) => 
 });
 
 orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -968,7 +965,7 @@ orgRouter.post("/appointments/availability", async (req: AuthenticatedRequest, r
 });
 
 orgRouter.get("/appointments", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -993,7 +990,7 @@ orgRouter.get("/appointments", async (req: AuthenticatedRequest, res) => {
 });
 
 orgRouter.post("/appointments", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1049,7 +1046,7 @@ orgRouter.post("/appointments", requireOrgWriteAccess, async (req: Authenticated
   let externalCalendarEventId: string | null = parsed.data.externalCalendarEventId || null;
   let status: "PENDING" | "CONFIRMED" = "PENDING";
   try {
-    if (calendarProvider !== "INTERNAL" && featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+    if (calendarProvider !== "INTERNAL" && isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
       const connection = await prisma.calendarConnection.findFirst({
         where: { orgId: req.auth.orgId, provider: calendarProvider, isActive: true },
         orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
@@ -1103,7 +1100,7 @@ orgRouter.post("/appointments", requireOrgWriteAccess, async (req: Authenticated
     data: { status: status === "CONFIRMED" ? "CONFIRMED" : "FAILED" }
   });
 
-  if (parsed.data.leadId && featureEnabled(env.FEATURE_PIPELINE_STAGE_ENABLED)) {
+  if (parsed.data.leadId && isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, req.auth?.orgId)) {
     await prisma.lead.updateMany({
       where: { id: parsed.data.leadId, orgId: req.auth.orgId },
       data: { pipelineStage: status === "CONFIRMED" ? "SCHEDULED" : "NEEDS_SCHEDULING" }
@@ -1127,7 +1124,7 @@ orgRouter.post("/appointments", requireOrgWriteAccess, async (req: Authenticated
 });
 
 orgRouter.patch("/appointments/:id", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1152,7 +1149,7 @@ orgRouter.patch("/appointments/:id", requireOrgWriteAccess, async (req: Authenti
 });
 
 orgRouter.post("/appointments/:id/cancel", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1168,7 +1165,7 @@ orgRouter.post("/appointments/:id/cancel", requireOrgWriteAccess, async (req: Au
 });
 
 orgRouter.post("/appointments/:id/complete", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_APPOINTMENTS_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1184,7 +1181,7 @@ orgRouter.post("/appointments/:id/complete", requireOrgWriteAccess, async (req: 
 });
 
 orgRouter.get("/calendar/providers", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1196,7 +1193,7 @@ orgRouter.get("/calendar/providers", async (req: AuthenticatedRequest, res) => {
 });
 
 orgRouter.post("/calendar/google/connect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1213,7 +1210,7 @@ orgRouter.post("/calendar/google/connect", requireOrgAdminAccess, async (req: Au
 });
 
 orgRouter.get("/calendar/google/callback", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1246,7 +1243,7 @@ orgRouter.get("/calendar/google/callback", async (req: AuthenticatedRequest, res
 });
 
 orgRouter.post("/calendar/outlook/connect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1263,7 +1260,7 @@ orgRouter.post("/calendar/outlook/connect", requireOrgAdminAccess, async (req: A
 });
 
 orgRouter.get("/calendar/outlook/callback", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId || !req.auth.userId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1296,7 +1293,7 @@ orgRouter.get("/calendar/outlook/callback", async (req: AuthenticatedRequest, re
 });
 
 orgRouter.post("/calendar/disconnect", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1314,7 +1311,7 @@ orgRouter.post("/calendar/disconnect", requireOrgAdminAccess, async (req: Authen
 });
 
 orgRouter.post("/calendar/sync-test", requireOrgAdminAccess, async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_CALENDAR_OAUTH_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1375,7 +1372,7 @@ orgRouter.post("/calendar/sync-test", requireOrgAdminAccess, async (req: Authent
 });
 
 orgRouter.get("/notifications", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1388,7 +1385,7 @@ orgRouter.get("/notifications", async (req: AuthenticatedRequest, res) => {
 });
 
 orgRouter.post("/notifications/:id/read", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -1404,7 +1401,7 @@ orgRouter.post("/notifications/:id/read", async (req: AuthenticatedRequest, res)
 });
 
 orgRouter.post("/notifications/read-all", async (req: AuthenticatedRequest, res) => {
-  if (!featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED)) {
+  if (!isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Notifications feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });

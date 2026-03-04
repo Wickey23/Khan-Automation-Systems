@@ -91,7 +91,8 @@ const envSchema = z.object({
   FEATURE_CALENDAR_OAUTH_ENABLED: z.string().default("false"),
   FEATURE_NOTIFICATIONS_V1_ENABLED: z.string().default("false"),
   FEATURE_CLASSIFICATION_V1_ENABLED: z.string().default("false"),
-  FEATURE_PIPELINE_STAGE_ENABLED: z.string().default("false")
+  FEATURE_PIPELINE_STAGE_ENABLED: z.string().default("false"),
+  FEATURE_PHASE1_ORG_ALLOWLIST: z.string().default("")
 });
 
 const parsed = envSchema.safeParse(process.env);

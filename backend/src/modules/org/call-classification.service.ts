@@ -1,5 +1,6 @@
 import { ClassificationMethod, LeadClassification, type PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
+import { isFeatureEnabledForOrg } from "./feature-gates";
 
 type RuleResult = {
   classification: LeadClassification;
@@ -188,7 +189,7 @@ export async function classifyCallAndMaybeUpdateLead(input: {
   leadId?: string | null;
   now?: Date;
 }) {
-  if (String(env.FEATURE_CLASSIFICATION_V1_ENABLED || "").toLowerCase() !== "true") {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, input.orgId)) {
     return { skipped: true as const, reason: "feature_disabled" };
   }
   const now = input.now || new Date();

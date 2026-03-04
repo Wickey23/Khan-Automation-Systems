@@ -11,6 +11,7 @@ import { transitionCallState } from "../call-state.service";
 import { updateCallerProfileOutcome } from "../caller-profile.service";
 import { classifyCallAndMaybeUpdateLead } from "../../org/call-classification.service";
 import { emitOrgNotification } from "../../notifications/notification.service";
+import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 
 export const vapiRouter = Router();
 const vapiEnvelopeSchema = z.object({
@@ -41,10 +42,6 @@ function normalizeToE164(input: string) {
   if (normalized.length === 10) return `+1${normalized}`;
   if (normalized.length === 11 && normalized.startsWith("1")) return `+${normalized}`;
   return `+${normalized}`;
-}
-
-function featureEnabled(value: string | undefined) {
-  return String(value || "").toLowerCase() === "true";
 }
 
 function toBoolean(value: unknown) {
@@ -548,7 +545,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       if (env.AUTO_RECOVERY_ENABLED === "true") {
         await evaluateAndSendAutoRecovery({ prisma, callLogId: persistedCall.id });
       }
-      if (featureEnabled(env.FEATURE_NOTIFICATIONS_V1_ENABLED) && classification && !classification.skipped) {
+      if (isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, resolvedOrgId) && classification && !classification.skipped) {
         if (classification.classification === "EMERGENCY") {
           await emitOrgNotification({
             prisma,
