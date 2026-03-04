@@ -126,30 +126,48 @@ async function upsertSubscriptionAndOrg(input: {
     billingActive
   });
 
-  await prisma.subscription.upsert({
+  const sharedUpdate = {
+    orgId: input.orgId,
+    stripeCustomerId: input.stripeCustomerId,
+    stripeSubscriptionId: input.stripeSubscriptionId,
+    status: normalizedStatus,
+    plan: input.plan,
+    currentPeriodEnd: input.currentPeriodEnd ?? null,
+    pendingPlan: input.pendingPlan,
+    pendingPlanEffectiveAt: input.pendingPlanEffectiveAt,
+    pendingPlanSource: input.pendingPlanSource
+  };
+
+  const existingBySubscription = await prisma.subscription.findUnique({
     where: { stripeSubscriptionId: input.stripeSubscriptionId },
-    update: {
-      orgId: input.orgId,
-      stripeCustomerId: input.stripeCustomerId,
-      status: normalizedStatus,
-      plan: input.plan,
-      currentPeriodEnd: input.currentPeriodEnd ?? null,
-      pendingPlan: input.pendingPlan,
-      pendingPlanEffectiveAt: input.pendingPlanEffectiveAt,
-      pendingPlanSource: input.pendingPlanSource
-    },
-    create: {
-      orgId: input.orgId,
-      stripeCustomerId: input.stripeCustomerId,
-      stripeSubscriptionId: input.stripeSubscriptionId,
-      status: normalizedStatus,
-      plan: input.plan,
-      currentPeriodEnd: input.currentPeriodEnd ?? null,
-      pendingPlan: input.pendingPlan,
-      pendingPlanEffectiveAt: input.pendingPlanEffectiveAt,
-      pendingPlanSource: input.pendingPlanSource
-    }
+    select: { id: true }
   });
+
+  if (existingBySubscription) {
+    await prisma.subscription.update({
+      where: { id: existingBySubscription.id },
+      data: sharedUpdate
+    });
+  } else {
+    const existingByCustomerOrOrg = await prisma.subscription.findFirst({
+      where: {
+        OR: [{ stripeCustomerId: input.stripeCustomerId }, { orgId: input.orgId }]
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true }
+    });
+
+    if (existingByCustomerOrOrg) {
+      await prisma.subscription.update({
+        where: { id: existingByCustomerOrOrg.id },
+        data: sharedUpdate
+      });
+    } else {
+      await prisma.subscription.create({
+        data: sharedUpdate
+      });
+    }
+  }
 
   await prisma.organization.update({
     where: { id: input.orgId },
