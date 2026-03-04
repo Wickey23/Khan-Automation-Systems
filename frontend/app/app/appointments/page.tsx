@@ -67,8 +67,14 @@ export default function AppAppointmentsPage() {
     void load();
     void getMe()
       .then((me) => {
-        setCanWrite(me.user.role !== "CLIENT");
-        if (me.user.role !== "CLIENT") {
+        const role = me.user.role;
+        const writable =
+          role === "CLIENT_STAFF" ||
+          role === "CLIENT_ADMIN" ||
+          role === "ADMIN" ||
+          role === "SUPER_ADMIN";
+        setCanWrite(writable);
+        if (writable) {
           void fetchCalendarProviders()
             .then((data) => setCalendarProviders(data.providers || []))
             .catch(() => setCalendarProviders([]));
