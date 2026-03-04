@@ -72,13 +72,23 @@ export async function computeReadinessReport(input: {
   org: Organization;
   env: { VAPI_TOOL_SECRET?: string };
 }): Promise<ReadinessReport> {
+  let safeSettings:
+    | Awaited<ReturnType<PrismaClient["businessSettings"]["findUnique"]>>
+    | null = null;
+  try {
+    safeSettings = await input.prisma.businessSettings.findUnique({ where: { orgId: input.org.id } });
+  } catch {
+    // Graceful degradation for transient schema drift during rollout.
+    safeSettings = null;
+  }
+
   const [subscription, onboarding, settings, phone, ai, checklistRow] = await Promise.all([
     input.prisma.subscription.findFirst({
       where: { orgId: input.org.id },
       orderBy: { createdAt: "desc" }
     }),
     input.prisma.onboardingSubmission.findUnique({ where: { orgId: input.org.id } }),
-    input.prisma.businessSettings.findUnique({ where: { orgId: input.org.id } }),
+    Promise.resolve(safeSettings),
     input.prisma.phoneNumber.findFirst({
       where: { orgId: input.org.id, status: "ACTIVE" }
     }),

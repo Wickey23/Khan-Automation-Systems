@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import {
   cancelOrgAppointment,
   completeOrgAppointment,
-  fetchOrgAppointments
+  fetchOrgAppointments,
+  getMe,
+  patchOrgAppointment
 } from "@/lib/api";
 import type { Appointment } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
@@ -14,14 +16,19 @@ export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [status, setStatus] = useState<Appointment["status"] | "ALL">("ALL");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [canWrite, setCanWrite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  async function load(nextStatus: Appointment["status"] | "ALL" = status) {
+  async function load(nextStatus: Appointment["status"] | "ALL" = status, nextFrom = fromDate, nextTo = toDate) {
     setLoading(true);
     try {
       const data = await fetchOrgAppointments({
-        ...(nextStatus === "ALL" ? {} : { status: nextStatus })
+        ...(nextStatus === "ALL" ? {} : { status: nextStatus }),
+        ...(nextFrom ? { from: new Date(`${nextFrom}T00:00:00`).toISOString() } : {}),
+        ...(nextTo ? { to: new Date(`${nextTo}T23:59:59`).toISOString() } : {})
       });
       setAppointments(data.appointments || []);
     } catch (error) {
@@ -38,7 +45,31 @@ export default function AppAppointmentsPage() {
 
   useEffect(() => {
     void load();
+    void getMe()
+      .then((me) => {
+        setCanWrite(me.user.role !== "CLIENT");
+      })
+      .catch(() => {
+        setCanWrite(false);
+      });
   }, []);
+
+  async function onConfirm(id: string) {
+    setSavingId(id);
+    try {
+      await patchOrgAppointment(id, { status: "CONFIRMED" });
+      showToast({ title: "Appointment confirmed" });
+      await load();
+    } catch (error) {
+      showToast({
+        title: "Could not confirm appointment",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   async function onCancel(id: string) {
     setSavingId(id);
@@ -81,25 +112,53 @@ export default function AppAppointmentsPage() {
           <h1 className="text-3xl font-bold">Appointments</h1>
           <p className="text-sm text-muted-foreground">Track pending, confirmed, and completed bookings.</p>
         </div>
-        <label className="text-sm">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
-          <select
-            value={status}
-            onChange={(event) => {
-              const next = event.target.value as Appointment["status"] | "ALL";
-              setStatus(next);
-              void load(next);
-            }}
-            className="mt-1 h-10 rounded-md border bg-background px-3"
-          >
-            <option value="ALL">All statuses</option>
-            <option value="PENDING">PENDING</option>
-            <option value="CONFIRMED">CONFIRMED</option>
-            <option value="COMPLETED">COMPLETED</option>
-            <option value="CANCELED">CANCELED</option>
-            <option value="NO_SHOW">NO_SHOW</option>
-          </select>
-        </label>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <label className="text-sm">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
+            <select
+              value={status}
+              onChange={(event) => {
+                const next = event.target.value as Appointment["status"] | "ALL";
+                setStatus(next);
+                void load(next);
+              }}
+              className="mt-1 h-10 rounded-md border bg-background px-3"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="PENDING">PENDING</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+              <option value="COMPLETED">COMPLETED</option>
+              <option value="CANCELED">CANCELED</option>
+              <option value="NO_SHOW">NO_SHOW</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => {
+                const next = event.target.value;
+                setFromDate(next);
+                void load(status, next, toDate);
+              }}
+              className="mt-1 h-10 rounded-md border bg-background px-3"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => {
+                const next = event.target.value;
+                setToDate(next);
+                void load(status, fromDate, next);
+              }}
+              className="mt-1 h-10 rounded-md border bg-background px-3"
+            />
+          </label>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border bg-white">
@@ -137,28 +196,42 @@ export default function AppAppointmentsPage() {
                   <td className="p-3">{appointment.status}</td>
                   <td className="p-3">{appointment.calendarProvider}</td>
                   <td className="p-3">
-                    <div className="flex gap-2">
-                      {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={savingId === appointment.id}
-                          onClick={() => void onComplete(appointment.id)}
-                        >
-                          Complete
-                        </Button>
-                      ) : null}
-                      {appointment.status !== "CANCELED" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={savingId === appointment.id}
-                          onClick={() => void onCancel(appointment.id)}
-                        >
-                          Cancel
-                        </Button>
-                      ) : null}
-                    </div>
+                    {canWrite ? (
+                      <div className="flex gap-2">
+                        {appointment.status === "PENDING" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={savingId === appointment.id}
+                            onClick={() => void onConfirm(appointment.id)}
+                          >
+                            Confirm
+                          </Button>
+                        ) : null}
+                        {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={savingId === appointment.id}
+                            onClick={() => void onComplete(appointment.id)}
+                          >
+                            Complete
+                          </Button>
+                        ) : null}
+                        {appointment.status !== "CANCELED" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={savingId === appointment.id}
+                            onClick={() => void onCancel(appointment.id)}
+                          >
+                            Cancel
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Read-only</span>
+                    )}
                   </td>
                 </tr>
               ))
