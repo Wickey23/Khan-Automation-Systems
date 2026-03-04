@@ -71,7 +71,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setCurrentPlan((billing.subscription?.plan as PlanTier) || null);
         setCurrentRole(me.user.role);
         setFeatures({
-          appointmentsEnabled: orgProfile.features?.appointmentsEnabled !== false
+          appointmentsEnabled: orgProfile.features?.appointmentsEnabled === true
         });
         const demo = billing.demo;
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
