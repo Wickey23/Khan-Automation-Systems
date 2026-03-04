@@ -1068,6 +1068,12 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
   const orgId = req.auth.orgId;
   const userId = req.auth.userId;
   const requestedProvider = parsed.data.calendarProvider || "INTERNAL";
+  if (requestedProvider !== "INTERNAL" && !canManageCalendar(req.auth?.role)) {
+    return res.status(403).json({
+      ok: false,
+      message: "Only admins can create external calendar events."
+    });
+  }
   const externalProvider = requestedProvider === "GOOGLE" || requestedProvider === "OUTLOOK" ? requestedProvider : null;
 
   const booking = await bookAppointmentWithHold({
