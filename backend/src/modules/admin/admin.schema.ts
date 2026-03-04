@@ -133,6 +133,11 @@ export const usersFilterSchema = z.object({
   limit: z.string().optional()
 });
 
+export const updateAdminUserSchema = z.object({
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "CLIENT_ADMIN", "CLIENT_STAFF", "CLIENT"]).optional(),
+  email: z.string().email().optional()
+});
+
 export const relinkCallSchema = z.object({
   callId: z.string().min(1),
   leadId: z.string().min(1)

@@ -34,6 +34,7 @@ import type {
   AdminScaleGate,
   AdminSystemDashboard,
   AdminSystemReadiness,
+  AdminRevenueSummary,
   AuthSecurityStatus,
   PhoneLine,
   Setting,
@@ -276,6 +277,17 @@ export async function fetchAdminMessages(query = "") {
 
 export async function fetchAdminUsers(query = "") {
   return request<{ users: AdminUserRecord[] }>(`/api/admin/users${query}`);
+}
+
+export async function updateAdminUser(id: string, payload: { role?: AdminUserRecord["role"]; email?: string }) {
+  return request<{ user: AdminUserRecord }>(`/api/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchAdminRevenue() {
+  return request<AdminRevenueSummary>("/api/admin/revenue");
 }
 
 export async function deleteAdminCall(id: string, password: string) {

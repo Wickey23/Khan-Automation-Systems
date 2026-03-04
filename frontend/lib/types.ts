@@ -340,6 +340,19 @@ export type AdminUserRecord = {
   };
 };
 
+export type AdminRevenueSummary = {
+  estimatedMrrUsd: number;
+  activeSubscriptions: number;
+  subscriptionsByPlan: {
+    founding: number;
+    starter: number;
+    pro: number;
+  };
+  stripePaidLast30d: number | null;
+  stripePaidCurrency: string | null;
+  stripeError: string | null;
+};
+
 export type BusinessSettings = {
   id: string;
   orgId: string;

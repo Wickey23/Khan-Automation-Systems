@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
-import { fetchAdminUsers } from "@/lib/api";
+import { fetchAdminUsers, getMe, updateAdminUser } from "@/lib/api";
 import type { AdminUserRecord } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/site/toast-provider";
 
 const roleOptions = ["ALL", "SUPER_ADMIN", "ADMIN", "CLIENT_ADMIN", "CLIENT_STAFF", "CLIENT"] as const;
 
@@ -16,9 +17,14 @@ function formatDate(value: string | null | undefined) {
 }
 
 export default function AdminUsersPage() {
+  const { showToast } = useToast();
   const [users, setUsers] = useState<AdminUserRecord[]>([]);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<(typeof roleOptions)[number]>("ALL");
+  const [actorRole, setActorRole] = useState<string>("");
+  const [draftRoleByUserId, setDraftRoleByUserId] = useState<Record<string, AdminUserRecord["role"]>>({});
+  const [draftEmailByUserId, setDraftEmailByUserId] = useState<Record<string, string>>({});
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -29,11 +35,20 @@ export default function AdminUsersPage() {
   }, [search, role]);
 
   useEffect(() => {
+    void getMe()
+      .then((data) => setActorRole(data.user.role))
+      .catch(() => setActorRole(""));
+  }, []);
+
+  useEffect(() => {
     let active = true;
     void fetchAdminUsers(query)
       .then((data) => {
         if (!active) return;
-        setUsers(data.users || []);
+        const rows = data.users || [];
+        setUsers(rows);
+        setDraftRoleByUserId(Object.fromEntries(rows.map((user) => [user.id, user.role])) as Record<string, AdminUserRecord["role"]>);
+        setDraftEmailByUserId(Object.fromEntries(rows.map((user) => [user.id, user.email])));
       })
       .catch(() => {
         if (!active) return;
@@ -44,6 +59,41 @@ export default function AdminUsersPage() {
     };
   }, [query]);
 
+  const canEditUsers = actorRole === "SUPER_ADMIN";
+
+  async function saveUser(user: AdminUserRecord) {
+    if (!canEditUsers) return;
+    const nextRole = draftRoleByUserId[user.id] || user.role;
+    const nextEmail = String(draftEmailByUserId[user.id] || user.email).trim().toLowerCase();
+    if (nextRole === user.role && nextEmail === user.email.toLowerCase()) return;
+
+    setSavingUserId(user.id);
+    try {
+      const result = await updateAdminUser(user.id, {
+        role: nextRole,
+        email: nextEmail !== user.email.toLowerCase() ? nextEmail : undefined
+      });
+      setUsers((current) => current.map((row) => (row.id === user.id ? { ...row, ...result.user } : row)));
+      showToast({ title: "User updated", description: `${result.user.email} updated successfully.` });
+    } catch (error) {
+      showToast({
+        title: "Could not update user",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  async function reloadUsers() {
+    const data = await fetchAdminUsers(query);
+    const rows = data.users || [];
+    setUsers(rows);
+    setDraftRoleByUserId(Object.fromEntries(rows.map((user) => [user.id, user.role])) as Record<string, AdminUserRecord["role"]>);
+    setDraftEmailByUserId(Object.fromEntries(rows.map((user) => [user.id, user.email])));
+  }
+
   return (
     <AdminGuard>
       <div className="container py-10">
@@ -51,6 +101,9 @@ export default function AdminUsersPage() {
         <h1 className="text-3xl font-bold">Users</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           All user accounts with login activity, role, tenant linkage, and recent auth outcomes.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {canEditUsers ? "Super admin edit mode enabled." : "Read-only mode. Super admin role required for edits."}
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -69,17 +122,18 @@ export default function AdminUsersPage() {
           <div className="text-sm text-muted-foreground lg:col-span-1 lg:flex lg:items-center">
             Total users: <span className="ml-1 font-semibold text-foreground">{users.length}</span>
           </div>
-          <Button variant="outline" onClick={() => void fetchAdminUsers(query).then((data) => setUsers(data.users || []))}>
+          <Button variant="outline" onClick={() => void reloadUsers()}>
             Refresh
           </Button>
         </div>
 
         <div className="mt-4 overflow-x-auto rounded-lg border bg-white">
-          <table className="w-full min-w-[1300px] text-left text-sm">
+          <table className="w-full min-w-[1450px] text-left text-sm">
             <thead className="bg-muted/40">
               <tr>
                 <th className="p-3">User</th>
                 <th className="p-3">Role</th>
+                <th className="p-3">Edit</th>
                 <th className="p-3">Organization</th>
                 <th className="p-3">Client</th>
                 <th className="p-3">Created</th>
@@ -93,10 +147,55 @@ export default function AdminUsersPage() {
               {users.map((user) => (
                 <tr key={user.id} className="border-t align-top">
                   <td className="p-3">
-                    <p className="font-medium">{user.email}</p>
+                    {canEditUsers ? (
+                      <Input
+                        className="h-8"
+                        value={draftEmailByUserId[user.id] || user.email}
+                        onChange={(event) =>
+                          setDraftEmailByUserId((current) => ({
+                            ...current,
+                            [user.id]: event.target.value
+                          }))
+                        }
+                      />
+                    ) : (
+                      <p className="font-medium">{user.email}</p>
+                    )}
                     <p className="font-mono text-xs text-muted-foreground">{user.id}</p>
                   </td>
-                  <td className="p-3">{user.role}</td>
+                  <td className="p-3">
+                    {canEditUsers ? (
+                      <select
+                        className="h-8 rounded-md border bg-background px-2 text-xs"
+                        value={draftRoleByUserId[user.id] || user.role}
+                        onChange={(event) =>
+                          setDraftRoleByUserId((current) => ({
+                            ...current,
+                            [user.id]: event.target.value as AdminUserRecord["role"]
+                          }))
+                        }
+                      >
+                        {roleOptions
+                          .filter((option) => option !== "ALL")
+                          .map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      user.role
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {canEditUsers ? (
+                      <Button size="sm" variant="outline" disabled={savingUserId === user.id} onClick={() => void saveUser(user)}>
+                        {savingUserId === user.id ? "Saving..." : "Save"}
+                      </Button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="p-3">
                     <p>{user.organization?.name || "-"}</p>
                     <p className="text-xs text-muted-foreground">
@@ -128,7 +227,7 @@ export default function AdminUsersPage() {
               ))}
               {!users.length ? (
                 <tr>
-                  <td colSpan={9} className="p-3 text-muted-foreground">
+                  <td colSpan={10} className="p-3 text-muted-foreground">
                     No users found.
                   </td>
                 </tr>

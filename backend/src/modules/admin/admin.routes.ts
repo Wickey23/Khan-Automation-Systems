@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NumberProvider, OrganizationStatus, Prisma, UserRole } from "@prisma/client";
 import { Router, type Response } from "express";
+import Stripe from "stripe";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
@@ -23,6 +24,7 @@ import {
   prospectFilterSchema,
   provisioningStepUpdateSchema,
   resetUserPasswordSchema,
+  updateAdminUserSchema,
   updateProspectSchema,
   updateAiConfigSchema,
   updateClientStatusSchema,
@@ -41,6 +43,18 @@ import { computeOperatorDashboard, computeScaleGate, computeSystemReadiness } fr
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
+
+const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+  apiVersion: "2024-06-20"
+});
+
+function requireSuperAdmin(req: AuthenticatedRequest, res: Response) {
+  if (req.auth?.role !== UserRole.SUPER_ADMIN) {
+    res.status(403).json({ ok: false, message: "Super admin access required." });
+    return false;
+  }
+  return true;
+}
 
 function verifyDeletePassword(req: AuthenticatedRequest, res: Response) {
   const parsed = deleteItemSchema.safeParse(req.body);
@@ -991,6 +1005,123 @@ adminRouter.get("/users", async (req, res) => {
   });
 
   return res.json({ ok: true, data: { users: rows } });
+});
+
+adminRouter.patch("/users/:id", async (req: AuthenticatedRequest, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+  const parsed = updateAdminUserSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid user update payload." });
+
+  const userId = req.params.id;
+  if (!userId) return res.status(400).json({ ok: false, message: "User id is required." });
+  if (userId === req.auth?.userId && parsed.data.role) {
+    return res.status(400).json({ ok: false, message: "You cannot change your own role." });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existing) return res.status(404).json({ ok: false, message: "User not found." });
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        role: parsed.data.role ?? undefined,
+        email: parsed.data.email ? parsed.data.email.toLowerCase() : undefined
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        orgId: true,
+        clientId: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    await writeAuditLog({
+      prisma,
+      orgId: updated.orgId || undefined,
+      actorUserId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      action: "ADMIN_USER_UPDATED",
+      metadata: {
+        targetUserId: updated.id,
+        changedRole: parsed.data.role || null,
+        changedEmail: parsed.data.email ? true : false
+      }
+    });
+
+    return res.json({ ok: true, data: { user: updated } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return res.status(409).json({ ok: false, message: "Email already in use." });
+    }
+    return res.status(500).json({ ok: false, message: "Failed to update user." });
+  }
+});
+
+adminRouter.get("/revenue", async (_req: AuthenticatedRequest, res) => {
+  const subscriptions = await prisma.subscription.findMany({
+    select: { id: true, orgId: true, plan: true, status: true, createdAt: true }
+  });
+
+  const latestByOrg = new Map<string, { plan: string; status: string }>();
+  for (const row of subscriptions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())) {
+    const key = row.orgId || `row:${row.id}`;
+    if (latestByOrg.has(key)) continue;
+    latestByOrg.set(key, { plan: row.plan, status: String(row.status || "").toLowerCase() });
+  }
+
+  const active = Array.from(latestByOrg.values()).filter((s) => ["active", "trialing"].includes(s.status));
+  const byPlan = {
+    founding: 0,
+    starter: 0,
+    pro: 0
+  };
+  for (const row of active) {
+    if (row.plan === "PRO") byPlan.pro += 1;
+    else byPlan.starter += 1;
+  }
+
+  const recurringPrice = {
+    founding: 249,
+    starter: 349,
+    pro: 599
+  };
+  const estimatedMrr =
+    byPlan.founding * recurringPrice.founding + byPlan.starter * recurringPrice.starter + byPlan.pro * recurringPrice.pro;
+
+  let stripePaid30dUsd: number | null = null;
+  let stripePaidCurrency: string | null = null;
+  let stripeError: string | null = null;
+  try {
+    if (env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET_KEY.includes("placeholder")) {
+      const since = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+      const invoices = await stripe.invoices.list({
+        status: "paid",
+        created: { gte: since },
+        limit: 100
+      });
+      const paid = invoices.data.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0);
+      stripePaid30dUsd = Math.round((paid / 100) * 100) / 100;
+      stripePaidCurrency = invoices.data[0]?.currency?.toUpperCase() || "USD";
+    }
+  } catch (error) {
+    stripeError = error instanceof Error ? error.message : "stripe_unavailable";
+  }
+
+  return res.json({
+    ok: true,
+    data: {
+      estimatedMrrUsd: estimatedMrr,
+      activeSubscriptions: active.length,
+      subscriptionsByPlan: byPlan,
+      stripePaidLast30d: stripePaid30dUsd,
+      stripePaidCurrency,
+      stripeError
+    }
+  });
 });
 
 adminRouter.get("/system/dashboard", requirePermission("ADMIN_SYSTEM_VIEW"), async (_req: AuthenticatedRequest, res) => {
