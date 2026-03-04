@@ -1507,6 +1507,21 @@ orgRouter.get("/analytics", async (req: AuthenticatedRequest, res) => {
     start: typeof req.query.start === "string" ? req.query.start : undefined,
     end: typeof req.query.end === "string" ? req.query.end : undefined
   });
+
+  if (req.auth.role === UserRole.CLIENT) {
+    return res.json({
+      ok: true,
+      data: {
+        ...data,
+        charts: {
+          callsPerDay: [],
+          leadsPerDay: [],
+          outcomeBreakdown: []
+        }
+      }
+    });
+  }
+
   return res.json({ ok: true, data });
 });
 
