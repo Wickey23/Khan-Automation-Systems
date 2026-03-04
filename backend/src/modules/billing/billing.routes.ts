@@ -686,6 +686,9 @@ billingRouter.post(
 );
 
 billingRouter.get("/status", requireAuth, async (req: AuthenticatedRequest, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   if (!req.auth?.userId) return res.status(400).json({ ok: false, message: "Missing authenticated user." });
   let orgId = req.auth.orgId;
   if (!orgId) {

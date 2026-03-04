@@ -6,7 +6,7 @@ import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { issueCsrfCookie } from "../../middleware/csrf";
 import { requireCsrf } from "../../middleware/csrf";
-import { signAuthToken } from "../../lib/auth";
+import { signAuthToken, signTrusted2faToken, verifyTrusted2faToken } from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { authRateLimit } from "../../middleware/rate-limit";
 import { isEmailProviderConfigured, sendLoginOtpEmail } from "../../services/email";
@@ -23,6 +23,7 @@ const OTP_EXP_MINUTES = 10;
 const LOGIN_FAILS = new Map<string, { count: number; lastAt: number }>();
 const MAX_BACKOFF_MS = 10_000;
 const OTP_CHALLENGE_TIMEOUT_MS = 15_000;
+const TRUSTED_2FA_COOKIE = "kas_2fa_trust";
 
 function hashOtp(code: string) {
   return crypto.createHash("sha256").update(`${code}:${process.env.JWT_SECRET || "fallback-secret"}`).digest("hex");
@@ -43,6 +44,33 @@ function authCookieOptions() {
     sameSite: (isProd ? "none" : "lax") as "none" | "lax",
     path: "/"
   };
+}
+
+function fingerprintUserAgent(value: unknown) {
+  return crypto.createHash("sha256").update(String(value || "unknown_ua")).digest("hex");
+}
+
+function readTrusted2fa(req: Request) {
+  const raw = String(req.cookies?.[TRUSTED_2FA_COOKIE] || "").trim();
+  if (!raw) return null;
+  try {
+    return verifyTrusted2faToken(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setTrusted2faCookie(req: Request, res: Response, userId: string) {
+  const token = signTrusted2faToken({
+    userId,
+    uaHash: fingerprintUserAgent(req.headers["user-agent"])
+  });
+  const trustDays = Number.parseInt(env.AUTH_2FA_TRUST_DAYS, 10);
+  const maxAge = (Number.isFinite(trustDays) && trustDays > 0 ? trustDays : 1) * 24 * 60 * 60 * 1000;
+  res.cookie(TRUSTED_2FA_COOKIE, token, {
+    ...authCookieOptions(),
+    maxAge
+  });
 }
 
 function trackAuthFailure(key: string) {
@@ -273,6 +301,38 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
 
     const requiresTwoFactor = roleRequiresTwoFactor(user.role);
     if (requiresTwoFactor) {
+      const trusted = readTrusted2fa(req);
+      if (trusted && trusted.userId === user.id && trusted.uaHash === fingerprintUserAgent(req.headers["user-agent"])) {
+        const token = signAuthToken({
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          clientId: user.clientId,
+          orgId: user.orgId
+        });
+
+        const refresh = await createRefreshSession(prisma, user.id);
+        res.cookie("kas_auth_token", token, {
+          ...authCookieOptions(),
+          maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
+        });
+        res.cookie("kas_refresh_token", refresh.token, {
+          ...authCookieOptions(),
+          maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+        });
+        issueCsrfCookie(req, res);
+        await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: user.id, role: user.role, via: "trusted_2fa" });
+
+        return res.json({
+          ok: true,
+          data: {
+            requiresTwoFactor: false,
+            token,
+            user: { userId: user.id, email: user.email, role: user.role, clientId: user.clientId, orgId: user.orgId }
+          }
+        });
+      }
+
       if (otpEmailUnavailableInProduction()) {
         await auditAuthEvent("AUTH_LOGIN_FAIL", {
           userId: user.id,
@@ -416,6 +476,7 @@ authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Re
       ...authCookieOptions(),
       maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
     });
+    setTrusted2faCookie(req, res, challenge.user.id);
     issueCsrfCookie(req, res);
     await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: challenge.user.id, role: challenge.user.role, via: "otp" });
 
@@ -514,6 +575,7 @@ authRouter.post("/logout", requireAuth, requireCsrf, async (_req: AuthenticatedR
     path: "/"
   });
   res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
+  res.clearCookie(TRUSTED_2FA_COOKIE, { ...authCookieOptions(), path: "/" });
   return res.json({ ok: true });
 });
 
@@ -566,6 +628,7 @@ authRouter.post("/logout-all", requireAuth, requireCsrf, async (req: Authenticat
   await revokeAllRefreshSessionsForUser(prisma, req.auth.userId);
   res.clearCookie("kas_auth_token", { ...authCookieOptions(), path: "/" });
   res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
+  res.clearCookie(TRUSTED_2FA_COOKIE, { ...authCookieOptions(), path: "/" });
   res.clearCookie("kas_csrf_token", { ...authCookieOptions(), path: "/" });
   await auditAuthEvent("AUTH_REFRESH_REVOKED", { userId: req.auth.userId, reason: "logout_all" });
   return res.json({ ok: true });

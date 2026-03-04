@@ -17,6 +17,11 @@ export type RefreshPayload = {
   familyId: string;
 };
 
+export type Trusted2faPayload = {
+  userId: string;
+  uaHash: string;
+};
+
 export function signAuthToken(payload: AuthPayload) {
   const expiresInMinutes = Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10);
   return jwt.sign(payload, env.JWT_SECRET as Secret, {
@@ -47,4 +52,16 @@ export function hashToken(token: string) {
 
 export function generateFamilyId() {
   return crypto.randomUUID();
+}
+
+export function signTrusted2faToken(payload: Trusted2faPayload) {
+  const trustDays = Number.parseInt(env.AUTH_2FA_TRUST_DAYS, 10);
+  const expires = (Number.isFinite(trustDays) && trustDays > 0 ? `${trustDays}d` : "1d") as SignOptions["expiresIn"];
+  const secret = env.REFRESH_TOKEN_SECRET || env.JWT_SECRET;
+  return jwt.sign(payload, secret as Secret, { expiresIn: expires });
+}
+
+export function verifyTrusted2faToken(token: string) {
+  const secret = env.REFRESH_TOKEN_SECRET || env.JWT_SECRET;
+  return jwt.verify(token, secret) as Trusted2faPayload;
 }

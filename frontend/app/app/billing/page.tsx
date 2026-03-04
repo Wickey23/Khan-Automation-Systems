@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   createPlanChangeSession,
   createStripeCheckoutSession,
@@ -140,21 +140,39 @@ export default function AppBillingPage() {
   const [startingPlan, setStartingPlan] = useState<StripePlanKey | null>(null);
   const [changingPlan, setChangingPlan] = useState<StripePlanKey | null>(null);
 
+  const refreshBillingAndDiagnostics = useCallback(async () => {
+    const [billing, diag] = await Promise.all([getBillingStatus(), getBillingDiagnostics()]);
+    setSubscription(billing.subscription);
+    setDemo(billing.demo);
+    setDiagnostics(diag);
+    setDiagnosticsError(null);
+  }, []);
+
   useEffect(() => {
-    void Promise.all([getBillingStatus(), getBillingDiagnostics()])
-      .then(([billing, diag]) => {
-        setSubscription(billing.subscription);
-        setDemo(billing.demo);
-        setDiagnostics(diag);
-        setDiagnosticsError(null);
-      })
+    void refreshBillingAndDiagnostics()
       .catch(() => {
         setSubscription(null);
         setDemo(null);
         setDiagnostics(null);
         setDiagnosticsError("Diagnostics unavailable.");
       });
-  }, []);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshBillingAndDiagnostics().catch(() => null);
+      }
+    };
+    const onFocus = () => {
+      void refreshBillingAndDiagnostics().catch(() => null);
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshBillingAndDiagnostics]);
 
   async function refreshDiagnostics() {
     try {
