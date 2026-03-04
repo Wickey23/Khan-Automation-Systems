@@ -173,6 +173,41 @@ test("booking overlap respects buffer minutes between appointments", async () =>
   assert.equal(result.reason, "OVERLAP");
 });
 
+test("booking rechecks overlap at commit to prevent concurrent double-booking", async () => {
+  const mock = createPrismaMock();
+  let findManyCalls = 0;
+  (mock.prisma.appointment as any).findMany = async () => {
+    findManyCalls += 1;
+    if (findManyCalls === 1) return [];
+    return [
+      {
+        id: "appt_new_competitor",
+        startAt: new Date("2026-03-05T10:00:00.000Z"),
+        endAt: new Date("2026-03-05T11:00:00.000Z")
+      }
+    ];
+  };
+
+  const result = await bookAppointmentWithHold({
+    prisma: mock.prisma,
+    orgId: "org_1",
+    userId: "user_1",
+    customerName: "Commit Check",
+    customerPhone: "+15165557777",
+    issueSummary: "Concurrency",
+    startAt: new Date("2026-03-05T10:00:00.000Z"),
+    endAt: new Date("2026-03-05T11:00:00.000Z"),
+    timezone: "America/New_York",
+    requestedProvider: "INTERNAL"
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.reason, "OVERLAP");
+  assert.equal(mock.holds[0]?.status, "FAILED");
+  assert.equal(mock.appointments.length, 0);
+});
+
 test("booking returns existing appointment on idempotency duplicate", async () => {
   const mock = createPrismaMock();
   (mock.prisma.appointment as any).duplicateKeyHit = true;
