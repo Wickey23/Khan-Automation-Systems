@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 import { acceptTeamInvite } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,16 @@ import { Label } from "@/components/ui/label";
 export default function AcceptInvitePage() {
   const { showToast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = useMemo(() => String(searchParams.get("token") || "").trim(), [searchParams]);
+  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setToken(String(params.get("token") || "").trim());
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
