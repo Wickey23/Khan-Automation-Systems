@@ -6,6 +6,7 @@ import {
   fetchOrgDataQuality,
   fetchOrgHealth,
   fetchOrgMessagingReadiness,
+  fetchOrgNotifications,
   fetchOrgOnboarding,
   fetchOrgProfile,
   getBillingStatus
@@ -15,6 +16,7 @@ import type {
   Organization,
   OrgDataQuality,
   OrgHealth,
+  OrgNotification,
   OrgMessagingReadiness,
   OrgSubscription
 } from "@/lib/types";
@@ -31,29 +33,34 @@ export default function AppOverviewPage() {
   const [health, setHealth] = useState<OrgHealth | null>(null);
   const [dataQuality, setDataQuality] = useState<OrgDataQuality | null>(null);
   const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
+  const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    void Promise.all([
+    void Promise.allSettled([
       fetchOrgProfile(),
       fetchOrgOnboarding(),
       getBillingStatus(),
       fetchOrgHealth(),
       fetchOrgDataQuality(),
-      fetchOrgMessagingReadiness()
-    ])
-      .then(([org, onboarding, billing, orgHealth, orgDataQuality, orgMessagingReadiness]) => {
-        setOrganization(org.organization);
-        setAssignedPhoneNumber(org.assignedPhoneNumber);
-        setAssignedNumberProvider(org.assignedNumberProvider);
-        setSubmission(onboarding.submission);
-        setSubscription(billing.subscription);
-        setHealth(orgHealth);
-        setDataQuality(orgDataQuality);
-        setMessagingReadiness(orgMessagingReadiness);
-        setLastSyncedAt(new Date().toISOString());
-      })
-      .catch(() => null);
+      fetchOrgMessagingReadiness(),
+      fetchOrgNotifications()
+    ]).then((results) => {
+      const [org, onboarding, billing, orgHealth, orgDataQuality, orgMessagingReadiness, orgNotifications] = results;
+
+      if (org.status === "fulfilled") {
+        setOrganization(org.value.organization);
+        setAssignedPhoneNumber(org.value.assignedPhoneNumber);
+        setAssignedNumberProvider(org.value.assignedNumberProvider);
+      }
+      if (onboarding.status === "fulfilled") setSubmission(onboarding.value.submission);
+      if (billing.status === "fulfilled") setSubscription(billing.value.subscription);
+      if (orgHealth.status === "fulfilled") setHealth(orgHealth.value);
+      if (orgDataQuality.status === "fulfilled") setDataQuality(orgDataQuality.value);
+      if (orgMessagingReadiness.status === "fulfilled") setMessagingReadiness(orgMessagingReadiness.value);
+      if (orgNotifications.status === "fulfilled") setNotifications(orgNotifications.value.notifications || []);
+      setLastSyncedAt(new Date().toISOString());
+    });
   }, []);
 
   const billingActive = subscription ? ["active", "trialing"].includes(String(subscription.status || "").toLowerCase()) : false;
@@ -73,6 +80,8 @@ export default function AppOverviewPage() {
   const onboardingHint = organization?.live
     ? "Setup updates recommended to maintain operational quality."
     : "Complete required setup before go-live.";
+  const unreadCount = notifications.filter((item) => !item.readAt).length;
+  const urgentCount = notifications.filter((item) => item.severity === "URGENT" && !item.readAt).length;
 
   return (
     <div className="space-y-6">
@@ -93,13 +102,13 @@ export default function AppOverviewPage() {
           <Card>
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-1 text-base">
-                System Health
-                <InfoHint text="Overall readiness signal derived from operational checks." />
+                Notifications
+                <InfoHint text="Unread operational alerts and urgent items for this workspace." />
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
-              <p>{health?.level === "GREEN" ? "All systems operational" : "Action needed"}</p>
-              <p className="text-muted-foreground">{health?.summary || "Loading health status..."}</p>
+              <p>{unreadCount} unread</p>
+              <p className="text-muted-foreground">{urgentCount > 0 ? `${urgentCount} urgent` : "No urgent alerts"}</p>
             </CardContent>
           </Card>
           <Card>
@@ -129,6 +138,24 @@ export default function AppOverviewPage() {
           <Card>
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-1 text-base">
+                System Health
+                <InfoHint text="Overall readiness signal derived from operational checks." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>{health?.level === "GREEN" ? "All systems operational" : "Action needed"}</p>
+              <p className="text-muted-foreground">{health?.summary || "Loading health status..."}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Operations</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1 text-base">
                 Organization
                 <InfoHint text="Current organization identity and lifecycle status." />
               </CardTitle>
@@ -138,12 +165,6 @@ export default function AppOverviewPage() {
               <p className="text-muted-foreground">Status: {organization?.status || "-"}</p>
             </CardContent>
           </Card>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Operations</p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-1 text-base">
