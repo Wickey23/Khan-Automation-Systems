@@ -110,6 +110,7 @@ export default function AppAppointmentsPage() {
               <th className="p-3">Customer</th>
               <th className="p-3">Phone</th>
               <th className="p-3">Issue</th>
+              <th className="p-3">Linked records</th>
               <th className="p-3">Technician</th>
               <th className="p-3">Status</th>
               <th className="p-3">Calendar</th>
@@ -119,7 +120,7 @@ export default function AppAppointmentsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={8}>Loading appointments...</td>
+                <td className="p-3 text-muted-foreground" colSpan={9}>Loading appointments...</td>
               </tr>
             ) : appointments.length ? (
               appointments.map((appointment) => (
@@ -128,6 +129,10 @@ export default function AppAppointmentsPage() {
                   <td className="p-3">{appointment.customerName}</td>
                   <td className="p-3">{appointment.customerPhone}</td>
                   <td className="p-3 max-w-[320px]">{appointment.issueSummary}</td>
+                  <td className="p-3 text-xs text-muted-foreground">
+                    <div>Lead: {appointment.leadId || "-"}</div>
+                    <div>Call: {appointment.callLogId || "-"}</div>
+                  </td>
                   <td className="p-3">{appointment.assignedTechnician || "-"}</td>
                   <td className="p-3">{appointment.status}</td>
                   <td className="p-3">{appointment.calendarProvider}</td>
@@ -159,7 +164,7 @@ export default function AppAppointmentsPage() {
               ))
             ) : (
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={8}>No appointments yet.</td>
+                <td className="p-3 text-muted-foreground" colSpan={9}>No appointments yet.</td>
               </tr>
             )}
           </tbody>
@@ -168,4 +173,3 @@ export default function AppAppointmentsPage() {
     </div>
   );
 }
-
