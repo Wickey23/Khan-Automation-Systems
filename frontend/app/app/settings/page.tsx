@@ -50,6 +50,10 @@ type FormState = {
   classificationShadowMode: boolean;
   classificationLlmDailyCap: number;
   notificationEmailRecipients: string;
+  notifyNewLeadEmail: boolean;
+  notifyAppointmentBookedEmail: boolean;
+  notifyMissedRecoveryEmail: boolean;
+  notifyEmergencyEmail: boolean;
   hours: Record<DayKey, HoursRow>;
 };
 
@@ -97,6 +101,10 @@ const defaults: FormState = {
   classificationShadowMode: true,
   classificationLlmDailyCap: 100,
   notificationEmailRecipients: "",
+  notifyNewLeadEmail: true,
+  notifyAppointmentBookedEmail: true,
+  notifyMissedRecoveryEmail: true,
+  notifyEmergencyEmail: true,
   hours: defaultHours()
 };
 
@@ -164,6 +172,7 @@ export default function AppSettingsPage() {
         }
 
         const policies = fromJsonObject(settings.policiesJson);
+        const notificationToggles = fromJsonObject(settings.notificationTogglesJson);
         setState({
           timezone: settings.timezone || "America/New_York",
           afterHoursMode: settings.afterHoursMode,
@@ -188,6 +197,10 @@ export default function AppSettingsPage() {
           classificationShadowMode: settings.classificationShadowMode ?? true,
           classificationLlmDailyCap: settings.classificationLlmDailyCap || 100,
           notificationEmailRecipients: toLines(fromJsonArray(settings.notificationEmailRecipientsJson)),
+          notifyNewLeadEmail: notificationToggles.NEW_LEAD_CAPTURED_EMAIL_ENABLED !== false,
+          notifyAppointmentBookedEmail: notificationToggles.APPOINTMENT_BOOKED_EMAIL_ENABLED !== false,
+          notifyMissedRecoveryEmail: notificationToggles.MISSED_CALL_RECOVERY_NEEDED_EMAIL_ENABLED !== false,
+          notifyEmergencyEmail: notificationToggles.EMERGENCY_CALL_FLAGGED_EMAIL_ENABLED !== false,
           hours: parsedHours
         });
         setKnowledgeFiles(files || []);
@@ -338,6 +351,12 @@ export default function AppSettingsPage() {
           smsWelcomeMessage: state.smsWelcomeMessage.trim(),
           smsMarketingEnabled: state.smsMarketingEnabled,
           smsMarketingBlurb: state.smsMarketingBlurb.trim()
+        }),
+        notificationTogglesJson: JSON.stringify({
+          NEW_LEAD_CAPTURED_EMAIL_ENABLED: state.notifyNewLeadEmail,
+          APPOINTMENT_BOOKED_EMAIL_ENABLED: state.notifyAppointmentBookedEmail,
+          MISSED_CALL_RECOVERY_NEEDED_EMAIL_ENABLED: state.notifyMissedRecoveryEmail,
+          EMERGENCY_CALL_FLAGGED_EMAIL_ENABLED: state.notifyEmergencyEmail
         }),
         smsConsentText: state.smsConsentText.trim(),
         recordingConsentEnabled: state.recordingConsentEnabled,
@@ -558,6 +577,22 @@ export default function AppSettingsPage() {
             <Textarea value={state.notificationEmailRecipients} onChange={(e) => setState((p) => ({ ...p, notificationEmailRecipients: e.target.value }))} />
             <p className="mt-1 text-xs text-muted-foreground">Current notification events: {notificationCount}</p>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={state.notifyNewLeadEmail} onChange={(e) => setState((p) => ({ ...p, notifyNewLeadEmail: e.target.checked }))} />
+            Email on new lead captured
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={state.notifyAppointmentBookedEmail} onChange={(e) => setState((p) => ({ ...p, notifyAppointmentBookedEmail: e.target.checked }))} />
+            Email on appointment booked
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={state.notifyMissedRecoveryEmail} onChange={(e) => setState((p) => ({ ...p, notifyMissedRecoveryEmail: e.target.checked }))} />
+            Email on missed-call recovery needed
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={state.notifyEmergencyEmail} onChange={(e) => setState((p) => ({ ...p, notifyEmergencyEmail: e.target.checked }))} />
+            Email on emergency call flagged
+          </label>
           <label className="sm:col-span-2 lg:col-span-3 flex items-center gap-2 text-sm">
             <input type="checkbox" checked={state.classificationShadowMode} onChange={(e) => setState((p) => ({ ...p, classificationShadowMode: e.target.checked }))} />
             Classification shadow mode (log only, do not mutate lead fields)
