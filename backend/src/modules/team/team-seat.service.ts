@@ -35,6 +35,6 @@ export function canInviteSeat(snapshot: Pick<SeatSnapshot, "activeMembers" | "pe
   return snapshot.activeMembers + snapshot.pendingInvites < snapshot.allowedSeats;
 }
 
-export function canAcceptSeat(snapshot: Pick<SeatSnapshot, "activeMembers" | "allowedSeats">) {
-  return snapshot.activeMembers < snapshot.allowedSeats;
+export function canAcceptSeat(snapshot: Pick<SeatSnapshot, "activeMembers" | "pendingInvites" | "allowedSeats">) {
+  return snapshot.activeMembers + snapshot.pendingInvites <= snapshot.allowedSeats;
 }

@@ -37,14 +37,14 @@ test("seat enforcement allows invite below boundary", () => {
   assert.equal(canInviteSeat(snapshot), true);
 });
 
-test("acceptance enforcement blocks when active seats already full", () => {
-  const full = buildSeatSnapshot({
+test("acceptance enforcement allows boundary and blocks only when active + pending exceeds seats", () => {
+  const boundary = buildSeatSnapshot({
     isPro: false,
     purchasedSeats: 0,
     activeMembers: 1,
     pendingInvites: 0
   });
-  assert.equal(canAcceptSeat(full), false);
+  assert.equal(canAcceptSeat(boundary), true);
 
   const available = buildSeatSnapshot({
     isPro: true,
@@ -53,4 +53,13 @@ test("acceptance enforcement blocks when active seats already full", () => {
     pendingInvites: 1
   });
   assert.equal(canAcceptSeat(available), true);
+
+  const drifted = buildSeatSnapshot({
+    isPro: true,
+    purchasedSeats: 0,
+    activeMembers: 3,
+    pendingInvites: 1
+  });
+  assert.equal(drifted.allowedSeats, 3);
+  assert.equal(canAcceptSeat(drifted), false);
 });
