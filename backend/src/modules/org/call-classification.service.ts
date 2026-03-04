@@ -51,6 +51,27 @@ function classifyByRules(input: {
   }
 
   if (
+    containsAny(normalizedText, [
+      "outside service area",
+      "out of service area",
+      "not in your area",
+      "wrong service",
+      "do not service",
+      "don't service",
+      "dont service"
+    ])
+  ) {
+    signals.push("disqualified_service_or_area");
+    return {
+      classification: LeadClassification.GENERAL_INQUIRY,
+      confidence: 0.88,
+      qualified: false,
+      qualificationReason: "Outside service area or unsupported service request",
+      signals
+    } satisfies RuleResult;
+  }
+
+  if (
     input.appointmentRequested ||
     input.outcome === "APPOINTMENT_REQUEST" ||
     containsAny(normalizedText, ["book", "schedule", "appointment", "availability"])
@@ -232,6 +253,8 @@ export async function classifyCallAndMaybeUpdateLead(input: {
   let classification: LeadClassification = rules.classification;
   let confidence = clampConfidence(rules.confidence);
   let signals = [...rules.signals];
+  let qualified = rules.qualified;
+  let qualificationReason = rules.qualificationReason || null;
   if (confidence < 0.75) {
     const dayStart = startOfUtcDay(now);
     const llmFallbackUsedToday = await input.prisma.callClassificationLog.count({
@@ -252,16 +275,17 @@ export async function classifyCallAndMaybeUpdateLead(input: {
       classification = fallback.classification;
       confidence = clampConfidence(fallback.confidence);
       signals = [...signals, ...fallback.signals];
+      qualified = classification !== LeadClassification.SPAM;
+      qualificationReason = qualified ? null : "Spam or disqualified call intent";
     } else {
       method = ClassificationMethod.RULES;
       classification = LeadClassification.GENERAL_INQUIRY;
       confidence = 0.55;
       signals.push("llm_daily_cap_exceeded");
+      qualified = true;
+      qualificationReason = null;
     }
   }
-
-  const qualified = classification !== LeadClassification.SPAM;
-  const qualificationReason = qualified ? null : "Spam or disqualified call intent";
 
   await input.prisma.callClassificationLog.create({
     data: {

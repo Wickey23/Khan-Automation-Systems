@@ -156,6 +156,36 @@ test("classification mutates lead only when shadow mode disabled", async () => {
   }
 });
 
+test("classification disqualifies unsupported service-area calls in rules path", async () => {
+  const previous = (env as any).FEATURE_CLASSIFICATION_V1_ENABLED;
+  (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = "true";
+  try {
+    const mock = createPrismaMock({
+      outcome: "MESSAGE_TAKEN",
+      shadowMode: false,
+      summary: "Caller is outside service area and requesting wrong service",
+      transcript: "You do not service this request in our area"
+    });
+    const result = await classifyCallAndMaybeUpdateLead({
+      prisma: mock.prisma,
+      orgId: "org_1",
+      callLogId: "call_1",
+      leadId: "lead_1"
+    });
+    assert.equal(result.skipped, false);
+    if (result.skipped) return;
+    assert.equal(result.classification, "GENERAL_INQUIRY");
+    assert.equal(mock.leadUpdates.length, 1);
+    assert.equal(mock.leadUpdates[0]?.qualified, false);
+    assert.equal(
+      mock.leadUpdates[0]?.qualificationReason,
+      "Outside service area or unsupported service request"
+    );
+  } finally {
+    (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = previous;
+  }
+});
+
 test("classification short-circuits cleanly when feature flag disabled", async () => {
   const previous = (env as any).FEATURE_CLASSIFICATION_V1_ENABLED;
   (env as any).FEATURE_CLASSIFICATION_V1_ENABLED = "false";
