@@ -1193,7 +1193,7 @@ orgRouter.post("/appointments/:id/complete", requireAppointmentsWriteAccess, asy
   return res.json({ ok: true, data: { appointment: updated } });
 });
 
-orgRouter.get("/calendar/providers", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/calendar/providers", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
   }
