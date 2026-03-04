@@ -64,7 +64,7 @@ function boolText(value: boolean) {
 }
 
 function isAdminDetailedRole(role: UserRole) {
-  return role === UserRole.CLIENT_ADMIN || role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+  return role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
 }
 
 function validUrl(value: string | undefined) {
@@ -238,7 +238,9 @@ export function computeOverallStatus(checks: BillingDiagnosticChecks): BillingDi
 }
 
 function buildConfigChecks(detailed: boolean): BillingDiagnosticCheck[] {
-  const stripeSecretConfigured = !isPlaceholder(env.STRIPE_SECRET_KEY);
+  const rawSecret = String(env.STRIPE_SECRET_KEY || "").trim();
+  const isSandboxSecret = rawSecret.startsWith("sk_test_");
+  const stripeSecretConfigured = !isPlaceholder(rawSecret) || (env.SECURITY_MODE !== "production" && isSandboxSecret);
   const starterConfigured = !isPlaceholder(env.STRIPE_STARTER_PRICE_ID);
   const proConfigured = !isPlaceholder(env.STRIPE_PRO_PRICE_ID);
   const successCancelValid = validUrl(env.STRIPE_SUCCESS_URL) && validUrl(env.STRIPE_CANCEL_URL);
@@ -248,7 +250,10 @@ function buildConfigChecks(detailed: boolean): BillingDiagnosticCheck[] {
     {
       key: "stripeSecretConfigured",
       status: stripeSecretConfigured ? "PASS" : "FAIL",
-      message: `Stripe secret key ${boolText(stripeSecretConfigured)}.`,
+      message:
+        stripeSecretConfigured && isSandboxSecret
+          ? "Stripe test secret key configured (sandbox mode)."
+          : `Stripe secret key ${boolText(stripeSecretConfigured)}.`,
       fixHint: stripeSecretConfigured ? undefined : "Set STRIPE_SECRET_KEY to a valid non-placeholder key."
     },
     {

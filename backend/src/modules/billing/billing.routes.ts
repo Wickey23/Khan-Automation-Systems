@@ -764,7 +764,7 @@ billingRouter.get("/status", requireAuth, async (req: AuthenticatedRequest, res)
 billingRouter.get("/diagnostics", requireAuth, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.userId) return res.status(401).json({ ok: false, message: "Unauthorized" });
 
-  const detailed = req.auth.role === UserRole.CLIENT_ADMIN || req.auth.role === UserRole.ADMIN || req.auth.role === UserRole.SUPER_ADMIN;
+  const detailed = req.auth.role === UserRole.ADMIN || req.auth.role === UserRole.SUPER_ADMIN;
   try {
     const diagnostics = await computeBillingDiagnostics({
       prisma,

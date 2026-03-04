@@ -130,6 +130,36 @@ function checkBadgeClass(value: BillingDiagnosticCheck["status"]) {
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
+function humanizeCheckKey(key: string) {
+  const labels: Record<string, string> = {
+    stripeSecretConfigured: "Stripe Secret",
+    starterPriceConfigured: "Standard Price Configured",
+    proPriceConfigured: "Pro Price Configured",
+    successCancelUrlsConfigured: "Checkout URLs",
+    portalReturnUrlConfigured: "Portal Return URL",
+    starterPriceResolvable: "Standard Price Reachable",
+    proPriceResolvable: "Pro Price Reachable",
+    stripeApiReachable: "Stripe API Reachability",
+    orgContextResolved: "Workspace Context",
+    stripeCustomerLinked: "Stripe Customer Linked",
+    subscriptionRecordPresent: "Subscription Record",
+    subscriptionStripeIdsPresent: "Subscription Stripe IDs",
+    subscriptionStatusActionable: "Subscription Status"
+  };
+  return labels[key] || key;
+}
+
+function humanizeIssue(issue: string) {
+  const labels: Record<string, string> = {
+    STRIPE_PING_TIMEOUT: "Stripe check timed out.",
+    STRIPE_PRICE_NOT_FOUND: "Configured Stripe price ID was not found.",
+    STRIPE_AUTH_OR_NETWORK_ERROR: "Stripe auth/network issue.",
+    diagnostics_rate_limited_try_again: "Diagnostics rate-limited. Try again shortly.",
+    stripeSecretConfigured: "Stripe secret key is not configured for this environment."
+  };
+  return labels[issue] || issue;
+}
+
 export default function AppBillingPage() {
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
@@ -536,8 +566,8 @@ export default function AppBillingPage() {
                 <div className="rounded-md border bg-muted/20 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top issues</p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                    {diagnostics.summary.topIssues.map((issue) => (
-                      <li key={issue}>{issue}</li>
+                    {[...new Set(diagnostics.summary.topIssues)].map((issue) => (
+                      <li key={issue}>{humanizeIssue(issue)}</li>
                     ))}
                   </ul>
                 </div>
@@ -556,7 +586,7 @@ export default function AppBillingPage() {
                         {list.map((check) => (
                           <div key={check.key} className="rounded border p-2">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-medium">{check.key}</p>
+                              <p className="text-xs font-medium">{humanizeCheckKey(check.key)}</p>
                               <Badge className={checkBadgeClass(check.status)}>{check.status}</Badge>
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">{check.message}</p>
@@ -571,9 +601,11 @@ export default function AppBillingPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  Summary-only diagnostics available for your role. Contact your account admin for detailed checks.
-                </p>
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Internal diagnostics are restricted to platform admins. You can still use checkout, plan change, and billing portal actions normally.
+                  </p>
+                </div>
               )}
             </>
           ) : null}
