@@ -309,6 +309,37 @@ export type AdminMessageThread = OrgMessageThread & {
   } | null;
 };
 
+export type AdminUserRecord = {
+  id: string;
+  email: string;
+  role: "SUPER_ADMIN" | "ADMIN" | "CLIENT_ADMIN" | "CLIENT_STAFF" | "CLIENT";
+  clientId: string | null;
+  orgId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  organization: {
+    id: string;
+    name: string;
+    status: string;
+    live: boolean;
+  } | null;
+  client: {
+    id: string;
+    name: string;
+    status: string;
+  } | null;
+  login: {
+    lastLoginAt: string | null;
+    lastLoginVia: string | null;
+    lastOtpVerifiedAt: string | null;
+    lastOtpRequestedAt: string | null;
+    lastLoginFailAt: string | null;
+    lastLoginFailReason: string | null;
+    successCount: number;
+    failCount: number;
+  };
+};
+
 export type BusinessSettings = {
   id: string;
   orgId: string;

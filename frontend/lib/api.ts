@@ -3,6 +3,7 @@ import type {
   AIConfig,
   AiAgentConfigVersion,
   AdminMessageThread,
+  AdminUserRecord,
   AuditEvent,
   AdminCallRecord,
   AuthUser,
@@ -271,6 +272,10 @@ export async function fetchAdminCalls(query: string) {
 
 export async function fetchAdminMessages(query = "") {
   return request<{ threads: AdminMessageThread[] }>(`/api/admin/messages${query}`);
+}
+
+export async function fetchAdminUsers(query = "") {
+  return request<{ users: AdminUserRecord[] }>(`/api/admin/users${query}`);
 }
 
 export async function deleteAdminCall(id: string, password: string) {

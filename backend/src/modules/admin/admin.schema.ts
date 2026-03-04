@@ -127,6 +127,12 @@ export const eventsFilterSchema = z.object({
   limit: z.string().optional()
 });
 
+export const usersFilterSchema = z.object({
+  search: z.string().optional(),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "CLIENT_ADMIN", "CLIENT_STAFF", "CLIENT"]).optional(),
+  limit: z.string().optional()
+});
+
 export const relinkCallSchema = z.object({
   callId: z.string().min(1),
   leadId: z.string().min(1)

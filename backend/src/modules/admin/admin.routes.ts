@@ -27,6 +27,7 @@ import {
   updateAiConfigSchema,
   updateClientStatusSchema,
   updateLeadSchema,
+  usersFilterSchema,
   relinkCallSchema,
   mergeLeadsSchema
 } from "./admin.schema";
@@ -863,6 +864,133 @@ adminRouter.get("/events", async (req, res) => {
     take: limit
   });
   return res.json({ ok: true, data: { events } });
+});
+
+adminRouter.get("/users", async (req, res) => {
+  const parsed = usersFilterSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid user filters." });
+
+  const search = String(parsed.data.search || "").trim();
+  const limit = Math.min(Number(parsed.data.limit || 250), 600);
+  const role = parsed.data.role;
+
+  const where: Prisma.UserWhereInput = {};
+  if (role) where.role = role;
+  if (search) {
+    where.OR = [
+      { id: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+      { organization: { name: { contains: search, mode: "insensitive" } } },
+      { client: { name: { contains: search, mode: "insensitive" } } }
+    ];
+  }
+
+  const users = await prisma.user.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      clientId: true,
+      orgId: true,
+      createdAt: true,
+      updatedAt: true,
+      organization: { select: { id: true, name: true, status: true, live: true } },
+      client: { select: { id: true, name: true, status: true } }
+    }
+  });
+
+  const userIds = new Set(users.map((user) => user.id));
+  const authLogs = await prisma.auditLog.findMany({
+    where: {
+      actorUserId: "auth",
+      action: { in: ["AUTH_LOGIN_SUCCESS", "AUTH_LOGIN_FAIL", "AUTH_2FA_REQUIRED"] }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+    select: { action: true, createdAt: true, metadataJson: true }
+  });
+
+  const loginMap = new Map<
+    string,
+    {
+      lastLoginAt: string | null;
+      lastLoginVia: string | null;
+      lastOtpVerifiedAt: string | null;
+      lastOtpRequestedAt: string | null;
+      lastLoginFailAt: string | null;
+      lastLoginFailReason: string | null;
+      successCount: number;
+      failCount: number;
+    }
+  >();
+
+  for (const id of userIds) {
+    loginMap.set(id, {
+      lastLoginAt: null,
+      lastLoginVia: null,
+      lastOtpVerifiedAt: null,
+      lastOtpRequestedAt: null,
+      lastLoginFailAt: null,
+      lastLoginFailReason: null,
+      successCount: 0,
+      failCount: 0
+    });
+  }
+
+  for (const row of authLogs) {
+    let metadata: Record<string, unknown> = {};
+    try {
+      metadata = row.metadataJson ? (JSON.parse(row.metadataJson) as Record<string, unknown>) : {};
+    } catch {
+      metadata = {};
+    }
+
+    const userId = String(metadata.userId || "");
+    if (!userId || !userIds.has(userId)) continue;
+    const entry = loginMap.get(userId);
+    if (!entry) continue;
+
+    if (row.action === "AUTH_LOGIN_SUCCESS") {
+      entry.successCount += 1;
+      if (!entry.lastLoginAt) entry.lastLoginAt = row.createdAt.toISOString();
+      if (!entry.lastLoginVia) entry.lastLoginVia = String(metadata.via || "password");
+      if (!entry.lastOtpVerifiedAt && String(metadata.via || "") === "otp") {
+        entry.lastOtpVerifiedAt = row.createdAt.toISOString();
+      }
+    }
+
+    if (row.action === "AUTH_LOGIN_FAIL") {
+      entry.failCount += 1;
+      if (!entry.lastLoginFailAt) entry.lastLoginFailAt = row.createdAt.toISOString();
+      if (!entry.lastLoginFailReason) entry.lastLoginFailReason = String(metadata.reason || "unknown");
+    }
+
+    if (row.action === "AUTH_2FA_REQUIRED" && !entry.lastOtpRequestedAt) {
+      entry.lastOtpRequestedAt = row.createdAt.toISOString();
+    }
+  }
+
+  const rows = users.map((user) => {
+    const login = loginMap.get(user.id);
+    return {
+      ...user,
+      login: {
+        lastLoginAt: login?.lastLoginAt || null,
+        lastLoginVia: login?.lastLoginVia || null,
+        lastOtpVerifiedAt: login?.lastOtpVerifiedAt || null,
+        lastOtpRequestedAt: login?.lastOtpRequestedAt || null,
+        lastLoginFailAt: login?.lastLoginFailAt || null,
+        lastLoginFailReason: login?.lastLoginFailReason || null,
+        successCount: login?.successCount || 0,
+        failCount: login?.failCount || 0
+      }
+    };
+  });
+
+  return res.json({ ok: true, data: { users: rows } });
 });
 
 adminRouter.get("/system/dashboard", requirePermission("ADMIN_SYSTEM_VIEW"), async (_req: AuthenticatedRequest, res) => {

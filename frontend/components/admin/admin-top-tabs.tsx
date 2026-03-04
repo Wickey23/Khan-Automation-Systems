@@ -21,6 +21,7 @@ const adminTabs: AdminTab[] = [
   { label: "Messages", href: "/admin/messages", matches: ["/admin/messages"] },
   { label: "Demo", href: "/admin/demo", matches: ["/admin/demo"] },
   { label: "Clients", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"] },
+  { label: "Users", href: "/admin/users", matches: ["/admin/users"] },
   { label: "System", href: "/admin/system", matches: ["/admin/system"] },
   { label: "Events", href: "/admin/events", matches: ["/admin/events"] }
 ];
