@@ -11,12 +11,20 @@ import type { AuthUser } from "@/lib/types";
 
 type PlanTier = "STARTER" | "PRO" | null;
 type ClientRole = AuthUser["role"];
+type FeatureKey = "appointmentsEnabled";
+type OrgFeatureState = Record<FeatureKey, boolean>;
 
-const navItems: Array<{ href: string; label: string; requiredPlan?: Exclude<PlanTier, null>; requiredRoles?: ClientRole[] }> = [
+const navItems: Array<{
+  href: string;
+  label: string;
+  requiredPlan?: Exclude<PlanTier, null>;
+  requiredRoles?: ClientRole[];
+  requiredFeature?: FeatureKey;
+}> = [
   { href: "/app", label: "Overview" },
   { href: "/app/calls", label: "Calls" },
   { href: "/app/leads", label: "Leads" },
-  { href: "/app/appointments", label: "Appointments", requiredPlan: "STARTER" },
+  { href: "/app/appointments", label: "Appointments", requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
   { href: "/app/messages", label: "Messages" },
   { href: "/app/analytics", label: "Analytics", requiredPlan: "STARTER" },
   { href: "/app/settings", label: "Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
@@ -37,6 +45,11 @@ function hasRequiredRole(currentRole: ClientRole | null, requiredRoles?: ClientR
   return requiredRoles.includes(currentRole);
 }
 
+function hasRequiredFeature(features: OrgFeatureState, requiredFeature?: FeatureKey) {
+  if (!requiredFeature) return true;
+  return features[requiredFeature] === true;
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -44,6 +57,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [modeBanner, setModeBanner] = useState<{ text: string; ctaLabel: string; ctaHref: string } | null>(null);
   const [currentPlan, setCurrentPlan] = useState<PlanTier>(null);
   const [currentRole, setCurrentRole] = useState<ClientRole | null>(null);
+  const [features, setFeatures] = useState<OrgFeatureState>({
+    appointmentsEnabled: false
+  });
 
   useEffect(() => {
     setAccessWarning(null);
@@ -54,6 +70,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const subStatus = billing.subscription?.status || "";
         setCurrentPlan((billing.subscription?.plan as PlanTier) || null);
         setCurrentRole(me.user.role);
+        setFeatures({
+          appointmentsEnabled: orgProfile.features?.appointmentsEnabled !== false
+        });
         const demo = billing.demo;
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
         const orgStatus = orgProfile.organization?.status || "";
@@ -131,6 +150,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
         setCurrentPlan(null);
         setCurrentRole(null);
+        setFeatures({
+          appointmentsEnabled: false
+        });
       });
   }, [pathname, router]);
 
@@ -142,7 +164,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client Portal</p>
             <nav className="mt-2 grid gap-1">
               {navItems.map((item) => (
-                hasRequiredPlan(currentPlan, item.requiredPlan) && hasRequiredRole(currentRole, item.requiredRoles) ? (
+                hasRequiredPlan(currentPlan, item.requiredPlan) &&
+                hasRequiredRole(currentRole, item.requiredRoles) &&
+                hasRequiredFeature(features, item.requiredFeature) ? (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -159,14 +183,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     title={
                       !hasRequiredPlan(currentPlan, item.requiredPlan)
                         ? `Requires ${item.requiredPlan} plan`
-                        : "Role does not have access"
+                        : !hasRequiredRole(currentRole, item.requiredRoles)
+                          ? "Role does not have access"
+                          : "Feature is not enabled for this workspace"
                     }
                     className="flex items-center justify-between rounded-md px-3 py-2 text-sm text-muted-foreground/70"
                   >
                     <span>{item.label}</span>
                     <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide">
                       <Lock className="h-3 w-3" />
-                      {!hasRequiredPlan(currentPlan, item.requiredPlan) ? item.requiredPlan : "ROLE"}
+                      {!hasRequiredPlan(currentPlan, item.requiredPlan)
+                        ? item.requiredPlan
+                        : !hasRequiredRole(currentRole, item.requiredRoles)
+                          ? "ROLE"
+                          : "OFF"}
                     </span>
                   </div>
                 )

@@ -247,7 +247,14 @@ orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
     data: {
       organization,
       assignedPhoneNumber: activePhone?.e164Number || null,
-      assignedNumberProvider: activePhone?.provider || null
+      assignedNumberProvider: activePhone?.provider || null,
+      features: {
+        appointmentsEnabled: isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth.orgId),
+        calendarOauthEnabled: isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth.orgId),
+        notificationsEnabled: isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, req.auth.orgId),
+        pipelineStageEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, req.auth.orgId),
+        classificationEnabled: isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, req.auth.orgId)
+      }
     }
   });
 });

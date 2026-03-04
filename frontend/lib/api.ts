@@ -457,6 +457,13 @@ export async function fetchOrgProfile() {
     organization: Organization;
     assignedPhoneNumber: string | null;
     assignedNumberProvider: "TWILIO" | "VAPI" | null;
+    features?: {
+      appointmentsEnabled?: boolean;
+      calendarOauthEnabled?: boolean;
+      notificationsEnabled?: boolean;
+      pipelineStageEnabled?: boolean;
+      classificationEnabled?: boolean;
+    };
   }>("/api/org/profile");
 }
 
