@@ -160,6 +160,17 @@ export type TeamSeatSnapshot = {
   upgradeHint?: string;
 };
 
+export type TeamMembersResponse = {
+  canManage: boolean;
+  seats: TeamSeatSnapshot;
+  members: TeamMember[];
+  seatPolicy?: string;
+  activeMembers?: number;
+  pendingInvites?: number;
+  allowedSeats?: number;
+  upgradeHint?: string;
+};
+
 export type Organization = {
   id: string;
   name: string;

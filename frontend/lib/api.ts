@@ -40,8 +40,7 @@ import type {
   PhoneLine,
   Setting,
   TestScenario,
-  TeamMember,
-  TeamSeatSnapshot,
+  TeamMembersResponse,
   Appointment,
   CalendarConnection,
   OrgNotification
@@ -311,7 +310,7 @@ export async function fetchAdminRevenue() {
 }
 
 export async function fetchTeamMembers() {
-  return request<{ canManage: boolean; seats: TeamSeatSnapshot; members: TeamMember[] }>("/api/team");
+  return request<TeamMembersResponse>("/api/team");
 }
 
 export async function inviteTeamMember(payload: { email: string; role: "admin" | "manager" | "viewer" }) {
