@@ -21,6 +21,13 @@ Set backend env vars:
 - `OPENAI_API_KEY` (only required if LLM fallback is enabled)
 - `ENCRYPTION_KEY_BASE64` (required for encrypted calendar token storage)
 
+Quick validate before deploy:
+
+```powershell
+cd backend
+npm run phase1:check-env
+```
+
 ## 2) Database
 
 Run from `backend`:
