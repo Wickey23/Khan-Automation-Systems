@@ -11,15 +11,19 @@ export class CalendarUnavailableError extends Error {
   }
 }
 
-function classifyHardAuthFailure(status: number | undefined, payload: unknown) {
-  if (status === 401 || status === 403) return true;
+function classifyHardAuthFailure(_status: number | undefined, payload: unknown) {
   const errorText = String(
     (payload as { error?: string } | null)?.error ||
       (payload as { error?: { code?: string; message?: string } } | null)?.error?.code ||
       (payload as { error?: { code?: string; message?: string } } | null)?.error?.message ||
       ""
   ).toLowerCase();
-  return errorText.includes("invalid_grant") || errorText.includes("revoked");
+  return (
+    errorText.includes("token_refresh_hard_auth_failed") ||
+    errorText.includes("hard_auth_failed") ||
+    errorText.includes("invalid_grant") ||
+    errorText.includes("revoked")
+  );
 }
 
 async function fetchJson(url: string, init: RequestInit) {
@@ -65,7 +69,10 @@ async function maybeDeactivateOnHardAuth(input: {
   message?: string;
 }) {
   const hardByStatus = classifyHardAuthFailure(input.status, input.payload);
-  const hardByMessage = String(input.message || "").toLowerCase().includes("hard_auth_failed");
+  const hardByMessage =
+    String(input.message || "").toLowerCase().includes("token_refresh_hard_auth_failed") ||
+    String(input.message || "").toLowerCase().includes("invalid_grant") ||
+    String(input.message || "").toLowerCase().includes("revoked");
   if (!hardByStatus && !hardByMessage) return;
   await input.prisma.calendarConnection.update({
     where: { id: input.connectionId },
@@ -217,4 +224,3 @@ export async function getBusyBlocks(input: {
     throw new CalendarUnavailableError("calendar_unavailable");
   }
 }
-
