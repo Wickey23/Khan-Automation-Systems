@@ -24,6 +24,7 @@ import {
   updateTeamRoleSchema
 } from "./team.schema";
 import { buildSeatSnapshot, canAcceptSeat, canInviteSeat } from "./team-seat.service";
+import { isTeamFeatureAvailableForSubscription } from "./team-plan.service";
 
 export const teamRouter = Router();
 
@@ -153,8 +154,10 @@ async function hasActiveProSubscription(db: DbClient, orgId: string) {
     orderBy: { createdAt: "desc" },
     select: { plan: true, status: true }
   });
-  const status = String(subscription?.status || "").toLowerCase();
-  return subscription?.plan === SubscriptionPlan.PRO && (status === "active" || status === "trialing");
+  return isTeamFeatureAvailableForSubscription({
+    plan: subscription?.plan,
+    status: subscription?.status
+  });
 }
 
 function proRequiredResponse(res: Response) {
