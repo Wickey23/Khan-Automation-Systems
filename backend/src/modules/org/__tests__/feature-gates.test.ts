@@ -2,23 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { isFeatureEnabledForOrg } from "../feature-gates";
 
-test("feature gate disabled when feature flag false", () => {
+test("feature disabled when base flag is false", () => {
   assert.equal(isFeatureEnabledForOrg("false", "org_1", ""), false);
   assert.equal(isFeatureEnabledForOrg(undefined, "org_1", ""), false);
 });
 
-test("feature gate enabled for all orgs when no allowlist configured", () => {
+test("feature enabled for all orgs when base flag true and allowlist empty", () => {
   assert.equal(isFeatureEnabledForOrg("true", "org_1", ""), true);
   assert.equal(isFeatureEnabledForOrg("true", "org_2", undefined), true);
 });
 
-test("feature gate enforces explicit allowlist", () => {
-  assert.equal(isFeatureEnabledForOrg("true", "org_a", "org_a,org_b"), true);
-  assert.equal(isFeatureEnabledForOrg("true", "org_c", "org_a,org_b"), false);
+test("feature enabled only for allowlisted org when allowlist configured", () => {
+  assert.equal(isFeatureEnabledForOrg("true", "org_1", "org_1,org_2"), true);
+  assert.equal(isFeatureEnabledForOrg("true", "org_3", "org_1,org_2"), false);
+  assert.equal(isFeatureEnabledForOrg("true", null, "org_1,org_2"), false);
 });
 
-test("feature gate supports wildcard and all tokens", () => {
-  assert.equal(isFeatureEnabledForOrg("true", "org_any", "*"), true);
-  assert.equal(isFeatureEnabledForOrg("true", "org_any", "all"), true);
+test("feature supports wildcard allowlist", () => {
+  assert.equal(isFeatureEnabledForOrg("true", "org_1", "*"), true);
+  assert.equal(isFeatureEnabledForOrg("true", "org_1", "all"), true);
 });
-
