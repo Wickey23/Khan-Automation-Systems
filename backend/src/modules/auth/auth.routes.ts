@@ -54,6 +54,14 @@ function authCookieOptions() {
   };
 }
 
+function isSessionPersistenceEnabled() {
+  return String(env.AUTH_SESSION_PERSISTENCE_ENABLED || "true").toLowerCase() !== "false";
+}
+
+function clearRefreshCookie(res: Response) {
+  res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
+}
+
 function fingerprintUserAgent(value: unknown) {
   return crypto.createHash("sha256").update(String(value || "unknown_ua")).digest("hex");
 }
@@ -271,15 +279,19 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
     orgId: user.orgId
   });
 
-    const refresh = await createRefreshSession(prisma, user.id);
     res.cookie("kas_auth_token", token, {
       ...authCookieOptions(),
       maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
     });
-    res.cookie("kas_refresh_token", refresh.token, {
-      ...authCookieOptions(),
-      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
-    });
+    if (isSessionPersistenceEnabled()) {
+      const refresh = await createRefreshSession(prisma, user.id);
+      res.cookie("kas_refresh_token", refresh.token, {
+        ...authCookieOptions(),
+        maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+      });
+    } else {
+      clearRefreshCookie(res);
+    }
     issueCsrfCookie(req, res);
 
     const signals: string[] = [];
@@ -353,15 +365,19 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
           orgId: user.orgId
         });
 
-        const refresh = await createRefreshSession(prisma, user.id);
         res.cookie("kas_auth_token", token, {
           ...authCookieOptions(),
           maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
         });
-        res.cookie("kas_refresh_token", refresh.token, {
-          ...authCookieOptions(),
-          maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
-        });
+        if (isSessionPersistenceEnabled()) {
+          const refresh = await createRefreshSession(prisma, user.id);
+          res.cookie("kas_refresh_token", refresh.token, {
+            ...authCookieOptions(),
+            maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+          });
+        } else {
+          clearRefreshCookie(res);
+        }
         issueCsrfCookie(req, res);
         await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: user.id, role: user.role, via: "trusted_2fa" });
 
@@ -431,15 +447,19 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
       orgId: user.orgId
     });
 
-    const refresh = await createRefreshSession(prisma, user.id);
     res.cookie("kas_auth_token", token, {
       ...authCookieOptions(),
       maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
     });
-    res.cookie("kas_refresh_token", refresh.token, {
-      ...authCookieOptions(),
-      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
-    });
+    if (isSessionPersistenceEnabled()) {
+      const refresh = await createRefreshSession(prisma, user.id);
+      res.cookie("kas_refresh_token", refresh.token, {
+        ...authCookieOptions(),
+        maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+      });
+    } else {
+      clearRefreshCookie(res);
+    }
     issueCsrfCookie(req, res);
     await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: user.id, role: user.role });
 
@@ -509,15 +529,19 @@ authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Re
       orgId: challenge.user.orgId
     });
 
-    const refresh = await createRefreshSession(prisma, challenge.user.id);
     res.cookie("kas_auth_token", token, {
       ...authCookieOptions(),
       maxAge: Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10) * 60 * 1000
     });
-    res.cookie("kas_refresh_token", refresh.token, {
-      ...authCookieOptions(),
-      maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
-    });
+    if (isSessionPersistenceEnabled()) {
+      const refresh = await createRefreshSession(prisma, challenge.user.id);
+      res.cookie("kas_refresh_token", refresh.token, {
+        ...authCookieOptions(),
+        maxAge: Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10) * 24 * 60 * 60 * 1000
+      });
+    } else {
+      clearRefreshCookie(res);
+    }
     setTrusted2faCookie(req, res, challenge.user.id);
     issueCsrfCookie(req, res);
     await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: challenge.user.id, role: challenge.user.role, via: "otp" });
@@ -770,6 +794,10 @@ authRouter.get("/csrf-token", async (req: Request, res: Response) => {
 
 authRouter.post("/refresh", authRateLimit, requireCsrf, async (req: Request, res: Response) => {
   try {
+    if (!isSessionPersistenceEnabled()) {
+      clearRefreshCookie(res);
+      return res.status(401).json({ ok: false, message: "Refresh session is disabled." });
+    }
     const refreshToken = String(req.cookies?.kas_refresh_token || "").trim();
     if (!refreshToken) return res.status(401).json({ ok: false, message: "Missing refresh token." });
 

@@ -12,6 +12,7 @@ const envSchema = z.object({
   REFRESH_TOKEN_SECRET: z.string().optional(),
   ACCESS_TOKEN_TTL_MINUTES: z.string().default("15"),
   REFRESH_TOKEN_TTL_DAYS: z.string().default("14"),
+  AUTH_SESSION_PERSISTENCE_ENABLED: z.string().default("true"),
   PASSWORD_RESET_TTL_MINUTES: z.string().default("30"),
   JWT_EXPIRES_IN: z.string().default("7d"),
   SMTP_HOST: z.string().optional(),
