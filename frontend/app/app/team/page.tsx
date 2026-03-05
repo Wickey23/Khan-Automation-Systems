@@ -81,9 +81,16 @@ export default function TeamPage() {
         ...data.seats
       }));
     } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.toLowerCase().includes("team_pro_required") || message.toLowerCase().includes("pro feature")) {
+        setCanManage(false);
+        setMembers([]);
+        setProEnabled(false);
+        return;
+      }
       showToast({
         title: "Could not load team",
-        description: error instanceof Error ? error.message : "Try again.",
+        description: message || "Try again.",
         variant: "error"
       });
       setMembers([]);
