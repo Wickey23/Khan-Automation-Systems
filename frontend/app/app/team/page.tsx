@@ -76,9 +76,17 @@ export default function TeamPage() {
       const data = await fetchTeamMembers();
       setCanManage(data.canManage);
       setMembers(data.members || []);
+      const seatPatch = {
+        ...(data.seats || {}),
+        ...(data.seatPolicy ? { seatPolicy: data.seatPolicy } : {}),
+        ...(typeof data.activeMembers === "number" ? { activeMembers: data.activeMembers } : {}),
+        ...(typeof data.pendingInvites === "number" ? { pendingInvites: data.pendingInvites } : {}),
+        ...(typeof data.allowedSeats === "number" ? { allowedSeats: data.allowedSeats } : {}),
+        ...(typeof data.upgradeHint === "string" ? { upgradeHint: data.upgradeHint } : {})
+      };
       setSeats((prev) => ({
         ...prev,
-        ...data.seats
+        ...seatPatch
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
