@@ -1638,13 +1638,13 @@ orgRouter.post("/calendar/sync-test", requireCalendarManageAccess, async (req: A
     const reason = String((error as Error)?.message || "").toLowerCase();
     success = false;
     if (
-      reason.includes("auth_failed") ||
+      reason.includes("token_refresh_hard_auth_failed") ||
       reason.includes("invalid_grant") ||
-      reason.includes("revoked") ||
-      reason.includes("401") ||
-      reason.includes("403")
+      reason.includes("revoked")
     ) {
       message = "Could not create test event. Calendar access appears revoked or expired. Disconnect and reconnect this calendar.";
+    } else if (reason.includes("google_event_auth_failed") || reason.includes("outlook_event_auth_failed")) {
+      message = "Could not create test event. Provider denied calendar write access. Reconnect and grant write permissions, or choose a different Calendar ID.";
     } else if (reason.includes("create_failed") || reason.includes("404")) {
       message = "Could not create test event. Check calendar write permissions and verify the selected Calendar ID.";
     } else {

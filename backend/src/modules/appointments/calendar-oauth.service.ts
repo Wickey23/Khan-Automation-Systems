@@ -143,6 +143,19 @@ function classifyFailure(status: number | undefined, payload: unknown): Calendar
   return "UNKNOWN_FAILURE";
 }
 
+function extractProviderFailureDetail(payload: unknown) {
+  if (!payload || typeof payload !== "object") return "";
+  const top = payload as Record<string, unknown>;
+  const direct = String(top.error_description || top.error || top.message || "").trim();
+  if (direct) return direct;
+  const nested = (top.error as Record<string, unknown> | undefined) || undefined;
+  if (nested) {
+    const nestedText = String(nested.message || nested.code || "").trim();
+    if (nestedText) return nestedText;
+  }
+  return "";
+}
+
 async function resolveGoogleAccountEmail(accessToken: string) {
   const profile = await fetchJson("https://openidconnect.googleapis.com/v1/userinfo", {
     method: "GET",
@@ -417,10 +430,11 @@ async function createGoogleEvent(input: {
     })
   });
   if (!response.ok) {
+    const detail = extractProviderFailureDetail(response.payload);
     if (response.status === 401 || response.status === 403) {
-      throw new Error("google_event_auth_failed");
+      throw new Error(`google_event_auth_failed:${response.status}:${detail}`);
     }
-    throw new Error("google_event_create_failed");
+    throw new Error(`google_event_create_failed:${response.status}:${detail}`);
   }
   const payload = response.payload as { id?: string };
   return String(payload?.id || "");
@@ -452,10 +466,11 @@ async function createOutlookEvent(input: {
     })
   });
   if (!response.ok) {
+    const detail = extractProviderFailureDetail(response.payload);
     if (response.status === 401 || response.status === 403) {
-      throw new Error("outlook_event_auth_failed");
+      throw new Error(`outlook_event_auth_failed:${response.status}:${detail}`);
     }
-    throw new Error("outlook_event_create_failed");
+    throw new Error(`outlook_event_create_failed:${response.status}:${detail}`);
   }
   const payload = response.payload as { id?: string };
   return String(payload?.id || "");
