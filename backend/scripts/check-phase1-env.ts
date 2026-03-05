@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 type CheckResult = {
   key: string;
   ok: boolean;
