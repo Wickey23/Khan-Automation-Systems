@@ -51,7 +51,7 @@ const appointmentSchema = z.object({
 const bookAppointmentSchema = z.object({
   orgId: z.string().min(1).optional(),
   callId: z.string().optional(),
-  requestedStartAt: z.string().datetime().optional(),
+  requestedStartAt: z.string().optional(),
   customerName: z.string().min(1),
   customerPhone: z.string().min(5),
   issueSummary: z.string().optional(),
@@ -59,8 +59,8 @@ const bookAppointmentSchema = z.object({
   serviceType: z.string().optional(),
   preferenceWindow: z
     .object({
-      from: z.string().datetime().optional(),
-      to: z.string().datetime().optional()
+      from: z.string().optional(),
+      to: z.string().optional()
     })
     .optional()
 });
@@ -163,6 +163,13 @@ function pickString(...values: Array<unknown>) {
 
 function asObject(value: unknown) {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function parseOptionalDate(value: unknown) {
+  if (!value) return undefined;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
 }
 
 toolsRouter.post("/create-lead-from-call", async (req, res) => {
@@ -459,6 +466,17 @@ toolsRouter.post("/book-appointment", async (req, res) => {
     }
 
     if (!resolvedOrgId) {
+      const orgCandidates = await prisma.organization.findMany({
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+        take: 2
+      });
+      if (orgCandidates.length === 1) {
+        resolvedOrgId = orgCandidates[0].id;
+      }
+    }
+
+    if (!resolvedOrgId) {
       return toolError(res, "MISSING_ORG_CONTEXT", "Missing org context for book-appointment tool payload.");
     }
 
@@ -488,8 +506,8 @@ toolsRouter.post("/book-appointment", async (req, res) => {
     const buildSlots = async () => {
       const window = computeAvailabilityWindow({
         now: new Date(),
-        from: payload.preferenceWindow?.from ? new Date(payload.preferenceWindow.from) : undefined,
-        to: payload.preferenceWindow?.to ? new Date(payload.preferenceWindow.to) : undefined,
+        from: parseOptionalDate(payload.preferenceWindow?.from),
+        to: parseOptionalDate(payload.preferenceWindow?.to),
         bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
         bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14
       });
@@ -541,7 +559,20 @@ toolsRouter.post("/book-appointment", async (req, res) => {
       return res.json({ ok: true, data: { slots } });
     }
 
-    const startAt = new Date(payload.requestedStartAt);
+    const startAt = parseOptionalDate(payload.requestedStartAt);
+    if (!startAt) {
+      return res.status(409).json({
+        ok: false,
+        error: {
+          code: "BOOKING_FAILED",
+          message: "Requested time is invalid or ambiguous. Ask for a specific date and time."
+        },
+        data: {
+          failureReason: "INVALID_REQUESTED_START",
+          nextSlots: (await buildSlots()).slice(0, 3)
+        }
+      });
+    }
     const durationMinutes = Math.max(1, settings?.appointmentDurationMinutes ?? 60);
     const endAt = new Date(startAt.getTime() + durationMinutes * 60 * 1000);
     const idempotencyKey = `tool:${resolvedOrgId}:${resolvedCallId || "manual"}:${startAt.toISOString()}`;
