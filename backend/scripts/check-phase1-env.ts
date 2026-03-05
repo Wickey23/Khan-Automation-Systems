@@ -26,21 +26,56 @@ function runChecks() {
   const notifications = isTruthy(process.env.FEATURE_NOTIFICATIONS_V1_ENABLED);
   const classification = isTruthy(process.env.FEATURE_CLASSIFICATION_V1_ENABLED);
 
-  add(results, "FEATURE_APPOINTMENTS_ENABLED", hasValue(process.env.FEATURE_APPOINTMENTS_ENABLED));
-  add(results, "FEATURE_CALENDAR_OAUTH_ENABLED", hasValue(process.env.FEATURE_CALENDAR_OAUTH_ENABLED));
-  add(results, "FEATURE_NOTIFICATIONS_V1_ENABLED", hasValue(process.env.FEATURE_NOTIFICATIONS_V1_ENABLED));
-  add(results, "FEATURE_CLASSIFICATION_V1_ENABLED", hasValue(process.env.FEATURE_CLASSIFICATION_V1_ENABLED));
-  add(results, "FEATURE_PIPELINE_STAGE_ENABLED", hasValue(process.env.FEATURE_PIPELINE_STAGE_ENABLED));
-  add(results, "FEATURE_PHASE1_ORG_ALLOWLIST", hasValue(process.env.FEATURE_PHASE1_ORG_ALLOWLIST));
-  add(results, "ENCRYPTION_KEY_BASE64", hasValue(process.env.ENCRYPTION_KEY_BASE64));
+  add(
+    results,
+    "FEATURE_APPOINTMENTS_ENABLED",
+    hasValue(process.env.FEATURE_APPOINTMENTS_ENABLED),
+    "Set true/false explicitly."
+  );
+  add(
+    results,
+    "FEATURE_CALENDAR_OAUTH_ENABLED",
+    hasValue(process.env.FEATURE_CALENDAR_OAUTH_ENABLED),
+    "Set true/false explicitly."
+  );
+  add(
+    results,
+    "FEATURE_NOTIFICATIONS_V1_ENABLED",
+    hasValue(process.env.FEATURE_NOTIFICATIONS_V1_ENABLED),
+    "Set true/false explicitly."
+  );
+  add(
+    results,
+    "FEATURE_CLASSIFICATION_V1_ENABLED",
+    hasValue(process.env.FEATURE_CLASSIFICATION_V1_ENABLED),
+    "Set true/false explicitly."
+  );
+  add(
+    results,
+    "FEATURE_PIPELINE_STAGE_ENABLED",
+    hasValue(process.env.FEATURE_PIPELINE_STAGE_ENABLED),
+    "Set true/false explicitly."
+  );
+  add(
+    results,
+    "FEATURE_PHASE1_ORG_ALLOWLIST",
+    hasValue(process.env.FEATURE_PHASE1_ORG_ALLOWLIST),
+    "Set org ids CSV, '*' or 'all' for broad rollout."
+  );
+  add(
+    results,
+    "ENCRYPTION_KEY_BASE64",
+    hasValue(process.env.ENCRYPTION_KEY_BASE64),
+    "Required for encrypted calendar token storage."
+  );
 
   if (calendarOauth) {
-    add(results, "GOOGLE_OAUTH_CLIENT_ID", hasValue(process.env.GOOGLE_OAUTH_CLIENT_ID));
-    add(results, "GOOGLE_OAUTH_CLIENT_SECRET", hasValue(process.env.GOOGLE_OAUTH_CLIENT_SECRET));
-    add(results, "GOOGLE_OAUTH_CALLBACK_URL", hasValue(process.env.GOOGLE_OAUTH_CALLBACK_URL));
-    add(results, "OUTLOOK_OAUTH_CLIENT_ID", hasValue(process.env.OUTLOOK_OAUTH_CLIENT_ID));
-    add(results, "OUTLOOK_OAUTH_CLIENT_SECRET", hasValue(process.env.OUTLOOK_OAUTH_CLIENT_SECRET));
-    add(results, "OUTLOOK_OAUTH_CALLBACK_URL", hasValue(process.env.OUTLOOK_OAUTH_CALLBACK_URL));
+    add(results, "GOOGLE_OAUTH_CLIENT_ID", hasValue(process.env.GOOGLE_OAUTH_CLIENT_ID), "Required when calendar OAuth is enabled.");
+    add(results, "GOOGLE_OAUTH_CLIENT_SECRET", hasValue(process.env.GOOGLE_OAUTH_CLIENT_SECRET), "Required when calendar OAuth is enabled.");
+    add(results, "GOOGLE_OAUTH_CALLBACK_URL", hasValue(process.env.GOOGLE_OAUTH_CALLBACK_URL), "Required when calendar OAuth is enabled.");
+    add(results, "OUTLOOK_OAUTH_CLIENT_ID", hasValue(process.env.OUTLOOK_OAUTH_CLIENT_ID), "Required when calendar OAuth is enabled.");
+    add(results, "OUTLOOK_OAUTH_CLIENT_SECRET", hasValue(process.env.OUTLOOK_OAUTH_CLIENT_SECRET), "Required when calendar OAuth is enabled.");
+    add(results, "OUTLOOK_OAUTH_CALLBACK_URL", hasValue(process.env.OUTLOOK_OAUTH_CALLBACK_URL), "Required when calendar OAuth is enabled.");
   }
 
   if (notifications) {
@@ -58,8 +93,8 @@ function runChecks() {
   }
 
   if (appointments) {
-    add(results, "API_BASE_URL", hasValue(process.env.API_BASE_URL));
-    add(results, "FRONTEND_APP_URL", hasValue(process.env.FRONTEND_APP_URL));
+    add(results, "API_BASE_URL", hasValue(process.env.API_BASE_URL), "Used for callback links and webhook-safe redirects.");
+    add(results, "FRONTEND_APP_URL", hasValue(process.env.FRONTEND_APP_URL), "Used for hosted return URLs.");
   }
 
   return results;
