@@ -9,12 +9,13 @@ import {
   fetchAppointmentAvailability,
   fetchCalendarEvents,
   fetchCalendarProviders,
+  fetchCustomerBase,
   fetchOrgProfile,
   fetchOrgAppointments,
   getMe,
   patchOrgAppointment
 } from "@/lib/api";
-import type { Appointment, CalendarConnection, OrgCalendarEvent, OrgFeatureFlags } from "@/lib/types";
+import type { Appointment, CalendarConnection, CustomerBaseRecord, OrgCalendarEvent, OrgFeatureFlags } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 
@@ -32,6 +33,8 @@ export default function AppAppointmentsPage() {
   const [canWrite, setCanWrite] = useState(false);
   const [canManageCalendar, setCanManageCalendar] = useState(false);
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
+  const [customerBase, setCustomerBase] = useState<CustomerBaseRecord[]>([]);
+  const [selectedCustomerPhone, setSelectedCustomerPhone] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<OrgCalendarEvent[]>([]);
   const [slotDate, setSlotDate] = useState("");
   const [slotTimezone, setSlotTimezone] = useState("America/New_York");
@@ -106,10 +109,18 @@ export default function AppAppointmentsPage() {
         if (!appointmentsEnabled) {
           setAppointments([]);
           setCalendarProviders([]);
+          setCustomerBase([]);
           setLoading(false);
           return;
         }
         void load("ALL", "", "");
+        if (writable) {
+          void fetchCustomerBase()
+            .then((data) => setCustomerBase(data.customers || []))
+            .catch(() => setCustomerBase([]));
+        } else {
+          setCustomerBase([]);
+        }
         if (calendarManage && calendarEnabled) {
           void fetchCalendarProviders()
             .then((data) => setCalendarProviders(data.providers || []))
@@ -123,6 +134,7 @@ export default function AppAppointmentsPage() {
         setCanManageCalendar(false);
         setFeatureDisabled(true);
         setCalendarFeatureEnabled(false);
+        setCustomerBase([]);
         setLoading(false);
       });
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -425,6 +437,31 @@ export default function AppAppointmentsPage() {
         <div className="rounded-lg border bg-white p-4">
           <h2 className="text-lg font-semibold">Create appointment</h2>
           <p className="text-sm text-muted-foreground">Select a day, pull available slots, then book a confirmed or internal pending appointment.</p>
+          {customerBase.length > 0 ? (
+            <label className="mt-3 block text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Select customer from customer base</span>
+              <select
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={selectedCustomerPhone}
+                onChange={(event) => {
+                  const phone = event.target.value;
+                  setSelectedCustomerPhone(phone);
+                  if (!phone) return;
+                  const selected = customerBase.find((row) => row.phoneNumber === phone);
+                  if (!selected) return;
+                  setCustomerPhone(selected.phoneNumber);
+                  setCustomerName(selected.lead?.name || selected.displayName || "");
+                }}
+              >
+                <option value="">Manual entry</option>
+                {customerBase.map((customer) => (
+                  <option key={customer.phoneNumber} value={customer.phoneNumber}>
+                    {(customer.lead?.name || customer.displayName || customer.phoneNumber).trim()} - {customer.phoneNumber}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer name</span>
