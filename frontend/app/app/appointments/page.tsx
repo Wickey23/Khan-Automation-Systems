@@ -746,12 +746,17 @@ export default function AppAppointmentsPage() {
       )}
 
       {selectedCalendarDetail ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg border bg-white p-4 shadow-xl">
-            <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[1px]">
+          <div className="w-full max-w-xl overflow-hidden rounded-xl border bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b bg-slate-50 px-5 py-4">
               <div>
-                <h3 className="text-lg font-semibold">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
                   {selectedCalendarDetail.type === "APPOINTMENT" ? "Appointment details" : "Calendar event details"}
+                </p>
+                <h3 className="text-xl font-semibold text-slate-900">
+                  {selectedCalendarDetail.type === "APPOINTMENT"
+                    ? selectedCalendarDetail.appointment.customerName
+                    : selectedCalendarDetail.event.title}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedCalendarDetail.type === "APPOINTMENT"
@@ -765,33 +770,48 @@ export default function AppAppointmentsPage() {
             </div>
 
             {selectedCalendarDetail.type === "APPOINTMENT" ? (
-              <div className="space-y-2 text-sm">
-                <p><span className="font-medium">Customer:</span> {selectedCalendarDetail.appointment.customerName}</p>
-                <p><span className="font-medium">Phone:</span> {selectedCalendarDetail.appointment.customerPhone}</p>
-                <p><span className="font-medium">Status:</span> {selectedCalendarDetail.appointment.status}</p>
-                <p><span className="font-medium">Provider:</span> {selectedCalendarDetail.appointment.calendarProvider}</p>
-                <p><span className="font-medium">Issue:</span> {selectedCalendarDetail.appointment.issueSummary}</p>
+              <div className="grid gap-3 px-5 py-4 text-sm">
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">Phone</span>
+                  <span className="font-medium text-slate-900">{selectedCalendarDetail.appointment.customerPhone}</span>
+                </div>
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">Status</span>
+                  <span className="font-medium text-slate-900">{selectedCalendarDetail.appointment.status}</span>
+                </div>
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">Provider</span>
+                  <span className="font-medium text-slate-900">{selectedCalendarDetail.appointment.calendarProvider}</span>
+                </div>
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">Issue</span>
+                  <span className="font-medium text-slate-900">{selectedCalendarDetail.appointment.issueSummary}</span>
+                </div>
                 {selectedCalendarDetail.appointment.leadId ? (
-                  <p>
-                    <span className="font-medium">Lead:</span>{" "}
-                    <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(selectedCalendarDetail.appointment.leadId)}`}>
+                  <div className="grid grid-cols-[110px_1fr] gap-2">
+                    <span className="text-slate-500">Lead</span>
+                    <Link className="font-medium text-blue-700 underline" href={`/app/leads?leadId=${encodeURIComponent(selectedCalendarDetail.appointment.leadId)}`}>
                       {selectedCalendarDetail.appointment.lead?.name || selectedCalendarDetail.appointment.leadId}
                     </Link>
-                  </p>
+                  </div>
                 ) : null}
               </div>
             ) : (
-              <div className="space-y-2 text-sm">
-                <p><span className="font-medium">Title:</span> {selectedCalendarDetail.event.title}</p>
-                <p><span className="font-medium">Provider:</span> {selectedCalendarDetail.event.provider}</p>
-                <p>
-                  <span className="font-medium">Start:</span> {new Date(selectedCalendarDetail.event.startAt).toLocaleString()}
-                </p>
-                <p>
-                  <span className="font-medium">End:</span> {new Date(selectedCalendarDetail.event.endAt).toLocaleString()}
-                </p>
+              <div className="grid gap-3 px-5 py-4 text-sm">
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">Provider</span>
+                  <span className="font-medium text-slate-900">{selectedCalendarDetail.event.provider}</span>
+                </div>
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">Start</span>
+                  <span className="font-medium text-slate-900">{new Date(selectedCalendarDetail.event.startAt).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-[110px_1fr] gap-2">
+                  <span className="text-slate-500">End</span>
+                  <span className="font-medium text-slate-900">{new Date(selectedCalendarDetail.event.endAt).toLocaleString()}</span>
+                </div>
                 <a
-                  className="inline-block underline"
+                  className="mt-1 inline-flex w-fit items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
                   href={buildEventViewUrl(selectedCalendarDetail.event)}
                   target="_blank"
                   rel="noreferrer"
