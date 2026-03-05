@@ -639,35 +639,21 @@ export async function fetchAppointmentAvailability(payload: {
   if (!siteConfig.apiBase) {
     throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
   }
-  let csrfToken = readCookie("kas_csrf_token");
-  if (!csrfToken) {
-    await fetch(`${siteConfig.apiBase}/api/auth/csrf-token`, {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store"
-    });
-    csrfToken = readCookie("kas_csrf_token");
-  }
-  const response = await fetch(`${siteConfig.apiBase}/api/org/appointments/availability`, {
-    method: "POST",
+  const search = new URLSearchParams();
+  if (payload.from) search.set("from", payload.from);
+  if (payload.to) search.set("to", payload.to);
+  const response = await fetch(`${siteConfig.apiBase}/api/org/appointments/availability?${search.toString()}`, {
+    method: "GET",
     credentials: "include",
     cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrfToken ? { "x-csrf-token": csrfToken } : {})
-    },
-    body: JSON.stringify(payload)
+    headers: { "Content-Type": "application/json" }
   });
   if (!response.ok) {
     const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
-      try {
-        const payload = (await response.json()) as { ok?: boolean; message?: string };
-        if (payload?.message) {
-          throw new Error(payload.message);
-        }
-      } catch {
-        // fall through to generic status message
+      const data = (await response.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
+      if (data?.message) {
+        throw new Error(data.message);
       }
     }
     throw new Error(`Request failed (${response.status}).`);

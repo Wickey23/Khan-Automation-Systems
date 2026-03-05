@@ -963,12 +963,12 @@ orgRouter.get("/messaging-readiness", async (req: AuthenticatedRequest, res) => 
   });
 });
 
-orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
+async function handleAppointmentsAvailability(req: AuthenticatedRequest, res: Response, source: unknown) {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const parsed = appointmentsAvailabilitySchema.safeParse(req.body || {});
+  const parsed = appointmentsAvailabilitySchema.safeParse(source || {});
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid availability payload.", errors: parsed.error.flatten() });
   }
@@ -1065,7 +1065,14 @@ orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, asyn
       endAt: slot.endAt.toISOString()
     }))
   });
-});
+}
+
+orgRouter.get("/appointments/availability", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) =>
+  handleAppointmentsAvailability(req, res, req.query)
+);
+orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) =>
+  handleAppointmentsAvailability(req, res, req.body)
+);
 
 orgRouter.get("/appointments", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
