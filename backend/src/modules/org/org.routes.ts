@@ -44,7 +44,7 @@ import {
 
 export const orgRouter = Router();
 
-orgRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT, UserRole.SUPER_ADMIN]));
+orgRouter.use(requireAuth, requireAnyRole([UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF, UserRole.CLIENT, UserRole.ADMIN, UserRole.SUPER_ADMIN]));
 
 function requireOrgWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const role = req.auth?.role;
