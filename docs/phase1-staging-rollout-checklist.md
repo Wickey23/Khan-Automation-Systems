@@ -142,3 +142,18 @@ Roll out with allowlist first:
 3. Validate metrics/logs for 24h.
 4. Expand allowlist in batches.
 5. Set allowlist to `*` only after stable operation.
+
+## 11) One-Command Readiness Check
+
+From repo root:
+
+```powershell
+npm run phase1:ready
+```
+
+This runs:
+
+- backend typecheck
+- frontend typecheck
+- frontend lint
+- backend Phase 1 smoke checks

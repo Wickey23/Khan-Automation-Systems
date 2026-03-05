@@ -12,7 +12,8 @@
     "dev:backend": "npm run dev --workspace backend",
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
     "lint": "npm run lint --workspace frontend",
-    "seed:admin": "npm run seed:admin --workspace backend"
+    "seed:admin": "npm run seed:admin --workspace backend",
+    "phase1:ready": "npx tsc --noEmit -p backend/tsconfig.json && npx tsc --noEmit -p frontend/tsconfig.json && npm run lint --workspace frontend && npm run phase1:smoke --workspace backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
