@@ -5,6 +5,15 @@ type HoursSchedule = Record<string, HoursWindow[]>;
 
 const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const SLOT_STEP_MINUTES = 15;
+const DEFAULT_HOURS_SCHEDULE: HoursSchedule = {
+  sun: [],
+  mon: [{ start: "09:00", end: "17:00" }],
+  tue: [{ start: "09:00", end: "17:00" }],
+  wed: [{ start: "09:00", end: "17:00" }],
+  thu: [{ start: "09:00", end: "17:00" }],
+  fri: [{ start: "09:00", end: "17:00" }],
+  sat: []
+};
 
 export type SlotWindow = { startAt: Date; endAt: Date };
 export type BusyWindow = { startAt: Date; endAt: Date };
@@ -54,13 +63,17 @@ function parseTimeToMinutes(value: string) {
 }
 
 function parseHoursPayload(hoursJson?: string | null): { timezone: string; schedule: HoursSchedule } {
-  const fallback = { timezone: "America/New_York", schedule: {} as HoursSchedule };
+  const fallback = { timezone: "America/New_York", schedule: DEFAULT_HOURS_SCHEDULE };
   if (!hoursJson) return fallback;
   try {
     const parsed = JSON.parse(hoursJson) as { timezone?: string; schedule?: HoursSchedule };
+    const parsedSchedule = parsed.schedule && typeof parsed.schedule === "object" ? parsed.schedule : null;
+    const hasAnyWindow = parsedSchedule
+      ? Object.values(parsedSchedule).some((windows) => Array.isArray(windows) && windows.length > 0)
+      : false;
     return {
       timezone: String(parsed.timezone || fallback.timezone),
-      schedule: parsed.schedule && typeof parsed.schedule === "object" ? parsed.schedule : {}
+      schedule: hasAnyWindow ? (parsedSchedule as HoursSchedule) : fallback.schedule
     };
   } catch {
     return fallback;
@@ -296,4 +309,3 @@ export function generateAvailabilitySlots(input: GenerateSlotsInput): SlotWindow
 
   return results.sort((a, b) => a.startAt.getTime() - b.startAt.getTime()).slice(0, maxSlots);
 }
-
