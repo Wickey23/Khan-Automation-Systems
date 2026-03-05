@@ -49,12 +49,23 @@ export default function TeamPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [proEnabled, setProEnabled] = useState(true);
+  const [roleBlocked, setRoleBlocked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [me, billing] = await Promise.all([getMe(), getBillingStatus()]);
       setCurrentUserId(me.user.userId || null);
+      const userRole = String(me.user.role || "");
+      const canViewTeam = userRole === "CLIENT_ADMIN" || userRole === "CLIENT_STAFF" || userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+      if (!canViewTeam) {
+        setRoleBlocked(true);
+        setCanManage(false);
+        setMembers([]);
+        setLoading(false);
+        return;
+      }
+      setRoleBlocked(false);
       const isProActive =
         (billing.subscription?.plan || null) === "PRO" &&
         ["active", "trialing"].includes(String(billing.subscription?.status || "").toLowerCase());
@@ -94,6 +105,13 @@ export default function TeamPage() {
         setCanManage(false);
         setMembers([]);
         setProEnabled(false);
+        setRoleBlocked(false);
+        return;
+      }
+      if (message.toLowerCase().includes("forbidden")) {
+        setRoleBlocked(true);
+        setCanManage(false);
+        setMembers([]);
         return;
       }
       showToast({
@@ -104,6 +122,7 @@ export default function TeamPage() {
       setMembers([]);
       setCurrentUserId(null);
       setProEnabled(false);
+      setRoleBlocked(false);
     } finally {
       setLoading(false);
     }
@@ -201,7 +220,15 @@ export default function TeamPage() {
         <p className="text-sm text-muted-foreground">Invite users, assign roles, and manage seat usage.</p>
       </div>
 
-      {!proEnabled ? (
+      {roleBlocked ? (
+        <Card>
+          <CardContent className="pt-6 text-sm">
+            You do not have access to Team management. Contact your admin for role access.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!proEnabled && !roleBlocked ? (
         <Card>
           <CardContent className="pt-6 text-sm">
             Team management is a Pro feature. Upgrade to Pro to invite and manage multiple users.
@@ -209,7 +236,7 @@ export default function TeamPage() {
         </Card>
       ) : null}
 
-      <Card>
+      <Card className={roleBlocked ? "opacity-60" : ""}>
         <CardHeader>
           <CardTitle>Seat usage</CardTitle>
         </CardHeader>
@@ -233,7 +260,7 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {canManage && proEnabled ? (
+      {canManage && proEnabled && !roleBlocked ? (
         <Card>
           <CardHeader>
             <CardTitle>Invite user</CardTitle>
@@ -274,7 +301,7 @@ export default function TeamPage() {
         </Card>
       ) : null}
 
-      <Card className={!proEnabled ? "opacity-60" : ""}>
+      <Card className={!proEnabled || roleBlocked ? "opacity-60" : ""}>
         <CardHeader>
           <CardTitle>Members</CardTitle>
         </CardHeader>
