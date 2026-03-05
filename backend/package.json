@@ -17,7 +17,8 @@
     "backfill:lead-names": "ts-node --transpile-only scripts/backfill-lead-names.ts",
     "harness:billing-edge": "ts-node --transpile-only scripts/billing-edge-harness.ts",
     "harness:stress-webhooks": "ts-node --transpile-only scripts/stress-webhook-replay.ts",
-    "phase1:check-env": "ts-node --transpile-only scripts/check-phase1-env.ts"
+    "phase1:check-env": "ts-node --transpile-only scripts/check-phase1-env.ts",
+    "phase1:check-schema": "ts-node --transpile-only scripts/check-phase1-schema.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

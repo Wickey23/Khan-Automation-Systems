@@ -26,6 +26,7 @@ Quick validate before deploy:
 ```powershell
 cd backend
 npm run phase1:check-env
+npm run phase1:check-schema
 ```
 
 ## 2) Database
