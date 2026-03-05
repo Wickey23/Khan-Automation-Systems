@@ -152,6 +152,18 @@ function extractProviderFailureDetail(payload: unknown) {
   if (nested) {
     const nestedText = String(nested.message || nested.code || "").trim();
     if (nestedText) return nestedText;
+    const nestedErrors = Array.isArray(nested.errors) ? nested.errors : [];
+    const firstNested = nestedErrors[0] as Record<string, unknown> | undefined;
+    if (firstNested) {
+      const firstMessage = String(firstNested.message || firstNested.reason || "").trim();
+      if (firstMessage) return firstMessage;
+    }
+  }
+  try {
+    const raw = JSON.stringify(payload);
+    if (raw && raw !== "{}" && raw !== "null") return raw.slice(0, 300);
+  } catch {
+    // ignore
   }
   return "";
 }
