@@ -28,6 +28,15 @@ export type CalendarAuthErrorCode =
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 12_000;
 const oauthStateStore = new Map<string, OAuthStatePayload>();
+const consumedStateStore = new Map<string, number>();
+
+type SignedStatePayload = {
+  o: string;
+  u: string;
+  p: ProviderKind;
+  e: number;
+  n: string;
+};
 
 function getProviderConfig(provider: ProviderKind) {
   if (provider === "GOOGLE") {
@@ -63,6 +72,35 @@ function ensureProviderConfigured(provider: ProviderKind) {
 function cleanupExpiredStates(now = Date.now()) {
   for (const [state, payload] of oauthStateStore.entries()) {
     if (payload.expiresAt <= now) oauthStateStore.delete(state);
+  }
+  for (const [state, expiresAt] of consumedStateStore.entries()) {
+    if (expiresAt <= now) consumedStateStore.delete(state);
+  }
+}
+
+function getStateSigningKey() {
+  return String(env.JWT_SECRET || "").trim();
+}
+
+function createSignedStateToken(payload: SignedStatePayload) {
+  const body = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const sig = crypto.createHmac("sha256", getStateSigningKey()).update(body).digest("base64url");
+  return `v1.${body}.${sig}`;
+}
+
+function parseSignedStateToken(state: string) {
+  const parts = String(state || "").split(".");
+  if (parts.length !== 3 || parts[0] !== "v1") return null;
+  const [, body, sig] = parts;
+  if (!body || !sig) return null;
+  const expected = crypto.createHmac("sha256", getStateSigningKey()).update(body).digest("base64url");
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SignedStatePayload;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
   }
 }
 
@@ -129,12 +167,20 @@ async function resolveOutlookAccountEmail(accessToken: string) {
 export function createCalendarConnectUrl(input: { provider: ProviderKind; orgId: string; userId: string }) {
   cleanupExpiredStates();
   const config = ensureProviderConfigured(input.provider);
-  const state = crypto.randomBytes(18).toString("base64url");
+  const nonce = crypto.randomBytes(18).toString("base64url");
+  const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
+  const state = createSignedStateToken({
+    o: input.orgId,
+    u: input.userId,
+    p: input.provider,
+    e: expiresAt,
+    n: nonce
+  });
   oauthStateStore.set(state, {
     orgId: input.orgId,
     userId: input.userId,
     provider: input.provider,
-    expiresAt: Date.now() + OAUTH_STATE_TTL_MS
+    expiresAt
   });
 
   const params = new URLSearchParams({
@@ -161,13 +207,31 @@ export function consumeCalendarOauthState(input: {
   userId: string;
 }) {
   cleanupExpiredStates();
+  if (consumedStateStore.has(input.state)) return null;
+
   const payload = oauthStateStore.get(input.state);
   oauthStateStore.delete(input.state);
-  if (!payload) return null;
-  if (payload.provider !== input.provider) return null;
-  if (payload.orgId !== input.orgId || payload.userId !== input.userId) return null;
-  if (payload.expiresAt <= Date.now()) return null;
-  return payload;
+  if (payload) {
+    if (payload.provider !== input.provider) return null;
+    if (payload.orgId !== input.orgId || payload.userId !== input.userId) return null;
+    if (payload.expiresAt <= Date.now()) return null;
+    consumedStateStore.set(input.state, payload.expiresAt);
+    return payload;
+  }
+
+  const signed = parseSignedStateToken(input.state);
+  if (!signed) return null;
+  if (signed.p !== input.provider) return null;
+  if (signed.o !== input.orgId || signed.u !== input.userId) return null;
+  if (signed.e <= Date.now()) return null;
+
+  consumedStateStore.set(input.state, signed.e);
+  return {
+    orgId: signed.o,
+    userId: signed.u,
+    provider: signed.p,
+    expiresAt: signed.e
+  };
 }
 
 export async function exchangeCalendarCode(input: { provider: ProviderKind; code: string }): Promise<NormalizedTokenPayload> {
@@ -440,6 +504,7 @@ async function listGoogleEvents(input: {
     items?: Array<{
       id?: string;
       summary?: string;
+      htmlLink?: string;
       start?: { dateTime?: string; date?: string };
       end?: { dateTime?: string; date?: string };
     }>;
@@ -454,11 +519,12 @@ async function listGoogleEvents(input: {
         id: String(item.id || ""),
         provider: "GOOGLE" as const,
         title: String(item.summary || "Busy"),
+        viewUrl: item.htmlLink ? String(item.htmlLink) : null,
         startAt: new Date(startIso),
         endAt: new Date(endIso)
       };
     })
-    .filter(Boolean) as Array<{ id: string; provider: "GOOGLE"; title: string; startAt: Date; endAt: Date }>;
+    .filter(Boolean) as Array<{ id: string; provider: "GOOGLE"; title: string; viewUrl: string | null; startAt: Date; endAt: Date }>;
 }
 
 async function listOutlookEvents(input: {
@@ -473,7 +539,7 @@ async function listOutlookEvents(input: {
   const query = new URLSearchParams({
     startDateTime: input.fromUtc.toISOString(),
     endDateTime: input.toUtc.toISOString(),
-    $select: "id,subject,start,end,showAs"
+    $select: "id,subject,start,end,showAs,webLink"
   }).toString();
   const response = await fetchJson(`https://graph.microsoft.com/v1.0/${calendarPath}?${query}`, {
     method: "GET",
@@ -492,6 +558,7 @@ async function listOutlookEvents(input: {
     value?: Array<{
       id?: string;
       subject?: string;
+      webLink?: string;
       start?: { dateTime?: string };
       end?: { dateTime?: string };
       showAs?: string;
@@ -507,11 +574,12 @@ async function listOutlookEvents(input: {
         id: String(item.id || ""),
         provider: "OUTLOOK" as const,
         title: String(item.subject || "Busy"),
+        viewUrl: item.webLink ? String(item.webLink) : null,
         startAt: new Date(startIso),
         endAt: new Date(endIso)
       };
     })
-    .filter(Boolean) as Array<{ id: string; provider: "OUTLOOK"; title: string; startAt: Date; endAt: Date }>;
+    .filter(Boolean) as Array<{ id: string; provider: "OUTLOOK"; title: string; viewUrl: string | null; startAt: Date; endAt: Date }>;
 }
 
 export async function createCalendarEventFromConnection(input: {

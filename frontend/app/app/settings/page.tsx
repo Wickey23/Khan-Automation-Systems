@@ -602,24 +602,6 @@ export default function AppSettingsPage() {
               void (async () => {
                 setCalendarBusy(true);
                 try {
-                  const refreshedBefore = await fetchCalendarProviders().catch(() => ({ providers: [] as CalendarConnection[] }));
-                  const providersBefore = refreshedBefore.providers || [];
-                  setCalendarProviders(providersBefore);
-                  const hasMatchingActive = providersBefore.some(
-                    (row) =>
-                      row.isActive &&
-                      (!calendarSyncProvider || row.provider === calendarSyncProvider)
-                  );
-                  if (!hasMatchingActive) {
-                    showToast({
-                      title: "No active calendar connection",
-                      description: calendarSyncProvider
-                        ? `No active ${calendarSyncProvider} connection found. Reconnect the provider and try again.`
-                        : "Connect Google or Outlook, then try sync test again.",
-                      variant: "error"
-                    });
-                    return;
-                  }
                   const result = await runCalendarSyncTest(
                     calendarSyncProvider ? { provider: calendarSyncProvider } : {}
                   );

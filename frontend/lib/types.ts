@@ -491,6 +491,7 @@ export type OrgCalendarEvent = {
   id: string;
   provider: "GOOGLE" | "OUTLOOK";
   title: string;
+  viewUrl?: string | null;
   startAt: string;
   endAt: string;
 };

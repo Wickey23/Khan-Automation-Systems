@@ -321,6 +321,20 @@ export default function AppAppointmentsPage() {
     items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
   });
 
+  function buildEventViewUrl(event: OrgCalendarEvent) {
+    if (event.viewUrl && String(event.viewUrl).trim()) return String(event.viewUrl).trim();
+    const start = new Date(event.startAt);
+    const y = start.getUTCFullYear();
+    const m = String(start.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(start.getUTCDate()).padStart(2, "0");
+    const ymd = `${y}${m}${d}`;
+    const iso = encodeURIComponent(start.toISOString());
+    if (event.provider === "GOOGLE") {
+      return `https://calendar.google.com/calendar/u/0/r/day/${ymd}`;
+    }
+    return `https://outlook.office.com/calendar/view/day?startdt=${iso}`;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -534,7 +548,17 @@ export default function AppAppointmentsPage() {
                         <div className="font-medium text-blue-900">
                           {new Date(event.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} {event.title}
                         </div>
-                        <div className="text-blue-700">{event.provider}</div>
+                        <div className="flex items-center justify-between gap-2 text-blue-700">
+                          <span>{event.provider}</span>
+                          <a
+                            href={buildEventViewUrl(event)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline"
+                          >
+                            Open
+                          </a>
+                        </div>
                       </div>
                     ))}
                     {dayItems.length > 3 ? (

@@ -1422,6 +1422,7 @@ orgRouter.get("/calendar/events", requireAppointmentsReadAccess, async (req: Aut
           id: event.id,
           provider: event.provider,
           title: event.title,
+          viewUrl: event.viewUrl || null,
           startAt: event.startAt.toISOString(),
           endAt: event.endAt.toISOString()
         }))
