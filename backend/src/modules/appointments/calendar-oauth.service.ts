@@ -387,12 +387,9 @@ export async function ensureUsableAccessToken(input: {
 function isHardAuthErrorMessage(message: string) {
   const normalized = String(message || "").toLowerCase();
   return (
-    normalized.includes("hard_auth_failed") ||
-    normalized.includes("auth_failed") ||
+    normalized.includes("token_refresh_hard_auth_failed") ||
     normalized.includes("invalid_grant") ||
-    normalized.includes("revoked") ||
-    normalized.includes("401") ||
-    normalized.includes("403")
+    normalized.includes("revoked")
   );
 }
 
