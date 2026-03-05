@@ -49,7 +49,7 @@ const appointmentSchema = z.object({
 });
 
 const bookAppointmentSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   callId: z.string().optional(),
   requestedStartAt: z.string().datetime().optional(),
   customerName: z.string().min(1),
@@ -429,12 +429,44 @@ toolsRouter.post("/book-appointment", async (req, res) => {
     const parsed = bookAppointmentSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid book-appointment payload.");
     const payload = parsed.data;
+    const root = asObject(req.body);
+    const messageRoot = asObject(root.message);
+    const call = asObject(messageRoot.call);
+    let resolvedOrgId = pickString(
+      payload.orgId,
+      root.orgId,
+      root.organizationId,
+      call.orgId,
+      call.organizationId,
+      messageRoot.orgId,
+      process.env.DEFAULT_TOOL_ORG_ID,
+      process.env.ORG_ID
+    );
+    let resolvedCallId = pickString(payload.callId, root.callId, root.providerCallId, call.id, call.callId, call.providerCallId);
 
-    if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, payload.orgId)) {
+    if (!resolvedOrgId && resolvedCallId) {
+      const callRow = await prisma.callLog.findFirst({
+        where: { OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, orgId: true, leadId: true }
+      });
+      if (callRow?.orgId) {
+        resolvedOrgId = callRow.orgId;
+      }
+      if (callRow?.id) {
+        resolvedCallId = callRow.id;
+      }
+    }
+
+    if (!resolvedOrgId) {
+      return toolError(res, "MISSING_ORG_CONTEXT", "Missing org context for book-appointment tool payload.");
+    }
+
+    if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, resolvedOrgId)) {
       return toolError(res, "FEATURE_DISABLED", "Appointments feature is disabled for this org.", 404);
     }
     const settings = await prisma.businessSettings.findUnique({
-      where: { orgId: payload.orgId },
+      where: { orgId: resolvedOrgId },
       select: {
         hoursJson: true,
         timezone: true,
@@ -445,10 +477,10 @@ toolsRouter.post("/book-appointment", async (req, res) => {
       }
     });
     const timezone = settings?.timezone || "America/New_York";
-    const calendarOauthEnabled = isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, payload.orgId);
-    const callLog = payload.callId
+    const calendarOauthEnabled = isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, resolvedOrgId);
+    const callLog = resolvedCallId
       ? await prisma.callLog.findFirst({
-          where: { orgId: payload.orgId, OR: [{ id: payload.callId }, { providerCallId: payload.callId }] },
+          where: { orgId: resolvedOrgId, OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
           select: { id: true, leadId: true }
         })
       : null;
@@ -463,7 +495,7 @@ toolsRouter.post("/book-appointment", async (req, res) => {
       });
       const internalBusy = await prisma.appointment.findMany({
         where: {
-          orgId: payload.orgId,
+          orgId: resolvedOrgId,
           status: { not: "CANCELED" },
           startAt: { lte: window.to },
           endAt: { gte: window.from }
@@ -473,11 +505,11 @@ toolsRouter.post("/book-appointment", async (req, res) => {
         take: 500
       });
       let externalBusyBlocks: Array<{ startAt: Date; endAt: Date }> = [];
-      if (isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, payload.orgId)) {
+      if (isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, resolvedOrgId)) {
         try {
           const externalBusy = await getBusyBlocks({
             prisma,
-            orgId: payload.orgId,
+            orgId: resolvedOrgId,
             fromUtc: window.from,
             toUtc: window.to
           });
@@ -512,11 +544,11 @@ toolsRouter.post("/book-appointment", async (req, res) => {
     const startAt = new Date(payload.requestedStartAt);
     const durationMinutes = Math.max(1, settings?.appointmentDurationMinutes ?? 60);
     const endAt = new Date(startAt.getTime() + durationMinutes * 60 * 1000);
-    const idempotencyKey = `tool:${payload.orgId}:${payload.callId || "manual"}:${startAt.toISOString()}`;
+    const idempotencyKey = `tool:${resolvedOrgId}:${resolvedCallId || "manual"}:${startAt.toISOString()}`;
 
     const activeConnection = calendarOauthEnabled
       ? await prisma.calendarConnection.findFirst({
-          where: { orgId: payload.orgId, isActive: true },
+          where: { orgId: resolvedOrgId, isActive: true },
           orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
           select: { id: true, provider: true }
         })
@@ -525,10 +557,10 @@ toolsRouter.post("/book-appointment", async (req, res) => {
 
     const booking = await bookAppointmentWithHold({
       prisma,
-      orgId: payload.orgId,
+      orgId: resolvedOrgId,
       userId: "vapi-tool",
       leadId: callLog?.leadId || null,
-      callLogId: callLog?.id || payload.callId || null,
+      callLogId: callLog?.id || resolvedCallId || null,
       customerName: payload.customerName,
       customerPhone: normalizePhone(payload.customerPhone),
       issueSummary: payload.issueSummary || payload.serviceType || "Service appointment request",
@@ -543,7 +575,7 @@ toolsRouter.post("/book-appointment", async (req, res) => {
         hoursJson: settings?.hoursJson || null,
         timezone
       },
-      pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, payload.orgId),
+      pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, resolvedOrgId),
       returnFailureOnCalendarFallback: true,
       createExternalEvent:
         activeConnection && activeConnection.provider !== "INTERNAL"
@@ -551,7 +583,7 @@ toolsRouter.post("/book-appointment", async (req, res) => {
               const event = await createCalendarEventFromConnection({
                 prisma,
                 connectionId: activeConnection.id,
-                orgId: payload.orgId,
+                orgId: resolvedOrgId,
                 title: `${payload.customerName} - Service Appointment`,
                 description: payload.issueSummary || "Booked via AI receptionist",
                 startAt,
@@ -570,7 +602,7 @@ toolsRouter.post("/book-appointment", async (req, res) => {
           ? async ({ fromUtc, toUtc }) => {
               const busy = await getBusyBlocks({
                 prisma,
-                orgId: payload.orgId,
+                orgId: resolvedOrgId,
                 fromUtc,
                 toUtc,
                 provider: activeConnection.provider
@@ -585,24 +617,24 @@ toolsRouter.post("/book-appointment", async (req, res) => {
       return res.json({ ok: true, data: { appointment: booking.appointment } });
     }
 
-    if (booking.reason === "CALENDAR_UNAVAILABLE" && isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, payload.orgId)) {
+    if (booking.reason === "CALENDAR_UNAVAILABLE" && isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, resolvedOrgId)) {
       const existingLead =
         callLog?.leadId
-          ? await prisma.lead.findFirst({ where: { id: callLog.leadId, orgId: payload.orgId }, select: { id: true } })
+          ? await prisma.lead.findFirst({ where: { id: callLog.leadId, orgId: resolvedOrgId }, select: { id: true } })
           : await prisma.lead.findFirst({
-              where: { orgId: payload.orgId, phone: normalizePhone(payload.customerPhone) },
+              where: { orgId: resolvedOrgId, phone: normalizePhone(payload.customerPhone) },
               orderBy: { createdAt: "desc" },
               select: { id: true }
             });
       if (existingLead?.id) {
         await prisma.lead.updateMany({
-          where: { id: existingLead.id, orgId: payload.orgId },
+          where: { id: existingLead.id, orgId: resolvedOrgId },
           data: { pipelineStage: "NEEDS_SCHEDULING" }
         });
       } else {
         await prisma.lead.create({
           data: {
-            orgId: payload.orgId,
+            orgId: resolvedOrgId,
             name: payload.customerName,
             business: "",
             email: "",
