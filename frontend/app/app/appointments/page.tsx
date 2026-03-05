@@ -589,20 +589,31 @@ export default function AppAppointmentsPage() {
                     </span>
                   </div>
                   <div className="space-y-1">
-                    {dayItems.slice(0, 3).map((appointment) => (
-                      <button
-                        type="button"
-                        key={appointment.id}
-                        className="w-full cursor-pointer rounded border bg-muted/20 px-2 py-1 text-left text-xs transition hover:-translate-y-px hover:bg-muted/30 hover:shadow-sm"
-                        onClick={() => setSelectedCalendarDetail({ type: "APPOINTMENT", appointment })}
-                      >
-                        <div className="font-medium">
-                          {new Date(appointment.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{" "}
-                          {appointment.customerName}
-                        </div>
-                        <div className="text-muted-foreground">{appointment.status}</div>
-                      </button>
-                    ))}
+                    {dayItems.slice(0, 3).map((appointment) => {
+                      const isGoogleSynced = appointment.calendarProvider === "GOOGLE";
+                      const appointmentCardClass = isGoogleSynced
+                        ? "w-full cursor-pointer rounded border border-blue-200 bg-blue-50 px-2 py-1 text-left text-xs transition hover:-translate-y-px hover:bg-blue-100 hover:shadow-sm"
+                        : "w-full cursor-pointer rounded border bg-muted/20 px-2 py-1 text-left text-xs transition hover:-translate-y-px hover:bg-muted/30 hover:shadow-sm";
+                      const appointmentPrimaryTextClass = isGoogleSynced ? "font-medium text-blue-900" : "font-medium";
+                      const appointmentSecondaryTextClass = isGoogleSynced ? "text-blue-700" : "text-muted-foreground";
+                      return (
+                        <button
+                          type="button"
+                          key={appointment.id}
+                          className={appointmentCardClass}
+                          onClick={() => setSelectedCalendarDetail({ type: "APPOINTMENT", appointment })}
+                        >
+                          <div className={appointmentPrimaryTextClass}>
+                            {new Date(appointment.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{" "}
+                            {appointment.customerName}
+                          </div>
+                          <div className={appointmentSecondaryTextClass}>
+                            {appointment.status}
+                            {isGoogleSynced ? " • GOOGLE" : ""}
+                          </div>
+                        </button>
+                      );
+                    })}
                     {dayExternalItems.slice(0, 2).map((event) => (
                       <button
                         type="button"
