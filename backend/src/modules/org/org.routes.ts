@@ -1635,7 +1635,8 @@ orgRouter.post("/calendar/sync-test", requireCalendarManageAccess, async (req: A
     success = true;
     message = "Calendar sync test event created successfully.";
   } catch (error) {
-    const reason = String((error as Error)?.message || "").toLowerCase();
+    const reasonRaw = String((error as Error)?.message || "");
+    const reason = reasonRaw.toLowerCase();
     success = false;
     if (
       reason.includes("token_refresh_hard_auth_failed") ||
@@ -1645,10 +1646,23 @@ orgRouter.post("/calendar/sync-test", requireCalendarManageAccess, async (req: A
       message = "Could not create test event. Calendar access appears revoked or expired. Disconnect and reconnect this calendar.";
     } else if (reason.includes("google_event_auth_failed") || reason.includes("outlook_event_auth_failed")) {
       message = "Could not create test event. Provider denied calendar write access. Reconnect and grant write permissions, or choose a different Calendar ID.";
+      if (reason.includes("insufficientpermissions") || reason.includes("insufficient authentication scopes")) {
+        message = "Could not create test event. Missing Google calendar write scope. Reconnect Google and grant calendar write permission.";
+      } else if (reason.includes("accessnotconfigured") || reason.includes("api has not been used")) {
+        message = "Could not create test event. Google Calendar API is not enabled in your Google Cloud project. Enable it, then reconnect.";
+      } else if (reason.includes("notfound") || reason.includes("calendar not found")) {
+        message = "Could not create test event. Calendar ID is invalid or inaccessible. Use 'primary' or your exact calendar email as Calendar ID.";
+      }
     } else if (reason.includes("create_failed") || reason.includes("404")) {
       message = "Could not create test event. Check calendar write permissions and verify the selected Calendar ID.";
+      if (reason.includes("accessnotconfigured") || reason.includes("api has not been used")) {
+        message = "Could not create test event. Google Calendar API is not enabled in your Google Cloud project. Enable it, then reconnect.";
+      }
     } else {
       message = "Could not create test event. Connection may be revoked, missing scopes, or using an invalid calendar target.";
+    }
+    if (env.SECURITY_MODE !== "production" && reasonRaw.trim()) {
+      message = `${message} [debug: ${reasonRaw.slice(0, 220)}]`;
     }
   }
   await prisma.auditLog.create({
