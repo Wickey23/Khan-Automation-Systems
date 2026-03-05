@@ -639,6 +639,12 @@ export default function AppSettingsPage() {
             Calendar connection management requires an admin role.
           </p>
         ) : null}
+        {inactiveCalendarProviderCount > 0 && activeCalendarProviders.length === 0 ? (
+          <div className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Calendar connection needs reconnection. A previous calendar connection exists but is inactive.
+            Reconnect Google/Outlook, then run sync test.
+          </div>
+        ) : null}
         {activeCalendarProviders.length ? (
           <div className="mt-3 grid gap-2 rounded border p-3 sm:grid-cols-[1fr_1fr_auto]">
             <div>
