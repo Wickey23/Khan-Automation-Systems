@@ -92,7 +92,11 @@ const envSchema = z.object({
   FEATURE_NOTIFICATIONS_V1_ENABLED: z.string().default("false"),
   FEATURE_CLASSIFICATION_V1_ENABLED: z.string().default("false"),
   FEATURE_PIPELINE_STAGE_ENABLED: z.string().default("false"),
-  FEATURE_PHASE1_ORG_ALLOWLIST: z.string().default("")
+  FEATURE_PHASE1_ORG_ALLOWLIST: z.string().default(""),
+  WEBHOOK_RATE_LIMIT_WINDOW_MS: z.string().default("60000"),
+  WEBHOOK_RATE_LIMIT_MAX: z.string().default("600"),
+  TOOL_RATE_LIMIT_WINDOW_MS: z.string().default("60000"),
+  TOOL_RATE_LIMIT_MAX: z.string().default("300")
 });
 
 const parsed = envSchema.safeParse(process.env);

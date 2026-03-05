@@ -8,7 +8,7 @@ import { UserRole } from "@prisma/client";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
 import { requireCsrf } from "./middleware/csrf";
-import { leadRateLimit, webhookRateLimit } from "./middleware/rate-limit";
+import { leadRateLimit, toolRateLimit, webhookRateLimit } from "./middleware/rate-limit";
 import { requestContext } from "./middleware/request-context";
 import { adminRouter } from "./modules/admin/admin.routes";
 import { authRouter } from "./modules/auth/auth.routes";
@@ -142,7 +142,7 @@ app.use("/api/team", teamRouter);
 app.use("/api/twilio/voice", webhookRateLimit, voiceRouter);
 app.use("/api/twilio/sms", webhookRateLimit, smsRouter);
 app.use("/api/vapi", webhookRateLimit, vapiRouter);
-app.use("/api/tools", webhookRateLimit, toolsRouter);
+app.use("/api/tools", toolRateLimit, toolsRouter);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   // eslint-disable-next-line no-console
