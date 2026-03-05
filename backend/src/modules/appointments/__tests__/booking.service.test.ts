@@ -62,7 +62,8 @@ function createPrismaMock() {
         leadUpdates.push(data);
         return { count: 1 };
       }
-    }
+    },
+    $transaction: async (fn: (tx: any) => Promise<any>) => fn(prisma)
   } as any;
 
   return { prisma, holds, appointments, leadUpdates };
