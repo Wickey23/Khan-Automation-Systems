@@ -124,6 +124,32 @@ async function trySendCustomerConfirmationSms(input: {
   }
 }
 
+async function ensureCustomerBaseProfile(input: {
+  prisma: PrismaClient;
+  orgId: string;
+  customerPhone: string;
+}) {
+  const phone = String(input.customerPhone || "").trim();
+  if (!phone) return;
+  try {
+    await input.prisma.callerProfile.upsert({
+      where: { orgId_phoneNumber: { orgId: input.orgId, phoneNumber: phone } },
+      update: {
+        lastCallAt: new Date()
+      },
+      create: {
+        orgId: input.orgId,
+        phoneNumber: phone,
+        totalCalls: 1,
+        firstCallAt: new Date(),
+        lastCallAt: new Date()
+      }
+    });
+  } catch {
+    // Non-fatal: booking should never fail because customer-base update failed.
+  }
+}
+
 export async function bookAppointmentWithHold(input: BookingInput): Promise<BookingResult> {
   if (input.businessHoursValidation) {
     const durationMinutes = Math.max(
@@ -304,6 +330,12 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
   await input.prisma.appointmentHold.update({
     where: { id: hold.id },
     data: { status: appointment.status === "CONFIRMED" ? "CONFIRMED" : "FAILED" }
+  });
+
+  await ensureCustomerBaseProfile({
+    prisma: input.prisma,
+    orgId: input.orgId,
+    customerPhone: input.customerPhone
   });
 
   let nextSlots: Array<{ startAt: string; endAt: string }> | undefined;
