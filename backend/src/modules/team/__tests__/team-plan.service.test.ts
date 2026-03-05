@@ -31,6 +31,13 @@ test("team feature is unavailable for starter or non-active statuses", () => {
   assert.equal(
     isTeamFeatureAvailableForSubscription({
       plan: SubscriptionPlan.PRO,
+      status: "ACTIVE"
+    }),
+    true
+  );
+  assert.equal(
+    isTeamFeatureAvailableForSubscription({
+      plan: SubscriptionPlan.PRO,
       status: "past_due"
     }),
     false
@@ -43,4 +50,3 @@ test("team feature is unavailable for starter or non-active statuses", () => {
     false
   );
 });
-
