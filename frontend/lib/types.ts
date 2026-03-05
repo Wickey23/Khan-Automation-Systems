@@ -487,6 +487,14 @@ export type Appointment = {
   } | null;
 };
 
+export type OrgCalendarEvent = {
+  id: string;
+  provider: "GOOGLE" | "OUTLOOK";
+  title: string;
+  startAt: string;
+  endAt: string;
+};
+
 export type OrgNotification = {
   id: string;
   orgId: string;

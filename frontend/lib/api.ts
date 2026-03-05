@@ -43,6 +43,7 @@ import type {
   TeamMembersResponse,
   Appointment,
   CalendarConnection,
+  OrgCalendarEvent,
   OrgNotification
 } from "@/lib/types";
 import type { LeadUpdateInput } from "@/lib/validation";
@@ -701,6 +702,19 @@ export async function selectPrimaryCalendar(payload: { connectionId: string; sel
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function fetchCalendarEvents(payload: {
+  from: string;
+  to: string;
+  provider?: "GOOGLE" | "OUTLOOK";
+}) {
+  const search = new URLSearchParams({
+    from: payload.from,
+    to: payload.to,
+    ...(payload.provider ? { provider: payload.provider } : {})
+  });
+  return request<{ events: OrgCalendarEvent[] }>(`/api/org/calendar/events?${search.toString()}`);
 }
 
 export async function fetchOrgNotifications() {

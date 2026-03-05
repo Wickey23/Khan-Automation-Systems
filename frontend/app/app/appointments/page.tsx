@@ -7,13 +7,14 @@ import {
   completeOrgAppointment,
   createOrgAppointment,
   fetchAppointmentAvailability,
+  fetchCalendarEvents,
   fetchCalendarProviders,
   fetchOrgProfile,
   fetchOrgAppointments,
   getMe,
   patchOrgAppointment
 } from "@/lib/api";
-import type { Appointment, CalendarConnection, OrgFeatureFlags } from "@/lib/types";
+import type { Appointment, CalendarConnection, OrgCalendarEvent, OrgFeatureFlags } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +32,7 @@ export default function AppAppointmentsPage() {
   const [canWrite, setCanWrite] = useState(false);
   const [canManageCalendar, setCanManageCalendar] = useState(false);
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<OrgCalendarEvent[]>([]);
   const [slotDate, setSlotDate] = useState("");
   const [slotTimezone, setSlotTimezone] = useState("America/New_York");
   const [slotProvider, setSlotProvider] = useState<"INTERNAL" | "GOOGLE" | "OUTLOOK">("INTERNAL");
@@ -39,6 +41,7 @@ export default function AppAppointmentsPage() {
   const [issueSummary, setIssueSummary] = useState("");
   const [availableSlots, setAvailableSlots] = useState<Array<{ startAt: string; endAt: string }>>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [loadingCalendarEvents, setLoadingCalendarEvents] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creatingSlot, setCreatingSlot] = useState<string | null>(null);
@@ -259,6 +262,23 @@ export default function AppAppointmentsPage() {
   const hasGoogle = calendarProviders.some((provider) => provider.provider === "GOOGLE" && provider.isActive);
   const hasOutlook = calendarProviders.some((provider) => provider.provider === "OUTLOOK" && provider.isActive);
 
+  useEffect(() => {
+    if (featureDisabled || !calendarFeatureEnabled || viewMode !== "CALENDAR") {
+      setCalendarEvents([]);
+      return;
+    }
+    const from = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1, 0, 0, 0);
+    const to = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0, 23, 59, 59);
+    setLoadingCalendarEvents(true);
+    void fetchCalendarEvents({
+      from: from.toISOString(),
+      to: to.toISOString()
+    })
+      .then((data) => setCalendarEvents(data.events || []))
+      .catch(() => setCalendarEvents([]))
+      .finally(() => setLoadingCalendarEvents(false));
+  }, [calendarFeatureEnabled, calendarMonth, featureDisabled, viewMode]);
+
   const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
   const firstDayWeekday = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay();
   const monthCells: Array<{ date: Date | null; key: string }> = [];
@@ -289,6 +309,15 @@ export default function AppAppointmentsPage() {
     return acc;
   }, {});
   Object.values(appointmentMapByDate).forEach((items) => {
+    items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  });
+  const calendarEventMapByDate = calendarEvents.reduce<Record<string, OrgCalendarEvent[]>>((acc, event) => {
+    const key = toLocalDateKey(new Date(event.startAt));
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(event);
+    return acc;
+  }, {});
+  Object.values(calendarEventMapByDate).forEach((items) => {
     items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
   });
 
@@ -481,11 +510,14 @@ export default function AppAppointmentsPage() {
               }
               const dayKey = toLocalDateKey(cell.date);
               const dayItems = appointmentMapByDate[dayKey] || [];
+              const dayExternalItems = calendarEventMapByDate[dayKey] || [];
               return (
                 <div key={cell.key} className="min-h-28 rounded-md border p-2">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-sm font-semibold">{cell.date.getDate()}</span>
-                    <span className="text-xs text-muted-foreground">{dayItems.length || ""}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {dayItems.length + dayExternalItems.length ? dayItems.length + dayExternalItems.length : ""}
+                    </span>
                   </div>
                   <div className="space-y-1">
                     {dayItems.slice(0, 3).map((appointment) => (
@@ -497,8 +529,19 @@ export default function AppAppointmentsPage() {
                         <div className="text-muted-foreground">{appointment.status}</div>
                       </div>
                     ))}
+                    {dayExternalItems.slice(0, 2).map((event) => (
+                      <div key={`external-${event.id}`} className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs">
+                        <div className="font-medium text-blue-900">
+                          {new Date(event.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} {event.title}
+                        </div>
+                        <div className="text-blue-700">{event.provider}</div>
+                      </div>
+                    ))}
                     {dayItems.length > 3 ? (
                       <div className="text-xs text-muted-foreground">+{dayItems.length - 3} more</div>
+                    ) : null}
+                    {dayExternalItems.length > 2 ? (
+                      <div className="text-xs text-blue-700">+{dayExternalItems.length - 2} provider events</div>
                     ) : null}
                   </div>
                 </div>
@@ -506,6 +549,7 @@ export default function AppAppointmentsPage() {
             })}
           </div>
           {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading appointments...</p> : null}
+          {loadingCalendarEvents ? <p className="mt-1 text-sm text-muted-foreground">Loading provider calendar events...</p> : null}
           {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments yet.</p> : null}
         </div>
       ) : (

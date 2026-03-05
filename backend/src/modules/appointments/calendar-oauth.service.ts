@@ -400,6 +400,120 @@ async function createOutlookEvent(input: {
   return String(payload?.id || "");
 }
 
+function toIsoString(value: unknown) {
+  const date = new Date(String(value || ""));
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
+async function listGoogleEvents(input: {
+  accessToken: string;
+  calendarId?: string | null;
+  fromUtc: Date;
+  toUtc: Date;
+}) {
+  const calendarId = String(input.calendarId || "primary").trim() || "primary";
+  const query = new URLSearchParams({
+    singleEvents: "true",
+    orderBy: "startTime",
+    timeMin: input.fromUtc.toISOString(),
+    timeMax: input.toUtc.toISOString(),
+    maxResults: "250"
+  }).toString();
+  const response = await fetchJson(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${query}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("google_event_auth_failed");
+    }
+    throw new Error("google_event_list_failed");
+  }
+  const payload = response.payload as {
+    items?: Array<{
+      id?: string;
+      summary?: string;
+      start?: { dateTime?: string; date?: string };
+      end?: { dateTime?: string; date?: string };
+    }>;
+  };
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  return items
+    .map((item) => {
+      const startIso = toIsoString(item.start?.dateTime || item.start?.date);
+      const endIso = toIsoString(item.end?.dateTime || item.end?.date);
+      if (!startIso || !endIso) return null;
+      return {
+        id: String(item.id || ""),
+        provider: "GOOGLE" as const,
+        title: String(item.summary || "Busy"),
+        startAt: new Date(startIso),
+        endAt: new Date(endIso)
+      };
+    })
+    .filter(Boolean) as Array<{ id: string; provider: "GOOGLE"; title: string; startAt: Date; endAt: Date }>;
+}
+
+async function listOutlookEvents(input: {
+  accessToken: string;
+  calendarId?: string | null;
+  fromUtc: Date;
+  toUtc: Date;
+}) {
+  const calendarPath = String(input.calendarId || "").trim()
+    ? `me/calendars/${encodeURIComponent(String(input.calendarId).trim())}/calendarView`
+    : "me/calendarView";
+  const query = new URLSearchParams({
+    startDateTime: input.fromUtc.toISOString(),
+    endDateTime: input.toUtc.toISOString(),
+    $select: "id,subject,start,end,showAs"
+  }).toString();
+  const response = await fetchJson(`https://graph.microsoft.com/v1.0/${calendarPath}?${query}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json"
+    }
+  });
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("outlook_event_auth_failed");
+    }
+    throw new Error("outlook_event_list_failed");
+  }
+  const payload = response.payload as {
+    value?: Array<{
+      id?: string;
+      subject?: string;
+      start?: { dateTime?: string };
+      end?: { dateTime?: string };
+      showAs?: string;
+    }>;
+  };
+  const items = Array.isArray(payload?.value) ? payload.value : [];
+  return items
+    .map((item) => {
+      const startIso = toIsoString(item.start?.dateTime);
+      const endIso = toIsoString(item.end?.dateTime);
+      if (!startIso || !endIso) return null;
+      return {
+        id: String(item.id || ""),
+        provider: "OUTLOOK" as const,
+        title: String(item.subject || "Busy"),
+        startAt: new Date(startIso),
+        endAt: new Date(endIso)
+      };
+    })
+    .filter(Boolean) as Array<{ id: string; provider: "OUTLOOK"; title: string; startAt: Date; endAt: Date }>;
+}
+
 export async function createCalendarEventFromConnection(input: {
   prisma: PrismaClient;
   connectionId: string;
@@ -445,6 +559,52 @@ export async function createCalendarEventFromConnection(input: {
             timezone: input.timezone
           });
     return { provider, externalEventId };
+  } catch (error) {
+    const message = String((error as Error)?.message || "");
+    if (isHardAuthErrorMessage(message)) {
+      await input.prisma.calendarConnection.update({
+        where: { id: connection.id },
+        data: { isActive: false }
+      });
+    }
+    throw error;
+  }
+}
+
+export async function listCalendarEventsFromConnection(input: {
+  prisma: PrismaClient;
+  connectionId: string;
+  orgId: string;
+  fromUtc: Date;
+  toUtc: Date;
+}) {
+  const connection = await input.prisma.calendarConnection.findFirst({
+    where: { id: input.connectionId, orgId: input.orgId, isActive: true }
+  });
+  if (!connection) throw new Error("calendar_connection_not_found");
+  const provider = connection.provider as ProviderKind;
+  const token = await ensureUsableAccessToken({
+    prisma: input.prisma,
+    connectionId: connection.id,
+    provider,
+    accessTokenEnc: connection.accessTokenEnc,
+    refreshTokenEnc: connection.refreshTokenEnc,
+    expiresAt: connection.expiresAt
+  });
+  try {
+    return provider === "GOOGLE"
+      ? await listGoogleEvents({
+          accessToken: token.accessToken,
+          calendarId: connection.selectedCalendarId,
+          fromUtc: input.fromUtc,
+          toUtc: input.toUtc
+        })
+      : await listOutlookEvents({
+          accessToken: token.accessToken,
+          calendarId: connection.selectedCalendarId,
+          fromUtc: input.fromUtc,
+          toUtc: input.toUtc
+        });
   } catch (error) {
     const message = String((error as Error)?.message || "");
     if (isHardAuthErrorMessage(message)) {

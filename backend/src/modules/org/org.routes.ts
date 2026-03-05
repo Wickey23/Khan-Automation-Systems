@@ -25,6 +25,7 @@ import {
   createCalendarConnectUrl,
   createCalendarEventFromConnection,
   exchangeCalendarCode,
+  listCalendarEventsFromConnection,
   upsertCalendarConnection
 } from "../appointments/calendar-oauth.service";
 import { CalendarUnavailableError, getBusyBlocks } from "../appointments/calendar-busy.service";
@@ -130,6 +131,11 @@ const disconnectCalendarSchema = z.object({
 const selectPrimaryCalendarSchema = z.object({
   connectionId: z.string().min(1),
   selectedCalendarId: z.string().optional()
+});
+const listCalendarEventsSchema = z.object({
+  from: z.string().datetime(),
+  to: z.string().datetime(),
+  provider: z.enum(["GOOGLE", "OUTLOOK"]).optional()
 });
 
 function normalizePhone(input: string) {
@@ -1372,6 +1378,57 @@ orgRouter.get("/calendar/providers", requireCalendarManageAccess, async (req: Au
     }
   });
   return res.json({ ok: true, data: { providers } });
+});
+
+orgRouter.get("/calendar/events", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = listCalendarEventsSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid calendar events query." });
+  const fromUtc = new Date(parsed.data.from);
+  const toUtc = new Date(parsed.data.to);
+  if (Number.isNaN(fromUtc.getTime()) || Number.isNaN(toUtc.getTime()) || fromUtc > toUtc) {
+    return res.status(400).json({ ok: false, message: "Invalid calendar range." });
+  }
+
+  const connection = await prisma.calendarConnection.findFirst({
+    where: {
+      orgId: req.auth.orgId,
+      isActive: true,
+      ...(parsed.data.provider ? { provider: parsed.data.provider } : {})
+    },
+    orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+    select: { id: true }
+  });
+  if (!connection) {
+    return res.json({ ok: true, data: { events: [] } });
+  }
+
+  try {
+    const events = await listCalendarEventsFromConnection({
+      prisma,
+      connectionId: connection.id,
+      orgId: req.auth.orgId,
+      fromUtc,
+      toUtc
+    });
+    return res.json({
+      ok: true,
+      data: {
+        events: events.map((event) => ({
+          id: event.id,
+          provider: event.provider,
+          title: event.title,
+          startAt: event.startAt.toISOString(),
+          endAt: event.endAt.toISOString()
+        }))
+      }
+    });
+  } catch {
+    return res.json({ ok: true, data: { events: [] } });
+  }
 });
 
 orgRouter.post("/calendar/select-primary", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
