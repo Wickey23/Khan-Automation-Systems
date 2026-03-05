@@ -16,6 +16,7 @@ import {
   markAllOrgNotificationsRead,
   markOrgNotificationRead,
   runCalendarSyncTest,
+  selectPrimaryCalendar,
   sendAuthTestOtpEmail,
   updateOrgSettings,
   uploadOrgKnowledgeFile
@@ -154,6 +155,8 @@ export default function AppSettingsPage() {
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [calendarSyncProvider, setCalendarSyncProvider] = useState<"" | "GOOGLE" | "OUTLOOK">("");
+  const [selectedPrimaryConnectionId, setSelectedPrimaryConnectionId] = useState("");
+  const [selectedCalendarIdInput, setSelectedCalendarIdInput] = useState("");
   const [notificationCount, setNotificationCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
@@ -241,7 +244,11 @@ export default function AppSettingsPage() {
           notificationsEnabled: profileFeatures.notificationsEnabled === true,
           classificationEnabled: profileFeatures.classificationEnabled === true
         });
-        setCalendarProviders(calendar.providers || []);
+        const providers = calendar.providers || [];
+        setCalendarProviders(providers);
+        const primary = providers.find((row) => row.isPrimary) || providers[0];
+        setSelectedPrimaryConnectionId(primary?.id || "");
+        setSelectedCalendarIdInput(String(primary?.selectedCalendarId || ""));
         setNotifications(notifications.notifications || []);
         setNotificationCount((notifications.notifications || []).length);
       })
@@ -265,6 +272,12 @@ export default function AppSettingsPage() {
       })
       .catch(() => setCanManageCalendar(false));
   }, []);
+
+  useEffect(() => {
+    const current = calendarProviders.find((row) => row.id === selectedPrimaryConnectionId);
+    if (!current) return;
+    setSelectedCalendarIdInput(String(current.selectedCalendarId || ""));
+  }, [selectedPrimaryConnectionId, calendarProviders]);
 
   async function onSendTestVerificationEmail() {
     setSendingTestEmail(true);
@@ -609,14 +622,85 @@ export default function AppSettingsPage() {
             Calendar connection management requires an admin role.
           </p>
         ) : null}
+        {calendarProviders.length ? (
+          <div className="mt-3 grid gap-2 rounded border p-3 sm:grid-cols-[1fr_1fr_auto]">
+            <div>
+              <Label>Primary booking connection</Label>
+              <select
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={selectedPrimaryConnectionId}
+                onChange={(event) => setSelectedPrimaryConnectionId(event.target.value)}
+                disabled={!canManageCalendar || !featureFlags.calendarOauthEnabled}
+              >
+                {calendarProviders.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.provider} - {provider.accountEmail}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label>Calendar ID (optional)</Label>
+              <Input
+                value={selectedCalendarIdInput}
+                onChange={(event) => setSelectedCalendarIdInput(event.target.value)}
+                placeholder="primary"
+                disabled={!canManageCalendar || !featureFlags.calendarOauthEnabled}
+              />
+            </div>
+            <div className="self-end">
+              <Button
+                variant="outline"
+                disabled={!selectedPrimaryConnectionId || !canManageCalendar || !featureFlags.calendarOauthEnabled || calendarBusy}
+                onClick={() =>
+                  void (async () => {
+                    setCalendarBusy(true);
+                    try {
+                      const selected = calendarProviders.find((row) => row.id === selectedPrimaryConnectionId);
+                      const trimmed = selectedCalendarIdInput.trim();
+                      const payload = {
+                        connectionId: selectedPrimaryConnectionId,
+                        ...(selected?.provider === "GOOGLE"
+                          ? { selectedCalendarId: trimmed || "primary" }
+                          : trimmed
+                            ? { selectedCalendarId: trimmed }
+                            : {})
+                      };
+                      const response = await selectPrimaryCalendar(payload);
+                      setCalendarProviders((prev) =>
+                        prev.map((row) =>
+                          row.id === response.provider.id
+                            ? { ...row, ...response.provider, isPrimary: true }
+                            : { ...row, isPrimary: false }
+                        )
+                      );
+                      showToast({ title: "Primary booking calendar updated" });
+                    } catch (error) {
+                      showToast({
+                        title: "Could not update primary calendar",
+                        description: error instanceof Error ? error.message : "Try again.",
+                        variant: "error"
+                      });
+                    } finally {
+                      setCalendarBusy(false);
+                    }
+                  })()
+                }
+              >
+                Save primary
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-3 space-y-2 text-sm">
           {calendarProviders.length ? calendarProviders.map((provider) => (
             <div key={provider.id} className="flex items-center justify-between rounded border p-2">
               <div>
                 <p className="font-medium">{provider.provider} - {provider.accountEmail}</p>
                 <p className="text-xs text-muted-foreground">
-                  {provider.isActive ? "Active" : "Inactive"} - Expires {new Date(provider.expiresAt).toLocaleString()}
+                  {provider.isActive ? "Active" : "Inactive"}{provider.isPrimary ? " - Primary" : ""} - Expires {new Date(provider.expiresAt).toLocaleString()}
                 </p>
+                <p className="text-xs text-muted-foreground">Calendar ID: {provider.selectedCalendarId || "(provider default)"}</p>
               </div>
               <Button
                 size="sm"

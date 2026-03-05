@@ -150,3 +150,55 @@ test("calendar event auth failure marks connection inactive", async () => {
     global.fetch = originalFetch;
   }
 });
+
+test("calendar event transient failure does not mark connection inactive", async () => {
+  const originalFetch = global.fetch;
+  const updates: Array<{ id: string; isActive: boolean }> = [];
+  global.fetch = (async () =>
+    ({
+      ok: false,
+      status: 500,
+      text: async () => JSON.stringify({ error: "server_error" })
+    }) as unknown as Response) as typeof fetch;
+
+  const prisma = {
+    calendarConnection: {
+      findFirst: async () => ({
+        id: "conn_2",
+        orgId: "org_1",
+        provider: "GOOGLE",
+        accountEmail: "ops@example.com",
+        accessTokenEnc: "token_access",
+        refreshTokenEnc: "token_refresh",
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        scopesJson: "[]",
+        isActive: true,
+        isPrimary: true
+      }),
+      update: async ({ where, data }: { where: { id: string }; data: { isActive: boolean } }) => {
+        updates.push({ id: where.id, isActive: data.isActive });
+        return null;
+      }
+    }
+  } as any;
+
+  try {
+    await assert.rejects(
+      () =>
+        createCalendarEventFromConnection({
+          prisma,
+          connectionId: "conn_2",
+          orgId: "org_1",
+          title: "test",
+          description: "test",
+          startAt: new Date("2026-03-10T15:00:00.000Z"),
+          endAt: new Date("2026-03-10T15:15:00.000Z"),
+          timezone: "America/New_York"
+        }),
+      /create_failed/
+    );
+    assert.equal(updates.length, 0);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

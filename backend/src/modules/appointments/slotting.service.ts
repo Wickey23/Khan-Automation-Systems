@@ -1,4 +1,5 @@
-import { overlapsWithBufferLocked } from "./overlap.service";
+import { overlapsLocked } from "./overlap.service";
+
 type HoursWindow = { start: string; end: string };
 type HoursSchedule = Record<string, HoursWindow[]>;
 
@@ -6,6 +7,7 @@ const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const SLOT_STEP_MINUTES = 15;
 
 export type SlotWindow = { startAt: Date; endAt: Date };
+export type BusyWindow = { startAt: Date; endAt: Date };
 
 type GenerateSlotsInput = {
   hoursJson?: string | null;
@@ -16,11 +18,14 @@ type GenerateSlotsInput = {
   bookingMaxDaysAhead: number;
   now?: Date;
   maxSlots?: number;
+  from?: Date;
+  to?: Date;
   existingAppointments?: Array<{
     startAt: Date;
     endAt: Date;
-    status: string;
+    status?: string;
   }>;
+  externalBusyBlocks?: BusyWindow[];
 };
 
 type ValidateSlotInput = {
@@ -116,6 +121,70 @@ function getWindowsForDay(schedule: HoursSchedule, weekdayShort: string): Array<
     .filter(Boolean) as Array<{ startMin: number; endMin: number }>;
 }
 
+export function computeAvailabilityWindow(input: {
+  now?: Date;
+  from?: Date;
+  to?: Date;
+  bookingLeadTimeHours: number;
+  bookingMaxDaysAhead: number;
+}) {
+  const now = input.now ? new Date(input.now) : new Date();
+  const leadHours = Math.max(0, Math.floor(input.bookingLeadTimeHours));
+  const maxDays = Math.max(1, Math.floor(input.bookingMaxDaysAhead));
+  const from = input.from ? new Date(input.from) : new Date(now.getTime() + leadHours * 60 * 60 * 1000);
+  const to = input.to ? new Date(input.to) : new Date(now.getTime() + maxDays * 24 * 60 * 60 * 1000);
+  return { from, to };
+}
+
+export function buildExpandedBusyIntervals(input: {
+  internalBusy?: BusyWindow[];
+  externalBusy?: BusyWindow[];
+  bufferMinutes: number;
+}) {
+  const bufferMs = Math.max(0, Math.floor(input.bufferMinutes)) * 60 * 1000;
+  const source = [...(input.internalBusy || []), ...(input.externalBusy || [])];
+  const normalized = source
+    .map((row) => {
+      const startAt = new Date(row.startAt);
+      const endAt = new Date(row.endAt);
+      if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) return null;
+      return {
+        startUtc: new Date(startAt.getTime() - bufferMs),
+        endUtc: new Date(endAt.getTime() + bufferMs)
+      };
+    })
+    .filter(Boolean) as Array<{ startUtc: Date; endUtc: Date }>;
+  normalized.sort((a, b) => {
+    const diff = a.startUtc.getTime() - b.startUtc.getTime();
+    if (diff !== 0) return diff;
+    return a.endUtc.getTime() - b.endUtc.getTime();
+  });
+  const merged: Array<{ startUtc: Date; endUtc: Date }> = [];
+  for (const current of normalized) {
+    const last = merged[merged.length - 1];
+    if (!last) {
+      merged.push({ ...current });
+      continue;
+    }
+    if (last.endUtc.getTime() >= current.startUtc.getTime()) {
+      if (current.endUtc.getTime() > last.endUtc.getTime()) {
+        last.endUtc = current.endUtc;
+      }
+      continue;
+    }
+    merged.push({ ...current });
+  }
+  return merged;
+}
+
+function overlapsBusyIntervals(
+  intervals: Array<{ startUtc: Date; endUtc: Date }>,
+  slotStartAt: Date,
+  slotEndAt: Date
+) {
+  return intervals.some((row) => overlapsLocked(row.startUtc, row.endUtc, slotStartAt, slotEndAt));
+}
+
 export function validateSlotWithinBusinessHours(input: ValidateSlotInput) {
   const parsed = parseHoursPayload(input.hoursJson);
   const timeZone = String(input.timezone || parsed.timezone || "America/New_York");
@@ -132,7 +201,6 @@ export function validateSlotWithinBusinessHours(input: ValidateSlotInput) {
 
   const endMinutes = startMinutes + Math.max(1, Math.floor(input.appointmentDurationMinutes));
   for (const window of dayWindows) {
-    // Mandatory close-time lock: slot end must be <= close.
     if (startMinutes >= window.startMin && endMinutes <= window.endMin) {
       return { ok: true as const };
     }
@@ -145,18 +213,17 @@ export function generateAvailabilitySlots(input: GenerateSlotsInput): SlotWindow
   const timeZone = String(input.timezone || parsed.timezone || "America/New_York");
   const now = input.now ? new Date(input.now) : new Date();
   const duration = Math.max(1, Math.floor(input.appointmentDurationMinutes));
-  const buffer = Math.max(0, Math.floor(input.appointmentBufferMinutes));
-  const leadHours = Math.max(0, Math.floor(input.bookingLeadTimeHours));
-  const maxDays = Math.max(1, Math.floor(input.bookingMaxDaysAhead));
   const maxSlots = Math.max(1, Math.floor(input.maxSlots || 10));
-  const existingAppointments = (input.existingAppointments || []).filter(
-    (row) => String(row.status || "").toUpperCase() !== "CANCELED"
-  );
+  const window = computeAvailabilityWindow({
+    now,
+    from: input.from,
+    to: input.to,
+    bookingLeadTimeHours: input.bookingLeadTimeHours,
+    bookingMaxDaysAhead: input.bookingMaxDaysAhead
+  });
 
-  const earliest = new Date(now.getTime() + leadHours * 60 * 60 * 1000);
-  const earliestParts = getZonedParts(earliest, timeZone);
-  const earliestMinutes = ceilToStep(earliestParts.hour * 60 + earliestParts.minute, SLOT_STEP_MINUTES);
-
+  const earliestParts = getZonedParts(window.from, timeZone);
+  const earliestCutoffMinutes = ceilToStep(earliestParts.hour * 60 + earliestParts.minute, SLOT_STEP_MINUTES);
   const startOfCurrentZonedDayUtc = zonedDateToUtc(
     timeZone,
     earliestParts.year,
@@ -166,51 +233,67 @@ export function generateAvailabilitySlots(input: GenerateSlotsInput): SlotWindow
     0
   );
 
+  const latestParts = getZonedParts(window.to, timeZone);
+  const endOfLatestDayUtc = zonedDateToUtc(timeZone, latestParts.year, latestParts.month, latestParts.day, 23, 59);
+  const horizonEndMs = endOfLatestDayUtc.getTime();
+
+  const internalBusy = (input.existingAppointments || [])
+    .filter((row) => String(row.status || "").toUpperCase() !== "CANCELED")
+    .map((row) => ({ startAt: new Date(row.startAt), endAt: new Date(row.endAt) }));
+  const externalBusy = (input.externalBusyBlocks || []).map((row) => ({
+    startAt: new Date(row.startAt),
+    endAt: new Date(row.endAt)
+  }));
+  const mergedBusy = buildExpandedBusyIntervals({
+    internalBusy,
+    externalBusy,
+    bufferMinutes: input.appointmentBufferMinutes
+  });
+
   const results: SlotWindow[] = [];
-  for (let dayOffset = 0; dayOffset <= maxDays && results.length < maxSlots; dayOffset += 1) {
+  let dayOffset = 0;
+  while (results.length < maxSlots) {
     const dayAnchorUtc = new Date(startOfCurrentZonedDayUtc.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+    if (dayAnchorUtc.getTime() > horizonEndMs) break;
     const dayParts = getZonedParts(dayAnchorUtc, timeZone);
     const windows = getWindowsForDay(parsed.schedule, dayParts.weekdayShort);
-    if (!windows.length) continue;
-
-    for (const window of windows) {
-      const firstMinute = dayOffset === 0 ? Math.max(window.startMin, earliestMinutes) : window.startMin;
-      let slotStartMin = ceilToStep(firstMinute, SLOT_STEP_MINUTES);
-      while (slotStartMin + duration <= window.endMin && results.length < maxSlots) {
-        // Mandatory close-time lock:
-        // slotStart + duration must not exceed close.
-        const slotEndMin = slotStartMin + duration;
-        if (slotEndMin <= window.endMin) {
-          const startAt = zonedDateToUtc(
-            timeZone,
-            dayParts.year,
-            dayParts.month,
-            dayParts.day,
-            Math.floor(slotStartMin / 60),
-            slotStartMin % 60
-          );
-          const endAt = zonedDateToUtc(
-            timeZone,
-            dayParts.year,
-            dayParts.month,
-            dayParts.day,
-            Math.floor(slotEndMin / 60),
-            slotEndMin % 60
-          );
-          const hasOverlap = existingAppointments.some((existing) =>
-            overlapsWithBufferLocked(existing.startAt, existing.endAt, startAt, endAt, buffer)
-          );
-          if (!hasOverlap) {
-            results.push({ startAt, endAt });
+    if (windows.length) {
+      for (const windowRange of windows) {
+        const firstMinute = dayOffset === 0 ? Math.max(windowRange.startMin, earliestCutoffMinutes) : windowRange.startMin;
+        let slotStartMin = ceilToStep(firstMinute, SLOT_STEP_MINUTES);
+        while (slotStartMin + duration <= windowRange.endMin && results.length < maxSlots) {
+          const slotEndMin = slotStartMin + duration;
+          if (slotEndMin <= windowRange.endMin) {
+            const slotStartAt = zonedDateToUtc(
+              timeZone,
+              dayParts.year,
+              dayParts.month,
+              dayParts.day,
+              Math.floor(slotStartMin / 60),
+              slotStartMin % 60
+            );
+            const slotEndAt = zonedDateToUtc(
+              timeZone,
+              dayParts.year,
+              dayParts.month,
+              dayParts.day,
+              Math.floor(slotEndMin / 60),
+              slotEndMin % 60
+            );
+            if (slotStartAt.getTime() >= window.from.getTime() && slotStartAt.getTime() <= window.to.getTime()) {
+              const overlapsBusy = overlapsBusyIntervals(mergedBusy, slotStartAt, slotEndAt);
+              if (!overlapsBusy) {
+                results.push({ startAt: slotStartAt, endAt: slotEndAt });
+              }
+            }
           }
+          slotStartMin += SLOT_STEP_MINUTES;
         }
-        // Locked determinism: fixed 15-minute step alignment.
-        // Buffer applies between existing appointments via overlap checks only.
-        slotStartMin += SLOT_STEP_MINUTES;
       }
     }
+    dayOffset += 1;
   }
 
-  // Deterministic ordering lock.
   return results.sort((a, b) => a.startAt.getTime() - b.startAt.getTime()).slice(0, maxSlots);
 }
+

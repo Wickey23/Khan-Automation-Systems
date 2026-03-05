@@ -2,6 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { bookAppointmentWithHold } from "../booking.service";
 
+const alwaysOpenBusinessHours = {
+  timezone: "America/New_York",
+  hoursJson: JSON.stringify({
+    timezone: "America/New_York",
+    schedule: {
+      sun: [{ start: "00:00", end: "23:59" }],
+      mon: [{ start: "00:00", end: "23:59" }],
+      tue: [{ start: "00:00", end: "23:59" }],
+      wed: [{ start: "00:00", end: "23:59" }],
+      thu: [{ start: "00:00", end: "23:59" }],
+      fri: [{ start: "00:00", end: "23:59" }],
+      sat: [{ start: "00:00", end: "23:59" }]
+    }
+  })
+};
+
 function createPrismaMock() {
   const holds: Array<{ id: string; status: string }> = [];
   const appointments: Array<Record<string, unknown>> = [];
@@ -84,6 +100,7 @@ test("booking confirms when external calendar event is created", async () => {
     timezone: "America/New_York",
     requestedProvider: "GOOGLE",
     pipelineFeatureEnabled: true,
+    businessHoursValidation: alwaysOpenBusinessHours,
     createExternalEvent: async () => ({ provider: "GOOGLE", externalEventId: "evt_123" })
   });
 
@@ -110,6 +127,7 @@ test("booking falls back to internal pending when external event creation fails"
     timezone: "America/New_York",
     requestedProvider: "OUTLOOK",
     pipelineFeatureEnabled: true,
+    businessHoursValidation: alwaysOpenBusinessHours,
     createExternalEvent: async () => {
       throw new Error("provider unavailable");
     }
@@ -167,6 +185,63 @@ test("booking overlap respects buffer minutes between appointments", async () =>
     timezone: "America/New_York",
     appointmentBufferMinutes: 15,
     requestedProvider: "INTERNAL"
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.reason, "OVERLAP");
+});
+
+test("booking returns calendar_unavailable with deterministic next slots when external busy fetch fails", async () => {
+  const mock = createPrismaMock();
+  const result = await bookAppointmentWithHold({
+    prisma: mock.prisma,
+    orgId: "org_1",
+    userId: "user_1",
+    customerName: "Calendar Down",
+    customerPhone: "+15165558888",
+    issueSummary: "Fallback test",
+    startAt: new Date("2026-03-05T10:00:00.000Z"),
+    endAt: new Date("2026-03-05T11:00:00.000Z"),
+    timezone: "America/New_York",
+    businessHoursValidation: alwaysOpenBusinessHours,
+    requestedProvider: "GOOGLE",
+    returnFailureOnCalendarFallback: true,
+    fetchExternalBusyBlocks: async () => {
+      throw new Error("calendar_unavailable");
+    },
+    computeNextSlots: async () => [
+      { startAt: "2026-03-05T12:00:00.000Z", endAt: "2026-03-05T13:00:00.000Z" },
+      { startAt: "2026-03-05T13:00:00.000Z", endAt: "2026-03-05T14:00:00.000Z" },
+      { startAt: "2026-03-05T14:00:00.000Z", endAt: "2026-03-05T15:00:00.000Z" }
+    ]
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.reason, "CALENDAR_UNAVAILABLE");
+  assert.equal((result.nextSlots || []).length, 3);
+});
+
+test("booking recheck blocks commit when external busy appears", async () => {
+  const mock = createPrismaMock();
+  let calls = 0;
+  const result = await bookAppointmentWithHold({
+    prisma: mock.prisma,
+    orgId: "org_1",
+    userId: "user_1",
+    customerName: "Ext Busy",
+    customerPhone: "+15165559999",
+    issueSummary: "External busy commit check",
+    startAt: new Date("2026-03-05T10:00:00.000Z"),
+    endAt: new Date("2026-03-05T11:00:00.000Z"),
+    timezone: "America/New_York",
+    requestedProvider: "GOOGLE",
+    fetchExternalBusyBlocks: async () => {
+      calls += 1;
+      if (calls === 1) return [];
+      return [{ startAt: new Date("2026-03-05T10:00:00.000Z"), endAt: new Date("2026-03-05T11:00:00.000Z") }];
+    }
   });
 
   assert.equal(result.ok, false);
@@ -247,6 +322,7 @@ test("booking returns existing appointment on idempotency duplicate", async () =
     startAt: new Date("2026-03-05T13:00:00.000Z"),
     endAt: new Date("2026-03-05T14:00:00.000Z"),
     timezone: "America/New_York",
+    businessHoursValidation: alwaysOpenBusinessHours,
     requestedProvider: "INTERNAL",
     idempotencyKey: "idem_123"
   });

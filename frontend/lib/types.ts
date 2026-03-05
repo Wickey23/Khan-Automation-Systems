@@ -441,6 +441,7 @@ export type CalendarConnection = {
   accountEmail: string;
   isActive: boolean;
   isPrimary?: boolean;
+  selectedCalendarId?: string | null;
   expiresAt: string;
   createdAt: string;
 };

@@ -6,7 +6,15 @@ import { prisma } from "../../lib/prisma";
 import { verifyVapiToolSecret } from "../../middleware/webhook-security";
 import { hasProMessaging } from "../billing/plan-features";
 import { sendSmsMessage } from "../twilio/twilio.service";
-import { validateSlotWithinBusinessHours } from "../appointments/slotting.service";
+import {
+  computeAvailabilityWindow,
+  generateAvailabilitySlots,
+  validateSlotWithinBusinessHours
+} from "../appointments/slotting.service";
+import { getBusyBlocks } from "../appointments/calendar-busy.service";
+import { bookAppointmentWithHold } from "../appointments/booking.service";
+import { createCalendarEventFromConnection } from "../appointments/calendar-oauth.service";
+import { isFeatureEnabledForOrg } from "../org/feature-gates";
 
 export const toolsRouter = Router();
 toolsRouter.use(verifyVapiToolSecret);
@@ -38,6 +46,23 @@ const appointmentSchema = z.object({
   callId: z.string().optional(),
   requestedStartAt: z.string().datetime().optional(),
   appointmentDurationMinutes: z.number().int().positive().max(480).optional()
+});
+
+const bookAppointmentSchema = z.object({
+  orgId: z.string().min(1),
+  callId: z.string().optional(),
+  requestedStartAt: z.string().datetime().optional(),
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(5),
+  issueSummary: z.string().optional(),
+  serviceAddress: z.string().optional(),
+  serviceType: z.string().optional(),
+  preferenceWindow: z
+    .object({
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional()
+    })
+    .optional()
 });
 
 const transferSchema = z.object({
@@ -394,6 +419,219 @@ toolsRouter.post("/notify-manager", async (req, res) => {
       }
     });
     return res.json({ ok: true, data: { notified: true } });
+  } catch (error) {
+    return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
+  }
+});
+
+toolsRouter.post("/book-appointment", async (req, res) => {
+  try {
+    const parsed = bookAppointmentSchema.safeParse(req.body);
+    if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid book-appointment payload.");
+    const payload = parsed.data;
+
+    if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, payload.orgId)) {
+      return toolError(res, "FEATURE_DISABLED", "Appointments feature is disabled for this org.", 404);
+    }
+    const settings = await prisma.businessSettings.findUnique({
+      where: { orgId: payload.orgId },
+      select: {
+        hoursJson: true,
+        timezone: true,
+        appointmentDurationMinutes: true,
+        appointmentBufferMinutes: true,
+        bookingLeadTimeHours: true,
+        bookingMaxDaysAhead: true
+      }
+    });
+    const timezone = settings?.timezone || "America/New_York";
+    const calendarOauthEnabled = isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, payload.orgId);
+    const callLog = payload.callId
+      ? await prisma.callLog.findFirst({
+          where: { orgId: payload.orgId, OR: [{ id: payload.callId }, { providerCallId: payload.callId }] },
+          select: { id: true, leadId: true }
+        })
+      : null;
+
+    const buildSlots = async () => {
+      const window = computeAvailabilityWindow({
+        now: new Date(),
+        from: payload.preferenceWindow?.from ? new Date(payload.preferenceWindow.from) : undefined,
+        to: payload.preferenceWindow?.to ? new Date(payload.preferenceWindow.to) : undefined,
+        bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
+        bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14
+      });
+      const internalBusy = await prisma.appointment.findMany({
+        where: {
+          orgId: payload.orgId,
+          status: { not: "CANCELED" },
+          startAt: { lte: window.to },
+          endAt: { gte: window.from }
+        },
+        select: { startAt: true, endAt: true, status: true },
+        orderBy: { startAt: "asc" },
+        take: 500
+      });
+      let externalBusyBlocks: Array<{ startAt: Date; endAt: Date }> = [];
+      if (isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, payload.orgId)) {
+        try {
+          const externalBusy = await getBusyBlocks({
+            prisma,
+            orgId: payload.orgId,
+            fromUtc: window.from,
+            toUtc: window.to
+          });
+          externalBusyBlocks = externalBusy.map((row) => ({ startAt: row.startUtc, endAt: row.endUtc }));
+        } catch {
+          externalBusyBlocks = [];
+        }
+      }
+      const slots = generateAvailabilitySlots({
+        hoursJson: settings?.hoursJson || null,
+        timezone,
+        appointmentDurationMinutes: settings?.appointmentDurationMinutes ?? 60,
+        appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
+        bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
+        bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14,
+        from: window.from,
+        to: window.to,
+        existingAppointments: internalBusy,
+        externalBusyBlocks
+      });
+      return slots.map((slot) => ({
+        startAt: slot.startAt.toISOString(),
+        endAt: slot.endAt.toISOString()
+      }));
+    };
+
+    if (!payload.requestedStartAt) {
+      const slots = (await buildSlots()).slice(0, 3);
+      return res.json({ ok: true, data: { slots } });
+    }
+
+    const startAt = new Date(payload.requestedStartAt);
+    const durationMinutes = Math.max(1, settings?.appointmentDurationMinutes ?? 60);
+    const endAt = new Date(startAt.getTime() + durationMinutes * 60 * 1000);
+    const idempotencyKey = `tool:${payload.orgId}:${payload.callId || "manual"}:${startAt.toISOString()}`;
+
+    const activeConnection = calendarOauthEnabled
+      ? await prisma.calendarConnection.findFirst({
+          where: { orgId: payload.orgId, isActive: true },
+          orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+          select: { id: true, provider: true }
+        })
+      : null;
+    const requestedProvider = activeConnection?.provider || (calendarOauthEnabled ? "GOOGLE" : "INTERNAL");
+
+    const booking = await bookAppointmentWithHold({
+      prisma,
+      orgId: payload.orgId,
+      userId: "vapi-tool",
+      leadId: callLog?.leadId || null,
+      callLogId: callLog?.id || payload.callId || null,
+      customerName: payload.customerName,
+      customerPhone: normalizePhone(payload.customerPhone),
+      issueSummary: payload.issueSummary || payload.serviceType || "Service appointment request",
+      serviceAddress: payload.serviceAddress || null,
+      startAt,
+      endAt,
+      timezone,
+      appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
+      requestedProvider,
+      idempotencyKey,
+      businessHoursValidation: {
+        hoursJson: settings?.hoursJson || null,
+        timezone
+      },
+      pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, payload.orgId),
+      returnFailureOnCalendarFallback: true,
+      createExternalEvent:
+        activeConnection && activeConnection.provider !== "INTERNAL"
+          ? async () => {
+              const event = await createCalendarEventFromConnection({
+                prisma,
+                connectionId: activeConnection.id,
+                orgId: payload.orgId,
+                title: `${payload.customerName} - Service Appointment`,
+                description: payload.issueSummary || "Booked via AI receptionist",
+                startAt,
+                endAt,
+                timezone
+              });
+              return { provider: event.provider, externalEventId: event.externalEventId || "" };
+            }
+          : calendarOauthEnabled
+            ? async () => {
+                throw new Error("calendar_unavailable");
+              }
+          : undefined,
+      fetchExternalBusyBlocks:
+        activeConnection && activeConnection.provider !== "INTERNAL"
+          ? async ({ fromUtc, toUtc }) => {
+              const busy = await getBusyBlocks({
+                prisma,
+                orgId: payload.orgId,
+                fromUtc,
+                toUtc,
+                provider: activeConnection.provider
+              });
+              return busy.map((row) => ({ startAt: row.startUtc, endAt: row.endUtc }));
+            }
+          : undefined,
+      computeNextSlots: async () => (await buildSlots()).slice(0, 3)
+    });
+
+    if (booking.ok) {
+      return res.json({ ok: true, data: { appointment: booking.appointment } });
+    }
+
+    if (booking.reason === "CALENDAR_UNAVAILABLE" && isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, payload.orgId)) {
+      const existingLead =
+        callLog?.leadId
+          ? await prisma.lead.findFirst({ where: { id: callLog.leadId, orgId: payload.orgId }, select: { id: true } })
+          : await prisma.lead.findFirst({
+              where: { orgId: payload.orgId, phone: normalizePhone(payload.customerPhone) },
+              orderBy: { createdAt: "desc" },
+              select: { id: true }
+            });
+      if (existingLead?.id) {
+        await prisma.lead.updateMany({
+          where: { id: existingLead.id, orgId: payload.orgId },
+          data: { pipelineStage: "NEEDS_SCHEDULING" }
+        });
+      } else {
+        await prisma.lead.create({
+          data: {
+            orgId: payload.orgId,
+            name: payload.customerName,
+            business: "",
+            email: "",
+            phone: normalizePhone(payload.customerPhone),
+            source: "PHONE_CALL",
+            pipelineStage: "NEEDS_SCHEDULING",
+            serviceRequested: payload.serviceType || null,
+            serviceAddress: payload.serviceAddress || null
+          }
+        });
+      }
+    }
+
+    return res.status(409).json({
+      ok: false,
+      error: {
+        code: booking.reason === "CALENDAR_UNAVAILABLE" ? "CALENDAR_UNAVAILABLE" : "BOOKING_FAILED",
+        message:
+          booking.reason === "OVERLAP"
+            ? "Requested slot is no longer available."
+            : booking.reason === "OUTSIDE_BUSINESS_HOURS"
+              ? "Requested slot is outside business hours."
+              : "Calendar unavailable; appointment saved for manual scheduling."
+      },
+      data: {
+        failureReason: booking.reason,
+        nextSlots: (booking.nextSlots || []).slice(0, 3)
+      }
+    });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }

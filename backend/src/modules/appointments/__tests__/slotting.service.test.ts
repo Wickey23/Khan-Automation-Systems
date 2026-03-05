@@ -112,6 +112,31 @@ test("returns deterministic slot ordering for identical input", () => {
   assert.deepEqual(runA, runB);
 });
 
+test("includes external busy windows and buffer expansion before merge", () => {
+  const slots = generateAvailabilitySlots({
+    hoursJson: HOURS_JSON,
+    timezone: "America/New_York",
+    appointmentDurationMinutes: 60,
+    appointmentBufferMinutes: 15,
+    bookingLeadTimeHours: 0,
+    bookingMaxDaysAhead: 1,
+    now: new Date("2026-03-02T08:00:00-05:00"),
+    externalBusyBlocks: [
+      {
+        startAt: new Date("2026-03-02T10:00:00-05:00"),
+        endAt: new Date("2026-03-02T11:00:00-05:00")
+      }
+    ],
+    maxSlots: 40
+  });
+
+  const starts = slots.map((slot) => slot.startAt.toISOString());
+  // 10:00 and 11:00 local are blocked when 15m buffer expands both sides.
+  assert.equal(starts.includes("2026-03-02T15:00:00.000Z"), false);
+  assert.equal(starts.includes("2026-03-02T16:00:00.000Z"), false);
+  assert.equal(starts.includes("2026-03-02T16:15:00.000Z"), true);
+});
+
 test("end-of-day boundary allows final slot even when appointment buffer is configured", () => {
   const slots = generateAvailabilitySlots({
     hoursJson: HOURS_JSON,

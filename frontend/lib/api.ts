@@ -696,6 +696,13 @@ export async function runCalendarSyncTest(payload: { provider?: "GOOGLE" | "OUTL
   });
 }
 
+export async function selectPrimaryCalendar(payload: { connectionId: string; selectedCalendarId?: string }) {
+  return request<{ provider: CalendarConnection }>("/api/org/calendar/select-primary", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function fetchOrgNotifications() {
   return request<{ notifications: OrgNotification[] }>("/api/org/notifications");
 }

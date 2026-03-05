@@ -14,7 +14,11 @@ import { buildConfigPackage, generateConfigPackage } from "./config-package";
 import { computeOrgAnalytics, shapeOrgAnalyticsForRole } from "./analytics.service";
 import { computeOrgHealth } from "./health.service";
 import { dedupeOrgCallRows } from "./call-log-dedupe.service";
-import { generateAvailabilitySlots, validateSlotWithinBusinessHours } from "../appointments/slotting.service";
+import {
+  computeAvailabilityWindow,
+  generateAvailabilitySlots,
+  validateSlotWithinBusinessHours
+} from "../appointments/slotting.service";
 import { bookAppointmentWithHold } from "../appointments/booking.service";
 import {
   consumeCalendarOauthState,
@@ -23,6 +27,7 @@ import {
   exchangeCalendarCode,
   upsertCalendarConnection
 } from "../appointments/calendar-oauth.service";
+import { CalendarUnavailableError, getBusyBlocks } from "../appointments/calendar-busy.service";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
 import { isFeatureEnabledForOrg } from "./feature-gates";
@@ -121,6 +126,10 @@ const createCalendarTestEventSchema = z.object({
 const disconnectCalendarSchema = z.object({
   provider: z.enum(["GOOGLE", "OUTLOOK"]).optional(),
   accountEmail: z.string().email().optional()
+});
+const selectPrimaryCalendarSchema = z.object({
+  connectionId: z.string().min(1),
+  selectedCalendarId: z.string().optional()
 });
 
 function normalizePhone(input: string) {
@@ -984,17 +993,42 @@ orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, asyn
     if (!isPrismaMissingColumnError(error)) throw error;
     settings = null;
   }
-  const toBound = parsed.data.to ? new Date(parsed.data.to) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const window = computeAvailabilityWindow({
+    from: parsed.data.from ? new Date(parsed.data.from) : undefined,
+    to: parsed.data.to ? new Date(parsed.data.to) : undefined,
+    bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
+    bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14
+  });
   const existingAppointments = await prisma.appointment.findMany({
     where: {
       orgId: req.auth.orgId,
       status: { not: "CANCELED" },
-      startAt: { lte: toBound }
+      startAt: { lte: window.to },
+      endAt: { gte: window.from }
     },
     select: { startAt: true, endAt: true, status: true },
     orderBy: { startAt: "asc" },
     take: 500
   });
+
+  let externalBusyBlocks: Array<{ startAt: Date; endAt: Date }> = [];
+  if (isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
+    try {
+      const busy = await getBusyBlocks({
+        prisma,
+        orgId: req.auth.orgId,
+        fromUtc: window.from,
+        toUtc: window.to
+      });
+      externalBusyBlocks = busy.map((row) => ({
+        startAt: row.startUtc,
+        endAt: row.endUtc
+      }));
+    } catch (error) {
+      if (!(error instanceof CalendarUnavailableError)) throw error;
+      externalBusyBlocks = [];
+    }
+  }
 
   const slots = generateAvailabilitySlots({
     hoursJson: settings?.hoursJson || null,
@@ -1003,7 +1037,10 @@ orgRouter.post("/appointments/availability", requireAppointmentsReadAccess, asyn
     appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
     bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
     bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14,
-    existingAppointments
+    from: window.from,
+    to: window.to,
+    existingAppointments,
+    externalBusyBlocks
   });
 
   const fromMs = parsed.data.from ? new Date(parsed.data.from).getTime() : null;
@@ -1153,7 +1190,73 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
           });
           return { provider: event.provider, externalEventId: event.externalEventId || "" };
         }
-      : undefined
+      : undefined,
+    fetchExternalBusyBlocks:
+      shouldTryExternalCalendar
+        ? async ({ fromUtc, toUtc }) => {
+            const busy = await getBusyBlocks({ prisma, orgId, fromUtc, toUtc, provider: externalProvider || undefined });
+            return busy.map((row) => ({ startAt: row.startUtc, endAt: row.endUtc }));
+          }
+        : undefined,
+    computeNextSlots: async () => {
+      const settingsLatest = await prisma.businessSettings.findUnique({
+        where: { orgId },
+        select: {
+          hoursJson: true,
+          timezone: true,
+          appointmentDurationMinutes: true,
+          appointmentBufferMinutes: true,
+          bookingLeadTimeHours: true,
+          bookingMaxDaysAhead: true
+        }
+      });
+      const availabilityWindow = computeAvailabilityWindow({
+        bookingLeadTimeHours: settingsLatest?.bookingLeadTimeHours ?? 2,
+        bookingMaxDaysAhead: settingsLatest?.bookingMaxDaysAhead ?? 14
+      });
+      const internalBusy = await prisma.appointment.findMany({
+        where: {
+          orgId,
+          status: { not: "CANCELED" },
+          startAt: { lte: availabilityWindow.to },
+          endAt: { gte: availabilityWindow.from }
+        },
+        select: { startAt: true, endAt: true, status: true },
+        orderBy: { startAt: "asc" },
+        take: 500
+      });
+      let externalBusyBlocks: Array<{ startAt: Date; endAt: Date }> = [];
+      if (shouldTryExternalCalendar) {
+        try {
+          const busy = await getBusyBlocks({
+            prisma,
+            orgId,
+            fromUtc: availabilityWindow.from,
+            toUtc: availabilityWindow.to,
+            provider: externalProvider || undefined
+          });
+          externalBusyBlocks = busy.map((row) => ({ startAt: row.startUtc, endAt: row.endUtc }));
+        } catch {
+          externalBusyBlocks = [];
+        }
+      }
+      const slots = generateAvailabilitySlots({
+        hoursJson: settingsLatest?.hoursJson || null,
+        timezone: settingsLatest?.timezone || parsed.data.timezone || "America/New_York",
+        appointmentDurationMinutes: settingsLatest?.appointmentDurationMinutes ?? 60,
+        appointmentBufferMinutes: settingsLatest?.appointmentBufferMinutes ?? 15,
+        bookingLeadTimeHours: settingsLatest?.bookingLeadTimeHours ?? 2,
+        bookingMaxDaysAhead: settingsLatest?.bookingMaxDaysAhead ?? 14,
+        from: availabilityWindow.from,
+        to: availabilityWindow.to,
+        existingAppointments: internalBusy,
+        externalBusyBlocks
+      });
+      return slots.slice(0, 3).map((slot) => ({
+        startAt: slot.startAt.toISOString(),
+        endAt: slot.endAt.toISOString()
+      }));
+    }
   });
 
   if (!booking.ok && booking.reason === "OVERLAP") {
@@ -1161,6 +1264,9 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
   }
   if (!booking.ok && booking.reason === "OUTSIDE_BUSINESS_HOURS") {
     return res.status(400).json({ ok: false, message: "Appointment time is outside business-hour constraints." });
+  }
+  if (!booking.ok && booking.reason === "CALENDAR_UNAVAILABLE" && booking.appointment) {
+    return res.status(201).json({ ok: true, data: { appointment: booking.appointment, nextSlots: booking.nextSlots || [] } });
   }
   if (!booking.ok) return res.status(400).json({ ok: false, message: "Appointment booking failed." });
   return res.status(201).json({ ok: true, data: { appointment: booking.appointment } });
@@ -1254,9 +1360,62 @@ orgRouter.get("/calendar/providers", requireCalendarManageAccess, async (req: Au
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const providers = await prisma.calendarConnection.findMany({
     where: { orgId: req.auth.orgId },
-    select: { id: true, provider: true, accountEmail: true, isActive: true, isPrimary: true, expiresAt: true, createdAt: true }
+    select: {
+      id: true,
+      provider: true,
+      accountEmail: true,
+      isActive: true,
+      isPrimary: true,
+      selectedCalendarId: true,
+      expiresAt: true,
+      createdAt: true
+    }
   });
   return res.json({ ok: true, data: { providers } });
+});
+
+orgRouter.post("/calendar/select-primary", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
+  if (!isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, req.auth?.orgId)) {
+    return res.status(404).json({ ok: false, message: "Calendar integration feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = selectPrimaryCalendarSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid calendar primary payload." });
+
+  const target = await prisma.calendarConnection.findFirst({
+    where: { id: parsed.data.connectionId, orgId: req.auth.orgId }
+  });
+  if (!target) return res.status(404).json({ ok: false, message: "Calendar connection not found." });
+
+  const selectedCalendarIdRaw = parsed.data.selectedCalendarId;
+  const selectedCalendarIdTrimmed = selectedCalendarIdRaw === undefined ? "" : String(selectedCalendarIdRaw).trim();
+  if (selectedCalendarIdRaw !== undefined && !selectedCalendarIdTrimmed) {
+    return res.status(400).json({ ok: false, message: "selectedCalendarId must be a non-empty string when provided." });
+  }
+  const selectedCalendarId =
+    target.provider === "GOOGLE"
+      ? selectedCalendarIdTrimmed || "primary"
+      : selectedCalendarIdTrimmed || null;
+
+  const orgId = req.auth.orgId as string;
+  await prisma.$transaction(async (tx) => {
+    await tx.calendarConnection.updateMany({
+      where: { orgId },
+      data: { isPrimary: false }
+    });
+    await tx.calendarConnection.update({
+      where: { id: target.id },
+      data: {
+        isPrimary: true,
+        selectedCalendarId
+      }
+    });
+  });
+
+  const provider = await prisma.calendarConnection.findUnique({
+    where: { id: target.id }
+  });
+  return res.json({ ok: true, data: { provider } });
 });
 
 orgRouter.post("/calendar/google/connect", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {

@@ -20,6 +20,11 @@ type NormalizedTokenPayload = {
   accountEmail: string;
 };
 
+export type CalendarAuthErrorCode =
+  | "HARD_AUTH_FAILURE"
+  | "TRANSIENT_FAILURE"
+  | "UNKNOWN_FAILURE";
+
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 12_000;
 const oauthStateStore = new Map<string, OAuthStatePayload>();
@@ -80,6 +85,24 @@ async function fetchJson(url: string, init: RequestInit) {
     payload = { raw: text };
   }
   return { ok: response.ok, status: response.status, payload };
+}
+
+function extractOauthError(payload: unknown) {
+  const directError = String((payload as { error?: string } | null)?.error || "").toLowerCase();
+  const nestedError = String(
+    ((payload as { error?: { code?: string; message?: string } } | null)?.error?.code ||
+      (payload as { error?: { code?: string; message?: string } } | null)?.error?.message ||
+      "")
+  ).toLowerCase();
+  return `${directError} ${nestedError}`.trim();
+}
+
+function classifyFailure(status: number | undefined, payload: unknown): CalendarAuthErrorCode {
+  if (status === 401 || status === 403) return "HARD_AUTH_FAILURE";
+  const text = extractOauthError(payload);
+  if (text.includes("invalid_grant") || text.includes("revoked")) return "HARD_AUTH_FAILURE";
+  if ((status || 0) >= 500) return "TRANSIENT_FAILURE";
+  return "UNKNOWN_FAILURE";
 }
 
 async function resolveGoogleAccountEmail(accessToken: string) {
@@ -250,7 +273,14 @@ async function refreshAccessToken(input: {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString()
   });
-  if (!token.ok) throw new Error(`${input.provider.toLowerCase()}_token_refresh_failed`);
+  if (!token.ok) {
+    const failure = classifyFailure(token.status, token.payload);
+    const code =
+      failure === "HARD_AUTH_FAILURE"
+        ? `${input.provider.toLowerCase()}_token_refresh_hard_auth_failed`
+        : `${input.provider.toLowerCase()}_token_refresh_failed`;
+    throw new Error(code);
+  }
 
   const payload = token.payload as { access_token?: string; refresh_token?: string; expires_in?: number };
   const accessToken = String(payload?.access_token || "").trim();
@@ -264,7 +294,7 @@ async function refreshAccessToken(input: {
   };
 }
 
-async function ensureUsableAccessToken(input: {
+export async function ensureUsableAccessToken(input: {
   prisma: PrismaClient;
   connectionId: string;
   provider: ProviderKind;
@@ -290,15 +320,29 @@ async function ensureUsableAccessToken(input: {
   return refreshed;
 }
 
+function isHardAuthErrorMessage(message: string) {
+  const normalized = String(message || "").toLowerCase();
+  return (
+    normalized.includes("hard_auth_failed") ||
+    normalized.includes("auth_failed") ||
+    normalized.includes("invalid_grant") ||
+    normalized.includes("revoked") ||
+    normalized.includes("401") ||
+    normalized.includes("403")
+  );
+}
+
 async function createGoogleEvent(input: {
   accessToken: string;
+  calendarId?: string | null;
   title: string;
   description: string;
   startAt: Date;
   endAt: Date;
   timezone: string;
 }) {
-  const response = await fetchJson("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+  const calendarId = String(input.calendarId || "primary").trim() || "primary";
+  const response = await fetchJson(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
@@ -323,13 +367,17 @@ async function createGoogleEvent(input: {
 
 async function createOutlookEvent(input: {
   accessToken: string;
+  calendarId?: string | null;
   title: string;
   description: string;
   startAt: Date;
   endAt: Date;
   timezone: string;
 }) {
-  const response = await fetchJson("https://graph.microsoft.com/v1.0/me/events", {
+  const calendarPath = String(input.calendarId || "").trim()
+    ? `me/calendars/${encodeURIComponent(String(input.calendarId).trim())}/events`
+    : "me/events";
+  const response = await fetchJson(`https://graph.microsoft.com/v1.0/${calendarPath}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
@@ -380,6 +428,7 @@ export async function createCalendarEventFromConnection(input: {
       provider === "GOOGLE"
         ? await createGoogleEvent({
             accessToken: token.accessToken,
+            calendarId: connection.selectedCalendarId,
             title: input.title,
             description: input.description,
             startAt: input.startAt,
@@ -388,6 +437,7 @@ export async function createCalendarEventFromConnection(input: {
           })
         : await createOutlookEvent({
             accessToken: token.accessToken,
+            calendarId: connection.selectedCalendarId,
             title: input.title,
             description: input.description,
             startAt: input.startAt,
@@ -396,13 +446,8 @@ export async function createCalendarEventFromConnection(input: {
           });
     return { provider, externalEventId };
   } catch (error) {
-    // Graceful degradation: deactivate broken tokens.
     const message = String((error as Error)?.message || "");
-    if (
-      message.includes("token") ||
-      message.includes("auth_failed") ||
-      message.includes("unauthorized")
-    ) {
+    if (isHardAuthErrorMessage(message)) {
       await input.prisma.calendarConnection.update({
         where: { id: connection.id },
         data: { isActive: false }

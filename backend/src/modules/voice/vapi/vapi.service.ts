@@ -49,6 +49,7 @@ export function buildVapiTools(apiBaseUrl: string) {
     { name: "create_lead_from_call", url: `${apiBaseUrl}/api/tools/create-lead-from-call`, method: "POST" },
     { name: "send_sms", url: `${apiBaseUrl}/api/tools/send-sms`, method: "POST" },
     { name: "notify_manager", url: `${apiBaseUrl}/api/tools/notify-manager`, method: "POST" },
+    { name: "book_appointment", url: `${apiBaseUrl}/api/tools/book-appointment`, method: "POST" },
     { name: "request_appointment", url: `${apiBaseUrl}/api/tools/request-appointment`, method: "POST" },
     { name: "transfer_call", url: `${apiBaseUrl}/api/tools/transfer-call`, method: "POST" }
   ];

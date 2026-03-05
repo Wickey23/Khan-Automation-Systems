@@ -754,6 +754,7 @@ model CalendarConnection {
   organization    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   provider        CalendarProvider
   accountEmail    String
+  selectedCalendarId String?
   accessTokenEnc  String
   refreshTokenEnc String
   expiresAt       DateTime
