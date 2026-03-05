@@ -20,6 +20,11 @@ import { Button } from "@/components/ui/button";
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [viewMode, setViewMode] = useState<"LIST" | "CALENDAR">("CALENDAR");
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [status, setStatus] = useState<Appointment["status"] | "ALL">("ALL");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -254,6 +259,39 @@ export default function AppAppointmentsPage() {
   const hasGoogle = calendarProviders.some((provider) => provider.provider === "GOOGLE" && provider.isActive);
   const hasOutlook = calendarProviders.some((provider) => provider.provider === "OUTLOOK" && provider.isActive);
 
+  const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+  const firstDayWeekday = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay();
+  const monthCells: Array<{ date: Date | null; key: string }> = [];
+  for (let i = 0; i < firstDayWeekday; i += 1) {
+    monthCells.push({ date: null, key: `pad-start-${i}` });
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    monthCells.push({
+      date: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day),
+      key: `day-${day}`
+    });
+  }
+  while (monthCells.length % 7 !== 0) {
+    monthCells.push({ date: null, key: `pad-end-${monthCells.length}` });
+  }
+
+  function toLocalDateKey(value: Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const appointmentMapByDate = appointments.reduce<Record<string, Appointment[]>>((acc, appointment) => {
+    const key = toLocalDateKey(new Date(appointment.startAt));
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(appointment);
+    return acc;
+  }, {});
+  Object.values(appointmentMapByDate).forEach((items) => {
+    items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -261,7 +299,18 @@ export default function AppAppointmentsPage() {
           <h1 className="text-3xl font-bold">Appointments</h1>
           <p className="text-sm text-muted-foreground">Track pending, confirmed, and completed bookings.</p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-4">
+          <label className="text-sm">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">View</span>
+            <select
+              value={viewMode}
+              onChange={(event) => setViewMode(event.target.value as "LIST" | "CALENDAR")}
+              className="mt-1 h-10 rounded-md border bg-background px-3"
+            >
+              <option value="CALENDAR">Calendar</option>
+              <option value="LIST">List</option>
+            </select>
+          </label>
           <label className="text-sm">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
             <select
@@ -399,106 +448,168 @@ export default function AppAppointmentsPage() {
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border bg-white">
-        <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="bg-muted/40">
-            <tr>
-              <th className="p-3">Start</th>
-              <th className="p-3">Customer</th>
-              <th className="p-3">Phone</th>
-              <th className="p-3">Issue</th>
-              <th className="p-3">Linked records</th>
-              <th className="p-3">Technician</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Calendar</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td className="p-3 text-muted-foreground" colSpan={9}>Loading appointments...</td>
-              </tr>
-            ) : appointments.length ? (
-              appointments.map((appointment) => (
-                <tr key={appointment.id} className="border-t align-top">
-                  <td className="p-3">{new Date(appointment.startAt).toLocaleString()}</td>
-                  <td className="p-3">{appointment.customerName}</td>
-                  <td className="p-3">{appointment.customerPhone}</td>
-                  <td className="p-3 max-w-[320px]">{appointment.issueSummary}</td>
-                  <td className="p-3 text-xs text-muted-foreground">
-                    <div>
-                      Lead:{" "}
-                      {appointment.leadId ? (
-                        <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(appointment.leadId)}`}>
-                          {appointment.lead?.name || appointment.leadId}
-                        </Link>
-                      ) : (
-                        "-"
-                      )}
-                    </div>
-                    <div>
-                      Call:{" "}
-                      {appointment.callLogId ? (
-                        <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(appointment.callLogId)}`}>
-                          {appointment.callLog?.providerCallId || appointment.callLogId}
-                        </Link>
-                      ) : (
-                        "-"
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-3">{appointment.assignedTechnician || "-"}</td>
-                  <td className="p-3">{appointment.status}</td>
-                  <td className="p-3">{appointment.calendarProvider}</td>
-                  <td className="p-3">
-                    {canWrite ? (
-                      <div className="flex gap-2">
-                        {appointment.status === "PENDING" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={savingId === appointment.id}
-                            onClick={() => void onConfirm(appointment.id)}
-                          >
-                            Confirm
-                          </Button>
-                        ) : null}
-                        {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={savingId === appointment.id}
-                            onClick={() => void onComplete(appointment.id)}
-                          >
-                            Complete
-                          </Button>
-                        ) : null}
-                        {appointment.status !== "CANCELED" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={savingId === appointment.id}
-                            onClick={() => void onCancel(appointment.id)}
-                          >
-                            Cancel
-                          </Button>
-                        ) : null}
+      {viewMode === "CALENDAR" ? (
+        <div className="rounded-lg border bg-white p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+            >
+              Previous
+            </Button>
+            <h2 className="text-base font-semibold">
+              {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+            >
+              Next
+            </Button>
+          </div>
+          <div className="grid grid-cols-7 gap-2 text-center text-xs uppercase tracking-wide text-muted-foreground">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+              <div key={label} className="py-1">{label}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+            {monthCells.map((cell) => {
+              if (!cell.date) {
+                return <div key={cell.key} className="min-h-28 rounded-md border bg-muted/20" />;
+              }
+              const dayKey = toLocalDateKey(cell.date);
+              const dayItems = appointmentMapByDate[dayKey] || [];
+              return (
+                <div key={cell.key} className="min-h-28 rounded-md border p-2">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm font-semibold">{cell.date.getDate()}</span>
+                    <span className="text-xs text-muted-foreground">{dayItems.length || ""}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {dayItems.slice(0, 3).map((appointment) => (
+                      <div key={appointment.id} className="rounded border bg-muted/20 px-2 py-1 text-xs">
+                        <div className="font-medium">
+                          {new Date(appointment.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{" "}
+                          {appointment.customerName}
+                        </div>
+                        <div className="text-muted-foreground">{appointment.status}</div>
                       </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Read-only</span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            ) : (
+                    ))}
+                    {dayItems.length > 3 ? (
+                      <div className="text-xs text-muted-foreground">+{dayItems.length - 3} more</div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading appointments...</p> : null}
+          {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments yet.</p> : null}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-white">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-muted/40">
               <tr>
-                <td className="p-3 text-muted-foreground" colSpan={9}>No appointments yet.</td>
+                <th className="p-3">Start</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Phone</th>
+                <th className="p-3">Issue</th>
+                <th className="p-3">Linked records</th>
+                <th className="p-3">Technician</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Calendar</th>
+                <th className="p-3">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>Loading appointments...</td>
+                </tr>
+              ) : appointments.length ? (
+                appointments.map((appointment) => (
+                  <tr key={appointment.id} className="border-t align-top">
+                    <td className="p-3">{new Date(appointment.startAt).toLocaleString()}</td>
+                    <td className="p-3">{appointment.customerName}</td>
+                    <td className="p-3">{appointment.customerPhone}</td>
+                    <td className="p-3 max-w-[320px]">{appointment.issueSummary}</td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      <div>
+                        Lead:{" "}
+                        {appointment.leadId ? (
+                          <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(appointment.leadId)}`}>
+                            {appointment.lead?.name || appointment.leadId}
+                          </Link>
+                        ) : (
+                          "-"
+                        )}
+                      </div>
+                      <div>
+                        Call:{" "}
+                        {appointment.callLogId ? (
+                          <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(appointment.callLogId)}`}>
+                            {appointment.callLog?.providerCallId || appointment.callLogId}
+                          </Link>
+                        ) : (
+                          "-"
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3">{appointment.assignedTechnician || "-"}</td>
+                    <td className="p-3">{appointment.status}</td>
+                    <td className="p-3">{appointment.calendarProvider}</td>
+                    <td className="p-3">
+                      {canWrite ? (
+                        <div className="flex gap-2">
+                          {appointment.status === "PENDING" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingId === appointment.id}
+                              onClick={() => void onConfirm(appointment.id)}
+                            >
+                              Confirm
+                            </Button>
+                          ) : null}
+                          {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingId === appointment.id}
+                              onClick={() => void onComplete(appointment.id)}
+                            >
+                              Complete
+                            </Button>
+                          ) : null}
+                          {appointment.status !== "CANCELED" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingId === appointment.id}
+                              onClick={() => void onCancel(appointment.id)}
+                            >
+                              Cancel
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Read-only</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>No appointments yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
