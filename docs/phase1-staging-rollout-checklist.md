@@ -26,7 +26,15 @@ Quick validate before deploy:
 ```powershell
 cd backend
 npm run phase1:preflight
+npm run phase1:smoke
 ```
+
+Expected smoke API statuses:
+
+- `GET /` => `200`
+- `GET /api/health` => `200`
+- `GET /api/status` => `200`
+- `GET /api/org/profile` (unauthenticated) => `401`
 
 ## 2) Database
 

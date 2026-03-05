@@ -19,7 +19,8 @@
     "harness:stress-webhooks": "ts-node --transpile-only scripts/stress-webhook-replay.ts",
     "phase1:check-env": "ts-node --transpile-only scripts/check-phase1-env.ts",
     "phase1:check-schema": "ts-node --transpile-only scripts/check-phase1-schema.ts",
-    "phase1:preflight": "ts-node --transpile-only scripts/check-phase1-preflight.ts"
+    "phase1:preflight": "ts-node --transpile-only scripts/check-phase1-preflight.ts",
+    "phase1:smoke": "ts-node --transpile-only scripts/check-phase1-smoke.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
