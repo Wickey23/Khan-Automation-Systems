@@ -50,6 +50,11 @@ export default function AppAppointmentsPage() {
   const [creatingSlot, setCreatingSlot] = useState<string | null>(null);
   const [featureDisabled, setFeatureDisabled] = useState(false);
   const [calendarFeatureEnabled, setCalendarFeatureEnabled] = useState(false);
+  const [selectedCalendarDetail, setSelectedCalendarDetail] = useState<
+    | null
+    | { type: "APPOINTMENT"; appointment: Appointment }
+    | { type: "EXTERNAL"; event: OrgCalendarEvent }
+  >(null);
 
   const load = useCallback(async (nextStatus: Appointment["status"] | "ALL", nextFrom: string, nextTo: string) => {
     setLoading(true);
@@ -585,16 +590,26 @@ export default function AppAppointmentsPage() {
                   </div>
                   <div className="space-y-1">
                     {dayItems.slice(0, 3).map((appointment) => (
-                      <div key={appointment.id} className="rounded border bg-muted/20 px-2 py-1 text-xs">
+                      <button
+                        type="button"
+                        key={appointment.id}
+                        className="w-full cursor-pointer rounded border bg-muted/20 px-2 py-1 text-left text-xs transition hover:-translate-y-px hover:bg-muted/30 hover:shadow-sm"
+                        onClick={() => setSelectedCalendarDetail({ type: "APPOINTMENT", appointment })}
+                      >
                         <div className="font-medium">
                           {new Date(appointment.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{" "}
                           {appointment.customerName}
                         </div>
                         <div className="text-muted-foreground">{appointment.status}</div>
-                      </div>
+                      </button>
                     ))}
                     {dayExternalItems.slice(0, 2).map((event) => (
-                      <div key={`external-${event.id}`} className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs">
+                      <button
+                        type="button"
+                        key={`external-${event.id}`}
+                        className="w-full cursor-pointer rounded border border-blue-200 bg-blue-50 px-2 py-1 text-left text-xs transition hover:-translate-y-px hover:bg-blue-100 hover:shadow-sm"
+                        onClick={() => setSelectedCalendarDetail({ type: "EXTERNAL", event })}
+                      >
                         <div className="font-medium text-blue-900">
                           {new Date(event.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} {event.title}
                         </div>
@@ -605,11 +620,12 @@ export default function AppAppointmentsPage() {
                             target="_blank"
                             rel="noreferrer"
                             className="underline"
+                            onClick={(clickEvent) => clickEvent.stopPropagation()}
                           >
                             Open
                           </a>
                         </div>
-                      </div>
+                      </button>
                     ))}
                     {dayItems.length > 3 ? (
                       <div className="text-xs text-muted-foreground">+{dayItems.length - 3} more</div>
@@ -728,6 +744,65 @@ export default function AppAppointmentsPage() {
           </table>
         </div>
       )}
+
+      {selectedCalendarDetail ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg border bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {selectedCalendarDetail.type === "APPOINTMENT" ? "Appointment details" : "Calendar event details"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {selectedCalendarDetail.type === "APPOINTMENT"
+                    ? new Date(selectedCalendarDetail.appointment.startAt).toLocaleString()
+                    : new Date(selectedCalendarDetail.event.startAt).toLocaleString()}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setSelectedCalendarDetail(null)}>
+                Close
+              </Button>
+            </div>
+
+            {selectedCalendarDetail.type === "APPOINTMENT" ? (
+              <div className="space-y-2 text-sm">
+                <p><span className="font-medium">Customer:</span> {selectedCalendarDetail.appointment.customerName}</p>
+                <p><span className="font-medium">Phone:</span> {selectedCalendarDetail.appointment.customerPhone}</p>
+                <p><span className="font-medium">Status:</span> {selectedCalendarDetail.appointment.status}</p>
+                <p><span className="font-medium">Provider:</span> {selectedCalendarDetail.appointment.calendarProvider}</p>
+                <p><span className="font-medium">Issue:</span> {selectedCalendarDetail.appointment.issueSummary}</p>
+                {selectedCalendarDetail.appointment.leadId ? (
+                  <p>
+                    <span className="font-medium">Lead:</span>{" "}
+                    <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(selectedCalendarDetail.appointment.leadId)}`}>
+                      {selectedCalendarDetail.appointment.lead?.name || selectedCalendarDetail.appointment.leadId}
+                    </Link>
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <p><span className="font-medium">Title:</span> {selectedCalendarDetail.event.title}</p>
+                <p><span className="font-medium">Provider:</span> {selectedCalendarDetail.event.provider}</p>
+                <p>
+                  <span className="font-medium">Start:</span> {new Date(selectedCalendarDetail.event.startAt).toLocaleString()}
+                </p>
+                <p>
+                  <span className="font-medium">End:</span> {new Date(selectedCalendarDetail.event.endAt).toLocaleString()}
+                </p>
+                <a
+                  className="inline-block underline"
+                  href={buildEventViewUrl(selectedCalendarDetail.event)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in provider calendar
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
