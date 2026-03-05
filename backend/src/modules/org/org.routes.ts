@@ -125,6 +125,7 @@ const createCalendarTestEventSchema = z.object({
   provider: z.enum(["GOOGLE", "OUTLOOK"]).optional()
 });
 const disconnectCalendarSchema = z.object({
+  connectionId: z.string().optional(),
   provider: z.enum(["GOOGLE", "OUTLOOK"]).optional(),
   accountEmail: z.string().email().optional()
 });
@@ -1582,9 +1583,13 @@ orgRouter.post("/calendar/disconnect", requireCalendarManageAccess, async (req: 
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = disconnectCalendarSchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid calendar disconnect payload." });
+  if (!parsed.data.connectionId && !parsed.data.provider && !parsed.data.accountEmail) {
+    return res.status(400).json({ ok: false, message: "Provide connectionId or provider/accountEmail." });
+  }
   const result = await prisma.calendarConnection.updateMany({
     where: {
       orgId: req.auth.orgId,
+      ...(parsed.data.connectionId ? { id: parsed.data.connectionId } : {}),
       ...(parsed.data.provider ? { provider: parsed.data.provider } : {}),
       ...(parsed.data.accountEmail ? { accountEmail: parsed.data.accountEmail } : {})
     },

@@ -683,7 +683,7 @@ export async function connectOutlookCalendar() {
   });
 }
 
-export async function disconnectCalendar(payload: { provider?: "GOOGLE" | "OUTLOOK"; accountEmail?: string }) {
+export async function disconnectCalendar(payload: { connectionId?: string; provider?: "GOOGLE" | "OUTLOOK"; accountEmail?: string }) {
   return request<{ disconnected: number }>("/api/org/calendar/disconnect", {
     method: "POST",
     body: JSON.stringify(payload)

@@ -602,10 +602,34 @@ export default function AppSettingsPage() {
               void (async () => {
                 setCalendarBusy(true);
                 try {
+                  const refreshedBefore = await fetchCalendarProviders().catch(() => ({ providers: [] as CalendarConnection[] }));
+                  const providersBefore = refreshedBefore.providers || [];
+                  setCalendarProviders(providersBefore);
+                  const hasMatchingActive = providersBefore.some(
+                    (row) =>
+                      row.isActive &&
+                      (!calendarSyncProvider || row.provider === calendarSyncProvider)
+                  );
+                  if (!hasMatchingActive) {
+                    showToast({
+                      title: "No active calendar connection",
+                      description: calendarSyncProvider
+                        ? `No active ${calendarSyncProvider} connection found. Reconnect the provider and try again.`
+                        : "Connect Google or Outlook, then try sync test again.",
+                      variant: "error"
+                    });
+                    return;
+                  }
                   const result = await runCalendarSyncTest(
                     calendarSyncProvider ? { provider: calendarSyncProvider } : {}
                   );
-                  showToast({ title: "Calendar sync test", description: result.message });
+                  showToast({
+                    title: result.success ? "Calendar sync test succeeded" : "Calendar sync test failed",
+                    description: result.message,
+                    variant: result.success ? "success" : "error"
+                  });
+                  const refreshedAfter = await fetchCalendarProviders().catch(() => ({ providers: [] as CalendarConnection[] }));
+                  setCalendarProviders(refreshedAfter.providers || []);
                 } catch (error) {
                   showToast({ title: "Sync test failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
                 } finally {
@@ -705,11 +729,34 @@ export default function AppSettingsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!canManageCalendar || !featureFlags.calendarOauthEnabled}
+                disabled={!canManageCalendar || !featureFlags.calendarOauthEnabled || calendarBusy}
                 onClick={() =>
                   void (async () => {
-                    await disconnectCalendar({ provider: provider.provider as "GOOGLE" | "OUTLOOK", accountEmail: provider.accountEmail });
-                    setCalendarProviders((prev) => prev.map((row) => row.id === provider.id ? { ...row, isActive: false } : row));
+                    setCalendarBusy(true);
+                    try {
+                      const result = await disconnectCalendar({
+                        connectionId: provider.id,
+                        provider: provider.provider as "GOOGLE" | "OUTLOOK",
+                        accountEmail: provider.accountEmail
+                      });
+                      const refreshed = await fetchCalendarProviders().catch(() => ({ providers: [] as CalendarConnection[] }));
+                      setCalendarProviders(refreshed.providers || []);
+                      showToast({
+                        title: result.disconnected > 0 ? "Calendar disconnected" : "No matching calendar connection",
+                        description:
+                          result.disconnected > 0
+                            ? `${provider.provider} connection has been marked inactive.`
+                            : "Nothing changed. Try refreshing and retrying disconnect."
+                      });
+                    } catch (error) {
+                      showToast({
+                        title: "Could not disconnect calendar",
+                        description: error instanceof Error ? error.message : "Try again.",
+                        variant: "error"
+                      });
+                    } finally {
+                      setCalendarBusy(false);
+                    }
                   })()
                 }
               >
