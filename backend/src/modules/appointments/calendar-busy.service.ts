@@ -50,8 +50,8 @@ function toIsoString(value: unknown) {
   return date.toISOString();
 }
 
-async function getConnection(input: { prisma: PrismaClient; orgId: string; provider?: CalendarProvider }) {
-  return input.prisma.calendarConnection.findFirst({
+async function getConnections(input: { prisma: PrismaClient; orgId: string; provider?: CalendarProvider }) {
+  return input.prisma.calendarConnection.findMany({
     where: {
       orgId: input.orgId,
       isActive: true,
@@ -168,59 +168,71 @@ export async function getBusyBlocks(input: {
   provider?: CalendarProvider;
   calendarId?: string;
 }) {
-  const connection = await getConnection({
+  const connections = await getConnections({
     prisma: input.prisma,
     orgId: input.orgId,
     provider: input.provider
   });
-  if (!connection) {
+  if (!connections.length) {
     throw new CalendarUnavailableError("calendar_unavailable");
   }
-
-  const provider = connection.provider;
-  const resolvedCalendarId =
-    provider === "GOOGLE"
-      ? String(input.calendarId || connection.selectedCalendarId || "primary").trim() || "primary"
-      : String(input.calendarId || connection.selectedCalendarId || "").trim() || null;
-
-  try {
-    const token = await ensureUsableAccessToken({
-      prisma: input.prisma,
-      connectionId: connection.id,
-      provider: provider as "GOOGLE" | "OUTLOOK",
-      accessTokenEnc: connection.accessTokenEnc,
-      refreshTokenEnc: connection.refreshTokenEnc,
-      expiresAt: connection.expiresAt
-    });
-    const busy =
+  const allBusy: Array<{ startUtc: Date; endUtc: Date }> = [];
+  let hadSuccess = false;
+  for (const connection of connections) {
+    const provider = connection.provider;
+    const resolvedCalendarId =
       provider === "GOOGLE"
-        ? await getGoogleBusy({
-            accessToken: token.accessToken,
-            calendarId: resolvedCalendarId || "primary",
-            fromUtc: input.fromUtc,
-            toUtc: input.toUtc
-          })
-        : await getOutlookBusy({
-            accessToken: token.accessToken,
-            calendarId: resolvedCalendarId,
-            fromUtc: input.fromUtc,
-            toUtc: input.toUtc
-          });
-    return busy.sort((a, b) => {
-      const byStart = a.startUtc.getTime() - b.startUtc.getTime();
-      if (byStart !== 0) return byStart;
-      return a.endUtc.getTime() - b.endUtc.getTime();
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "calendar_unavailable";
-    const statusMatch = /:(\d{3})$/.exec(message);
-    const status = statusMatch ? Number(statusMatch[1]) : undefined;
-    await maybeDeactivateOnHardAuth({
-      prisma: input.prisma,
-      connectionId: connection.id,
-      status,
-      message
-    });
+        ? String(input.calendarId || connection.selectedCalendarId || "primary").trim() || "primary"
+        : String(input.calendarId || connection.selectedCalendarId || "").trim() || null;
+    try {
+      const token = await ensureUsableAccessToken({
+        prisma: input.prisma,
+        connectionId: connection.id,
+        provider: provider as "GOOGLE" | "OUTLOOK",
+        accessTokenEnc: connection.accessTokenEnc,
+        refreshTokenEnc: connection.refreshTokenEnc,
+        expiresAt: connection.expiresAt
+      });
+      const busy =
+        provider === "GOOGLE"
+          ? await getGoogleBusy({
+              accessToken: token.accessToken,
+              calendarId: resolvedCalendarId || "primary",
+              fromUtc: input.fromUtc,
+              toUtc: input.toUtc
+            })
+          : await getOutlookBusy({
+              accessToken: token.accessToken,
+              calendarId: resolvedCalendarId,
+              fromUtc: input.fromUtc,
+              toUtc: input.toUtc
+            });
+      if (busy.length > 0) {
+        hadSuccess = true;
+        allBusy.push(...busy);
+      } else {
+        hadSuccess = true;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "calendar_unavailable";
+      const statusMatch = /:(\d{3})$/.exec(message);
+      const status = statusMatch ? Number(statusMatch[1]) : undefined;
+      await maybeDeactivateOnHardAuth({
+        prisma: input.prisma,
+        connectionId: connection.id,
+        status,
+        message
+      });
+      continue;
+    }
+  }
+
+  if (!hadSuccess) {
     throw new CalendarUnavailableError("calendar_unavailable");
   }
+  return allBusy.sort((a, b) => {
+    const byStart = a.startUtc.getTime() - b.startUtc.getTime();
+    if (byStart !== 0) return byStart;
+    return a.endUtc.getTime() - b.endUtc.getTime();
+  });
 }

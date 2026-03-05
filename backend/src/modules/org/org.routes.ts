@@ -1510,7 +1510,7 @@ orgRouter.get("/calendar/events", requireAppointmentsReadAccess, async (req: Aut
     return res.status(400).json({ ok: false, message: "Invalid calendar range." });
   }
 
-  const connection = await prisma.calendarConnection.findFirst({
+  const connections = await prisma.calendarConnection.findMany({
     where: {
       orgId: req.auth.orgId,
       isActive: true,
@@ -1519,34 +1519,47 @@ orgRouter.get("/calendar/events", requireAppointmentsReadAccess, async (req: Aut
     orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
     select: { id: true }
   });
-  if (!connection) {
+  if (!connections.length) {
     return res.json({ ok: true, data: { events: [] } });
   }
 
-  try {
-    const events = await listCalendarEventsFromConnection({
-      prisma,
-      connectionId: connection.id,
-      orgId: req.auth.orgId,
-      fromUtc,
-      toUtc
-    });
-    return res.json({
-      ok: true,
-      data: {
-        events: events.map((event) => ({
-          id: event.id,
+  const aggregated: Array<{
+    id: string;
+    provider: "GOOGLE" | "OUTLOOK";
+    title: string;
+    viewUrl: string | null;
+    startAt: string;
+    endAt: string;
+  }> = [];
+  for (const connection of connections) {
+    try {
+      const events = await listCalendarEventsFromConnection({
+        prisma,
+        connectionId: connection.id,
+        orgId: req.auth.orgId,
+        fromUtc,
+        toUtc
+      });
+      for (const event of events) {
+        aggregated.push({
+          id: `${connection.id}:${event.id}`,
           provider: event.provider,
           title: event.title,
           viewUrl: event.viewUrl || null,
           startAt: event.startAt.toISOString(),
           endAt: event.endAt.toISOString()
-        }))
+        });
       }
-    });
-  } catch {
-    return res.json({ ok: true, data: { events: [] } });
+    } catch {
+      continue;
+    }
   }
+  aggregated.sort((a, b) => {
+    const byStart = new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
+    if (byStart !== 0) return byStart;
+    return new Date(a.endAt).getTime() - new Date(b.endAt).getTime();
+  });
+  return res.json({ ok: true, data: { events: aggregated } });
 });
 
 orgRouter.post("/calendar/select-primary", requireCalendarManageAccess, async (req: AuthenticatedRequest, res) => {
