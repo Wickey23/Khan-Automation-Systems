@@ -245,8 +245,9 @@ export default function AppSettingsPage() {
           classificationEnabled: profileFeatures.classificationEnabled === true
         });
         const providers = calendar.providers || [];
+        const activeProviders = providers.filter((row) => row.isActive);
         setCalendarProviders(providers);
-        const primary = providers.find((row) => row.isPrimary) || providers[0];
+        const primary = activeProviders.find((row) => row.isPrimary) || activeProviders[0] || providers.find((row) => row.isPrimary) || providers[0];
         setSelectedPrimaryConnectionId(primary?.id || "");
         setSelectedCalendarIdInput(String(primary?.selectedCalendarId || ""));
         setNotifications(notifications.notifications || []);
@@ -274,10 +275,20 @@ export default function AppSettingsPage() {
   }, []);
 
   useEffect(() => {
-    const current = calendarProviders.find((row) => row.id === selectedPrimaryConnectionId);
-    if (!current) return;
+    const current = calendarProviders.find((row) => row.id === selectedPrimaryConnectionId && row.isActive);
+    if (!current) {
+      const fallback = calendarProviders.find((row) => row.isActive);
+      if (fallback && fallback.id !== selectedPrimaryConnectionId) {
+        setSelectedPrimaryConnectionId(fallback.id);
+        setSelectedCalendarIdInput(String(fallback.selectedCalendarId || ""));
+      }
+      return;
+    }
     setSelectedCalendarIdInput(String(current.selectedCalendarId || ""));
   }, [selectedPrimaryConnectionId, calendarProviders]);
+
+  const activeCalendarProviders = calendarProviders.filter((provider) => provider.isActive);
+  const inactiveCalendarProviderCount = Math.max(0, calendarProviders.length - activeCalendarProviders.length);
 
   async function onSendTestVerificationEmail() {
     setSendingTestEmail(true);
@@ -628,7 +639,7 @@ export default function AppSettingsPage() {
             Calendar connection management requires an admin role.
           </p>
         ) : null}
-        {calendarProviders.length ? (
+        {activeCalendarProviders.length ? (
           <div className="mt-3 grid gap-2 rounded border p-3 sm:grid-cols-[1fr_1fr_auto]">
             <div>
               <Label>Primary booking connection</Label>
@@ -638,7 +649,7 @@ export default function AppSettingsPage() {
                 onChange={(event) => setSelectedPrimaryConnectionId(event.target.value)}
                 disabled={!canManageCalendar || !featureFlags.calendarOauthEnabled}
               >
-                {calendarProviders.map((provider) => (
+                {activeCalendarProviders.map((provider) => (
                   <option key={provider.id} value={provider.id}>
                     {provider.provider} - {provider.accountEmail}
                   </option>
@@ -662,7 +673,7 @@ export default function AppSettingsPage() {
                   void (async () => {
                     setCalendarBusy(true);
                     try {
-                      const selected = calendarProviders.find((row) => row.id === selectedPrimaryConnectionId);
+                      const selected = activeCalendarProviders.find((row) => row.id === selectedPrimaryConnectionId);
                       const trimmed = selectedCalendarIdInput.trim();
                       const payload = {
                         connectionId: selectedPrimaryConnectionId,
@@ -699,7 +710,7 @@ export default function AppSettingsPage() {
           </div>
         ) : null}
         <div className="mt-3 space-y-2 text-sm">
-          {calendarProviders.length ? calendarProviders.map((provider) => (
+          {activeCalendarProviders.length ? activeCalendarProviders.map((provider) => (
             <div key={provider.id} className="flex items-center justify-between rounded border p-2">
               <div>
                 <p className="font-medium">{provider.provider} - {provider.accountEmail}</p>
@@ -745,9 +756,12 @@ export default function AppSettingsPage() {
                 Disconnect
               </Button>
             </div>
-          )) : (
-            <p className="text-muted-foreground">No calendar providers connected.</p>
-          )}
+          )) : <p className="text-muted-foreground">No active calendar providers connected.</p>}
+          {inactiveCalendarProviderCount > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {inactiveCalendarProviderCount} disconnected connection{inactiveCalendarProviderCount === 1 ? "" : "s"} hidden.
+            </p>
+          ) : null}
         </div>
       </section>
 

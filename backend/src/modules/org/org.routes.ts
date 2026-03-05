@@ -1634,9 +1634,22 @@ orgRouter.post("/calendar/sync-test", requireCalendarManageAccess, async (req: A
     });
     success = true;
     message = "Calendar sync test event created successfully.";
-  } catch {
+  } catch (error) {
+    const reason = String((error as Error)?.message || "").toLowerCase();
     success = false;
-    message = "Could not create test event. Connection may be revoked or missing scopes.";
+    if (
+      reason.includes("auth_failed") ||
+      reason.includes("invalid_grant") ||
+      reason.includes("revoked") ||
+      reason.includes("401") ||
+      reason.includes("403")
+    ) {
+      message = "Could not create test event. Calendar access appears revoked or expired. Disconnect and reconnect this calendar.";
+    } else if (reason.includes("create_failed") || reason.includes("404")) {
+      message = "Could not create test event. Check calendar write permissions and verify the selected Calendar ID.";
+    } else {
+      message = "Could not create test event. Connection may be revoked, missing scopes, or using an invalid calendar target.";
+    }
   }
   await prisma.auditLog.create({
     data: {
