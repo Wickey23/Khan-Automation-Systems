@@ -659,6 +659,17 @@ export async function fetchAppointmentAvailability(payload: {
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        const payload = (await response.json()) as { ok?: boolean; message?: string };
+        if (payload?.message) {
+          throw new Error(payload.message);
+        }
+      } catch {
+        // fall through to generic status message
+      }
+    }
     throw new Error(`Request failed (${response.status}).`);
   }
   const raw = (await response.json()) as { slots?: Array<{ startAt: string; endAt: string }> };

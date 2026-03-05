@@ -261,6 +261,19 @@ export default function AppAppointmentsPage() {
 
   const hasGoogle = calendarProviders.some((provider) => provider.provider === "GOOGLE" && provider.isActive);
   const hasOutlook = calendarProviders.some((provider) => provider.provider === "OUTLOOK" && provider.isActive);
+  const hasExternalCalendar = hasGoogle || hasOutlook;
+
+  useEffect(() => {
+    if (hasGoogle) {
+      if (slotProvider !== "GOOGLE") setSlotProvider("GOOGLE");
+      return;
+    }
+    if (hasOutlook) {
+      if (slotProvider !== "OUTLOOK") setSlotProvider("OUTLOOK");
+      return;
+    }
+    if (slotProvider !== "INTERNAL") setSlotProvider("INTERNAL");
+  }, [hasGoogle, hasOutlook, slotProvider]);
 
   useEffect(() => {
     if (featureDisabled || !calendarFeatureEnabled || viewMode !== "CALENDAR") {
@@ -438,7 +451,7 @@ export default function AppAppointmentsPage() {
                 onChange={(event) => setSlotProvider(event.target.value as "INTERNAL" | "GOOGLE" | "OUTLOOK")}
                 className="mt-1 h-10 w-full rounded-md border bg-background px-3"
               >
-                <option value="INTERNAL">INTERNAL</option>
+                {!hasExternalCalendar ? <option value="INTERNAL">INTERNAL</option> : null}
                 {calendarFeatureEnabled && hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
                 {calendarFeatureEnabled && hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
               </select>
