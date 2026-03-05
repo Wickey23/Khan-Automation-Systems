@@ -104,6 +104,8 @@ async function backfillInternalAppointmentsToCalendar(input: {
     take: Math.max(1, Math.min(500, input.limit || 200))
   });
 
+  let synced = 0;
+  let failed = 0;
   for (const appointment of appointments) {
     try {
       const event = await createCalendarEventFromConnection({
@@ -123,10 +125,55 @@ async function backfillInternalAppointmentsToCalendar(input: {
           externalCalendarEventId: event.externalEventId || null
         }
       });
+      synced += 1;
     } catch {
       // Continue backfill; one failure should not stop the rest.
+      failed += 1;
     }
   }
+  return { scanned: appointments.length, synced, failed };
+}
+const calendarBackfillInFlight = new Set<string>();
+
+function triggerInternalBackfill(input: {
+  orgId: string;
+  connectionId: string;
+  actorUserId: string;
+  actorRole: string;
+  reason: string;
+  limit?: number;
+}) {
+  const key = `${input.orgId}:${input.connectionId}`;
+  if (calendarBackfillInFlight.has(key)) return;
+  calendarBackfillInFlight.add(key);
+  setTimeout(async () => {
+    try {
+      const result = await backfillInternalAppointmentsToCalendar({
+        orgId: input.orgId,
+        connectionId: input.connectionId,
+        limit: input.limit || 300
+      });
+      await prisma.auditLog.create({
+        data: {
+          orgId: input.orgId,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          action: "CALENDAR_INTERNAL_BACKFILL",
+          metadataJson: JSON.stringify({
+            reason: input.reason,
+            connectionId: input.connectionId,
+            scanned: result.scanned,
+            synced: result.synced,
+            failed: result.failed
+          })
+        }
+      });
+    } catch {
+      // Non-blocking background backfill.
+    } finally {
+      calendarBackfillInFlight.delete(key);
+    }
+  }, 0);
 }
 const KNOWLEDGE_FILE_MAX_BYTES = 200_000;
 const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
@@ -1324,6 +1371,27 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
     return res.status(201).json({ ok: true, data: { appointment: booking.appointment, nextSlots: booking.nextSlots || [] } });
   }
   if (!booking.ok) return res.status(400).json({ ok: false, message: "Appointment booking failed." });
+  if (
+    isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, orgId) &&
+    booking.appointment.calendarProvider === "INTERNAL" &&
+    booking.appointment.externalCalendarEventId == null
+  ) {
+    const activeConnection = await prisma.calendarConnection.findFirst({
+      where: { orgId, isActive: true },
+      orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+      select: { id: true }
+    });
+    if (activeConnection?.id) {
+      triggerInternalBackfill({
+        orgId,
+        connectionId: activeConnection.id,
+        actorUserId: req.auth.userId || "system",
+        actorRole: req.auth.role || "system",
+        reason: "appointment_created_internal",
+        limit: 100
+      });
+    }
+  }
   return res.status(201).json({ ok: true, data: { appointment: booking.appointment } });
 });
 
@@ -1522,6 +1590,16 @@ orgRouter.post("/calendar/select-primary", requireCalendarManageAccess, async (r
   const provider = await prisma.calendarConnection.findUnique({
     where: { id: target.id }
   });
+  if (provider?.isActive) {
+    triggerInternalBackfill({
+      orgId,
+      connectionId: provider.id,
+      actorUserId: req.auth.userId || "system",
+      actorRole: req.auth.role || "system",
+      reason: "select_primary",
+      limit: 300
+    });
+  }
   return res.json({ ok: true, data: { provider } });
 });
 
@@ -1569,9 +1647,12 @@ orgRouter.get("/calendar/google/callback", requireCalendarManageAccess, async (r
       expiresAt: token.expiresAt,
       scopes: token.scopes
     });
-    void backfillInternalAppointmentsToCalendar({
+    triggerInternalBackfill({
       orgId: req.auth.orgId,
       connectionId: connection.id,
+      actorUserId: req.auth.userId || "system",
+      actorRole: req.auth.role || "system",
+      reason: "google_callback",
       limit: 300
     });
     return res.redirect(`${env.FRONTEND_APP_URL}/app/settings?calendar=google_connected`);
@@ -1624,6 +1705,21 @@ orgRouter.get("/calendar/outlook/callback", requireCalendarManageAccess, async (
       expiresAt: token.expiresAt,
       scopes: token.scopes
     });
+    const active = await prisma.calendarConnection.findFirst({
+      where: { orgId: req.auth.orgId, provider: "OUTLOOK", isActive: true },
+      orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+      select: { id: true }
+    });
+    if (active?.id) {
+      triggerInternalBackfill({
+        orgId: req.auth.orgId,
+        connectionId: active.id,
+        actorUserId: req.auth.userId || "system",
+        actorRole: req.auth.role || "system",
+        reason: "outlook_callback",
+        limit: 300
+      });
+    }
     return res.redirect(`${env.FRONTEND_APP_URL}/app/settings?calendar=outlook_connected`);
   } catch (error) {
     return res.status(503).json({ ok: false, message: error instanceof Error ? error.message : "Outlook calendar connect failed." });
