@@ -87,6 +87,47 @@ function requireCalendarManageAccess(req: AuthenticatedRequest, res: Response, n
   }
   return res.status(403).json({ ok: false, message: "Forbidden" });
 }
+
+async function backfillInternalAppointmentsToCalendar(input: {
+  orgId: string;
+  connectionId: string;
+  limit?: number;
+}) {
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      orgId: input.orgId,
+      calendarProvider: "INTERNAL",
+      externalCalendarEventId: null,
+      status: { not: "CANCELED" }
+    },
+    orderBy: { startAt: "asc" },
+    take: Math.max(1, Math.min(500, input.limit || 200))
+  });
+
+  for (const appointment of appointments) {
+    try {
+      const event = await createCalendarEventFromConnection({
+        prisma,
+        connectionId: input.connectionId,
+        orgId: input.orgId,
+        title: `${appointment.customerName} - Service Appointment`,
+        description: appointment.issueSummary,
+        startAt: appointment.startAt,
+        endAt: appointment.endAt,
+        timezone: appointment.timezone || "America/New_York"
+      });
+      await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          calendarProvider: event.provider,
+          externalCalendarEventId: event.externalEventId || null
+        }
+      });
+    } catch {
+      // Continue backfill; one failure should not stop the rest.
+    }
+  }
+}
 const KNOWLEDGE_FILE_MAX_BYTES = 200_000;
 const KNOWLEDGE_TOTAL_MAX_CHARS = 40_000;
 const ALLOWED_KNOWLEDGE_MIME = new Set(["text/plain", "text/markdown", "application/json", "text/csv"]);
@@ -1518,7 +1559,7 @@ orgRouter.get("/calendar/google/callback", requireCalendarManageAccess, async (r
   if (!accepted) return res.status(400).json({ ok: false, message: "OAuth state is invalid or expired." });
   try {
     const token = await exchangeCalendarCode({ provider: "GOOGLE", code });
-    await upsertCalendarConnection({
+    const connection = await upsertCalendarConnection({
       prisma,
       orgId: req.auth.orgId,
       provider: "GOOGLE",
@@ -1527,6 +1568,11 @@ orgRouter.get("/calendar/google/callback", requireCalendarManageAccess, async (r
       refreshToken: token.refreshToken,
       expiresAt: token.expiresAt,
       scopes: token.scopes
+    });
+    void backfillInternalAppointmentsToCalendar({
+      orgId: req.auth.orgId,
+      connectionId: connection.id,
+      limit: 300
     });
     return res.redirect(`${env.FRONTEND_APP_URL}/app/settings?calendar=google_connected`);
   } catch (error) {
