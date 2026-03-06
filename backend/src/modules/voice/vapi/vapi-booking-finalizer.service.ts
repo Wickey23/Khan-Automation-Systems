@@ -5,6 +5,7 @@ import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 import { bookAppointmentWithHold } from "../../appointments/booking.service";
 import { createCalendarEventFromConnection } from "../../appointments/calendar-oauth.service";
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
+import { generateAvailabilitySlots } from "../../appointments/slotting.service";
 import { sendSmsMessage } from "../../twilio/twilio.service";
 import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
 import { evaluateBookingState } from "./booking-state-machine";
@@ -100,6 +101,95 @@ async function sendPostCallCustomerSms(input: {
     };
   } catch {
     // Non-fatal by design: booking finalization must not fail on SMS send.
+    return { sent: false as const, reason: "sms_send_failed" as const };
+  }
+}
+
+function detectAvailabilityInquiry(transcript: string) {
+  const text = String(transcript || "").toLowerCase();
+  if (!text) return false;
+  return [
+    "what times do you have",
+    "what times are available",
+    "available times",
+    "availability",
+    "next opening",
+    "next available",
+    "anything tomorrow",
+    "what do you have tomorrow",
+    "openings"
+  ].some((phrase) => text.includes(phrase));
+}
+
+function detectTimeWindow(transcript: string) {
+  const text = String(transcript || "").toLowerCase();
+  if (text.includes("morning")) return "morning";
+  if (text.includes("afternoon")) return "afternoon";
+  if (text.includes("evening")) return "evening";
+  return "";
+}
+
+function detectPreferredAvailabilityDate(transcript: string, requestedStartAt: Date | null) {
+  if (requestedStartAt) {
+    const date = new Date(requestedStartAt);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  const text = String(transcript || "").toLowerCase();
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  if (text.includes("tomorrow")) return new Date(base.getTime() + 24 * 60 * 60 * 1000);
+  if (text.includes("today")) return base;
+  return new Date(base.getTime() + 24 * 60 * 60 * 1000);
+}
+
+function formatAvailabilitySlotLabel(startAt: Date, timeZone: string) {
+  return startAt.toLocaleString("en-US", {
+    timeZone,
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+async function sendAvailabilityOptionsSms(input: {
+  prisma: PrismaClient;
+  orgId: string;
+  customerPhone: string;
+  customerName: string;
+  slots: Array<{ startAt: Date; label: string }>;
+}) {
+  const normalizedPhone = normalizePhone(input.customerPhone);
+  if (!normalizedPhone || !input.slots.length) return { sent: false as const, reason: "no_slots" as const };
+  try {
+    const [org, activePhone] = await Promise.all([
+      input.prisma.organization.findUnique({
+        where: { id: input.orgId },
+        select: { name: true }
+      }),
+      input.prisma.phoneNumber.findFirst({
+        where: { orgId: input.orgId, provider: "TWILIO", status: "ACTIVE" },
+        select: { e164Number: true }
+      })
+    ]);
+    if (!activePhone?.e164Number) return { sent: false as const, reason: "no_sender" as const };
+    const businessName = org?.name || "Khan Systems";
+    const slotLines = input.slots.map((slot, index) => `${index + 1}. ${slot.label}`).join("\n");
+    const body = `Hi ${input.customerName || "there"}, here are the next available times from ${businessName}:\n${slotLines}\nReply with the option you want and our team will finalize scheduling.`;
+    const sms = await sendSmsMessage({
+      from: activePhone.e164Number,
+      to: normalizedPhone,
+      body
+    });
+    return {
+      sent: true as const,
+      sid: sms.sid,
+      to: normalizedPhone,
+      from: activePhone.e164Number
+    };
+  } catch {
     return { sent: false as const, reason: "sms_send_failed" as const };
   }
 }
@@ -317,6 +407,102 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
     evaluation.bookingIntent ||
     callLog.appointmentRequested === true ||
     callLog.outcome === "APPOINTMENT_REQUEST";
+  const availabilityInquiry = detectAvailabilityInquiry(transcriptText);
+
+  if (!bookingIntent && availabilityInquiry) {
+    const settings = await input.prisma.businessSettings.findUnique({
+      where: { orgId },
+      select: {
+        hoursJson: true,
+        timezone: true,
+        appointmentDurationMinutes: true,
+        appointmentBufferMinutes: true,
+        bookingLeadTimeHours: true,
+        bookingMaxDaysAhead: true
+      }
+    });
+    const timezone = settings?.timezone || "America/New_York";
+    const preferredDate = detectPreferredAvailabilityDate(transcriptText, evaluation.extracted.requestedStartAt || null);
+    const rangeStart = new Date(preferredDate);
+    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(rangeStart.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const existingAppointments = await input.prisma.appointment.findMany({
+      where: {
+        orgId,
+        status: { not: "CANCELED" },
+        startAt: { lte: rangeEnd },
+        endAt: { gte: rangeStart }
+      },
+      select: { startAt: true, endAt: true, status: true },
+      orderBy: { startAt: "asc" },
+      take: 500
+    });
+    let externalBusyBlocks: Array<{ startAt: Date; endAt: Date }> = [];
+    if (isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, orgId)) {
+      try {
+        const busy = await getBusyBlocks({
+          prisma: input.prisma,
+          orgId,
+          fromUtc: rangeStart,
+          toUtc: rangeEnd
+        });
+        externalBusyBlocks = busy.map((row) => ({
+          startAt: row.startUtc,
+          endAt: row.endUtc
+        }));
+      } catch {
+        externalBusyBlocks = [];
+      }
+    }
+    let slots = generateAvailabilitySlots({
+      hoursJson: settings?.hoursJson || null,
+      timezone,
+      appointmentDurationMinutes: settings?.appointmentDurationMinutes ?? 60,
+      appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
+      bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
+      bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14,
+      from: rangeStart,
+      to: rangeEnd,
+      existingAppointments,
+      externalBusyBlocks,
+      maxSlots: 12
+    });
+    const requestedWindow = detectTimeWindow(transcriptText);
+    if (requestedWindow) {
+      slots = slots.filter((slot) => {
+        const hour = Number(
+          slot.startAt.toLocaleString("en-US", {
+            timeZone: timezone,
+            hour: "2-digit",
+            hour12: false
+          })
+        );
+        if (requestedWindow === "morning") return hour >= 8 && hour < 12;
+        if (requestedWindow === "afternoon") return hour >= 12 && hour < 17;
+        if (requestedWindow === "evening") return hour >= 17 && hour < 21;
+        return true;
+      });
+    }
+    const customerPhone = normalizePhone(pickString(evaluation.extracted.customerPhone, callLog.fromNumber));
+    const customerName = pickString(evaluation.extracted.customerName, analysis.name) || "there";
+    const safeSlots = slots.slice(0, 3).map((slot) => ({
+      startAt: slot.startAt,
+      label: formatAvailabilitySlotLabel(slot.startAt, timezone)
+    }));
+    return {
+      state: "AVAILABILITY_SHARED",
+      callId: input.callId,
+      orgId,
+      source,
+      customerPhone,
+      customerName,
+      availabilitySlots: safeSlots.map((slot) => ({
+        startAt: slot.startAt.toISOString(),
+        label: slot.label
+      }))
+    };
+  }
+
   if (!bookingIntent) {
     return { state: "NO_BOOKING_INTENT", callId: input.callId, orgId, source };
   }
@@ -528,6 +714,7 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
       serviceAddress?: string | null;
       leadId?: string | null;
       appointmentId?: string | null;
+      availabilitySlots?: Array<{ startAt: string; label: string }>;
     };
     const state = String(resultObj.state || "");
     if (resultObj.orgId && ["NEEDS_SCHEDULING", "PROPOSED", "CONFIRMED"].includes(state)) {
@@ -587,6 +774,52 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
         console.error(
           JSON.stringify({
             event: "smsFailed",
+            callId: job.callId,
+            orgId: resultObj.orgId,
+            reason: smsResult.reason,
+            state
+          })
+        );
+      }
+    } else if (
+      state === "AVAILABILITY_SHARED" &&
+      !job.smsSentAt &&
+      resultObj.orgId &&
+      resultObj.customerPhone &&
+      resultObj.customerName &&
+      Array.isArray(resultObj.availabilitySlots) &&
+      resultObj.availabilitySlots.length
+    ) {
+      const smsResult = await sendAvailabilityOptionsSms({
+        prisma,
+        orgId: resultObj.orgId,
+        customerPhone: resultObj.customerPhone,
+        customerName: resultObj.customerName,
+        slots: resultObj.availabilitySlots.map((slot) => ({
+          startAt: new Date(slot.startAt),
+          label: slot.label
+        }))
+      });
+      if (smsResult.sent) {
+        await prisma.finalizeBookingJob.update({
+          where: { id: job.id },
+          data: { smsSentAt: new Date() }
+        });
+        console.info(
+          JSON.stringify({
+            event: "availabilitySmsSent",
+            callId: job.callId,
+            orgId: resultObj.orgId,
+            to: smsResult.to,
+            from: smsResult.from,
+            sid: smsResult.sid,
+            state
+          })
+        );
+      } else {
+        console.error(
+          JSON.stringify({
+            event: "availabilitySmsFailed",
             callId: job.callId,
             orgId: resultObj.orgId,
             reason: smsResult.reason,
