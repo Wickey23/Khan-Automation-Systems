@@ -35,7 +35,12 @@ export function verifyVapiToolSecret(req: Request, res: Response, next: NextFunc
   const isDemoRoute = req.originalUrl.includes("/demo");
   const expected = isDemoRoute ? env.DEMO_VAPI_TOOL_SECRET || env.VAPI_TOOL_SECRET : env.VAPI_TOOL_SECRET;
   if (!strict && !expected) return next();
-  const provided = req.header("x-vapi-tool-secret") || req.header("x-vapi-secret");
+  const authorization = req.header("authorization") || "";
+  const bearerToken =
+    authorization.startsWith("Bearer ") || authorization.startsWith("bearer ")
+      ? authorization.slice(7).trim()
+      : null;
+  const provided = req.header("x-vapi-tool-secret") || req.header("x-vapi-secret") || bearerToken;
   if (!provided || !expected || provided !== expected) {
     logRejectedWebhook(req, 401, "invalid_vapi_tool_secret");
     return res.status(401).json({ ok: false, message: "Unauthorized Vapi tool call." });
