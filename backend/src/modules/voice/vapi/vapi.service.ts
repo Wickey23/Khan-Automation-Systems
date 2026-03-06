@@ -46,10 +46,12 @@ export function buildVapiSystemPrompt(configPackage: JsonMap, businessSettings: 
 export function buildVapiTools(apiBaseUrl: string) {
   return [
     { name: "get_caller_context", url: `${apiBaseUrl}/api/tools/get-caller-context`, method: "POST" },
+    { name: "get_customer_context", url: `${apiBaseUrl}/api/tools/get-customer-context`, method: "POST" },
     { name: "create_lead_from_call", url: `${apiBaseUrl}/api/tools/create-lead-from-call`, method: "POST" },
     { name: "send_sms", url: `${apiBaseUrl}/api/tools/send-sms`, method: "POST" },
     { name: "notify_manager", url: `${apiBaseUrl}/api/tools/notify-manager`, method: "POST" },
     { name: "book_appointment", url: `${apiBaseUrl}/api/tools/book-appointment`, method: "POST" },
+    { name: "mark_booking_intent", url: `${apiBaseUrl}/api/tools/mark-booking-intent`, method: "POST" },
     { name: "request_appointment", url: `${apiBaseUrl}/api/tools/request-appointment`, method: "POST" },
     { name: "transfer_call", url: `${apiBaseUrl}/api/tools/transfer-call`, method: "POST" }
   ];

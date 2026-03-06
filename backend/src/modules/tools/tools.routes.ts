@@ -85,6 +85,15 @@ const customerContextSchema = z.object({
   useCallerNumber: z.boolean().optional().default(false)
 });
 
+const markBookingIntentSchema = z.object({
+  orgId: z.string().min(1).optional(),
+  callId: z.string().optional(),
+  customerPhone: z.string().optional(),
+  confidence: z.enum(["high", "medium", "low"]).optional().default("medium"),
+  requestedDatetime: z.string().optional(),
+  reason: z.string().optional()
+});
+
 function toolError(res: Response, code: string, message: string, status = 400) {
   return res.status(status).json({ ok: false, error: { code, message } });
 }
@@ -764,6 +773,107 @@ toolsRouter.post("/request-appointment", async (req, res) => {
       });
     }
     return res.json({ ok: true, data: { appointmentRequested: true } });
+  } catch (error) {
+    return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
+  }
+});
+
+toolsRouter.post("/mark-booking-intent", async (req, res) => {
+  try {
+    const parsed = markBookingIntentSchema.safeParse(req.body);
+    if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid mark-booking-intent payload.");
+
+    const root = asObject(req.body);
+    const messageRoot = asObject(root.message);
+    const callRoot = asObject(messageRoot.call);
+
+    const runtimeCallId = sanitizeCallId(
+      pickString(root.callId, root.providerCallId, messageRoot.callId, callRoot.id, callRoot.callId, callRoot.providerCallId)
+    );
+    const runtimeOrgId = pickString(root.orgId, root.organizationId, messageRoot.orgId, callRoot.orgId, callRoot.organizationId);
+    const runtimeCallerPhone = pickString(callRoot.customerNumber, callRoot.phoneNumber, callRoot.fromNumber, root.callerPhone);
+
+    const {
+      orgId: explicitOrgId,
+      callId: explicitCallId,
+      customerPhone,
+      confidence,
+      requestedDatetime,
+      reason
+    } = parsed.data;
+
+    const effectiveCallId = sanitizeCallId(pickString(explicitCallId, runtimeCallId));
+    let resolvedOrgId = pickString(explicitOrgId, runtimeOrgId);
+    let resolvedPhone = normalizePhone(customerPhone || "");
+
+    let callLog = effectiveCallId
+      ? await prisma.callLog.findFirst({
+          where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, orgId: true, fromNumber: true }
+        })
+      : null;
+
+    if (callLog?.orgId) resolvedOrgId = callLog.orgId;
+    if (!resolvedPhone && callLog?.fromNumber) resolvedPhone = normalizePhone(callLog.fromNumber);
+    if (!resolvedPhone && runtimeCallerPhone) resolvedPhone = normalizePhone(runtimeCallerPhone);
+
+    if ((!resolvedOrgId || !callLog) && resolvedPhone) {
+      const recentCall = await prisma.callLog.findFirst({
+        where: {
+          ...(resolvedOrgId ? { orgId: resolvedOrgId } : {}),
+          fromNumber: resolvedPhone,
+          createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, orgId: true, fromNumber: true }
+      });
+      if (!callLog && recentCall) callLog = recentCall;
+      if (!resolvedOrgId && recentCall?.orgId) resolvedOrgId = recentCall.orgId;
+      if (!resolvedPhone && recentCall?.fromNumber) resolvedPhone = normalizePhone(recentCall.fromNumber);
+    }
+
+    if (!resolvedOrgId || !callLog?.id) {
+      return toolError(
+        res,
+        "MISSING_CALL_CONTEXT",
+        "Unable to resolve booking intent to an organization and call context."
+      );
+    }
+
+    await prisma.callLog.update({
+      where: { id: callLog.id },
+      data: {
+        appointmentRequested: true,
+        outcome: "APPOINTMENT_REQUEST"
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        orgId: resolvedOrgId,
+        actorUserId: "mark-booking-intent-tool",
+        actorRole: "SYSTEM",
+        action: "BOOKING_INTENT_SIGNALLED",
+        metadataJson: JSON.stringify({
+          callId: callLog.id,
+          customerPhone: resolvedPhone || null,
+          confidence,
+          requestedDatetime: requestedDatetime || null,
+          reason: reason || null
+        })
+      }
+    });
+
+    return res.json({
+      ok: true,
+      data: {
+        accepted: true,
+        callId: callLog.id,
+        orgId: resolvedOrgId,
+        confidence
+      }
+    });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }
