@@ -13,6 +13,7 @@ import { classifyCallAndMaybeUpdateLead } from "../../org/call-classification.se
 import { emitOrgNotification } from "../../notifications/notification.service";
 import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 import { enqueueFinalizeBookingJob, persistVapiWebhookEvent } from "./vapi-booking-finalizer.service";
+import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
 
 export const vapiRouter = Router();
 const vapiEnvelopeSchema = z.object({
@@ -77,6 +78,63 @@ function normalizeOutcome(value: string) {
     return upper as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
   }
   return null;
+}
+
+function deriveAppointmentIntentFallback(input: {
+  transcript: string | null;
+  summary: string | null;
+  structuredData: Record<string, unknown>;
+  rawPayload: unknown;
+  fromNumber: string;
+  appointmentRequested: boolean | null;
+  outcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM" | null;
+}) {
+  if (input.appointmentRequested === true || input.outcome === "APPOINTMENT_REQUEST") {
+    return {
+      appointmentRequested: true,
+      outcome: "APPOINTMENT_REQUEST" as const,
+      source: "existing_signal",
+      confidence: 1
+    };
+  }
+
+  const transcript = String(input.transcript || "").trim();
+  const summary = String(input.summary || "").trim();
+  const toolArgs = extractToolArgsFromPayload(input.rawPayload);
+  const evaluation = evaluateBookingRuleEngine({
+    structured: input.structuredData,
+    transcript: transcript || summary,
+    toolArgs
+  });
+
+  const hasPhone = Boolean(input.fromNumber && input.fromNumber !== "unknown");
+  const hasCollectedDetails = Boolean(
+    evaluation.extracted.customerName ||
+      evaluation.extracted.serviceAddress ||
+      evaluation.extracted.requestedStartAt ||
+      evaluation.extracted.issueSummary ||
+      toolArgs?.issueSummary
+  );
+
+  if (evaluation.bookingIntent && evaluation.confidence >= 0.5 && hasPhone && hasCollectedDetails) {
+    return {
+      appointmentRequested: true,
+      outcome: "APPOINTMENT_REQUEST" as const,
+      source: `backend_${evaluation.source.toLowerCase()}`,
+      confidence: evaluation.confidence,
+      reasons: evaluation.reasons,
+      ambiguities: evaluation.ambiguities
+    };
+  }
+
+  return {
+    appointmentRequested: input.appointmentRequested,
+    outcome: input.outcome,
+    source: "none",
+    confidence: evaluation.confidence,
+    reasons: evaluation.reasons,
+    ambiguities: evaluation.ambiguities
+  };
 }
 
 function safePayloadSnippet(payload: unknown) {
@@ -454,6 +512,19 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       return res.json({ ok: true, data: { queuedBackfill: true, eventType, callSid } });
     }
 
+    const appointmentIntentFallback = deriveAppointmentIntentFallback({
+      transcript,
+      summary,
+      structuredData,
+      rawPayload: body,
+      fromNumber,
+      appointmentRequested,
+      outcome
+    });
+
+    const effectiveAppointmentRequested = appointmentIntentFallback.appointmentRequested;
+    const effectiveOutcome = appointmentIntentFallback.outcome;
+
     const updateData: Record<string, unknown> = {
       fromNumber,
       toNumber,
@@ -464,8 +535,8 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     if (transcript !== null) updateData.transcript = transcript;
     if (recordingUrl !== null) updateData.recordingUrl = recordingUrl;
     if (leadId !== null) updateData.leadId = leadId;
-    if (appointmentRequested !== null) updateData.appointmentRequested = appointmentRequested;
-    if (outcome) updateData.outcome = outcome;
+    if (effectiveAppointmentRequested !== null) updateData.appointmentRequested = effectiveAppointmentRequested;
+    if (effectiveOutcome) updateData.outcome = effectiveOutcome;
     if (eventType === "end-of-call-report" || endedByStatus) updateData.endedAt = new Date();
 
     const persistedCall = await prisma.callLog.upsert({
@@ -488,11 +559,29 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         ...(transcript ? { transcript } : {}),
         ...(recordingUrl ? { recordingUrl } : {}),
         ...(leadId ? { leadId } : {}),
-        ...(outcome ? { outcome } : {}),
-        ...(appointmentRequested !== null ? { appointmentRequested } : {}),
+        ...(effectiveOutcome ? { outcome: effectiveOutcome } : {}),
+        ...(effectiveAppointmentRequested !== null ? { appointmentRequested: effectiveAppointmentRequested } : {}),
         ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
       }
     });
+
+    if (appointmentIntentFallback.source !== "none" && appointmentIntentFallback.source !== "existing_signal") {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: "BOOKING_INTENT_INFERRED",
+          metadataJson: JSON.stringify({
+            callId: callSid,
+            orgId: resolvedOrgId,
+            source: appointmentIntentFallback.source,
+            confidence: appointmentIntentFallback.confidence,
+            reasons: appointmentIntentFallback.reasons || [],
+            ambiguities: appointmentIntentFallback.ambiguities || []
+          })
+        }
+      });
+    }
 
     let resolvedLeadId: string | null = persistedCall.leadId || null;
     if (eventType === "end-of-call-report" || endedByStatus) {
