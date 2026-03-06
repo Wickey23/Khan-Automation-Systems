@@ -52,7 +52,6 @@ export function buildVapiTools(apiBaseUrl: string) {
     { name: "notify_manager", url: `${apiBaseUrl}/api/tools/notify-manager`, method: "POST" },
     { name: "book_appointment", url: `${apiBaseUrl}/api/tools/book-appointment`, method: "POST" },
     { name: "mark_booking_intent", url: `${apiBaseUrl}/api/tools/mark-booking-intent`, method: "POST" },
-    { name: "request_appointment", url: `${apiBaseUrl}/api/tools/request-appointment`, method: "POST" },
     { name: "transfer_call", url: `${apiBaseUrl}/api/tools/transfer-call`, method: "POST" }
   ];
 }

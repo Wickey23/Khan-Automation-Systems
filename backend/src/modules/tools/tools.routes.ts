@@ -740,8 +740,11 @@ toolsRouter.post("/book-appointment", async (req, res) => {
   }
 });
 
+// DEPRECATED: use mark_booking_intent instead.
+// This endpoint remains temporarily for rollout safety and will be removed after stabilization.
 toolsRouter.post("/request-appointment", async (req, res) => {
   try {
+    console.warn("Deprecated request-appointment tool invoked.");
     const parsed = appointmentSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid request-appointment payload.");
 
