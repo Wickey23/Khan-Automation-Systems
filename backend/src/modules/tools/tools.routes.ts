@@ -94,6 +94,15 @@ const markBookingIntentSchema = z.object({
   reason: z.string().optional()
 });
 
+const getAvailableTimesSchema = z.object({
+  orgId: z.string().min(1).optional(),
+  callId: z.string().optional(),
+  preferredDate: z.string().optional(),
+  timeWindow: z.string().optional(),
+  serviceType: z.string().optional(),
+  timezone: z.string().optional()
+});
+
 function toolError(res: Response, code: string, message: string, status = 400) {
   return res.status(status).json({ ok: false, error: { code, message } });
 }
@@ -186,6 +195,28 @@ function parseOptionalDate(value: unknown) {
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return undefined;
   return date;
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function normalizeTimeWindow(value: string) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (["morning", "afternoon", "evening"].includes(normalized)) return normalized;
+  return "";
+}
+
+function formatSlotLabel(startAt: Date, timeZone: string) {
+  return startAt.toLocaleString("en-US", {
+    timeZone,
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 function sanitizeCallId(value: unknown) {
@@ -1141,6 +1172,169 @@ toolsRouter.post("/get-customer-context", async (req, res) => {
     };
 
     return res.json({ ok: true, data: response });
+  } catch (error) {
+    return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
+  }
+});
+
+toolsRouter.post("/get-available-times", async (req, res) => {
+  try {
+    const parsed = getAvailableTimesSchema.safeParse(req.body);
+    if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-available-times payload.");
+
+    const root = asObject(req.body);
+    const messageRoot = asObject(root.message);
+    const callRoot = asObject(messageRoot.call);
+
+    const runtimeCallId = pickString(
+      root.callId,
+      root.providerCallId,
+      messageRoot.callId,
+      callRoot.id,
+      callRoot.callId,
+      callRoot.providerCallId
+    );
+    const runtimeOrgId = pickString(root.orgId, root.organizationId, messageRoot.orgId, callRoot.orgId, callRoot.organizationId);
+
+    const {
+      orgId: explicitOrgId,
+      callId: explicitCallId,
+      preferredDate,
+      timeWindow,
+      timezone: requestedTimezone
+    } = parsed.data;
+
+    const effectiveCallId = sanitizeCallId(pickString(explicitCallId, runtimeCallId));
+    let resolvedOrgId = pickString(explicitOrgId, runtimeOrgId);
+
+    if (!resolvedOrgId && effectiveCallId) {
+      const call = await prisma.callLog.findFirst({
+        where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
+        select: { orgId: true }
+      });
+      if (call?.orgId) resolvedOrgId = call.orgId;
+    }
+
+    if (!resolvedOrgId) {
+      return toolError(
+        res,
+        "MISSING_ORG_CONTEXT",
+        "orgId is required when call context cannot be resolved to an organization."
+      );
+    }
+
+    if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, resolvedOrgId)) {
+      return toolError(res, "FEATURE_DISABLED", "Appointments feature is disabled for this organization.", 404);
+    }
+
+    const settings = await prisma.businessSettings.findUnique({
+      where: { orgId: resolvedOrgId },
+      select: {
+        hoursJson: true,
+        timezone: true,
+        appointmentDurationMinutes: true,
+        appointmentBufferMinutes: true,
+        bookingLeadTimeHours: true,
+        bookingMaxDaysAhead: true
+      }
+    });
+
+    const timezone = requestedTimezone || settings?.timezone || "America/New_York";
+    const baseDate = parseOptionalDate(preferredDate) || addDays(new Date(), 1);
+    const rangeStart = new Date(baseDate);
+    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = addDays(rangeStart, 3);
+
+    const existingAppointments = await prisma.appointment.findMany({
+      where: {
+        orgId: resolvedOrgId,
+        status: { not: "CANCELED" },
+        startAt: { lte: rangeEnd },
+        endAt: { gte: rangeStart }
+      },
+      select: { startAt: true, endAt: true, status: true },
+      orderBy: { startAt: "asc" },
+      take: 500
+    });
+
+    let externalBusyBlocks: Array<{ startAt: Date; endAt: Date }> = [];
+    if (isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, resolvedOrgId)) {
+      try {
+        const busy = await getBusyBlocks({
+          prisma,
+          orgId: resolvedOrgId,
+          fromUtc: rangeStart,
+          toUtc: rangeEnd
+        });
+        externalBusyBlocks = busy.map((row) => ({
+          startAt: row.startUtc,
+          endAt: row.endUtc
+        }));
+      } catch {
+        externalBusyBlocks = [];
+      }
+    }
+
+    let slots = generateAvailabilitySlots({
+      hoursJson: settings?.hoursJson || null,
+      timezone,
+      appointmentDurationMinutes: settings?.appointmentDurationMinutes ?? 60,
+      appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
+      bookingLeadTimeHours: settings?.bookingLeadTimeHours ?? 2,
+      bookingMaxDaysAhead: settings?.bookingMaxDaysAhead ?? 14,
+      from: rangeStart,
+      to: rangeEnd,
+      existingAppointments,
+      externalBusyBlocks,
+      maxSlots: 12
+    });
+
+    const normalizedWindow = normalizeTimeWindow(timeWindow || "");
+    if (normalizedWindow) {
+      slots = slots.filter((slot) => {
+        const hour = Number(
+          slot.startAt.toLocaleString("en-US", {
+            timeZone: timezone,
+            hour: "2-digit",
+            hour12: false
+          })
+        );
+        if (normalizedWindow === "morning") return hour >= 8 && hour < 12;
+        if (normalizedWindow === "afternoon") return hour >= 12 && hour < 17;
+        if (normalizedWindow === "evening") return hour >= 17 && hour < 21;
+        return true;
+      });
+    }
+
+    const safeSlots = slots.slice(0, 3).map((slot) => ({
+      startAt: slot.startAt.toISOString(),
+      endAt: slot.endAt.toISOString(),
+      label: formatSlotLabel(slot.startAt, timezone)
+    }));
+
+    await prisma.auditLog.create({
+      data: {
+        orgId: resolvedOrgId,
+        actorUserId: "get-available-times-tool",
+        actorRole: "SYSTEM",
+        action: "AVAILABILITY_LOOKUP",
+        metadataJson: JSON.stringify({
+          providerCallId: effectiveCallId || null,
+          preferredDate: preferredDate || null,
+          timeWindow: timeWindow || null,
+          slotCount: safeSlots.length
+        })
+      }
+    });
+
+    return res.json({
+      ok: true,
+      data: {
+        status: "ok",
+        timezone,
+        slots: safeSlots
+      }
+    });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }

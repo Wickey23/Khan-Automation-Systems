@@ -47,6 +47,7 @@ export function buildVapiTools(apiBaseUrl: string) {
   return [
     { name: "get_caller_context", url: `${apiBaseUrl}/api/tools/get-caller-context`, method: "POST" },
     { name: "get_customer_context", url: `${apiBaseUrl}/api/tools/get-customer-context`, method: "POST" },
+    { name: "get_available_times", url: `${apiBaseUrl}/api/tools/get-available-times`, method: "POST" },
     { name: "create_lead_from_call", url: `${apiBaseUrl}/api/tools/create-lead-from-call`, method: "POST" },
     { name: "send_sms", url: `${apiBaseUrl}/api/tools/send-sms`, method: "POST" },
     { name: "notify_manager", url: `${apiBaseUrl}/api/tools/notify-manager`, method: "POST" },
