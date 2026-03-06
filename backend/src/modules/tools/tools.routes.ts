@@ -172,6 +172,22 @@ function parseOptionalDate(value: unknown) {
   return date;
 }
 
+function sanitizeCallId(value: unknown) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const lowered = text.toLowerCase();
+  if (
+    lowered === "example_call_id" ||
+    lowered === "unique-call-id" ||
+    lowered === "call_id" ||
+    lowered === "callid" ||
+    lowered === "string"
+  ) {
+    return "";
+  }
+  return text;
+}
+
 toolsRouter.post("/create-lead-from-call", async (req, res) => {
   try {
     const parsed = createLeadSchema.safeParse(req.body);
@@ -449,7 +465,15 @@ toolsRouter.post("/book-appointment", async (req, res) => {
       process.env.DEFAULT_TOOL_ORG_ID,
       process.env.ORG_ID
     );
-    let resolvedCallId = pickString(payload.callId, root.callId, root.providerCallId, call.id, call.callId, call.providerCallId);
+    const runtimeCallId = pickString(
+      sanitizeCallId(call.id),
+      sanitizeCallId(call.callId),
+      sanitizeCallId(call.providerCallId),
+      sanitizeCallId(root.callId),
+      sanitizeCallId(root.providerCallId)
+    );
+    const payloadCallId = sanitizeCallId(payload.callId);
+    let resolvedCallId = runtimeCallId || payloadCallId;
 
     if (!resolvedOrgId && resolvedCallId) {
       const callRow = await prisma.callLog.findFirst({
