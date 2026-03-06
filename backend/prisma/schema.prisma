@@ -916,6 +916,39 @@ model WebhookEventLog {
   createdAt      DateTime     @default(now())
 }
 
+model VapiWebhookEvent {
+  id          String   @id @default(cuid())
+  callId      String
+  messageType String
+  eventTs     BigInt?
+  payload     Json
+  payloadHash String?
+  receivedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([callId, messageType, eventTs])
+  @@index([callId, messageType, receivedAt(sort: Desc)])
+  @@index([receivedAt])
+}
+
+model FinalizeBookingJob {
+  id                String   @id @default(cuid())
+  callId            String   @unique
+  status            String   @default("queued")
+  attemptCount      Int      @default(0)
+  nextAttemptAt     DateTime @default(now())
+  claimedAt         DateTime?
+  processedAt       DateTime?
+  resultJson        Json?
+  error             String?
+  decisionVersion   String?
+  decisionInputHash String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+}
+
 model RefreshSession {
   id            String   @id @default(cuid())
   userId        String

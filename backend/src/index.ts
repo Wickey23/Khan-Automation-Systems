@@ -28,6 +28,7 @@ import { teamRouter } from "./modules/team/team.routes";
 import { backfillMissedVapiCalls } from "./modules/admin/backfill.service";
 import { runSlaMonitorTick } from "./modules/ops/sla-monitor.service";
 import { runDataIntegrityGuardTick } from "./modules/ops/data-integrity-guard.service";
+import { runFinalizeBookingWorkerTick } from "./modules/voice/vapi/vapi-booking-finalizer.service";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -155,6 +156,7 @@ let backfillTimer: NodeJS.Timeout | null = null;
 let slaMonitorTimer: NodeJS.Timeout | null = null;
 let dataIntegrityGuardTimer: NodeJS.Timeout | null = null;
 let webhookRetentionTimer: NodeJS.Timeout | null = null;
+let finalizeBookingTimer: NodeJS.Timeout | null = null;
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -340,6 +342,29 @@ function startWebhookPayloadRetentionWorker() {
   }, interval);
 }
 
+function startFinalizeBookingWorker() {
+  const interval = Number.parseInt(process.env.FINALIZE_BOOKING_WORKER_INTERVAL_MS || "1000", 10);
+  if (!Number.isFinite(interval) || interval < 500) return;
+  finalizeBookingTimer = setInterval(() => {
+    void runFinalizeBookingWorkerTick(prisma).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error(
+        JSON.stringify({
+          orgId: "-",
+          provider: "SYSTEM",
+          endpoint: "worker:finalize-booking",
+          eventType: "FINALIZE_BOOKING_TICK",
+          requestId: "-",
+          providerCallId: "-",
+          latencyMs: null,
+          status: "ERROR",
+          message: error instanceof Error ? error.message : "unknown_error"
+        })
+      );
+    });
+  }, interval);
+}
+
 function enforceProductionSecurity() {
   if (env.SECURITY_MODE !== "production") return;
   const required: Array<[string, string | undefined]> = [
@@ -365,6 +390,7 @@ void (async () => {
   startDataIntegrityGuardWorker();
   startWebhookReplayCleanupWorker();
   startWebhookPayloadRetentionWorker();
+  startFinalizeBookingWorker();
   app.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -375,6 +401,7 @@ const shutdown = async () => {
   if (backfillTimer) clearInterval(backfillTimer);
   if (slaMonitorTimer) clearInterval(slaMonitorTimer);
   if (dataIntegrityGuardTimer) clearInterval(dataIntegrityGuardTimer);
+  if (finalizeBookingTimer) clearInterval(finalizeBookingTimer);
   if (webhookRetentionTimer) clearInterval(webhookRetentionTimer);
   await prisma.$disconnect();
   process.exit(0);

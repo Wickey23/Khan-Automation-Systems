@@ -12,6 +12,7 @@ import { updateCallerProfileOutcome } from "../caller-profile.service";
 import { classifyCallAndMaybeUpdateLead } from "../../org/call-classification.service";
 import { emitOrgNotification } from "../../notifications/notification.service";
 import { isFeatureEnabledForOrg } from "../../org/feature-gates";
+import { enqueueFinalizeBookingJob, persistVapiWebhookEvent } from "./vapi-booking-finalizer.service";
 
 export const vapiRouter = Router();
 const vapiEnvelopeSchema = z.object({
@@ -62,6 +63,12 @@ function parseNumeric(value: unknown) {
 function parseInteger(value: unknown) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseEventTimestamp(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.floor(parsed);
 }
 
 function normalizeOutcome(value: string) {
@@ -319,6 +326,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const assistantId = pickString(body.assistantId, call.assistantId, assistant.id, assistant.assistantId) || null;
   const phoneNumberId = pickString(body.phoneNumberId, call.phoneNumberId, phoneNumber.id) || null;
   const durationSec = parseInteger(body.durationSec ?? call.durationSec ?? call.duration);
+  const eventTs = parseEventTimestamp((asObject(body.message).timestamp as unknown) ?? body.timestamp);
 
   try {
     if (!callSid) {
@@ -340,6 +348,20 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         payload: body
       });
       return res.json({ ok: true, data: { queuedBackfill: true, reason: "missing_call_id" } });
+    }
+
+    await persistVapiWebhookEvent({
+      prisma,
+      callId: callSid,
+      messageType: eventType || "unknown",
+      eventTs,
+      payload: body
+    });
+    if (eventType === "end-of-call-report" || endedByStatus) {
+      await enqueueFinalizeBookingJob({
+        prisma,
+        callId: callSid
+      });
     }
 
     const fromNumber = normalizeToE164(
