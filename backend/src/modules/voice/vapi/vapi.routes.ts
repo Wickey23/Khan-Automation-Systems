@@ -322,25 +322,31 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   }
 
   const body = asObject(req.body);
-  const call = asObject(body.call);
+  const message = asObject(body.message);
+  const root = Object.keys(message).length ? message : body;
+  const call = asObject(root.call);
   const callTransport = asObject(call.transport);
-  const customer = asObject(body.customer);
-  const phoneNumber = asObject(body.phoneNumber);
-  const analysis = asObject(body.analysis);
-  const artifact = asObject(body.artifact);
-  const eventType = pickString(body.type, body.event, body.messageType).toLowerCase() || "unknown";
+  const customer = asObject(root.customer);
+  const phoneNumber = asObject(root.phoneNumber);
+  const analysis = asObject(root.analysis);
+  const artifact = asObject(root.artifact);
+  const eventType = pickString(body.type, body.event, body.messageType, root.type, root.event, root.messageType).toLowerCase() || "unknown";
   const assistant = asObject(call.assistant);
 
   const callSid = pickString(
     body.callSid,
     body.providerCallId,
     body.callId,
+    root.callSid,
+    root.providerCallId,
+    root.callId,
     call.providerCallId,
     call.phoneCallProviderCallId,
     callTransport.providerCallId,
     call.id,
     call.sid,
-    call.callSid
+    call.callSid,
+    req.header("x-call-id")
   );
   if (callSid) {
     const replay = await registerWebhookReplay(prisma, {
