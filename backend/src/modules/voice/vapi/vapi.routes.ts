@@ -285,18 +285,31 @@ async function logWebhookEvent(input: {
   headers: Record<string, unknown>;
   payload: unknown;
 }) {
-  await prisma.webhookEventLog.create({
-    data: {
-      orgId: input.orgId || null,
-      provider: "VAPI",
-      endpoint: "/api/vapi/webhook",
-      requestId: input.requestId || null,
-      statusCode: input.statusCode,
-      reason: input.reason || null,
-      headersJson: JSON.stringify(input.headers || {}),
-      payloadSnippet: safePayloadSnippet(input.payload)
-    }
-  });
+  let safeOrgId: string | null = input.orgId || null;
+  if (safeOrgId) {
+    const orgExists = await prisma.organization.findUnique({
+      where: { id: safeOrgId },
+      select: { id: true }
+    });
+    if (!orgExists) safeOrgId = null;
+  }
+
+  try {
+    await prisma.webhookEventLog.create({
+      data: {
+        orgId: safeOrgId,
+        provider: "VAPI",
+        endpoint: "/api/vapi/webhook",
+        requestId: input.requestId || null,
+        statusCode: input.statusCode,
+        reason: input.reason || null,
+        headersJson: JSON.stringify(input.headers || {}),
+        payloadSnippet: safePayloadSnippet(input.payload)
+      }
+    });
+  } catch {
+    // Never let webhook logging crash the request path.
+  }
 }
 
 vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
