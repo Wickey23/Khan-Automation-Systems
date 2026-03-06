@@ -530,6 +530,18 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
       appointmentId?: string | null;
     };
     const state = String(resultObj.state || "");
+    if (resultObj.orgId && ["NEEDS_SCHEDULING", "PROPOSED", "CONFIRMED"].includes(state)) {
+      await prisma.callLog.updateMany({
+        where: {
+          orgId: resultObj.orgId,
+          OR: [{ providerCallId: job.callId }, { id: job.callId }]
+        },
+        data: {
+          appointmentRequested: true,
+          outcome: "APPOINTMENT_REQUEST"
+        }
+      });
+    }
     console.info(
       JSON.stringify({
         event: "bookingFinalized",

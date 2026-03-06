@@ -52,12 +52,25 @@ async function run() {
   });
 
   const effectiveCallId = callLog?.id || callId;
+  const providerCallId = callLog?.providerCallId || callId;
 
-  const [auditRows, finalizeJob, appointments, messages, webhookEvents] = await Promise.all([
+  const [auditRows, inferredAuditRows, finalizeJob, appointments, messages, webhookEvents] = await Promise.all([
     prisma.auditLog.findMany({
       where: {
         action: "BOOKING_INTENT_SIGNALLED",
-        metadataJson: { contains: effectiveCallId }
+        metadataJson: { contains: providerCallId }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: {
+        createdAt: true,
+        metadataJson: true
+      }
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        action: "BOOKING_INTENT_INFERRED",
+        metadataJson: { contains: providerCallId }
       },
       orderBy: { createdAt: "desc" },
       take: 3,
@@ -67,7 +80,7 @@ async function run() {
       }
     }),
     prisma.finalizeBookingJob.findUnique({
-      where: { callId: effectiveCallId },
+      where: { callId: providerCallId },
       select: {
         callId: true,
         status: true,
@@ -117,7 +130,7 @@ async function run() {
       }
     }),
     prisma.vapiWebhookEvent.findMany({
-      where: { callId: effectiveCallId },
+      where: { callId: providerCallId },
       orderBy: { receivedAt: "desc" },
       take: 10,
       select: {
@@ -156,6 +169,23 @@ async function run() {
       printRow("confidence", parsed.confidence);
       printRow("requestedDatetime", parsed.requestedDatetime);
       printRow("reason", parsed.reason);
+    }
+  }
+  if (!inferredAuditRows.length) {
+    printRow("BOOKING_INTENT_INFERRED", "not found");
+  } else {
+    for (const row of inferredAuditRows) {
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(row.metadataJson);
+      } catch {
+        parsed = { raw: row.metadataJson };
+      }
+      printRow("inferredAt", formatDate(row.createdAt));
+      printRow("source", parsed.source);
+      printRow("confidence", parsed.confidence);
+      printRow("reasons", parsed.reasons);
+      printRow("ambiguities", parsed.ambiguities);
     }
   }
 
@@ -217,4 +247,3 @@ run()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
