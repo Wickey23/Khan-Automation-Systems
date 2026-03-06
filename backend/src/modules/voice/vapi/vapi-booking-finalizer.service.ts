@@ -5,6 +5,9 @@ import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 import { bookAppointmentWithHold } from "../../appointments/booking.service";
 import { createCalendarEventFromConnection } from "../../appointments/calendar-oauth.service";
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
+import { sendSmsMessage } from "../../twilio/twilio.service";
+import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
+import { evaluateBookingState } from "./booking-state-machine";
 
 const DECISION_VERSION = "2026-03-06.1";
 const RETRY_BASE_MS = [5_000, 30_000, 120_000, 300_000];
@@ -49,6 +52,56 @@ function canonicalize(value: unknown): string {
 
 function hashJson(value: unknown) {
   return crypto.createHash("sha256").update(canonicalize(value)).digest("hex");
+}
+
+async function sendPostCallCustomerSms(input: {
+  prisma: PrismaClient;
+  orgId: string;
+  customerPhone: string;
+  customerName: string;
+  serviceAddress?: string | null;
+  state: string;
+}) {
+  const normalizedPhone = normalizePhone(input.customerPhone);
+  if (!normalizedPhone) return { sent: false as const, reason: "invalid_phone" as const };
+  try {
+    const [org, activePhone] = await Promise.all([
+      input.prisma.organization.findUnique({
+        where: { id: input.orgId },
+        select: { name: true }
+      }),
+      input.prisma.phoneNumber.findFirst({
+        where: { orgId: input.orgId, provider: "TWILIO", status: "ACTIVE" },
+        select: { e164Number: true }
+      })
+    ]);
+    if (!activePhone?.e164Number) return { sent: false as const, reason: "no_sender" as const };
+
+    const businessName = org?.name || "Khan Systems";
+    const safeName = input.customerName || "there";
+    const hasAddress = Boolean((input.serviceAddress || "").trim());
+    const body =
+      input.state === "NEEDS_SCHEDULING"
+        ? hasAddress
+          ? `Thanks ${safeName} - ${businessName} received your service request at ${input.serviceAddress}. Our team will contact you shortly to confirm scheduling.`
+          : `Thanks ${safeName} - ${businessName} received your service request. Please reply with your full street address so we can finalize scheduling.`
+        : `Thanks ${safeName} - ${businessName} received your service request. Our team will follow up shortly with scheduling options.`;
+
+    const sms = await sendSmsMessage({
+      from: activePhone.e164Number,
+      to: normalizedPhone,
+      body
+    });
+    return {
+      sent: true as const,
+      sid: sms.sid,
+      to: normalizedPhone,
+      from: activePhone.e164Number
+    };
+  } catch {
+    // Non-fatal by design: booking finalization must not fail on SMS send.
+    return { sent: false as const, reason: "sms_send_failed" as const };
+  }
 }
 
 export async function persistVapiWebhookEvent(input: {
@@ -219,6 +272,7 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
   const root = asObject(payload);
   const analysis = asObject(root.analysis);
   const structured = asObject(analysis.structuredData);
+  const toolArgs = extractToolArgsFromPayload(payload);
   const call = asObject(root.call);
   const callIdCandidates = [input.callId, pickString(call.id, call.providerCallId, root.callId, root.providerCallId)];
   const callIdFilters = callIdCandidates
@@ -233,35 +287,74 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
   }
 
   const orgId = callLog.orgId;
+  const transcriptText = `${callLog.aiSummary || ""}\n${callLog.transcript || ""}`.trim();
+  let evaluation: ReturnType<typeof evaluateBookingRuleEngine>;
+  try {
+    evaluation = evaluateBookingRuleEngine({
+      structured,
+      transcript: transcriptText,
+      toolArgs
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "bookingEvaluationFailed",
+        callId: input.callId,
+        orgId,
+        error: error instanceof Error ? error.message : "unknown_error"
+      })
+    );
+    evaluation = {
+      bookingIntent: false,
+      confidence: 0,
+      source: "TRANSCRIPT",
+      extracted: {},
+      ambiguities: ["EVALUATION_ERROR"],
+      reasons: ["safe_fallback"]
+    };
+  }
   const bookingIntent =
-    Boolean(structured.bookingIntent) ||
-    Boolean(structured.appointmentRequested) ||
+    evaluation.bookingIntent ||
     callLog.appointmentRequested === true ||
     callLog.outcome === "APPOINTMENT_REQUEST";
   if (!bookingIntent) {
     return { state: "NO_BOOKING_INTENT", callId: input.callId, orgId, source };
   }
 
-  const customerPhone = normalizePhone(callLog.fromNumber);
+  const customerPhone = normalizePhone(pickString(evaluation.extracted.customerPhone, callLog.fromNumber));
   const customerName = pickString(
-    structured.customerName,
-    structured.name,
-    structured.fullName,
+    evaluation.extracted.customerName,
     analysis.name
   ) || "Unknown Caller";
   const issueSummary = pickString(
-    structured.issueSummary,
-    structured.problem,
-    structured.serviceIssue,
+    evaluation.extracted.issueSummary,
     callLog.aiSummary,
     callLog.transcript
   ).slice(0, 500);
-  const serviceAddress = pickString(
-    structured.serviceAddress,
-    structured.address
-  ) || null;
-  const requestedStartAt = parseOptionalDate(
-    pickString(structured.requestedStartAt, structured.startAt, structured.preferredDateTime)
+  const serviceAddress = pickString(evaluation.extracted.serviceAddress) || null;
+  const requestedStartAt = evaluation.extracted.requestedStartAt || null;
+  const stateDecision = evaluateBookingState({
+    customerName,
+    customerPhone,
+    requestedStartAt
+  });
+
+  const decisionSignals = {
+    source: evaluation.source,
+    confidence: evaluation.confidence,
+    ambiguities: evaluation.ambiguities,
+    reasons: evaluation.reasons,
+    stateDecision: stateDecision.decision,
+    stateReason: stateDecision.reason
+  };
+
+  console.info(
+    JSON.stringify({
+      event: "bookingDecisionSignals",
+      callId: input.callId,
+      orgId,
+      ...decisionSignals
+    })
   );
 
   const leadId = await ensureLead({
@@ -274,14 +367,23 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
   });
 
   const pipelineEnabled = isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, orgId);
-  if (!requestedStartAt) {
+  if (stateDecision.decision !== "CONFIRM_ATTEMPT" || !requestedStartAt) {
     if (pipelineEnabled) {
       await input.prisma.lead.updateMany({
         where: { id: leadId, orgId },
         data: { pipelineStage: "NEEDS_SCHEDULING" }
       });
     }
-    return { state: "NEEDS_SCHEDULING", callId: input.callId, orgId, leadId, source };
+    return {
+      state: "NEEDS_SCHEDULING",
+      callId: input.callId,
+      orgId,
+      leadId,
+      source,
+      customerPhone,
+      customerName,
+      serviceAddress
+    };
   }
 
   const settings = await input.prisma.businessSettings.findUnique({
@@ -315,7 +417,8 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
     serviceAddress,
     issueSummary,
     requestedStartAt: startAt.toISOString(),
-    requestedProvider
+    requestedProvider,
+    decisionSignals
   };
 
   const booking = await bookAppointmentWithHold({
@@ -388,7 +491,10 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
     bookingReason: booking.ok ? null : booking.reason,
     appointmentId: booking.ok ? booking.appointment.id : booking.appointment?.id || null,
     decisionVersion: DECISION_VERSION,
-    decisionInputHash: hashJson(decisionInput)
+    decisionInputHash: hashJson(decisionInput),
+    customerPhone,
+    customerName,
+    serviceAddress
   };
 }
 
@@ -413,6 +519,81 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
         decisionInputHash: String((result as { decisionInputHash?: string }).decisionInputHash || "")
       }
     });
+
+    const resultObj = result as {
+      state?: string;
+      orgId?: string;
+      customerPhone?: string;
+      customerName?: string;
+      serviceAddress?: string | null;
+      leadId?: string | null;
+      appointmentId?: string | null;
+    };
+    const state = String(resultObj.state || "");
+    console.info(
+      JSON.stringify({
+        event: "bookingFinalized",
+        callId: job.callId,
+        orgId: resultObj.orgId || null,
+        leadId: resultObj.leadId || null,
+        appointmentId: resultObj.appointmentId || null,
+        state
+      })
+    );
+    if (
+      (state === "NEEDS_SCHEDULING" || state === "PROPOSED") &&
+      !job.smsSentAt &&
+      resultObj.orgId &&
+      resultObj.customerPhone &&
+      resultObj.customerName
+    ) {
+      const smsResult = await sendPostCallCustomerSms({
+        prisma,
+        orgId: resultObj.orgId,
+        customerPhone: resultObj.customerPhone,
+        customerName: resultObj.customerName,
+        serviceAddress: resultObj.serviceAddress || null,
+        state
+      });
+      if (smsResult.sent) {
+        await prisma.finalizeBookingJob.update({
+          where: { id: job.id },
+          data: { smsSentAt: new Date() }
+        });
+        console.info(
+          JSON.stringify({
+            event: "smsSent",
+            callId: job.callId,
+            orgId: resultObj.orgId,
+            to: smsResult.to,
+            from: smsResult.from,
+            sid: smsResult.sid,
+            state
+          })
+        );
+      } else {
+        console.error(
+          JSON.stringify({
+            event: "smsFailed",
+            callId: job.callId,
+            orgId: resultObj.orgId,
+            reason: smsResult.reason,
+            state
+          })
+        );
+      }
+    } else if ((state === "NEEDS_SCHEDULING" || state === "PROPOSED") && job.smsSentAt) {
+      console.info(
+        JSON.stringify({
+          event: "smsSkippedAlreadySent",
+          callId: job.callId,
+          orgId: resultObj.orgId || null,
+          state,
+          smsSentAt: job.smsSentAt.toISOString()
+        })
+      );
+    }
+
     return result;
   } catch (error) {
     const code = String((error as Error & { code?: string })?.code || "");

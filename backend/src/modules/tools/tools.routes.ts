@@ -78,6 +78,13 @@ const callerContextSchema = z.object({
   callerPhone: z.string().optional()
 });
 
+const customerContextSchema = z.object({
+  orgId: z.string().min(1).optional(),
+  callId: z.string().optional(),
+  customerPhone: z.string().optional(),
+  useCallerNumber: z.boolean().optional().default(false)
+});
+
 function toolError(res: Response, code: string, message: string, status = 400) {
   return res.status(status).json({ ok: false, error: { code, message } });
 }
@@ -901,6 +908,126 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
         contextSummary
       }
     });
+  } catch (error) {
+    return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
+  }
+});
+
+toolsRouter.post("/get-customer-context", async (req, res) => {
+  try {
+    const parsed = customerContextSchema.safeParse(req.body);
+    if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-customer-context payload.");
+
+    const root = asObject(req.body);
+    const messageRoot = asObject(root.message);
+    const callRoot = asObject(messageRoot.call);
+
+    const runtimeCallId = pickString(
+      root.callId,
+      root.providerCallId,
+      messageRoot.callId,
+      callRoot.id,
+      callRoot.callId,
+      callRoot.providerCallId
+    );
+    const runtimeOrgId = pickString(root.orgId, root.organizationId, messageRoot.orgId, callRoot.orgId, callRoot.organizationId);
+    const runtimeCallerPhone = pickString(callRoot.customerNumber, callRoot.phoneNumber, callRoot.fromNumber, root.callerPhone);
+
+    const { orgId: explicitOrgId, callId: explicitCallId, customerPhone, useCallerNumber } = parsed.data;
+    const effectiveCallId = sanitizeCallId(pickString(explicitCallId, runtimeCallId));
+
+    let resolvedOrgId = pickString(explicitOrgId, runtimeOrgId);
+    let resolvedPhone = normalizePhone(customerPhone || "");
+
+    if (!resolvedOrgId && effectiveCallId) {
+      const call = await prisma.callLog.findFirst({
+        where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
+        select: { orgId: true, fromNumber: true }
+      });
+      if (call?.orgId) resolvedOrgId = call.orgId;
+      if (!resolvedPhone && call?.fromNumber) resolvedPhone = normalizePhone(call.fromNumber);
+    }
+
+    if (!resolvedPhone && useCallerNumber) {
+      const caller = pickString(runtimeCallerPhone);
+      if (caller) resolvedPhone = normalizePhone(caller);
+    }
+
+    if (!resolvedOrgId) {
+      return toolError(
+        res,
+        "MISSING_ORG_CONTEXT",
+        "orgId is required when call context cannot be resolved to an organization."
+      );
+    }
+
+    if (!resolvedPhone) {
+      return res.json({ ok: true, data: { status: "not_found" } });
+    }
+
+    const [latestLead, latestAppointment, openAppointment] = await Promise.all([
+      prisma.lead.findFirst({
+        where: { orgId: resolvedOrgId, phone: resolvedPhone },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          name: true,
+          message: true,
+          serviceAddress: true,
+          pipelineStage: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.appointment.findFirst({
+        where: { orgId: resolvedOrgId, customerPhone: resolvedPhone },
+        orderBy: { startAt: "desc" },
+        select: {
+          startAt: true,
+          status: true
+        }
+      }),
+      prisma.appointment.findFirst({
+        where: {
+          orgId: resolvedOrgId,
+          customerPhone: resolvedPhone,
+          status: { in: ["PENDING", "CONFIRMED"] }
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          status: true,
+          createdAt: true
+        }
+      })
+    ]);
+
+    if (!latestLead && !latestAppointment && !openAppointment) {
+      return res.json({ ok: true, data: { status: "not_found" } });
+    }
+
+    const response = {
+      status: "found",
+      customerName: pickString(latestLead?.name) || null,
+      lastAppointment: latestAppointment
+        ? {
+            date: latestAppointment.startAt,
+            state: latestAppointment.status
+          }
+        : null,
+      openRequest:
+        openAppointment || latestLead?.pipelineStage === "NEEDS_SCHEDULING"
+          ? {
+              state:
+                openAppointment?.status === "PENDING" || openAppointment?.status === "CONFIRMED"
+                  ? openAppointment.status
+                  : "NEEDS_SCHEDULING",
+              createdAt: openAppointment?.createdAt || latestLead?.createdAt || latestLead?.updatedAt || null
+            }
+          : null,
+      addressOnFile: pickString(latestLead?.serviceAddress) || null,
+      lastIssue: pickString(latestLead?.message) || null
+    };
+
+    return res.json({ ok: true, data: response });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }

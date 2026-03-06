@@ -939,6 +939,7 @@ model FinalizeBookingJob {
   nextAttemptAt     DateTime @default(now())
   claimedAt         DateTime?
   processedAt       DateTime?
+  smsSentAt         DateTime?
   resultJson        Json?
   error             String?
   decisionVersion   String?
