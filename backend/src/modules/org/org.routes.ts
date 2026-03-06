@@ -733,7 +733,7 @@ orgRouter.patch("/leads/:id/pipeline", requireOrgWriteAccess, async (req: Authen
 orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const orgId = req.auth.orgId;
-  const [calls, activePhone] = await Promise.all([
+  const [calls, activePhone, leads] = await Promise.all([
     prisma.callLog.findMany({
       where: { orgId },
       orderBy: { startedAt: "desc" }
@@ -742,8 +742,25 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
       where: { orgId: req.auth.orgId, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
       select: { e164Number: true, provider: true }
+    }),
+    prisma.lead.findMany({
+      where: { orgId },
+      select: {
+        id: true,
+        phone: true,
+        name: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: "desc" }
     })
   ]);
+  const leadById = new Map(leads.map((lead) => [lead.id, lead]));
+  const leadByPhone = new Map<string, (typeof leads)[number]>();
+  for (const lead of leads) {
+    const key = normalizePhoneE164(lead.phone);
+    if (!key || leadByPhone.has(key)) continue;
+    leadByPhone.set(key, lead);
+  }
   const dedupedCalls = dedupeOrgCallRows(
     calls.map((call) => ({
       id: call.id,
@@ -763,9 +780,17 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   const enrichedCalls = calls
     .filter((call) => dedupedCallIds.has(call.id))
     .map((call) => ({
-    ...call,
-    summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
-  }));
+      ...call,
+      displayName: (() => {
+        const linkedLeadName = String(leadById.get(String(call.leadId || ""))?.name || "").trim();
+        if (!isPlaceholderName(linkedLeadName)) return linkedLeadName;
+        const phoneLeadName = String(leadByPhone.get(normalizePhoneE164(call.fromNumber))?.name || "").trim();
+        if (!isPlaceholderName(phoneLeadName)) return phoneLeadName;
+        const inferred = inferNameFromSummary(`${String(call.aiSummary || "")}\n${String(call.transcript || "")}`);
+        return inferred || null;
+      })(),
+      summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
+    }));
   if (isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, req.auth?.orgId)) {
     const topForClassification = enrichedCalls.slice(0, 50);
     await Promise.all(

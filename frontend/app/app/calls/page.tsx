@@ -51,6 +51,7 @@ function getSuccessBadgeClasses(score: number) {
 }
 
 function extractCallerName(call: OrgCallRecord) {
+  if (String(call.displayName || "").trim()) return String(call.displayName || "").trim();
   const source = (call.transcript || "").trim();
   if (!source) return "";
 

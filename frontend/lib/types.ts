@@ -271,6 +271,7 @@ export type OrgCallRecord = {
   id: string;
   orgId: string;
   providerCallId: string | null;
+  displayName?: string | null;
   fromNumber: string;
   toNumber: string;
   startedAt: string;
