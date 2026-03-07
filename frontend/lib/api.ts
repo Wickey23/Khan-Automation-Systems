@@ -607,28 +607,29 @@ export async function fetchAppointmentRequests() {
   return request<{ requests: AppointmentRequest[] }>("/api/org/appointment-requests");
 }
 
-export async function approveAppointmentRequest(callLogId: string, payload?: { assignedTechnician?: string | null }) {
-  return request<{ updated: boolean }>(`/api/org/appointment-requests/${callLogId}/approve`, {
+export async function approveAppointmentRequest(requestId: string, payload?: { assignedUserId?: string | null }) {
+  return request<{ updated: boolean }>(`/api/org/appointment-requests/${requestId}/approve`, {
     method: "POST",
     body: JSON.stringify(payload || {})
   });
 }
 
-export async function denyAppointmentRequest(callLogId: string) {
-  return request<{ updated: boolean }>(`/api/org/appointment-requests/${callLogId}/deny`, {
+export async function denyAppointmentRequest(requestId: string, payload?: { denialReason?: string | null }) {
+  return request<{ updated: boolean }>(`/api/org/appointment-requests/${requestId}/deny`, {
     method: "POST",
-    body: JSON.stringify({})
+    body: JSON.stringify(payload || {})
   });
 }
 
-export async function assignAppointmentRequest(callLogId: string, payload: { assignedTechnician: string }) {
-  return request<{ updated: boolean }>(`/api/org/appointment-requests/${callLogId}/assign`, {
+export async function assignAppointmentRequest(requestId: string, payload: { assignedUserId: string }) {
+  return request<{ updated: boolean }>(`/api/org/appointment-requests/${requestId}/assign`, {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
 export async function createOrgAppointment(payload: {
+  appointmentRequestId?: string;
   leadId?: string;
   callLogId?: string;
   customerName: string;

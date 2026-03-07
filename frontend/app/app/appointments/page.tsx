@@ -119,8 +119,8 @@ export default function AppAppointmentsPage() {
       setRequestTechnicianDrafts((current) => {
         const next = { ...current };
         for (const request of requests) {
-          if (!next[request.id] && request.assignedTechnician) {
-            next[request.id] = request.assignedTechnician;
+          if (!next[request.id] && request.assignedUserId) {
+            next[request.id] = request.assignedUserId;
           }
         }
         return next;
@@ -198,10 +198,12 @@ export default function AppAppointmentsPage() {
             .then((data) => {
               const activeMembers = (data.members || []).filter((member) => member.status === "ACTIVE");
               setAssignableTechnicians(
-                activeMembers.map((member: TeamMember) => ({
-                  id: member.id,
-                  label: member.user?.email || member.invitedEmail
-                }))
+                activeMembers
+                  .filter((member: TeamMember) => Boolean(member.user?.id))
+                  .map((member: TeamMember) => ({
+                    id: member.user?.id || "",
+                    label: member.user?.email || member.invitedEmail
+                  }))
               );
             })
             .catch(() => setAssignableTechnicians([]));
@@ -373,7 +375,7 @@ export default function AppAppointmentsPage() {
     setRequestSavingId(request.id);
     try {
       await approveAppointmentRequest(request.id, {
-        assignedTechnician: requestTechnicianDrafts[request.id]?.trim() || null
+        assignedUserId: requestTechnicianDrafts[request.id]?.trim() || null
       });
       showToast({ title: "Appointment request approved" });
       await loadRequests();
@@ -406,8 +408,8 @@ export default function AppAppointmentsPage() {
   }
 
   async function onAssignRequest(request: AppointmentRequest) {
-    const assignedTechnician = requestTechnicianDrafts[request.id]?.trim() || "";
-    if (!assignedTechnician) {
+    const assignedUserId = requestTechnicianDrafts[request.id]?.trim() || "";
+    if (!assignedUserId) {
       showToast({
         title: "Select a technician",
         description: "Choose a technician before assigning this request.",
@@ -417,7 +419,7 @@ export default function AppAppointmentsPage() {
     }
     setRequestSavingId(request.id);
     try {
-      await assignAppointmentRequest(request.id, { assignedTechnician });
+      await assignAppointmentRequest(request.id, { assignedUserId });
       showToast({ title: "Technician assigned" });
       await loadRequests();
     } catch (error) {
@@ -482,13 +484,17 @@ export default function AppAppointmentsPage() {
   async function onBookRequestSlot(request: AppointmentRequest, slot: { startAt: string; endAt: string }) {
     setRequestCreatingSlotId(`${request.id}:${slot.startAt}`);
     try {
+      const assignedUserId = requestTechnicianDrafts[request.id]?.trim() || request.assignedUserId || "";
+      const assignedTechnicianLabel =
+        assignableTechnicians.find((tech) => tech.id === assignedUserId)?.label || request.assignedUserLabel || undefined;
       await createOrgAppointment({
+        appointmentRequestId: request.id,
         leadId: request.leadId || undefined,
-        callLogId: request.id,
+        callLogId: request.callLogId,
         customerName: request.customerName,
-        customerPhone: request.customerPhone,
+        customerPhone: request.followUpPhone || request.customerPhone,
         issueSummary: request.issueSummary,
-        assignedTechnician: requestTechnicianDrafts[request.id]?.trim() || request.assignedTechnician || undefined,
+        assignedTechnician: assignedTechnicianLabel,
         startAt: slot.startAt,
         endAt: slot.endAt,
         timezone: slotTimezone,
@@ -585,15 +591,16 @@ export default function AppAppointmentsPage() {
   });
 
   const sortedAppointmentRequests = [...appointmentRequests].sort((a, b) => {
-    const priority = { PENDING_REVIEW: 0, APPROVED: 1, DENIED: 2 } as const;
+    const priority = { PENDING_REVIEW: 0, APPROVED: 1, SLOT_OFFERED: 2, DENIED: 3, SCHEDULED: 4, CLOSED: 5 } as const;
     return (
-      priority[a.reviewStatus] - priority[b.reviewStatus] ||
-      new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      priority[a.status] - priority[b.status] ||
+      new Date(b.lastEventAt).getTime() - new Date(a.lastEventAt).getTime()
     );
   });
-  const pendingAppointmentRequests = sortedAppointmentRequests.filter((request) => request.reviewStatus === "PENDING_REVIEW");
-  const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.reviewStatus === "APPROVED");
-  const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.reviewStatus === "DENIED");
+  const pendingAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "PENDING_REVIEW");
+  const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "APPROVED");
+  const offeredAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SLOT_OFFERED");
+  const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
 
   function buildEventViewUrl(event: OrgCalendarEvent) {
     if (event.viewUrl && String(event.viewUrl).trim()) return String(event.viewUrl).trim();
@@ -809,6 +816,7 @@ export default function AppAppointmentsPage() {
               {([
                 { key: "pending", title: "Pending review", items: pendingAppointmentRequests },
                 { key: "approved", title: "Approved", items: approvedAppointmentRequests },
+                { key: "offered", title: "Slot offered", items: offeredAppointmentRequests },
                 { key: "denied", title: "Denied", items: deniedAppointmentRequests }
               ] as const).map((section) =>
                 section.items.length ? (
@@ -820,12 +828,14 @@ export default function AppAppointmentsPage() {
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {section.items.map((request) => {
                         const reviewTone =
-                          request.reviewStatus === "APPROVED"
+                          request.status === "APPROVED"
                             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : request.reviewStatus === "DENIED"
+                            : request.status === "DENIED"
                               ? "border-rose-200 bg-rose-50 text-rose-700"
+                              : request.status === "SLOT_OFFERED"
+                                ? "border-sky-200 bg-sky-50 text-sky-700"
                               : "border-amber-200 bg-amber-50 text-amber-700";
-                        const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedTechnician ?? "";
+                        const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedUserId ?? "";
                         const requestSlotDate = requestSlotDates[request.id] || "";
                         const slotsForRequest = requestAvailableSlots[request.id] || [];
                         return (
@@ -833,10 +843,10 @@ export default function AppAppointmentsPage() {
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>
-                                <p className="text-sm text-muted-foreground">{request.customerPhone}</p>
+                                <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
                               </div>
                               <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${reviewTone}`}>
-                                {request.reviewStatus.replace("_", " ")}
+                                {request.status.replaceAll("_", " ")}
                               </span>
                             </div>
                             <div className="mt-3 grid gap-3 text-sm">
@@ -860,12 +870,12 @@ export default function AppAppointmentsPage() {
                               </div>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Worker state</span>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Request status</span>
                                   <p>{request.requestState}</p>
                                 </div>
                                 <div>
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned technician</span>
-                                  <p>{request.assignedTechnician || "Unassigned"}</p>
+                                  <p>{request.assignedUserLabel || "Unassigned"}</p>
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -874,12 +884,12 @@ export default function AppAppointmentsPage() {
                                     Open lead
                                   </Link>
                                 ) : null}
-                                <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.id)}`}>
+                                <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>
                                   Open call
                                 </Link>
                               </div>
                             </div>
-                            {canWrite && request.reviewStatus !== "DENIED" ? (
+                            {canWrite && request.status !== "DENIED" && request.status !== "SCHEDULED" && request.status !== "CLOSED" ? (
                               <div className="mt-4 space-y-2">
                                 <label className="block text-sm">
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
@@ -895,7 +905,7 @@ export default function AppAppointmentsPage() {
                                   >
                                     <option value="">Unassigned</option>
                                     {assignableTechnicians.map((tech) => (
-                                      <option key={tech.id} value={tech.label}>
+                                      <option key={tech.id} value={tech.id}>
                                         {tech.label}
                                       </option>
                                     ))}
@@ -913,6 +923,7 @@ export default function AppAppointmentsPage() {
                                   <Button
                                     size="sm"
                                     disabled={requestSavingId === request.id}
+                                    variant={request.status === "APPROVED" ? "outline" : "default"}
                                     onClick={() => void onApproveRequest(request)}
                                   >
                                     Approve

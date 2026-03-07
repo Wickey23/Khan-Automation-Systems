@@ -33,6 +33,17 @@ import { emitOrgNotification } from "../notifications/notification.service";
 import { classifyCallAndMaybeUpdateLead } from "./call-classification.service";
 import { isFeatureEnabledForOrg } from "./feature-gates";
 import {
+  approveAppointmentRequest as approveCanonicalAppointmentRequest,
+  assignAppointmentRequest as assignCanonicalAppointmentRequest,
+  backfillAppointmentRequestsForOrg,
+  getAppointmentRequestForOrg,
+  denyAppointmentRequest as denyCanonicalAppointmentRequest,
+  listAppointmentRequestsForOrg,
+  markAppointmentRequestSlotsOffered,
+  markAppointmentRequestScheduled,
+  updateAppointmentRequestFollowUpPhone
+} from "../appointments/appointment-request.service";
+import {
   canManageCalendar,
   canManageOrgAdminFeature,
   canReadAppointments,
@@ -188,6 +199,7 @@ const listAppointmentsSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "CANCELED", "NO_SHOW"]).optional()
 });
 const createAppointmentSchema = z.object({
+  appointmentRequestId: z.string().optional(),
   leadId: z.string().optional(),
   callLogId: z.string().optional(),
   customerName: z.string().min(1),
@@ -206,8 +218,25 @@ const patchAppointmentSchema = z.object({
   issueSummary: z.string().min(1).optional(),
   status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "CANCELED", "NO_SHOW"]).optional()
 });
-const appointmentRequestActionSchema = z.object({
-  assignedTechnician: z.string().trim().nullable().optional()
+const appointmentRequestApproveSchema = z.object({
+  assignedUserId: z.string().trim().nullable().optional()
+});
+const appointmentRequestDenySchema = z.object({
+  denialReason: z.string().trim().max(500).nullable().optional()
+});
+const appointmentRequestAssignSchema = z.object({
+  assignedUserId: z.string().trim().min(1)
+});
+const appointmentRequestFollowUpPhoneSchema = z.object({
+  followUpPhone: z.string().trim().nullable().optional()
+});
+const appointmentRequestOfferSlotsSchema = z.object({
+  slots: z.array(
+    z.object({
+      startAt: z.string().datetime(),
+      endAt: z.string().datetime()
+    })
+  ).min(1)
 });
 const updateLeadPipelineSchema = z.object({
   pipelineStage: z.enum(["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"])
@@ -271,218 +300,6 @@ function parseBooleanLike(input: unknown) {
   if (["true", "1", "yes", "y"].includes(text)) return true;
   if (["false", "0", "no", "n"].includes(text)) return false;
   return null;
-}
-
-function safeParseJsonObject(input: string | null | undefined) {
-  if (!input) return null;
-  try {
-    const parsed = JSON.parse(input);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
-type AppointmentRequestReviewStatus = "PENDING_REVIEW" | "APPROVED" | "DENIED";
-
-function inferRequestedTimeLabel(input: { requestedStartAt?: string | null; aiSummary?: string | null; transcript?: string | null }) {
-  const requestedStartAt = String(input.requestedStartAt || "").trim();
-  if (requestedStartAt) {
-    const parsed = new Date(requestedStartAt);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleString(undefined, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit"
-      });
-    }
-  }
-
-  const text = `${String(input.aiSummary || "")} ${String(input.transcript || "")}`.toLowerCase();
-  if (!text.trim()) return null;
-
-  const explicitDatePatterns = [
-    /\b(?:for|on)?\s*((?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(?:morning|afternoon|evening))?(?:\s+around\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/,
-    /\b(?:for|on)?\s*((?:tomorrow|next week(?:end)?|this weekend)(?:\s+(?:morning|afternoon|evening))?(?:\s+around\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/,
-    /\b(?:for|on)?\s*((?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?(?:,\s*\d{4})?(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm))?)\b/,
-    /\b(?:for|on)?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm))?)\b/
-  ];
-
-  for (const pattern of explicitDatePatterns) {
-    const match = text.match(pattern);
-    const value = String(match?.[1] || "").trim();
-    if (!value) continue;
-    return value
-      .split(/\s+/)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-  }
-
-  const relativePatterns = [
-    /\b(tomorrow morning|tomorrow afternoon|tomorrow evening|tomorrow)\b/,
-    /\b(next week(?:end)?|this weekend)\b/,
-    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(morning|afternoon|evening))?\b/
-  ];
-
-  for (const pattern of relativePatterns) {
-    const match = text.match(pattern);
-    if (match?.[0]) {
-      return match[0]
-        .split(" ")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
-    }
-  }
-
-  return null;
-}
-
-function normalizePreferenceLabel(input: string | null | undefined) {
-  const value = String(input || "").trim();
-  if (!value) return null;
-  return value
-    .split(/\s+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-async function listAppointmentRequestsForOrg(orgId: string) {
-  const callLogs = await prisma.callLog.findMany({
-    where: {
-      orgId,
-      appointmentRequested: true,
-      outcome: "APPOINTMENT_REQUEST",
-      appointments: { none: {} }
-    },
-    include: {
-      lead: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          serviceAddress: true,
-          serviceRequested: true,
-          pipelineStage: true
-        }
-      }
-    },
-    orderBy: { startedAt: "desc" },
-    take: 100
-  });
-
-  if (!callLogs.length) return [];
-
-  const callLogIds = callLogs.map((row) => row.id);
-  const providerCallIds = callLogs.map((row) => row.providerCallId).filter((value): value is string => Boolean(value));
-
-  const [jobs, audits] = await Promise.all([
-    prisma.finalizeBookingJob.findMany({
-      where: {
-        OR: [
-          { callId: { in: callLogIds } },
-          ...(providerCallIds.length ? [{ callId: { in: providerCallIds } }] : [])
-        ]
-      },
-      orderBy: { updatedAt: "desc" }
-    }),
-    prisma.auditLog.findMany({
-      where: {
-        orgId,
-        action: {
-          in: [
-            "APPOINTMENT_REQUEST_APPROVED",
-            "APPOINTMENT_REQUEST_DENIED",
-            "APPOINTMENT_REQUEST_ASSIGNED"
-          ]
-        }
-      },
-      orderBy: { createdAt: "asc" },
-      take: 1000
-    })
-  ]);
-
-  const jobByCallKey = new Map<string, (typeof jobs)[number]>();
-  for (const job of jobs) {
-    if (!jobByCallKey.has(job.callId)) jobByCallKey.set(job.callId, job);
-  }
-
-  const auditByCallLogId = new Map<string, typeof audits>();
-  for (const audit of audits) {
-    const metadata = safeParseJsonObject(audit.metadataJson);
-    const requestCallLogId = String(metadata?.requestCallLogId || "").trim();
-    if (!requestCallLogId) continue;
-    const existing = auditByCallLogId.get(requestCallLogId) || [];
-    existing.push(audit);
-    auditByCallLogId.set(requestCallLogId, existing);
-  }
-
-  return callLogs.map((callLog) => {
-    const finalizeJob = jobByCallKey.get(callLog.providerCallId || "") || jobByCallKey.get(callLog.id) || null;
-    const resultObj =
-      finalizeJob?.resultJson && typeof finalizeJob.resultJson === "object"
-        ? (finalizeJob.resultJson as Record<string, unknown>)
-        : null;
-    const requestAudits = auditByCallLogId.get(callLog.id) || [];
-
-    let reviewStatus: AppointmentRequestReviewStatus = "PENDING_REVIEW";
-    let assignedTechnician: string | null = null;
-    let reviewedAt: string | null = null;
-    let reviewedBy: string | null = null;
-
-    for (const audit of requestAudits) {
-      const metadata = safeParseJsonObject(audit.metadataJson);
-      const technician = String(metadata?.assignedTechnician || "").trim();
-      if (technician) assignedTechnician = technician;
-      if (audit.action === "APPOINTMENT_REQUEST_APPROVED") {
-        reviewStatus = "APPROVED";
-        reviewedAt = audit.createdAt.toISOString();
-        reviewedBy = audit.actorUserId || null;
-      }
-      if (audit.action === "APPOINTMENT_REQUEST_DENIED") {
-        reviewStatus = "DENIED";
-        reviewedAt = audit.createdAt.toISOString();
-        reviewedBy = audit.actorUserId || null;
-      }
-    }
-
-    const rawCustomerName = String(resultObj?.customerName || "").trim();
-    const rawServiceAddress = String(resultObj?.serviceAddress || "").trim();
-    const customerName =
-      rawCustomerName && rawCustomerName.toLowerCase() !== "unknown caller"
-        ? rawCustomerName
-        : callLog.lead?.name?.trim() || "Unknown Caller";
-
-    return {
-      id: callLog.id,
-      providerCallId: callLog.providerCallId,
-      leadId: callLog.leadId,
-      customerName,
-      customerPhone: String(resultObj?.customerPhone || "").trim() || callLog.lead?.phone || callLog.fromNumber,
-      issueSummary:
-        String(resultObj?.issueSummary || "").trim() ||
-        callLog.lead?.serviceRequested ||
-        callLog.aiSummary ||
-        "Service request captured by voice assistant.",
-      serviceAddress: rawServiceAddress || callLog.lead?.serviceAddress || null,
-      startedAt: callLog.startedAt.toISOString(),
-      requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
-      requestedTimeLabel:
-        normalizePreferenceLabel(String(resultObj?.requestedPreference || "").trim()) ||
-        inferRequestedTimeLabel({
-          requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
-          aiSummary: callLog.aiSummary,
-          transcript: callLog.transcript
-        }),
-      requestState: String(resultObj?.state || "").trim() || "NEEDS_SCHEDULING",
-      reviewStatus,
-      assignedTechnician,
-      reviewedAt,
-      reviewedBy,
-      pipelineStage: callLog.lead?.pipelineStage || null
-    };
-  });
 }
 
 function normalizeOutcome(input: unknown) {
@@ -1464,116 +1281,110 @@ orgRouter.get("/appointment-requests", requireAppointmentsReadAccess, async (req
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const requests = await listAppointmentRequestsForOrg(req.auth.orgId);
+  await backfillAppointmentRequestsForOrg(prisma, req.auth.orgId);
+  const requests = await listAppointmentRequestsForOrg(prisma, req.auth.orgId);
   return res.json({ ok: true, data: { requests } });
 });
 
-orgRouter.post("/appointment-requests/:callLogId/approve", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.get("/appointment-requests/:requestId", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const parsed = appointmentRequestActionSchema.safeParse(req.body || {});
-  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
+  await backfillAppointmentRequestsForOrg(prisma, req.auth.orgId);
+  const requestRecord = await getAppointmentRequestForOrg(prisma, req.auth.orgId, req.params.requestId);
+  if (!requestRecord) return res.status(404).json({ ok: false, message: "Appointment request not found." });
+  return res.json({ ok: true, data: { request: requestRecord } });
+});
 
-  const callLog = await prisma.callLog.findFirst({
-    where: { id: req.params.callLogId, orgId: req.auth.orgId },
-    select: { id: true, providerCallId: true, leadId: true, appointmentRequested: true }
-  });
-  if (!callLog) return res.status(404).json({ ok: false, message: "Appointment request not found." });
-
-  const assignedTechnician = parsed.data.assignedTechnician?.trim() || null;
-  await prisma.auditLog.create({
-    data: {
-      orgId: req.auth.orgId,
-      actorUserId: req.auth.userId,
-      actorRole: req.auth.role,
-      action: "APPOINTMENT_REQUEST_APPROVED",
-      metadataJson: JSON.stringify({
-        requestCallLogId: callLog.id,
-        providerCallId: callLog.providerCallId || null,
-        leadId: callLog.leadId || null,
-        assignedTechnician
-      })
-    }
-  });
-
-  if (assignedTechnician) {
-    await prisma.appointment.updateMany({
-      where: { orgId: req.auth.orgId, callLogId: callLog.id },
-      data: { assignedTechnician }
-    });
+orgRouter.post("/appointment-requests/:requestId/approve", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
-
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = appointmentRequestApproveSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
+  await approveCanonicalAppointmentRequest({
+    prisma,
+    orgId: req.auth.orgId,
+    requestId: req.params.requestId,
+    actorUserId: req.auth.userId,
+    actorRole: req.auth.role,
+    assignedUserId: parsed.data.assignedUserId?.trim() || null
+  });
   return res.json({ ok: true, data: { updated: true } });
 });
 
-orgRouter.post("/appointment-requests/:callLogId/deny", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/appointment-requests/:requestId/deny", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-
-  const callLog = await prisma.callLog.findFirst({
-    where: { id: req.params.callLogId, orgId: req.auth.orgId },
-    select: { id: true, providerCallId: true, leadId: true }
+  const parsed = appointmentRequestDenySchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
+  await denyCanonicalAppointmentRequest({
+    prisma,
+    orgId: req.auth.orgId,
+    requestId: req.params.requestId,
+    actorUserId: req.auth.userId,
+    actorRole: req.auth.role,
+    denialReason: parsed.data.denialReason?.trim() || null
   });
-  if (!callLog) return res.status(404).json({ ok: false, message: "Appointment request not found." });
-
-  await prisma.auditLog.create({
-    data: {
-      orgId: req.auth.orgId,
-      actorUserId: req.auth.userId,
-      actorRole: req.auth.role,
-      action: "APPOINTMENT_REQUEST_DENIED",
-      metadataJson: JSON.stringify({
-        requestCallLogId: callLog.id,
-        providerCallId: callLog.providerCallId || null,
-        leadId: callLog.leadId || null
-      })
-    }
-  });
-
   return res.json({ ok: true, data: { updated: true } });
 });
 
-orgRouter.post("/appointment-requests/:callLogId/assign", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+orgRouter.post("/appointment-requests/:requestId/assign", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
     return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
   }
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
-  const parsed = appointmentRequestActionSchema.safeParse(req.body || {});
+  const parsed = appointmentRequestAssignSchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
-
-  const assignedTechnician = parsed.data.assignedTechnician?.trim() || "";
-  if (!assignedTechnician) return res.status(400).json({ ok: false, message: "Assigned technician is required." });
-
-  const callLog = await prisma.callLog.findFirst({
-    where: { id: req.params.callLogId, orgId: req.auth.orgId },
-    select: { id: true, providerCallId: true, leadId: true }
+  await assignCanonicalAppointmentRequest({
+    prisma,
+    orgId: req.auth.orgId,
+    requestId: req.params.requestId,
+    actorUserId: req.auth.userId,
+    actorRole: req.auth.role,
+    assignedUserId: parsed.data.assignedUserId
   });
-  if (!callLog) return res.status(404).json({ ok: false, message: "Appointment request not found." });
+  return res.json({ ok: true, data: { updated: true } });
+});
 
-  await prisma.auditLog.create({
-    data: {
-      orgId: req.auth.orgId,
-      actorUserId: req.auth.userId,
-      actorRole: req.auth.role,
-      action: "APPOINTMENT_REQUEST_ASSIGNED",
-      metadataJson: JSON.stringify({
-        requestCallLogId: callLog.id,
-        providerCallId: callLog.providerCallId || null,
-        leadId: callLog.leadId || null,
-        assignedTechnician
-      })
-    }
+orgRouter.post("/appointment-requests/:requestId/set-follow-up-phone", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = appointmentRequestFollowUpPhoneSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
+  await updateAppointmentRequestFollowUpPhone({
+    prisma,
+    orgId: req.auth.orgId,
+    requestId: req.params.requestId,
+    actorUserId: req.auth.userId,
+    actorRole: req.auth.role,
+    followUpPhone: parsed.data.followUpPhone?.trim() || null
   });
+  return res.json({ ok: true, data: { updated: true } });
+});
 
-  await prisma.appointment.updateMany({
-    where: { orgId: req.auth.orgId, callLogId: callLog.id },
-    data: { assignedTechnician }
+orgRouter.post("/appointment-requests/:requestId/offer-slots", requireAppointmentsWriteAccess, async (req: AuthenticatedRequest, res) => {
+  if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, req.auth?.orgId)) {
+    return res.status(404).json({ ok: false, message: "Appointments feature is disabled." });
+  }
+  if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
+  const parsed = appointmentRequestOfferSlotsSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
+  await markAppointmentRequestSlotsOffered({
+    prisma,
+    orgId: req.auth.orgId,
+    requestId: req.params.requestId,
+    actorType: "USER",
+    actorId: req.auth.userId,
+    source: req.auth.role,
+    slots: parsed.data.slots
   });
-
   return res.json({ ok: true, data: { updated: true } });
 });
 
@@ -1782,7 +1593,20 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
   if (!booking.ok && booking.reason === "OUTSIDE_BUSINESS_HOURS") {
     return res.status(400).json({ ok: false, message: "Appointment time is outside business-hour constraints." });
   }
+  const requestReference = parsed.data.appointmentRequestId?.trim() || null;
+  const callLogReference = parsed.data.callLogId?.trim() || null;
   if (!booking.ok && booking.reason === "CALENDAR_UNAVAILABLE" && booking.appointment) {
+    await markAppointmentRequestScheduled({
+      prisma,
+      orgId,
+      requestId: requestReference,
+      callLogId: callLogReference,
+      appointmentId: booking.appointment.id,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      startAt: booking.appointment.startAt,
+      endAt: booking.appointment.endAt
+    });
     return res.status(201).json({ ok: true, data: { appointment: booking.appointment, nextSlots: booking.nextSlots || [] } });
   }
   if (!booking.ok) return res.status(400).json({ ok: false, message: "Appointment booking failed." });
@@ -1807,6 +1631,17 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
       });
     }
   }
+  await markAppointmentRequestScheduled({
+    prisma,
+    orgId,
+    requestId: requestReference,
+    callLogId: callLogReference,
+    appointmentId: booking.appointment.id,
+    actorUserId: req.auth.userId,
+    actorRole: req.auth.role,
+    startAt: booking.appointment.startAt,
+    endAt: booking.appointment.endAt
+  });
   return res.status(201).json({ ok: true, data: { appointment: booking.appointment } });
 });
 

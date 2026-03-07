@@ -488,24 +488,42 @@ export type Appointment = {
   } | null;
 };
 
-export type AppointmentRequestReviewStatus = "PENDING_REVIEW" | "APPROVED" | "DENIED";
+export type AppointmentRequestStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "DENIED"
+  | "SLOT_OFFERED"
+  | "SCHEDULED"
+  | "CLOSED";
 
 export type AppointmentRequest = {
   id: string;
+  callLogId: string;
   providerCallId: string | null;
   leadId: string | null;
+  appointmentId: string | null;
   customerName: string;
   customerPhone: string;
+  callerPhone: string;
+  followUpPhone: string | null;
+  effectiveSmsPhone: string;
   issueSummary: string;
   serviceAddress: string | null;
   startedAt: string;
+  createdAt: string;
+  lastEventAt: string;
   requestedStartAt: string | null;
   requestedTimeLabel: string | null;
+  requestedPreference: string | null;
   requestState: string;
-  reviewStatus: AppointmentRequestReviewStatus;
-  assignedTechnician: string | null;
+  status: AppointmentRequestStatus;
+  source: "WORKER" | "BACKFILLED" | "MANUAL";
+  assignedUserId: string | null;
+  assignedUserLabel: string | null;
   reviewedAt: string | null;
-  reviewedBy: string | null;
+  reviewedByUserId: string | null;
+  reviewedByLabel: string | null;
+  denialReason: string | null;
   pipelineStage: LeadPipelineStage | null;
 };
 

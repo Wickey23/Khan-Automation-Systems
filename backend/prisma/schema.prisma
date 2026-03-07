@@ -137,6 +137,43 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum AppointmentRequestStatus {
+  PENDING_REVIEW
+  APPROVED
+  DENIED
+  SLOT_OFFERED
+  SCHEDULED
+  CLOSED
+}
+
+enum AppointmentRequestSource {
+  WORKER
+  BACKFILLED
+  MANUAL
+}
+
+enum AppointmentRequestEventType {
+  CREATED
+  BACKFILLED
+  APPROVED
+  DENIED
+  ASSIGNED
+  SLOTS_OFFERED
+  SLOT_SELECTED
+  APPOINTMENT_CREATED
+  CLOSED
+  FOLLOW_UP_PHONE_UPDATED
+  MANUAL_OVERRIDE
+  REPAIRED
+}
+
+enum AppointmentRequestActorType {
+  SYSTEM
+  USER
+  WORKER
+  BACKFILL
+}
+
 enum CalendarProvider {
   GOOGLE
   OUTLOOK
@@ -274,6 +311,8 @@ model Organization {
   demoUpgradeSmsThrottle DemoUpgradeSmsThrottle[]
   messageThreads       MessageThread[]
   messages             Message[]
+  appointmentRequests  AppointmentRequest[]
+  appointmentRequestEvents AppointmentRequestEvent[]
   knowledgeFiles       OrganizationKnowledgeFile[]
   callerProfiles       CallerProfile[]
   autoRecoveryDedupes  AutoRecoveryDedupe[]
@@ -325,6 +364,8 @@ model User {
   refreshSessions RefreshSession[]
   passwordResetTokens PasswordResetToken[]
   memberships      OrganizationMembership[]
+  assignedAppointmentRequests AppointmentRequest[] @relation("AppointmentRequestAssignedUser")
+  reviewedAppointmentRequests AppointmentRequest[] @relation("AppointmentRequestReviewedByUser")
 }
 
 model OrganizationMembership {
@@ -467,6 +508,7 @@ model CallLog {
   stateTransitions CallStateTransition[]
   sourceLeads    Lead[]         @relation("LeadSourceCall")
   appointments   Appointment[]
+  appointmentRequest AppointmentRequest?
   classificationLogs CallClassificationLog[]
 
   @@unique([orgId, providerCallId])
@@ -607,6 +649,7 @@ model Lead {
   messageThreads   MessageThread[]
   messages         Message[]
   appointments     Appointment[]
+  appointmentRequests AppointmentRequest[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 }
@@ -724,11 +767,75 @@ model Appointment {
   externalCalendarEventId String?
   idempotencyKey        String?          @unique
   createdByUserId       String?
+  appointmentRequest    AppointmentRequest?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
 
   @@index([orgId, startAt])
   @@index([orgId, status])
+}
+
+model AppointmentRequest {
+  id                    String                   @id @default(cuid())
+  orgId                 String
+  organization          Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callLogId             String                   @unique
+  callLog               CallLog                  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  leadId                String?
+  lead                  Lead?                    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  appointmentId         String?                  @unique
+  appointment           Appointment?             @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  status                AppointmentRequestStatus @default(PENDING_REVIEW)
+  source                AppointmentRequestSource @default(WORKER)
+  sourceVersion         String?
+  backfilledAt          DateTime?
+  callerPhone           String
+  followUpPhone         String?
+  customerName          String?
+  issueSummary          String?
+  serviceAddressRaw     String?
+  serviceAddressNormalized Json?
+  requestedStartAt      DateTime?
+  requestedPreference   String?
+  assignedUserId        String?
+  assignedUser          User?                    @relation("AppointmentRequestAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  reviewedByUserId      String?
+  reviewedByUser        User?                    @relation("AppointmentRequestReviewedByUser", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt            DateTime?
+  denialReason          String?
+  offeredSlotsJson      Json?
+  selectedSlotStartAt   DateTime?
+  selectedSlotEndAt     DateTime?
+  scheduledAt           DateTime?
+  closedAt              DateTime?
+  lastEventAt           DateTime                 @default(now())
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  events                AppointmentRequestEvent[]
+
+  @@index([orgId, status, createdAt(sort: Desc)])
+  @@index([orgId, lastEventAt(sort: Desc)])
+  @@index([orgId, callerPhone])
+  @@index([leadId])
+}
+
+model AppointmentRequestEvent {
+  id                   String                      @id @default(cuid())
+  appointmentRequestId String
+  appointmentRequest   AppointmentRequest          @relation(fields: [appointmentRequestId], references: [id], onDelete: Cascade)
+  orgId                String
+  organization         Organization                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  type                 AppointmentRequestEventType
+  fromStatus           AppointmentRequestStatus?
+  toStatus             AppointmentRequestStatus?
+  actorType            AppointmentRequestActorType
+  actorId              String?
+  source               String?
+  metadataJson         Json?
+  createdAt            DateTime                    @default(now())
+
+  @@index([appointmentRequestId, createdAt(sort: Desc)])
+  @@index([orgId, createdAt(sort: Desc)])
 }
 
 model AppointmentHold {

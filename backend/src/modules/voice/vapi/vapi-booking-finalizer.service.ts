@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { type PrismaClient } from "@prisma/client";
 import { env } from "../../../config/env";
 import { isFeatureEnabledForOrg } from "../../org/feature-gates";
+import { upsertAppointmentRequestFromWorkerResult } from "../../appointments/appointment-request.service";
 import { bookAppointmentWithHold } from "../../appointments/booking.service";
 import { createCalendarEventFromConnection } from "../../appointments/calendar-oauth.service";
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
@@ -733,6 +734,11 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
           appointmentRequested: true,
           outcome: "APPOINTMENT_REQUEST"
         }
+      });
+      await upsertAppointmentRequestFromWorkerResult({
+        prisma,
+        callId: job.callId,
+        result: resultObj as Record<string, unknown>
       });
     }
     console.info(
