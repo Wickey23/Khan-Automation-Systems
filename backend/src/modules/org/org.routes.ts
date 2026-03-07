@@ -229,6 +229,12 @@ const listCalendarEventsSchema = z.object({
   to: z.string().datetime(),
   provider: z.enum(["GOOGLE", "OUTLOOK"]).optional()
 });
+const listOrgCallsSchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"]).optional(),
+  query: z.string().trim().max(100).optional()
+});
 
 function normalizePhone(input: string) {
   const digits = input.replace(/\D/g, "");
@@ -948,27 +954,64 @@ orgRouter.patch("/leads/:id/pipeline", requireOrgWriteAccess, async (req: Authen
 orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const orgId = req.auth.orgId;
-  const [calls, activePhone, leads] = await Promise.all([
+  const parsed = listOrgCallsSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid call filters." });
+
+  const page = parsed.data.page || 1;
+  const pageSize = parsed.data.pageSize || 25;
+  const query = String(parsed.data.query || "").trim();
+  const normalizedQuery = query.toLowerCase();
+  const callWhere = {
+    orgId,
+    ...(parsed.data.outcome ? { outcome: parsed.data.outcome } : {}),
+    ...(query
+      ? {
+          OR: [
+            { fromNumber: { contains: query, mode: "insensitive" as const } },
+            { providerCallId: { contains: query, mode: "insensitive" as const } },
+            { aiSummary: { contains: query, mode: "insensitive" as const } },
+            { transcript: { contains: query, mode: "insensitive" as const } }
+          ]
+        }
+      : {})
+  };
+
+  const [calls, total, activePhone] = await Promise.all([
     prisma.callLog.findMany({
-      where: { orgId },
-      orderBy: { startedAt: "desc" }
+      where: callWhere,
+      orderBy: { startedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    }),
+    prisma.callLog.count({
+      where: callWhere
     }),
     prisma.phoneNumber.findFirst({
       where: { orgId: req.auth.orgId, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
       select: { e164Number: true, provider: true }
-    }),
-    prisma.lead.findMany({
-      where: { orgId },
-      select: {
-        id: true,
-        phone: true,
-        name: true,
-        createdAt: true
-      },
-      orderBy: { createdAt: "desc" }
     })
   ]);
+
+  const pageLeadIds = [...new Set(calls.map((call) => String(call.leadId || "")).filter(Boolean))];
+  const pagePhones = [...new Set(calls.map((call) => normalizePhoneE164(call.fromNumber)).filter(Boolean))];
+  const leads = await prisma.lead.findMany({
+    where: {
+      orgId,
+      OR: [
+        ...(pageLeadIds.length ? [{ id: { in: pageLeadIds } }] : []),
+        ...(pagePhones.length ? [{ phone: { in: pagePhones } }] : [])
+      ]
+    },
+    select: {
+      id: true,
+      phone: true,
+      name: true,
+      createdAt: true
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
   const leadById = new Map(leads.map((lead) => [lead.id, lead]));
   const leadByPhone = new Map<string, (typeof leads)[number]>();
   for (const lead of leads) {
@@ -1005,7 +1048,17 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
         return inferred || null;
       })(),
       summary: call.aiSummary || (call.transcript?.trim() ? call.transcript.trim().slice(0, 240) : `Outcome: ${call.outcome.replace(/_/g, " ").toLowerCase()}`)
-    }));
+    }))
+    .filter((call) => {
+      if (!normalizedQuery) return true;
+      const displayName = String(call.displayName || "").toLowerCase();
+      return (
+        displayName.includes(normalizedQuery) ||
+        String(call.fromNumber || "").toLowerCase().includes(normalizedQuery) ||
+        String(call.aiSummary || "").toLowerCase().includes(normalizedQuery) ||
+        String(call.providerCallId || "").toLowerCase().includes(normalizedQuery)
+      );
+    });
   if (isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, req.auth?.orgId)) {
     const topForClassification = enrichedCalls.slice(0, 50);
     await Promise.all(
@@ -1023,6 +1076,10 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     ok: true,
     data: {
       calls: enrichedCalls,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
       assignedPhoneNumber: activePhone?.e164Number || null,
       assignedNumberProvider: activePhone?.provider || null
     }

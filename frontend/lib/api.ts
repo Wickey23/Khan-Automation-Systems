@@ -502,12 +502,26 @@ export async function fetchOrgLeads() {
   return request<{ leads: Lead[]; pipelineFeatureEnabled?: boolean }>("/api/org/leads");
 }
 
-export async function fetchOrgCalls() {
+export async function fetchOrgCalls(params?: {
+  page?: number;
+  pageSize?: number;
+  outcome?: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  query?: string;
+}) {
+  const search = new URLSearchParams();
+  if (params?.page) search.set("page", String(params.page));
+  if (params?.pageSize) search.set("pageSize", String(params.pageSize));
+  if (params?.outcome) search.set("outcome", params.outcome);
+  if (params?.query) search.set("query", params.query);
   return request<{
     calls: OrgCallRecord[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
     assignedPhoneNumber: string | null;
     assignedNumberProvider: "TWILIO" | "VAPI" | null;
-  }>("/api/org/calls");
+  }>(`/api/org/calls${search.toString() ? `?${search.toString()}` : ""}`);
 }
 
 export async function fetchCustomerBase() {

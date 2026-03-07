@@ -105,6 +105,10 @@ function extractCallerName(call: OrgCallRecord) {
 
 export default function AppCallsPage() {
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(25);
+  const [totalCalls, setTotalCalls] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -114,19 +118,32 @@ export default function AppCallsPage() {
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
   const detailsRef = useRef<HTMLElement | null>(null);
 
-  const loadCalls = useCallback(async () => {
+  const loadCalls = useCallback(async (next?: { page?: number; query?: string; outcome?: "ALL" | OrgCallRecord["outcome"] }) => {
     try {
-      const data = await fetchOrgCalls();
+      const requestedPage = next?.page || page;
+      const requestedQuery = next?.query ?? query;
+      const requestedOutcome = next?.outcome ?? outcomeFilter;
+      const data = await fetchOrgCalls({
+        page: requestedPage,
+        pageSize,
+        ...(requestedOutcome !== "ALL" ? { outcome: requestedOutcome } : {}),
+        ...(requestedQuery.trim() ? { query: requestedQuery.trim() } : {})
+      });
       setCalls(data.calls);
+      setPage(data.page);
+      setTotalCalls(data.total);
+      setTotalPages(data.totalPages);
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
       setLastUpdated(new Date());
     } catch {
       setCalls([]);
+      setTotalCalls(0);
+      setTotalPages(1);
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
     }
-  }, []);
+  }, [outcomeFilter, page, pageSize, query]);
 
   const refreshAndRepopulate = useCallback(async () => {
     setRefreshing(true);
@@ -141,7 +158,7 @@ export default function AppCallsPage() {
   }, [loadCalls]);
 
   useEffect(() => {
-    void loadCalls();
+    void loadCalls({ page: 1 });
 
     const intervalId = window.setInterval(() => {
       void loadCalls();
@@ -161,8 +178,12 @@ export default function AppCallsPage() {
     };
   }, [loadCalls]);
 
+  useEffect(() => {
+    void loadCalls({ page: 1, query, outcome: outcomeFilter });
+  }, [query, outcomeFilter, loadCalls]);
+
   const metrics = useMemo(() => {
-    const total = calls.length;
+    const total = totalCalls;
     if (!total) {
       return {
         total,
@@ -197,22 +218,7 @@ export default function AppCallsPage() {
       recordingCoverage: (recordings / total) * 100,
       transcriptCoverage: (transcripts / total) * 100
     };
-  }, [calls]);
-
-  const filteredCalls = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return calls.filter((call) => {
-      if (outcomeFilter !== "ALL" && call.outcome !== outcomeFilter) return false;
-      if (!q) return true;
-      const callerName = extractCallerName(call).toLowerCase();
-      return (
-        callerName.includes(q) ||
-        call.fromNumber.toLowerCase().includes(q) ||
-        (call.aiSummary || "").toLowerCase().includes(q) ||
-        (call.providerCallId || "").toLowerCase().includes(q)
-      );
-    });
-  }, [calls, query, outcomeFilter]);
+  }, [calls, totalCalls]);
 
   const detectedQuestions = useMemo(() => {
     if (!selectedCall?.transcript) return [];
@@ -325,7 +331,7 @@ export default function AppCallsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredCalls.map((call) => (
+            {calls.map((call) => (
               <tr key={call.id} className="border-t hover:bg-muted/20">
                 {(() => {
                   const success = getCallSuccessRating(call);
@@ -377,15 +383,32 @@ export default function AppCallsPage() {
                   No calls logged yet.
                 </td>
               </tr>
-            ) : !filteredCalls.length ? (
-              <tr>
-                <td className="p-3 text-muted-foreground" colSpan={9}>
-                  No calls match current filters.
-                </td>
-              </tr>
             ) : null}
           </tbody>
         </table>
+      </div>
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Page {page} of {totalPages} · {totalCalls} total call{totalCalls === 1 ? "" : "s"}
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={page <= 1}
+            onClick={() => void loadCalls({ page: page - 1 })}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={page >= totalPages}
+            onClick={() => void loadCalls({ page: page + 1 })}
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {selectedCall ? (
