@@ -39,10 +39,10 @@ import {
   getAppointmentRequestForOrg,
   denyAppointmentRequest as denyCanonicalAppointmentRequest,
   listAppointmentRequestsForOrg,
-  markAppointmentRequestSlotsOffered,
   markAppointmentRequestScheduled,
   updateAppointmentRequestFollowUpPhone
 } from "../appointments/appointment-request.service";
+import { sendAppointmentRequestSlotOffer } from "../appointments/appointment-request-sms.service";
 import {
   canManageCalendar,
   canManageOrgAdminFeature,
@@ -1376,16 +1376,28 @@ orgRouter.post("/appointment-requests/:requestId/offer-slots", requireAppointmen
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const parsed = appointmentRequestOfferSlotsSchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid appointment request payload." });
-  await markAppointmentRequestSlotsOffered({
+  const slots = parsed.data.slots.map((slot) => ({
+    startAt: slot.startAt,
+    endAt: slot.endAt,
+    label: new Date(slot.startAt).toLocaleString("en-US", {
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit"
+    })
+  }));
+  const result = await sendAppointmentRequestSlotOffer({
     prisma,
     orgId: req.auth.orgId,
     requestId: req.params.requestId,
     actorType: "USER",
     actorId: req.auth.userId,
     source: req.auth.role,
-    slots: parsed.data.slots
+    slots
   });
-  return res.json({ ok: true, data: { updated: true } });
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, message: "Unable to send slot offer.", reason: result.reason });
+  }
+  return res.json({ ok: true, data: { updated: true, offerVersion: result.offerVersion } });
 });
 
 orgRouter.get("/appointments", requireAppointmentsReadAccess, async (req: AuthenticatedRequest, res) => {
@@ -1479,6 +1491,7 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
     prisma,
     orgId,
     userId,
+    appointmentRequestId: parsed.data.appointmentRequestId || null,
     leadId: parsed.data.leadId || null,
     callLogId: parsed.data.callLogId || null,
     customerName: parsed.data.customerName,

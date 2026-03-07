@@ -95,12 +95,22 @@ export async function sendSmsMessage(input: {
   if (!client) {
     throw new Error("Twilio credentials are not configured.");
   }
-  const message = await client.messages.create({
-    from: input.from,
-    to: input.to,
-    body: input.body,
-    statusCallback: input.statusCallbackUrl
-  });
+  const messagingServiceSid = String(env.TWILIO_MESSAGING_SERVICE_SID || "").trim();
+  const message = await client.messages.create(
+    messagingServiceSid
+      ? {
+          messagingServiceSid,
+          to: input.to,
+          body: input.body,
+          statusCallback: input.statusCallbackUrl
+        }
+      : {
+          from: input.from,
+          to: input.to,
+          body: input.body,
+          statusCallback: input.statusCallbackUrl
+        }
+  );
 
   return {
     sid: message.sid,

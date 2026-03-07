@@ -1,4 +1,5 @@
 import { Prisma, type CalendarProvider, type PrismaClient } from "@prisma/client";
+import { env } from "../../config/env";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { buildExpandedBusyIntervals, type BusyWindow, validateSlotWithinBusinessHours } from "./slotting.service";
@@ -10,6 +11,7 @@ type BookingInput = {
   prisma: PrismaClient;
   orgId: string;
   userId: string;
+  appointmentRequestId?: string | null;
   leadId?: string | null;
   callLogId?: string | null;
   customerName: string;
@@ -86,6 +88,7 @@ function overlapsBusy(input: {
 async function trySendCustomerConfirmationSms(input: {
   prisma: PrismaClient;
   orgId: string;
+  appointmentRequestId?: string | null;
   customerPhone: string;
   customerName: string;
   serviceAddress?: string | null;
@@ -93,7 +96,7 @@ async function trySendCustomerConfirmationSms(input: {
   timezone: string;
 }) {
   try {
-    const [org, activePhone] = await Promise.all([
+    const [org, activePhone, request] = await Promise.all([
       input.prisma.organization.findUnique({
         where: { id: input.orgId },
         select: { name: true }
@@ -101,9 +104,41 @@ async function trySendCustomerConfirmationSms(input: {
       input.prisma.phoneNumber.findFirst({
         where: { orgId: input.orgId, provider: "TWILIO", status: "ACTIVE" },
         select: { e164Number: true }
-      })
+      }),
+      input.appointmentRequestId
+        ? input.prisma.appointmentRequest.findFirst({
+            where: { id: input.appointmentRequestId, orgId: input.orgId },
+            select: {
+              id: true,
+              callerPhone: true,
+              followUpPhone: true
+            }
+          })
+        : Promise.resolve(null)
     ]);
     if (!activePhone?.e164Number) return;
+
+    const resolvedPhone = String(request?.followUpPhone || request?.callerPhone || input.customerPhone || "").trim();
+    if (!resolvedPhone) return;
+
+    const thread = await input.prisma.messageThread.upsert({
+      where: {
+        orgId_channel_contactPhone: {
+          orgId: input.orgId,
+          channel: "SMS",
+          contactPhone: resolvedPhone
+        }
+      },
+      update: {
+        lastMessageAt: new Date()
+      },
+      create: {
+        orgId: input.orgId,
+        channel: "SMS",
+        contactPhone: resolvedPhone,
+        lastMessageAt: new Date()
+      }
+    });
 
     const localTime = new Date(input.startAt).toLocaleString("en-US", {
       timeZone: input.timezone,
@@ -114,10 +149,40 @@ async function trySendCustomerConfirmationSms(input: {
     });
     const businessName = org?.name || "Khan Systems";
     const addressLine = input.serviceAddress ? ` Address: ${input.serviceAddress}.` : "";
-    await sendSmsMessage({
+    const body = `Hi ${input.customerName}, your appointment is scheduled for ${localTime} with ${businessName}.${addressLine}`;
+    const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(input.orgId)}`;
+
+    const sent = await sendSmsMessage({
       from: activePhone.e164Number,
-      to: input.customerPhone,
-      body: `Hi ${input.customerName}, your appointment with ${businessName} is confirmed for ${localTime}.${addressLine}`
+      to: resolvedPhone,
+      body,
+      statusCallbackUrl
+    });
+    await input.prisma.message.create({
+      data: {
+        threadId: thread.id,
+        orgId: input.orgId,
+        direction: "OUTBOUND",
+        status:
+          String(sent.status || "").toLowerCase() === "delivered"
+            ? "DELIVERED"
+            : String(sent.status || "").toLowerCase() === "sent"
+              ? "SENT"
+              : ["failed", "undelivered", "canceled"].includes(String(sent.status || "").toLowerCase())
+                ? "FAILED"
+                : "QUEUED",
+        body,
+        provider: "TWILIO",
+        providerMessageId: sent.sid || null,
+        fromNumber: activePhone.e164Number,
+        toNumber: resolvedPhone,
+        sentAt: new Date(),
+        errorText: sent.errorCode || sent.errorMessage ? `Twilio ${sent.errorCode || ""} ${sent.errorMessage || ""}`.trim() : null,
+        metadataJson: JSON.stringify({
+          source: input.appointmentRequestId ? "appointment_request_confirmation" : "appointment_confirmation",
+          appointmentRequestId: input.appointmentRequestId || null
+        })
+      }
     });
   } catch {
     // Non-fatal by lock.
@@ -363,10 +428,11 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
     // Non-fatal by lock.
   }
 
-  if (!calendarFallback && appointment.status === "CONFIRMED") {
+  if (input.appointmentRequestId || (!calendarFallback && appointment.status === "CONFIRMED")) {
     await trySendCustomerConfirmationSms({
       prisma: input.prisma,
       orgId: input.orgId,
+      appointmentRequestId: input.appointmentRequestId || null,
       customerPhone: input.customerPhone,
       customerName: appointment.customerName,
       serviceAddress: input.serviceAddress || null,

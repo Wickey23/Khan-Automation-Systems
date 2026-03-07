@@ -1,8 +1,12 @@
 import crypto from "crypto";
-import { type PrismaClient } from "@prisma/client";
+import { AppointmentRequestActorType, type PrismaClient } from "@prisma/client";
 import { env } from "../../../config/env";
 import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 import { upsertAppointmentRequestFromWorkerResult } from "../../appointments/appointment-request.service";
+import {
+  sendAppointmentRequestFollowUpSms,
+  sendAppointmentRequestSlotOffer
+} from "../../appointments/appointment-request-sms.service";
 import { bookAppointmentWithHold } from "../../appointments/booking.service";
 import { createCalendarEventFromConnection } from "../../appointments/calendar-oauth.service";
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
@@ -193,6 +197,20 @@ async function sendAvailabilityOptionsSms(input: {
   } catch {
     return { sent: false as const, reason: "sms_send_failed" as const };
   }
+}
+
+async function findRequestIdForCall(prisma: PrismaClient, orgId: string, callId: string) {
+  const request = await prisma.appointmentRequest.findFirst({
+    where: {
+      orgId,
+      OR: [
+        { callLogId: callId },
+        { callLog: { providerCallId: callId } }
+      ]
+    },
+    select: { id: true }
+  });
+  return request?.id || null;
 }
 
 export async function persistVapiWebhookEvent(input: {
@@ -488,6 +506,7 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
     const customerName = pickString(evaluation.extracted.customerName, analysis.name) || "there";
     const safeSlots = slots.slice(0, 3).map((slot) => ({
       startAt: slot.startAt,
+      endAt: slot.endAt,
       label: formatAvailabilitySlotLabel(slot.startAt, timezone)
     }));
     return {
@@ -499,6 +518,7 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
       customerName,
       availabilitySlots: safeSlots.map((slot) => ({
         startAt: slot.startAt.toISOString(),
+        endAt: slot.endAt.toISOString(),
         label: slot.label
       }))
     };
@@ -721,7 +741,7 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
       serviceAddress?: string | null;
       leadId?: string | null;
       appointmentId?: string | null;
-      availabilitySlots?: Array<{ startAt: string; label: string }>;
+      availabilitySlots?: Array<{ startAt: string; endAt: string; label: string }>;
     };
     const state = String(resultObj.state || "");
     if (resultObj.orgId && ["NEEDS_SCHEDULING", "PROPOSED", "CONFIRMED"].includes(state)) {
@@ -741,6 +761,7 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
         result: resultObj as Record<string, unknown>
       });
     }
+    const requestId = resultObj.orgId ? await findRequestIdForCall(prisma, resultObj.orgId, job.callId) : null;
     console.info(
       JSON.stringify({
         event: "bookingFinalized",
@@ -754,19 +775,32 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
     if (
       (state === "NEEDS_SCHEDULING" || state === "PROPOSED") &&
       !job.smsSentAt &&
-      resultObj.orgId &&
-      resultObj.customerPhone &&
-      resultObj.customerName
+      resultObj.orgId
     ) {
-      const smsResult = await sendPostCallCustomerSms({
-        prisma,
-        orgId: resultObj.orgId,
-        customerPhone: resultObj.customerPhone,
-        customerName: resultObj.customerName,
-        serviceAddress: resultObj.serviceAddress || null,
-        state
-      });
-      if (smsResult.sent) {
+      const smsResult = requestId
+        ? await sendAppointmentRequestFollowUpSms({
+            prisma,
+            requestId,
+            state
+          })
+        : resultObj.customerPhone && resultObj.customerName
+          ? await sendPostCallCustomerSms({
+              prisma,
+              orgId: resultObj.orgId,
+              customerPhone: resultObj.customerPhone,
+              customerName: resultObj.customerName,
+              serviceAddress: resultObj.serviceAddress || null,
+              state
+            })
+          : { ok: false as const, reason: "request_sms_unavailable" as const };
+      if (!requestId) {
+        console.error(JSON.stringify({ event: "requestSmsFallbackUsed", callId: job.callId, orgId: resultObj.orgId, state }));
+      }
+      if ("sent" in smsResult ? smsResult.sent : smsResult.ok) {
+        const smsTo = "toNumber" in smsResult ? smsResult.toNumber : "to" in smsResult ? smsResult.to : null;
+        const smsFrom = "fromNumber" in smsResult ? smsResult.fromNumber : "from" in smsResult ? smsResult.from : null;
+        const smsSid =
+          "providerMessageId" in smsResult ? smsResult.providerMessageId : "sid" in smsResult ? smsResult.sid : null;
         await prisma.finalizeBookingJob.update({
           where: { id: job.id },
           data: { smsSentAt: new Date() }
@@ -776,9 +810,9 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
             event: "smsSent",
             callId: job.callId,
             orgId: resultObj.orgId,
-            to: smsResult.to,
-            from: smsResult.from,
-            sid: smsResult.sid,
+            to: smsTo,
+            from: smsFrom,
+            sid: smsSid,
             state
           })
         );
@@ -797,22 +831,24 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
       state === "AVAILABILITY_SHARED" &&
       !job.smsSentAt &&
       resultObj.orgId &&
-      resultObj.customerPhone &&
-      resultObj.customerName &&
+      requestId &&
       Array.isArray(resultObj.availabilitySlots) &&
       resultObj.availabilitySlots.length
     ) {
-      const smsResult = await sendAvailabilityOptionsSms({
+      const smsResult = await sendAppointmentRequestSlotOffer({
         prisma,
         orgId: resultObj.orgId,
-        customerPhone: resultObj.customerPhone,
-        customerName: resultObj.customerName,
+        requestId,
+        source: "worker",
+        actorType: AppointmentRequestActorType.WORKER,
+        actorId: "postcall-worker",
         slots: resultObj.availabilitySlots.map((slot) => ({
-          startAt: new Date(slot.startAt),
+          startAt: slot.startAt,
+          endAt: slot.endAt,
           label: slot.label
         }))
       });
-      if (smsResult.sent) {
+      if (smsResult.ok) {
         await prisma.finalizeBookingJob.update({
           where: { id: job.id },
           data: { smsSentAt: new Date() }
@@ -822,9 +858,8 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
             event: "availabilitySmsSent",
             callId: job.callId,
             orgId: resultObj.orgId,
-            to: smsResult.to,
-            from: smsResult.from,
-            sid: smsResult.sid,
+            requestId,
+            sid: smsResult.providerMessageId || null,
             state
           })
         );

@@ -45,6 +45,7 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_SID: z.string().optional(),
+  TWILIO_MESSAGING_SERVICE_SID: z.string().optional(),
   VAPI_API_KEY: z.string().optional(),
   VAPI_PRIVATE_KEY: z.string().optional(),
   VAPI_TOOL_SECRET: z.string().optional(),

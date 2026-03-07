@@ -6,6 +6,7 @@ import { env } from "../../config/env";
 import { verifyTwilioRequest } from "../../middleware/webhook-security";
 import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { hasProMessaging } from "../billing/plan-features";
+import { handleAppointmentRequestSmsReply } from "../appointments/appointment-request-sms.service";
 
 export const smsRouter = Router();
 const twilioSmsSchema = z.object({
@@ -434,6 +435,17 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   if (existingLead?.dnc) {
     const reply = "You are currently opted out of SMS updates. Reply START to re-enable texting.";
     response.message(reply);
+    return res.type("text/xml").send(response.toString());
+  }
+
+  const requestReplyResult = await handleAppointmentRequestSmsReply({
+    prisma,
+    orgId,
+    fromNumber: normalizedFrom,
+    toNumber: toNumber || "",
+    body
+  });
+  if (requestReplyResult.handled) {
     return res.type("text/xml").send(response.toString());
   }
 
