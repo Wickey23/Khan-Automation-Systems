@@ -3,25 +3,39 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
+  approveAppointmentRequest,
+  assignAppointmentRequest,
+  denyAppointmentRequest,
   cancelOrgAppointment,
   completeOrgAppointment,
   createOrgAppointment,
+  fetchAppointmentRequests,
   fetchAppointmentAvailability,
   fetchCalendarEvents,
   fetchCalendarProviders,
   fetchCustomerBase,
   fetchOrgProfile,
   fetchOrgAppointments,
+  fetchTeamMembers,
   getMe,
   patchOrgAppointment
 } from "@/lib/api";
-import type { Appointment, CalendarConnection, CustomerBaseRecord, OrgCalendarEvent, OrgFeatureFlags } from "@/lib/types";
+import type {
+  Appointment,
+  AppointmentRequest,
+  CalendarConnection,
+  CustomerBaseRecord,
+  OrgCalendarEvent,
+  OrgFeatureFlags,
+  TeamMember
+} from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequest[]>([]);
   const [viewMode, setViewMode] = useState<"LIST" | "CALENDAR">("CALENDAR");
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -34,6 +48,8 @@ export default function AppAppointmentsPage() {
   const [canManageCalendar, setCanManageCalendar] = useState(false);
   const [calendarProviders, setCalendarProviders] = useState<CalendarConnection[]>([]);
   const [customerBase, setCustomerBase] = useState<CustomerBaseRecord[]>([]);
+  const [assignableTechnicians, setAssignableTechnicians] = useState<Array<{ id: string; label: string }>>([]);
+  const [requestTechnicianDrafts, setRequestTechnicianDrafts] = useState<Record<string, string>>({});
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<OrgCalendarEvent[]>([]);
   const [slotDate, setSlotDate] = useState("");
@@ -47,6 +63,7 @@ export default function AppAppointmentsPage() {
   const [loadingCalendarEvents, setLoadingCalendarEvents] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [requestSavingId, setRequestSavingId] = useState<string | null>(null);
   const [creatingSlot, setCreatingSlot] = useState<string | null>(null);
   const [featureDisabled, setFeatureDisabled] = useState(false);
   const [calendarFeatureEnabled, setCalendarFeatureEnabled] = useState(false);
@@ -83,6 +100,30 @@ export default function AppAppointmentsPage() {
     }
   }, [showToast]);
 
+  const loadRequests = useCallback(async () => {
+    try {
+      const data = await fetchAppointmentRequests();
+      const requests = data.requests || [];
+      setAppointmentRequests(requests);
+      setRequestTechnicianDrafts((current) => {
+        const next = { ...current };
+        for (const request of requests) {
+          if (!next[request.id] && request.assignedTechnician) {
+            next[request.id] = request.assignedTechnician;
+          }
+        }
+        return next;
+      });
+    } catch (error) {
+      showToast({
+        title: "Could not load appointment requests",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+      setAppointmentRequests([]);
+    }
+  }, [showToast]);
+
   useEffect(() => {
     void Promise.all([
       getMe(),
@@ -113,18 +154,32 @@ export default function AppAppointmentsPage() {
         setCalendarFeatureEnabled(calendarEnabled);
         if (!appointmentsEnabled) {
           setAppointments([]);
+          setAppointmentRequests([]);
           setCalendarProviders([]);
           setCustomerBase([]);
           setLoading(false);
           return;
         }
         void load("ALL", "", "");
+        void loadRequests();
         if (writable) {
           void fetchCustomerBase()
             .then((data) => setCustomerBase(data.customers || []))
             .catch(() => setCustomerBase([]));
+          void fetchTeamMembers()
+            .then((data) => {
+              const activeMembers = (data.members || []).filter((member) => member.status === "ACTIVE");
+              setAssignableTechnicians(
+                activeMembers.map((member: TeamMember) => ({
+                  id: member.id,
+                  label: member.user?.email || member.invitedEmail
+                }))
+              );
+            })
+            .catch(() => setAssignableTechnicians([]));
         } else {
           setCustomerBase([]);
+          setAssignableTechnicians([]);
         }
         if (calendarManage && calendarEnabled) {
           void fetchCalendarProviders()
@@ -140,11 +195,13 @@ export default function AppAppointmentsPage() {
         setFeatureDisabled(true);
         setCalendarFeatureEnabled(false);
         setCustomerBase([]);
+        setAppointmentRequests([]);
+        setAssignableTechnicians([]);
         setLoading(false);
       });
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (localTz) setSlotTimezone(localTz);
-  }, [load]);
+  }, [load, loadRequests]);
 
   async function onConfirm(id: string) {
     setSavingId(id);
@@ -276,6 +333,68 @@ export default function AppAppointmentsPage() {
     }
   }
 
+  async function onApproveRequest(request: AppointmentRequest) {
+    setRequestSavingId(request.id);
+    try {
+      await approveAppointmentRequest(request.id, {
+        assignedTechnician: requestTechnicianDrafts[request.id]?.trim() || null
+      });
+      showToast({ title: "Appointment request approved" });
+      await loadRequests();
+    } catch (error) {
+      showToast({
+        title: "Could not approve request",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setRequestSavingId(null);
+    }
+  }
+
+  async function onDenyRequest(request: AppointmentRequest) {
+    setRequestSavingId(request.id);
+    try {
+      await denyAppointmentRequest(request.id);
+      showToast({ title: "Appointment request denied" });
+      await loadRequests();
+    } catch (error) {
+      showToast({
+        title: "Could not deny request",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setRequestSavingId(null);
+    }
+  }
+
+  async function onAssignRequest(request: AppointmentRequest) {
+    const assignedTechnician = requestTechnicianDrafts[request.id]?.trim() || "";
+    if (!assignedTechnician) {
+      showToast({
+        title: "Select a technician",
+        description: "Choose a technician before assigning this request.",
+        variant: "error"
+      });
+      return;
+    }
+    setRequestSavingId(request.id);
+    try {
+      await assignAppointmentRequest(request.id, { assignedTechnician });
+      showToast({ title: "Technician assigned" });
+      await loadRequests();
+    } catch (error) {
+      showToast({
+        title: "Could not assign technician",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setRequestSavingId(null);
+    }
+  }
+
   const hasGoogle = calendarProviders.some((provider) => provider.provider === "GOOGLE" && provider.isActive);
   const hasOutlook = calendarProviders.some((provider) => provider.provider === "OUTLOOK" && provider.isActive);
   const hasExternalCalendar = hasGoogle || hasOutlook;
@@ -349,6 +468,14 @@ export default function AppAppointmentsPage() {
   }, {});
   Object.values(calendarEventMapByDate).forEach((items) => {
     items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  });
+
+  const sortedAppointmentRequests = [...appointmentRequests].sort((a, b) => {
+    const priority = { PENDING_REVIEW: 0, APPROVED: 1, DENIED: 2 } as const;
+    return (
+      priority[a.reviewStatus] - priority[b.reviewStatus] ||
+      new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    );
   });
 
   function buildEventViewUrl(event: OrgCalendarEvent) {
@@ -543,6 +670,134 @@ export default function AppAppointmentsPage() {
               ))}
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {!featureDisabled ? (
+        <div className="rounded-lg border bg-white p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Appointment requests</h2>
+              <p className="text-sm text-muted-foreground">
+                Review worker-created appointment requests, assign a technician, and decide whether to accept or decline.
+              </p>
+            </div>
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              {sortedAppointmentRequests.length} request{sortedAppointmentRequests.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {sortedAppointmentRequests.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {sortedAppointmentRequests.map((request) => {
+                const reviewTone =
+                  request.reviewStatus === "APPROVED"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : request.reviewStatus === "DENIED"
+                      ? "border-rose-200 bg-rose-50 text-rose-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700";
+                const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedTechnician ?? "";
+                return (
+                  <div key={request.id} className="rounded-lg border p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold">{request.customerName}</h3>
+                        <p className="text-sm text-muted-foreground">{request.customerPhone}</p>
+                      </div>
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${reviewTone}`}>
+                        {request.reviewStatus.replace("_", " ")}
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div>
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested</span>
+                        <p>{new Date(request.startedAt).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>
+                        <p>{request.issueSummary}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Address</span>
+                        <p>{request.serviceAddress || "Not captured yet"}</p>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <span className="text-xs uppercase tracking-wide text-muted-foreground">Worker state</span>
+                          <p>{request.requestState}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned</span>
+                          <p>{request.assignedTechnician || "Unassigned"}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                        {request.leadId ? (
+                          <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
+                            Open lead
+                          </Link>
+                        ) : null}
+                        <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.id)}`}>
+                          Open call
+                        </Link>
+                      </div>
+                    </div>
+                    {canWrite ? (
+                      <div className="mt-4 space-y-2">
+                        <label className="block text-sm">
+                          <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
+                          <select
+                            className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                            value={draftTechnician}
+                            onChange={(event) =>
+                              setRequestTechnicianDrafts((current) => ({
+                                ...current,
+                                [request.id]: event.target.value
+                              }))
+                            }
+                          >
+                            <option value="">Unassigned</option>
+                            {assignableTechnicians.map((tech) => (
+                              <option key={tech.id} value={tech.label}>
+                                {tech.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={requestSavingId === request.id}
+                            onClick={() => void onAssignRequest(request)}
+                          >
+                            Assign
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={requestSavingId === request.id}
+                            onClick={() => void onApproveRequest(request)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={requestSavingId === request.id}
+                            onClick={() => void onDenyRequest(request)}
+                          >
+                            Deny
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No open appointment requests yet.</p>
+          )}
         </div>
       ) : null}
 

@@ -488,6 +488,25 @@ export type Appointment = {
   } | null;
 };
 
+export type AppointmentRequestReviewStatus = "PENDING_REVIEW" | "APPROVED" | "DENIED";
+
+export type AppointmentRequest = {
+  id: string;
+  providerCallId: string | null;
+  leadId: string | null;
+  customerName: string;
+  customerPhone: string;
+  issueSummary: string;
+  serviceAddress: string | null;
+  startedAt: string;
+  requestState: string;
+  reviewStatus: AppointmentRequestReviewStatus;
+  assignedTechnician: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  pipelineStage: LeadPipelineStage | null;
+};
+
 export type OrgCalendarEvent = {
   id: string;
   provider: "GOOGLE" | "OUTLOOK";

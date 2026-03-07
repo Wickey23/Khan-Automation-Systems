@@ -42,6 +42,7 @@ import type {
   TestScenario,
   TeamMembersResponse,
   Appointment,
+  AppointmentRequest,
   CalendarConnection,
   OrgCalendarEvent,
   OrgNotification
@@ -586,6 +587,31 @@ export async function fetchOrgAppointments(params: { from?: string; to?: string;
   if (params.to) query.set("to", params.to);
   if (params.status) query.set("status", params.status);
   return request<{ appointments: Appointment[] }>(`/api/org/appointments${query.toString() ? `?${query.toString()}` : ""}`);
+}
+
+export async function fetchAppointmentRequests() {
+  return request<{ requests: AppointmentRequest[] }>("/api/org/appointment-requests");
+}
+
+export async function approveAppointmentRequest(callLogId: string, payload?: { assignedTechnician?: string | null }) {
+  return request<{ updated: boolean }>(`/api/org/appointment-requests/${callLogId}/approve`, {
+    method: "POST",
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export async function denyAppointmentRequest(callLogId: string) {
+  return request<{ updated: boolean }>(`/api/org/appointment-requests/${callLogId}/deny`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function assignAppointmentRequest(callLogId: string, payload: { assignedTechnician: string }) {
+  return request<{ updated: boolean }>(`/api/org/appointment-requests/${callLogId}/assign`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function createOrgAppointment(payload: {
