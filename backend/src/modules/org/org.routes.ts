@@ -279,6 +279,43 @@ function safeParseJsonObject(input: string | null | undefined) {
 
 type AppointmentRequestReviewStatus = "PENDING_REVIEW" | "APPROVED" | "DENIED";
 
+function inferRequestedTimeLabel(input: { requestedStartAt?: string | null; aiSummary?: string | null; transcript?: string | null }) {
+  const requestedStartAt = String(input.requestedStartAt || "").trim();
+  if (requestedStartAt) {
+    const parsed = new Date(requestedStartAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+  }
+
+  const text = `${String(input.aiSummary || "")} ${String(input.transcript || "")}`.toLowerCase();
+  if (!text.trim()) return null;
+
+  const relativePatterns = [
+    /\b(tomorrow morning|tomorrow afternoon|tomorrow evening|tomorrow)\b/,
+    /\b(next week(?:end)?|this weekend)\b/,
+    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(morning|afternoon|evening))?\b/
+  ];
+
+  for (const pattern of relativePatterns) {
+    const match = text.match(pattern);
+    if (match?.[0]) {
+      return match[0]
+        .split(" ")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+  }
+
+  return null;
+}
+
 async function listAppointmentRequestsForOrg(orgId: string) {
   const callLogs = await prisma.callLog.findMany({
     where: {
@@ -398,6 +435,12 @@ async function listAppointmentRequestsForOrg(orgId: string) {
         "Service request captured by voice assistant.",
       serviceAddress: rawServiceAddress || callLog.lead?.serviceAddress || null,
       startedAt: callLog.startedAt.toISOString(),
+      requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
+      requestedTimeLabel: inferRequestedTimeLabel({
+        requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
+        aiSummary: callLog.aiSummary,
+        transcript: callLog.transcript
+      }),
       requestState: String(resultObj?.state || "").trim() || "NEEDS_SCHEDULING",
       reviewStatus,
       assignedTechnician,

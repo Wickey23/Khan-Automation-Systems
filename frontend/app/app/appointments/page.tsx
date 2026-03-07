@@ -50,6 +50,10 @@ export default function AppAppointmentsPage() {
   const [customerBase, setCustomerBase] = useState<CustomerBaseRecord[]>([]);
   const [assignableTechnicians, setAssignableTechnicians] = useState<Array<{ id: string; label: string }>>([]);
   const [requestTechnicianDrafts, setRequestTechnicianDrafts] = useState<Record<string, string>>({});
+  const [requestSlotDates, setRequestSlotDates] = useState<Record<string, string>>({});
+  const [requestAvailableSlots, setRequestAvailableSlots] = useState<Record<string, Array<{ startAt: string; endAt: string }>>>({});
+  const [requestLoadingSlotsId, setRequestLoadingSlotsId] = useState<string | null>(null);
+  const [requestCreatingSlotId, setRequestCreatingSlotId] = useState<string | null>(null);
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<OrgCalendarEvent[]>([]);
   const [slotDate, setSlotDate] = useState("");
@@ -110,6 +114,22 @@ export default function AppAppointmentsPage() {
         for (const request of requests) {
           if (!next[request.id] && request.assignedTechnician) {
             next[request.id] = request.assignedTechnician;
+          }
+        }
+        return next;
+      });
+      setRequestSlotDates((current) => {
+        const next = { ...current };
+        for (const request of requests) {
+          if (next[request.id]) continue;
+          if (request.requestedStartAt) {
+            const requested = new Date(request.requestedStartAt);
+            if (!Number.isNaN(requested.getTime())) {
+              const year = requested.getFullYear();
+              const month = String(requested.getMonth() + 1).padStart(2, "0");
+              const day = String(requested.getDate()).padStart(2, "0");
+              next[request.id] = `${year}-${month}-${day}`;
+            }
           }
         }
         return next;
@@ -395,6 +415,76 @@ export default function AppAppointmentsPage() {
     }
   }
 
+  async function onFetchRequestSlots(request: AppointmentRequest) {
+    const slotDateValue = requestSlotDates[request.id];
+    if (!slotDateValue) {
+      showToast({
+        title: "Select a date",
+        description: "Choose a target day before generating time slots.",
+        variant: "error"
+      });
+      return;
+    }
+    setRequestLoadingSlotsId(request.id);
+    try {
+      const from = new Date(`${slotDateValue}T00:00:00`);
+      const to = new Date(`${slotDateValue}T23:59:59`);
+      const data = await fetchAppointmentAvailability({
+        from: from.toISOString(),
+        to: to.toISOString()
+      });
+      setRequestAvailableSlots((current) => ({
+        ...current,
+        [request.id]: data.slots || []
+      }));
+      if (!(data.slots || []).length) {
+        showToast({
+          title: "No slots found",
+          description: "No available times matched that day."
+        });
+      }
+    } catch (error) {
+      showToast({
+        title: "Could not load slots",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+      setRequestAvailableSlots((current) => ({ ...current, [request.id]: [] }));
+    } finally {
+      setRequestLoadingSlotsId(null);
+    }
+  }
+
+  async function onBookRequestSlot(request: AppointmentRequest, slot: { startAt: string; endAt: string }) {
+    setRequestCreatingSlotId(`${request.id}:${slot.startAt}`);
+    try {
+      await createOrgAppointment({
+        leadId: request.leadId || undefined,
+        callLogId: request.id,
+        customerName: request.customerName,
+        customerPhone: request.customerPhone,
+        issueSummary: request.issueSummary,
+        assignedTechnician: requestTechnicianDrafts[request.id]?.trim() || request.assignedTechnician || undefined,
+        startAt: slot.startAt,
+        endAt: slot.endAt,
+        timezone: slotTimezone,
+        calendarProvider: slotProvider,
+        idempotencyKey: `request:${request.id}:${slot.startAt}:${slot.endAt}`
+      });
+      showToast({ title: "Appointment scheduled" });
+      setRequestAvailableSlots((current) => ({ ...current, [request.id]: [] }));
+      await Promise.all([load(status, fromDate, toDate), loadRequests()]);
+    } catch (error) {
+      showToast({
+        title: "Could not schedule request",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setRequestCreatingSlotId(null);
+    }
+  }
+
   const hasGoogle = calendarProviders.some((provider) => provider.provider === "GOOGLE" && provider.isActive);
   const hasOutlook = calendarProviders.some((provider) => provider.provider === "OUTLOOK" && provider.isActive);
   const hasExternalCalendar = hasGoogle || hasOutlook;
@@ -477,6 +567,9 @@ export default function AppAppointmentsPage() {
       new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
     );
   });
+  const pendingAppointmentRequests = sortedAppointmentRequests.filter((request) => request.reviewStatus === "PENDING_REVIEW");
+  const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.reviewStatus === "APPROVED");
+  const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.reviewStatus === "DENIED");
 
   function buildEventViewUrl(event: OrgCalendarEvent) {
     if (event.viewUrl && String(event.viewUrl).trim()) return String(event.viewUrl).trim();
@@ -675,7 +768,7 @@ export default function AppAppointmentsPage() {
 
       {!featureDisabled ? (
         <div className="rounded-lg border bg-white p-4">
-          <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Appointment requests</h2>
               <p className="text-sm text-muted-foreground">
@@ -687,113 +780,185 @@ export default function AppAppointmentsPage() {
             </span>
           </div>
           {sortedAppointmentRequests.length ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {sortedAppointmentRequests.map((request) => {
-                const reviewTone =
-                  request.reviewStatus === "APPROVED"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : request.reviewStatus === "DENIED"
-                      ? "border-rose-200 bg-rose-50 text-rose-700"
-                      : "border-amber-200 bg-amber-50 text-amber-700";
-                const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedTechnician ?? "";
-                return (
-                  <div key={request.id} className="rounded-lg border p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold">{request.customerName}</h3>
-                        <p className="text-sm text-muted-foreground">{request.customerPhone}</p>
-                      </div>
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${reviewTone}`}>
-                        {request.reviewStatus.replace("_", " ")}
-                      </span>
+            <div className="space-y-6">
+              {([
+                { key: "pending", title: "Pending review", items: pendingAppointmentRequests },
+                { key: "approved", title: "Approved", items: approvedAppointmentRequests },
+                { key: "denied", title: "Denied", items: deniedAppointmentRequests }
+              ] as const).map((section) =>
+                section.items.length ? (
+                  <div key={section.key} className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</h3>
+                      <span className="text-xs text-muted-foreground">{section.items.length}</span>
                     </div>
-                    <div className="mt-3 space-y-2 text-sm">
-                      <div>
-                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested</span>
-                        <p>{new Date(request.startedAt).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>
-                        <p>{request.issueSummary}</p>
-                      </div>
-                      <div>
-                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Address</span>
-                        <p>{request.serviceAddress || "Not captured yet"}</p>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-muted-foreground">Worker state</span>
-                          <p>{request.requestState}</p>
-                        </div>
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned</span>
-                          <p>{request.assignedTechnician || "Unassigned"}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        {request.leadId ? (
-                          <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
-                            Open lead
-                          </Link>
-                        ) : null}
-                        <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.id)}`}>
-                          Open call
-                        </Link>
-                      </div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {section.items.map((request) => {
+                        const reviewTone =
+                          request.reviewStatus === "APPROVED"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : request.reviewStatus === "DENIED"
+                              ? "border-rose-200 bg-rose-50 text-rose-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700";
+                        const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedTechnician ?? "";
+                        const requestSlotDate = requestSlotDates[request.id] || "";
+                        const slotsForRequest = requestAvailableSlots[request.id] || [];
+                        return (
+                          <div key={request.id} className="rounded-lg border p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-base font-semibold">{request.customerName}</h3>
+                                <p className="text-sm text-muted-foreground">{request.customerPhone}</p>
+                              </div>
+                              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${reviewTone}`}>
+                                {request.reviewStatus.replace("_", " ")}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-3 text-sm">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested on</span>
+                                  <p>{new Date(request.startedAt).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested for</span>
+                                  <p>{request.requestedTimeLabel || "Not captured yet"}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>
+                                <p className="line-clamp-4">{request.issueSummary}</p>
+                              </div>
+                              <div>
+                                <span className="text-xs uppercase tracking-wide text-muted-foreground">Address</span>
+                                <p>{request.serviceAddress || "Not captured yet"}</p>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Worker state</span>
+                                  <p>{request.requestState}</p>
+                                </div>
+                                <div>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned technician</span>
+                                  <p>{request.assignedTechnician || "Unassigned"}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                {request.leadId ? (
+                                  <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
+                                    Open lead
+                                  </Link>
+                                ) : null}
+                                <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.id)}`}>
+                                  Open call
+                                </Link>
+                              </div>
+                            </div>
+                            {canWrite && request.reviewStatus !== "DENIED" ? (
+                              <div className="mt-4 space-y-2">
+                                <label className="block text-sm">
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
+                                  <select
+                                    className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                    value={draftTechnician}
+                                    onChange={(event) =>
+                                      setRequestTechnicianDrafts((current) => ({
+                                        ...current,
+                                        [request.id]: event.target.value
+                                      }))
+                                    }
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {assignableTechnicians.map((tech) => (
+                                      <option key={tech.id} value={tech.label}>
+                                        {tech.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={requestSavingId === request.id}
+                                    onClick={() => void onAssignRequest(request)}
+                                  >
+                                    Assign
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    disabled={requestSavingId === request.id}
+                                    onClick={() => void onApproveRequest(request)}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={requestSavingId === request.id}
+                                    onClick={() => void onDenyRequest(request)}
+                                  >
+                                    Deny
+                                  </Button>
+                                </div>
+                                <div className="rounded-md border bg-muted/20 p-3">
+                                  <div className="flex flex-wrap items-end gap-2">
+                                    <label className="min-w-[180px] flex-1 text-sm">
+                                      <span className="text-xs uppercase tracking-wide text-muted-foreground">Find schedule slots</span>
+                                      <input
+                                        type="date"
+                                        className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                        value={requestSlotDate}
+                                        onChange={(event) =>
+                                          setRequestSlotDates((current) => ({
+                                            ...current,
+                                            [request.id]: event.target.value
+                                          }))
+                                        }
+                                      />
+                                    </label>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={requestLoadingSlotsId === request.id}
+                                      onClick={() => void onFetchRequestSlots(request)}
+                                    >
+                                      {requestLoadingSlotsId === request.id ? "Loading..." : "Find slots"}
+                                    </Button>
+                                  </div>
+                                  {slotsForRequest.length ? (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {slotsForRequest.map((slot) => {
+                                        const creatingKey = `${request.id}:${slot.startAt}`;
+                                        return (
+                                          <Button
+                                            key={slot.startAt}
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={requestCreatingSlotId === creatingKey}
+                                            onClick={() => void onBookRequestSlot(request, slot)}
+                                          >
+                                            {requestCreatingSlotId === creatingKey
+                                              ? "Scheduling..."
+                                              : new Date(slot.startAt).toLocaleTimeString([], {
+                                                  hour: "numeric",
+                                                  minute: "2-digit"
+                                                })}
+                                          </Button>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {canWrite ? (
-                      <div className="mt-4 space-y-2">
-                        <label className="block text-sm">
-                          <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
-                          <select
-                            className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                            value={draftTechnician}
-                            onChange={(event) =>
-                              setRequestTechnicianDrafts((current) => ({
-                                ...current,
-                                [request.id]: event.target.value
-                              }))
-                            }
-                          >
-                            <option value="">Unassigned</option>
-                            {assignableTechnicians.map((tech) => (
-                              <option key={tech.id} value={tech.label}>
-                                {tech.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={requestSavingId === request.id}
-                            onClick={() => void onAssignRequest(request)}
-                          >
-                            Assign
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={requestSavingId === request.id}
-                            onClick={() => void onApproveRequest(request)}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={requestSavingId === request.id}
-                            onClick={() => void onDenyRequest(request)}
-                          >
-                            Deny
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
-                );
-              })}
+                ) : null
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No open appointment requests yet.</p>

@@ -499,6 +499,8 @@ export type AppointmentRequest = {
   issueSummary: string;
   serviceAddress: string | null;
   startedAt: string;
+  requestedStartAt: string | null;
+  requestedTimeLabel: string | null;
   requestState: string;
   reviewStatus: AppointmentRequestReviewStatus;
   assignedTechnician: string | null;

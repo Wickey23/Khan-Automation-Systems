@@ -568,7 +568,9 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
       source,
       customerPhone,
       customerName,
-      serviceAddress
+      serviceAddress,
+      issueSummary,
+      requestedStartAt: requestedStartAt ? requestedStartAt.toISOString() : null
     };
   }
 
@@ -680,7 +682,9 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
     decisionInputHash: hashJson(decisionInput),
     customerPhone,
     customerName,
-    serviceAddress
+    serviceAddress,
+    issueSummary,
+    requestedStartAt: startAt.toISOString()
   };
 }
 
