@@ -116,6 +116,9 @@ export default function AppCallsPage() {
   const [query, setQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
   const detailsRef = useRef<HTMLElement | null>(null);
+  const pageRef = useRef(page);
+  const queryRef = useRef(query);
+  const outcomeFilterRef = useRef(outcomeFilter);
 
   const loadCalls = useCallback(async (next: { page: number; query: string; outcome: "ALL" | OrgCallRecord["outcome"] }) => {
     try {
@@ -154,14 +157,22 @@ export default function AppCallsPage() {
   }, [loadCalls, outcomeFilter, page, query]);
 
   useEffect(() => {
-    void loadCalls({ page: 1, query: "", outcome: "ALL" });
+    pageRef.current = page;
+    queryRef.current = query;
+    outcomeFilterRef.current = outcomeFilter;
+  }, [page, query, outcomeFilter]);
 
+  useEffect(() => {
+    void loadCalls({ page: 1, query: "", outcome: "ALL" });
+  }, [loadCalls]);
+
+  useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void loadCalls({ page, query, outcome: outcomeFilter });
+      void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
     }, 12000);
 
     const onFocus = () => {
-      void loadCalls({ page, query, outcome: outcomeFilter });
+      void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
     };
 
     window.addEventListener("focus", onFocus);
@@ -172,7 +183,7 @@ export default function AppCallsPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [loadCalls, outcomeFilter, page, query]);
+  }, [loadCalls]);
 
   useEffect(() => {
     void loadCalls({ page: 1, query, outcome: outcomeFilter });
