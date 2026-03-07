@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { OrgCallRecord } from "@/lib/types";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -118,16 +117,13 @@ export default function AppCallsPage() {
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
   const detailsRef = useRef<HTMLElement | null>(null);
 
-  const loadCalls = useCallback(async (next?: { page?: number; query?: string; outcome?: "ALL" | OrgCallRecord["outcome"] }) => {
+  const loadCalls = useCallback(async (next: { page: number; query: string; outcome: "ALL" | OrgCallRecord["outcome"] }) => {
     try {
-      const requestedPage = next?.page || page;
-      const requestedQuery = next?.query ?? query;
-      const requestedOutcome = next?.outcome ?? outcomeFilter;
       const data = await fetchOrgCalls({
-        page: requestedPage,
+        page: next.page,
         pageSize,
-        ...(requestedOutcome !== "ALL" ? { outcome: requestedOutcome } : {}),
-        ...(requestedQuery.trim() ? { query: requestedQuery.trim() } : {})
+        ...(next.outcome !== "ALL" ? { outcome: next.outcome } : {}),
+        ...(next.query.trim() ? { query: next.query.trim() } : {})
       });
       setCalls(data.calls);
       setPage(data.page);
@@ -143,7 +139,7 @@ export default function AppCallsPage() {
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
     }
-  }, [outcomeFilter, page, pageSize, query]);
+  }, [pageSize]);
 
   const refreshAndRepopulate = useCallback(async () => {
     setRefreshing(true);
@@ -152,20 +148,20 @@ export default function AppCallsPage() {
     } catch {
       // if repopulate fails, still refresh list from existing records
     } finally {
-      await loadCalls();
+      await loadCalls({ page, query, outcome: outcomeFilter });
       setRefreshing(false);
     }
-  }, [loadCalls]);
+  }, [loadCalls, outcomeFilter, page, query]);
 
   useEffect(() => {
-    void loadCalls({ page: 1 });
+    void loadCalls({ page: 1, query: "", outcome: "ALL" });
 
     const intervalId = window.setInterval(() => {
-      void loadCalls();
+      void loadCalls({ page, query, outcome: outcomeFilter });
     }, 12000);
 
     const onFocus = () => {
-      void loadCalls();
+      void loadCalls({ page, query, outcome: outcomeFilter });
     };
 
     window.addEventListener("focus", onFocus);
@@ -176,7 +172,7 @@ export default function AppCallsPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [loadCalls]);
+  }, [loadCalls, outcomeFilter, page, query]);
 
   useEffect(() => {
     void loadCalls({ page: 1, query, outcome: outcomeFilter });
@@ -396,7 +392,7 @@ export default function AppCallsPage() {
             type="button"
             className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             disabled={page <= 1}
-            onClick={() => void loadCalls({ page: page - 1 })}
+            onClick={() => void loadCalls({ page: page - 1, query, outcome: outcomeFilter })}
           >
             Previous
           </button>
@@ -404,7 +400,7 @@ export default function AppCallsPage() {
             type="button"
             className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             disabled={page >= totalPages}
-            onClick={() => void loadCalls({ page: page + 1 })}
+            onClick={() => void loadCalls({ page: page + 1, query, outcome: outcomeFilter })}
           >
             Next
           </button>
