@@ -297,6 +297,23 @@ function inferRequestedTimeLabel(input: { requestedStartAt?: string | null; aiSu
   const text = `${String(input.aiSummary || "")} ${String(input.transcript || "")}`.toLowerCase();
   if (!text.trim()) return null;
 
+  const explicitDatePatterns = [
+    /\b(?:for|on)?\s*((?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(?:morning|afternoon|evening))?(?:\s+around\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/,
+    /\b(?:for|on)?\s*((?:tomorrow|next week(?:end)?|this weekend)(?:\s+(?:morning|afternoon|evening))?(?:\s+around\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/,
+    /\b(?:for|on)?\s*((?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?(?:,\s*\d{4})?(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm))?)\b/,
+    /\b(?:for|on)?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm))?)\b/
+  ];
+
+  for (const pattern of explicitDatePatterns) {
+    const match = text.match(pattern);
+    const value = String(match?.[1] || "").trim();
+    if (!value) continue;
+    return value
+      .split(/\s+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+
   const relativePatterns = [
     /\b(tomorrow morning|tomorrow afternoon|tomorrow evening|tomorrow)\b/,
     /\b(next week(?:end)?|this weekend)\b/,
@@ -314,6 +331,15 @@ function inferRequestedTimeLabel(input: { requestedStartAt?: string | null; aiSu
   }
 
   return null;
+}
+
+function normalizePreferenceLabel(input: string | null | undefined) {
+  const value = String(input || "").trim();
+  if (!value) return null;
+  return value
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 async function listAppointmentRequestsForOrg(orgId: string) {
@@ -436,11 +462,13 @@ async function listAppointmentRequestsForOrg(orgId: string) {
       serviceAddress: rawServiceAddress || callLog.lead?.serviceAddress || null,
       startedAt: callLog.startedAt.toISOString(),
       requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
-      requestedTimeLabel: inferRequestedTimeLabel({
-        requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
-        aiSummary: callLog.aiSummary,
-        transcript: callLog.transcript
-      }),
+      requestedTimeLabel:
+        normalizePreferenceLabel(String(resultObj?.requestedPreference || "").trim()) ||
+        inferRequestedTimeLabel({
+          requestedStartAt: String(resultObj?.requestedStartAt || "").trim() || null,
+          aiSummary: callLog.aiSummary,
+          transcript: callLog.transcript
+        }),
       requestState: String(resultObj?.state || "").trim() || "NEEDS_SCHEDULING",
       reviewStatus,
       assignedTechnician,

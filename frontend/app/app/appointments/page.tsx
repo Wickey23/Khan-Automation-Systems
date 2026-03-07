@@ -34,6 +34,13 @@ import { Button } from "@/components/ui/button";
 
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
+  const todayDateValue = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  })();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequest[]>([]);
   const [viewMode, setViewMode] = useState<"LIST" | "CALENDAR">("CALENDAR");
@@ -128,7 +135,8 @@ export default function AppAppointmentsPage() {
               const year = requested.getFullYear();
               const month = String(requested.getMonth() + 1).padStart(2, "0");
               const day = String(requested.getDate()).padStart(2, "0");
-              next[request.id] = `${year}-${month}-${day}`;
+              const requestedDateValue = `${year}-${month}-${day}`;
+              next[request.id] = requestedDateValue < todayDateValue ? todayDateValue : requestedDateValue;
             }
           }
         }
@@ -142,7 +150,7 @@ export default function AppAppointmentsPage() {
       });
       setAppointmentRequests([]);
     }
-  }, [showToast]);
+  }, [showToast, todayDateValue]);
 
   useEffect(() => {
     void Promise.all([
@@ -277,6 +285,14 @@ export default function AppAppointmentsPage() {
   async function onFetchSlots() {
     if (!slotDate) {
       showToast({ title: "Select a date", description: "Choose a date before fetching availability.", variant: "error" });
+      return;
+    }
+    if (slotDate < todayDateValue) {
+      showToast({
+        title: "Past dates are blocked",
+        description: "Choose today or a future date.",
+        variant: "error"
+      });
       return;
     }
     setLoadingSlots(true);
@@ -421,6 +437,14 @@ export default function AppAppointmentsPage() {
       showToast({
         title: "Select a date",
         description: "Choose a target day before generating time slots.",
+        variant: "error"
+      });
+      return;
+    }
+    if (slotDateValue < todayDateValue) {
+      showToast({
+        title: "Past dates are blocked",
+        description: "Choose today or a future date for this request.",
         variant: "error"
       });
       return;
@@ -727,6 +751,7 @@ export default function AppAppointmentsPage() {
                 type="date"
                 className="mt-1 h-10 w-full rounded-md border bg-background px-3"
                 value={slotDate}
+                min={todayDateValue}
                 onChange={(event) => setSlotDate(event.target.value)}
               />
             </label>
@@ -909,6 +934,7 @@ export default function AppAppointmentsPage() {
                                         type="date"
                                         className="mt-1 h-10 w-full rounded-md border bg-background px-3"
                                         value={requestSlotDate}
+                                        min={todayDateValue}
                                         onChange={(event) =>
                                           setRequestSlotDates((current) => ({
                                             ...current,

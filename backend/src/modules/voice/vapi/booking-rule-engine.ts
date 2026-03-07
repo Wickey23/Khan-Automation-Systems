@@ -24,6 +24,7 @@ export type BookingEvaluationResult = {
     customerPhone?: string;
     serviceAddress?: string;
     requestedStartAt?: Date;
+    requestedPreference?: string;
     issueSummary?: string;
   };
   ambiguities: string[];
@@ -112,6 +113,28 @@ function extractRequestedStartAtFromTranscript(text: string) {
   if (month) return parseOptionalDate(`${month[0]}`);
 
   return null;
+}
+
+function extractRequestedPreferenceFromTranscript(text: string) {
+  const source = String(text || "");
+  if (!source.trim()) return "";
+
+  const patterns = [
+    /\b((?:next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(?:morning|afternoon|evening))?(?:\s+(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/i,
+    /\b((?:today|tomorrow|this weekend|next weekend|next week)(?:\s+(?:morning|afternoon|evening))?(?:\s+(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/i,
+    /\b((?:morning|afternoon|evening|anytime|flexible))\b/i,
+    /\b(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?(?:\s+(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/i,
+    /\b((?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?(?:,\s*\d{4})?(?:\s+(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    const raw = String(match?.[1] || "").trim();
+    if (!raw) continue;
+    return raw.replace(/\s+/g, " ");
+  }
+
+  return "";
 }
 
 function detectTranscriptIntent(transcript: string) {
@@ -238,6 +261,13 @@ export function evaluateBookingRuleEngine(input: BookingEvaluationInput): Bookin
       extractAddressFromTranscript(transcript)
     ) || undefined,
     requestedStartAt: structuredDate || toolDate || transcriptDate || undefined,
+    requestedPreference: pickString(
+      structured.requestedPreference,
+      structured.preferredTime,
+      structured.preferredDate,
+      toolArgs?.preferredTime,
+      extractRequestedPreferenceFromTranscript(transcript)
+    ) || undefined,
     issueSummary: pickString(
       structured.issueSummary,
       structured.problem,
@@ -258,4 +288,3 @@ export function evaluateBookingRuleEngine(input: BookingEvaluationInput): Bookin
     reasons
   };
 }
-
