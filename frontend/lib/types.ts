@@ -550,6 +550,16 @@ export type OrgNotification = {
   updatedAt: string;
 };
 
+export type ActionNeededItem = {
+  id: string;
+  type: "NEEDS_REVIEW" | "NEEDS_FOLLOW_UP" | "NEEDS_FIX";
+  severity: "info" | "warning" | "critical";
+  label: string;
+  href: string;
+  timestamp?: string | null;
+  sourceModule: "conversations" | "leads" | "appointments" | "messages" | "system";
+};
+
 export type OrgKnowledgeFile = {
   id: string;
   fileName: string;

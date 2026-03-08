@@ -535,21 +535,35 @@ toolsRouter.post("/send-sms", toolMutationRateLimit, async (req, res) => {
   }
 });
 
-toolsRouter.post("/notify-manager", async (req, res) => {
+toolsRouter.post("/notify-manager", toolMutationRateLimit, async (req, res) => {
   try {
     const parsed = notifySchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid notify-manager payload.");
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId: parsed.data.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/notify-manager", req.body);
+    }
 
     await prisma.auditLog.create({
       data: {
-        orgId: parsed.data.orgId,
+        orgId: trustedContext.orgId,
         actorUserId: "vapi-tool",
         actorRole: "SYSTEM",
         action: "TOOL_NOTIFY_MANAGER",
-        metadataJson: JSON.stringify(req.body || {})
+        metadataJson: JSON.stringify({
+          ...(req.body || {}),
+          resolvedOrgId: trustedContext.orgId,
+          resolvedCallId: trustedContext.callLogId
+        })
       }
     });
-    return res.json({ ok: true, data: { notified: true } });
+    return res.json({
+      ok: true,
+      data: { notified: true, orgId: trustedContext.orgId, callId: trustedContext.callLogId }
+    });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }
@@ -791,15 +805,22 @@ toolsRouter.post("/book-appointment", toolMutationRateLimit, async (req, res) =>
 
 // DEPRECATED: use mark_booking_intent instead.
 // This endpoint remains temporarily for rollout safety and will be removed after stabilization.
-toolsRouter.post("/request-appointment", async (req, res) => {
+toolsRouter.post("/request-appointment", toolMutationRateLimit, async (req, res) => {
   try {
     console.warn("Deprecated request-appointment tool invoked.");
     const parsed = appointmentSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid request-appointment payload.");
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId: parsed.data.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/request-appointment", req.body);
+    }
 
     if (parsed.data.requestedStartAt) {
       const settings = await prisma.businessSettings.findUnique({
-        where: { orgId: parsed.data.orgId },
+        where: { orgId: trustedContext.orgId },
         select: { hoursJson: true, timezone: true }
       });
       const slotCheck = validateSlotWithinBusinessHours({
@@ -818,13 +839,18 @@ toolsRouter.post("/request-appointment", async (req, res) => {
       }
     }
 
-    if (parsed.data.callId) {
-      await prisma.callLog.updateMany({
-        where: { orgId: parsed.data.orgId, OR: [{ id: parsed.data.callId }, { providerCallId: parsed.data.callId }] },
-        data: { appointmentRequested: true, outcome: "APPOINTMENT_REQUEST" }
-      });
-    }
-    return res.json({ ok: true, data: { appointmentRequested: true } });
+    await prisma.callLog.update({
+      where: { id: trustedContext.callLogId },
+      data: { appointmentRequested: true, outcome: "APPOINTMENT_REQUEST" }
+    });
+    return res.json({
+      ok: true,
+      data: {
+        appointmentRequested: true,
+        orgId: trustedContext.orgId,
+        callId: trustedContext.callLogId
+      }
+    });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }

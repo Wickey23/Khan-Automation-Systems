@@ -34,8 +34,16 @@ test("protected tool routes reject explicit orgId without trusted call context",
       body: { orgId: "org_foreign", to: "+15165550000", message: "test" }
     },
     {
+      path: "/notify-manager",
+      body: { orgId: "org_foreign", priority: "high", summary: "Escalate this call" }
+    },
+    {
       path: "/book-appointment",
       body: { orgId: "org_foreign", customerName: "Alex", customerPhone: "+15165550000" }
+    },
+    {
+      path: "/request-appointment",
+      body: { orgId: "org_foreign", requestedStartAt: "2026-03-10T10:00:00.000Z" }
     },
     {
       path: "/get-caller-context",

@@ -22,14 +22,14 @@ const navItems: Array<{
   requiredFeature?: FeatureKey;
 }> = [
   { href: "/app", label: "Overview" },
-  { href: "/app/calls", label: "Calls" },
+  { href: "/app/calls", label: "Conversations" },
   { href: "/app/leads", label: "Leads" },
   { href: "/app/appointments", label: "Appointments", requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
   { href: "/app/messages", label: "Messages" },
   { href: "/app/analytics", label: "Analytics", requiredPlan: "STARTER" },
-  { href: "/app/settings", label: "Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/settings", label: "Assistant Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
-  { href: "/app/team", label: "Team", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
+  { href: "/app/team", label: "Team & Routing", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
 
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { OrgCallRecord } from "@/lib/types";
 import { InfoHint } from "@/components/ui/info-hint";
+import { Badge } from "@/components/ui/badge";
+import { clientBadgeClass } from "@/lib/client-badges";
 
 function formatPercent(value: number) {
   return `${Math.round(value)}%`;
@@ -34,9 +36,27 @@ function getCallSuccessRating(call: OrgCallRecord) {
 function getNextAction(call: OrgCallRecord) {
   if (call.outcome === "MISSED") return "Call back customer";
   if (call.outcome === "TRANSFERRED") return "Confirm transfer resolved issue";
-  if (call.outcome === "APPOINTMENT_REQUEST") return "Confirm booking with customer";
+  if (call.outcome === "APPOINTMENT_REQUEST") return "Review request and confirm scheduling";
   if (!call.transcript) return "Review call and capture notes";
   return "No immediate action";
+}
+
+function getDispositionLabel(call: OrgCallRecord) {
+  if (call.outcome === "APPOINTMENT_REQUEST") return "Request Captured";
+  if (call.outcome === "TRANSFERRED") return "Transferred";
+  if (call.outcome === "MESSAGE_TAKEN") return "Follow-Up Sent";
+  if (call.outcome === "MISSED") return "Needs Review";
+  if (call.outcome === "SPAM") return "Spam";
+  return "Conversation";
+}
+
+function getDispositionTone(call: OrgCallRecord): "booking" | "success" | "automated" | "warning" | "neutral" {
+  if (call.outcome === "APPOINTMENT_REQUEST") return "booking";
+  if (call.outcome === "TRANSFERRED") return "success";
+  if (call.outcome === "MESSAGE_TAKEN") return "automated";
+  if (call.outcome === "MISSED") return "warning";
+  if (call.outcome === "SPAM") return "neutral";
+  return "neutral";
 }
 
 function getSuccessBadgeClasses(score: number) {
@@ -244,7 +264,7 @@ export default function AppCallsPage() {
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Call Logs</h1>
+        <h1 className="text-3xl font-bold">Conversations</h1>
         <button
           type="button"
           className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
@@ -255,7 +275,7 @@ export default function AppCallsPage() {
         </button>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        Inbound call events with recording, transcript, summary, and outcomes.
+        Review customer conversations, outcomes, follow-up actions, and transcripts.
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
         Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
@@ -347,7 +367,9 @@ export default function AppCallsPage() {
                 <td className="p-3">{new Date(call.startedAt).toLocaleString()}</td>
                 <td className="p-3">{extractCallerName(call) || "-"}</td>
                 <td className="p-3 font-mono text-xs">{call.fromNumber}</td>
-                <td className="p-3">{call.outcome.replaceAll("_", " ")}</td>
+                <td className="p-3">
+                  <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
+                </td>
                 <td className="p-3">
                   <span
                     className={`inline-flex min-w-[72px] justify-center rounded-md border px-2 py-1 text-xs font-semibold ${getSuccessBadgeClasses(success)}`}
@@ -422,9 +444,9 @@ export default function AppCallsPage() {
         <section ref={detailsRef} className="mt-5 rounded-lg border bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold">Call details</h2>
+              <h2 className="text-xl font-semibold">Conversation details</h2>
               <p className="text-xs text-muted-foreground">
-                Click another call row to switch details.
+                Click another conversation row to switch details.
               </p>
             </div>
             <button
@@ -443,7 +465,10 @@ export default function AppCallsPage() {
             <div><span className="text-muted-foreground">From:</span> {selectedCall.fromNumber}</div>
             <div><span className="text-muted-foreground">Caller name:</span> {extractCallerName(selectedCall) || "-"}</div>
             <div><span className="text-muted-foreground">To:</span> {selectedCall.toNumber}</div>
-            <div><span className="text-muted-foreground">Outcome:</span> {selectedCall.outcome.replaceAll("_", " ")}</div>
+            <div>
+              <span className="text-muted-foreground">Disposition:</span>{" "}
+              <Badge className={clientBadgeClass(getDispositionTone(selectedCall))}>{getDispositionLabel(selectedCall)}</Badge>
+            </div>
             <div>
               <span className="text-muted-foreground">Success rating:</span>{" "}
               <span

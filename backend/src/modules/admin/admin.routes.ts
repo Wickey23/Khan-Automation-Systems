@@ -419,7 +419,7 @@ adminRouter.get("/leads/:id", async (req, res) => {
   return res.json({ ok: true, data: { lead } });
 });
 
-adminRouter.patch("/leads/:id", async (req, res) => {
+adminRouter.patch("/leads/:id", requireStepUp, async (req, res) => {
   const parsed = updateLeadSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid update payload." });
   try {
@@ -438,7 +438,7 @@ adminRouter.patch("/leads/:id", async (req, res) => {
   }
 });
 
-adminRouter.delete("/leads/:id", async (req, res) => {
+adminRouter.delete("/leads/:id", requireStepUp, async (req, res) => {
   if (!verifyDeletePassword(req, res)) return;
   try {
     const lead = await prisma.lead.delete({ where: { id: req.params.id } });
@@ -456,7 +456,7 @@ adminRouter.delete("/leads/:id", async (req, res) => {
   }
 });
 
-adminRouter.delete("/calls/:id", async (req, res) => {
+adminRouter.delete("/calls/:id", requireStepUp, async (req, res) => {
   if (!verifyDeletePassword(req, res)) return;
   try {
     const call = await prisma.callLog.delete({ where: { id: req.params.id } });
@@ -519,7 +519,7 @@ adminRouter.get("/prospects", async (req: AuthenticatedRequest, res: Response) =
   return res.json({ ok: true, data: { prospects, total } });
 });
 
-adminRouter.post("/prospects", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/prospects", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = createProspectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid prospect payload.", errors: parsed.error.flatten() });
   const prospect = await prisma.prospect.create({
@@ -550,7 +550,7 @@ adminRouter.post("/prospects", async (req: AuthenticatedRequest, res) => {
   return res.status(201).json({ ok: true, data: { prospect } });
 });
 
-adminRouter.patch("/prospects/:id", async (req: AuthenticatedRequest, res) => {
+adminRouter.patch("/prospects/:id", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = updateProspectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid prospect update payload.", errors: parsed.error.flatten() });
   try {
@@ -588,7 +588,7 @@ adminRouter.patch("/prospects/:id", async (req: AuthenticatedRequest, res) => {
   }
 });
 
-adminRouter.delete("/prospects/:id", async (req: AuthenticatedRequest, res) => {
+adminRouter.delete("/prospects/:id", requireStepUp, async (req: AuthenticatedRequest, res) => {
   if (!verifyDeletePassword(req, res)) return;
   try {
     const prospect = await prisma.prospect.delete({ where: { id: req.params.id } });
@@ -606,7 +606,7 @@ adminRouter.delete("/prospects/:id", async (req: AuthenticatedRequest, res) => {
   }
 });
 
-adminRouter.post("/prospects/import-csv", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/prospects/import-csv", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = importProspectsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
   const rows = parseCsvRows(parsed.data.csv);
@@ -645,7 +645,7 @@ adminRouter.post("/prospects/import-csv", async (req: AuthenticatedRequest, res)
   return res.json({ ok: true, data: { createdCount: created.length } });
 });
 
-adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/prospects/discover", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = discoverProspectsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid discover payload.", errors: parsed.error.flatten() });
@@ -758,7 +758,7 @@ adminRouter.post("/prospects/discover", async (req: AuthenticatedRequest, res) =
   });
 });
 
-adminRouter.post("/prospects/:id/score", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/prospects/:id/score", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const prospect = await prisma.prospect.findUnique({ where: { id: req.params.id } });
   if (!prospect) return res.status(404).json({ ok: false, message: "Prospect not found." });
 
@@ -805,7 +805,7 @@ adminRouter.post("/prospects/:id/score", async (req: AuthenticatedRequest, res) 
   return res.json({ ok: true, data: { prospect: updated } });
 });
 
-adminRouter.post("/prospects/:id/convert-to-lead", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/prospects/:id/convert-to-lead", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const prospect = await prisma.prospect.findUnique({ where: { id: req.params.id } });
   if (!prospect) return res.status(404).json({ ok: false, message: "Prospect not found." });
 
@@ -2251,7 +2251,7 @@ adminRouter.get("/clients/:id", async (req, res) => {
   return res.json({ ok: true, data: { client } });
 });
 
-adminRouter.patch("/clients/:id/status", async (req, res) => {
+adminRouter.patch("/clients/:id/status", requireStepUp, async (req, res) => {
   const parsed = updateClientStatusSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid status payload." });
   const client = await prisma.client.update({
