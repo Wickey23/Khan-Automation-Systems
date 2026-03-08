@@ -20,6 +20,7 @@ import {
   getMe,
   patchOrgAppointment
 } from "@/lib/api";
+import { clientBadgeClass } from "@/lib/client-badges";
 import type {
   Appointment,
   AppointmentRequest,
@@ -601,6 +602,7 @@ export default function AppAppointmentsPage() {
   const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "APPROVED");
   const offeredAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SLOT_OFFERED");
   const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
+  const scheduledAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SCHEDULED");
 
   function buildEventViewUrl(event: OrgCalendarEvent) {
     if (event.viewUrl && String(event.viewUrl).trim()) return String(event.viewUrl).trim();
@@ -621,7 +623,9 @@ export default function AppAppointmentsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Appointments</h1>
-          <p className="text-sm text-muted-foreground">Track pending, confirmed, and completed bookings.</p>
+          <p className="text-sm text-muted-foreground">
+            Manage captured requests, offered slots, and the appointments that are already on the calendar.
+          </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-4">
           <label className="text-sm">
@@ -689,10 +693,33 @@ export default function AppAppointmentsPage() {
         </div>
       ) : null}
 
+      {!featureDisabled ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending review</p>
+            <p className="mt-1 text-xl font-semibold">{pendingAppointmentRequests.length}</p>
+          </div>
+          <div className="rounded-lg border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
+            <p className="mt-1 text-xl font-semibold">{offeredAppointmentRequests.length}</p>
+          </div>
+          <div className="rounded-lg border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Requests scheduled</p>
+            <p className="mt-1 text-xl font-semibold">{scheduledAppointmentRequests.length}</p>
+          </div>
+          <div className="rounded-lg border bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Calendar appointments</p>
+            <p className="mt-1 text-xl font-semibold">{appointments.length}</p>
+          </div>
+        </div>
+      ) : null}
+
       {canWrite && !featureDisabled ? (
         <div className="rounded-lg border bg-white p-4">
-          <h2 className="text-lg font-semibold">Create appointment</h2>
-          <p className="text-sm text-muted-foreground">Select a day, pull available slots, then book a confirmed or internal pending appointment.</p>
+          <h2 className="text-lg font-semibold">Book an appointment</h2>
+          <p className="text-sm text-muted-foreground">
+            Book directly from the office when you already know the customer and preferred time.
+          </p>
           {customerBase.length > 0 ? (
             <label className="mt-3 block text-sm">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">Select customer from customer base</span>
@@ -802,9 +829,9 @@ export default function AppAppointmentsPage() {
         <div className="rounded-lg border bg-white p-4">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Appointment requests</h2>
+              <h2 className="text-lg font-semibold">Appointment Requests</h2>
               <p className="text-sm text-muted-foreground">
-                Review worker-created appointment requests, assign a technician, and decide whether to accept or decline.
+                Review requests the assistant captured, offer times, and decide which ones need office follow-up.
               </p>
             </div>
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -829,12 +856,12 @@ export default function AppAppointmentsPage() {
                       {section.items.map((request) => {
                         const reviewTone =
                           request.status === "APPROVED"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            ? "success"
                             : request.status === "DENIED"
-                              ? "border-rose-200 bg-rose-50 text-rose-700"
+                              ? "critical"
                               : request.status === "SLOT_OFFERED"
-                                ? "border-sky-200 bg-sky-50 text-sky-700"
-                              : "border-amber-200 bg-amber-50 text-amber-700";
+                                ? "pending"
+                              : "warning";
                         const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedUserId ?? "";
                         const requestSlotDate = requestSlotDates[request.id] || "";
                         const slotsForRequest = requestAvailableSlots[request.id] || [];
@@ -845,8 +872,14 @@ export default function AppAppointmentsPage() {
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>
                                 <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
                               </div>
-                              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${reviewTone}`}>
-                                {request.status.replaceAll("_", " ")}
+                              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                {request.status === "PENDING_REVIEW"
+                                  ? "Request Captured"
+                                  : request.status === "SLOT_OFFERED"
+                                    ? "Awaiting Reply"
+                                    : request.status === "SCHEDULED"
+                                      ? "Scheduled"
+                                      : request.status.replaceAll("_", " ")}
                               </span>
                             </div>
                             <div className="mt-3 grid gap-3 text-sm">
@@ -1006,23 +1039,29 @@ export default function AppAppointmentsPage() {
       {viewMode === "CALENDAR" ? (
         <div className="rounded-lg border bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-            >
-              Previous
-            </Button>
-            <h2 className="text-base font-semibold">
-              {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-            </h2>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-            >
-              Next
-            </Button>
+            <div>
+              <h2 className="text-base font-semibold">Appointments Calendar</h2>
+              <p className="text-xs text-muted-foreground">Review scheduled work and outside calendar conflicts.</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+              >
+                Previous
+              </Button>
+              <h2 className="text-base font-semibold">
+                {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+              </h2>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+              >
+                Next
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-7 gap-2 text-center text-xs uppercase tracking-wide text-muted-foreground">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
@@ -1111,7 +1150,12 @@ export default function AppAppointmentsPage() {
           {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments yet.</p> : null}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-white">
+        <div className="rounded-lg border bg-white p-4">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold">Appointments List</h2>
+            <p className="text-xs text-muted-foreground">Review upcoming, completed, and canceled appointments in one list.</p>
+          </div>
+          <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="bg-muted/40">
               <tr>
@@ -1210,6 +1254,7 @@ export default function AppAppointmentsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

@@ -216,8 +216,51 @@ export default function TeamPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold">Team</h1>
-        <p className="text-sm text-muted-foreground">Invite users, assign roles, and manage seat usage.</p>
+        <h1 className="text-3xl font-bold">Team &amp; Routing</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage who receives calls, messages, alerts, and escalation handoffs alongside your team seats.
+        </p>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Routing at a glance</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm md:grid-cols-3">
+            <div className="rounded-lg border bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Call routing</p>
+              <p className="mt-1 font-medium text-slate-900">Review transfer destinations and after-hours behavior.</p>
+            </div>
+            <div className="rounded-lg border bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Alerts</p>
+              <p className="mt-1 font-medium text-slate-900">Keep the right people informed when requests need follow-up.</p>
+            </div>
+            <div className="rounded-lg border bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Escalation</p>
+              <p className="mt-1 font-medium text-slate-900">Use assistant behavior and routing rules to control urgent handoffs.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick links</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              Routing behavior lives across assistant setup, notifications, and your active communication channels.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/app/settings" className="rounded-md border px-3 py-2 font-medium hover:bg-muted">
+                Open Assistant Settings
+              </Link>
+              <Link href="/app/messages" className="rounded-md border px-3 py-2 font-medium hover:bg-muted">
+                Open Messages
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {roleBlocked ? (
@@ -263,7 +306,7 @@ export default function TeamPage() {
       {canManage && proEnabled && !roleBlocked ? (
         <Card>
           <CardHeader>
-            <CardTitle>Invite user</CardTitle>
+            <CardTitle>Invite team member</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-4">
             <div className="md:col-span-2">
@@ -303,7 +346,7 @@ export default function TeamPage() {
 
       <Card className={!proEnabled || roleBlocked ? "opacity-60" : ""}>
         <CardHeader>
-          <CardTitle>Members</CardTitle>
+          <CardTitle>Team members and role coverage</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

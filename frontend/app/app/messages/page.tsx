@@ -4,12 +4,53 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lock } from "lucide-react";
 import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, sendOrgMessage } from "@/lib/api";
+import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgMessageThread, OrgMessagingReadiness } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
+}
+
+function containsBookingLanguage(value: string) {
+  return /appointment|slot|schedule|opening|reply with|confirm|book/i.test(value);
+}
+
+function containsAutomationLanguage(value: string) {
+  return /thanks for calling|team will|follow up|request received|next available|service update/i.test(value);
+}
+
+function getThreadPrimaryBadge(thread: OrgMessageThread) {
+  const messages = thread.messages || [];
+  const hasBookingLanguage = messages.some((message) => containsBookingLanguage(message.body));
+  const hasAutomationLanguage = messages.some((message) => message.direction === "OUTBOUND" && containsAutomationLanguage(message.body));
+
+  if (hasBookingLanguage) return { label: "Booking", tone: "booking" as const };
+  if (hasAutomationLanguage) return { label: "Automated", tone: "automated" as const };
+  return { label: "Manual", tone: "manual" as const };
+}
+
+function getThreadDeliveryBadge(thread: OrgMessageThread) {
+  const outboundMessages = [...thread.messages].filter((message) => message.direction === "OUTBOUND");
+  if (!outboundMessages.length) return null;
+  if (outboundMessages.some((message) => message.status === "FAILED")) {
+    return { label: "Failed", tone: "failed" as const };
+  }
+  const latestOutbound = outboundMessages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  if (latestOutbound.status === "QUEUED" || latestOutbound.status === "SENT") {
+    return { label: "Pending", tone: "pending" as const };
+  }
+  return null;
+}
+
+function getMessageBadge(message: OrgMessageThread["messages"][number]) {
+  if (message.status === "FAILED") return { label: "Failed", tone: "failed" as const };
+  if (message.status === "QUEUED" || message.status === "SENT") return { label: "Pending", tone: "pending" as const };
+  if (message.direction === "OUTBOUND" && containsBookingLanguage(message.body)) return { label: "Booking", tone: "booking" as const };
+  if (message.direction === "OUTBOUND" && containsAutomationLanguage(message.body)) return { label: "Automated", tone: "automated" as const };
+  if (message.direction === "OUTBOUND") return { label: "Manual", tone: "manual" as const };
+  return { label: "Reply", tone: "neutral" as const };
 }
 
 export default function AppMessagesPage() {
@@ -106,7 +147,9 @@ export default function AppMessagesPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Messages</h1>
-          <p className="text-sm text-muted-foreground">SMS conversation threads and outbound follow-up.</p>
+          <p className="text-sm text-muted-foreground">
+            Manage SMS threads, automated follow-up, and booking-related text conversations in one inbox.
+          </p>
         </div>
         <button
           type="button"
@@ -149,21 +192,41 @@ export default function AppMessagesPage() {
               <p className="p-3 text-sm text-muted-foreground">No messages yet.</p>
             ) : (
               threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(thread.id);
-                    setTo(thread.contactPhone || "");
-                  }}
-                  className={`w-full border-b p-3 text-left hover:bg-muted/40 ${
-                    selectedId === thread.id ? "bg-primary/5" : ""
-                  }`}
-                >
-                  <p className="text-sm font-medium">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
-                  <p className="text-xs text-muted-foreground">{thread.contactPhone}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Last: {formatWhen(thread.lastMessageAt)}</p>
-                </button>
+                (() => {
+                  const primaryBadge = getThreadPrimaryBadge(thread);
+                  const deliveryBadge = getThreadDeliveryBadge(thread);
+                  return (
+                    <button
+                      key={thread.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(thread.id);
+                        setTo(thread.contactPhone || "");
+                      }}
+                      className={`w-full border-b p-3 text-left hover:bg-muted/40 ${
+                        selectedId === thread.id ? "bg-primary/5" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
+                          <p className="text-xs text-muted-foreground">{thread.contactPhone}</p>
+                        </div>
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
+                            {primaryBadge.label}
+                          </span>
+                          {deliveryBadge ? (
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(deliveryBadge.tone)}`}>
+                              {deliveryBadge.label}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">Last: {formatWhen(thread.lastMessageAt)}</p>
+                    </button>
+                  );
+                })()
               ))
             )}
           </div>
@@ -212,19 +275,30 @@ export default function AppMessagesPage() {
               ) : (
                 [...selected.messages]
                   .reverse()
-                  .map((message) => (
-                    <div
-                      key={message.id}
-                      className={`max-w-[82%] rounded-lg border px-3 py-2 text-sm ${
-                        message.direction === "OUTBOUND" ? "ml-auto bg-blue-50" : "bg-zinc-50"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap">{message.body}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {message.direction} | {message.status} | {formatWhen(message.createdAt)}
-                      </p>
-                    </div>
-                  ))
+                  .map((message) => {
+                    const badge = getMessageBadge(message);
+                    return (
+                      <div
+                        key={message.id}
+                        className={`max-w-[82%] rounded-lg border px-3 py-2 text-sm ${
+                          message.direction === "OUTBOUND" ? "ml-auto bg-blue-50" : "bg-zinc-50"
+                        }`}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(badge.tone)}`}>
+                            {badge.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {message.direction === "OUTBOUND" ? "Office -> Customer" : "Customer -> Office"}
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-wrap">{message.body}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {message.status} | {formatWhen(message.createdAt)}
+                        </p>
+                      </div>
+                    );
+                  })
               )}
             </div>
           </div>
