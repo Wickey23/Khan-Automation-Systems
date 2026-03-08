@@ -209,6 +209,8 @@ async function getVapiSmsReply(input: {
 }
 
 smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
+  let durablePersisted = false;
+  let actionableMessage = false;
   try {
   const parsedPayload = twilioSmsSchema.safeParse(req.body || {});
   if (!parsedPayload.success) {
@@ -230,6 +232,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   const body = String((req.body.Body as string | undefined) || "").trim();
   const response = new Twiml.MessagingResponse();
   const messageSid = String((req.body.MessageSid as string | undefined) || "");
+  actionableMessage = Boolean(messageSid);
   if (messageSid) {
     const replay = await registerWebhookReplay(prisma, {
       provider: "TWILIO",
@@ -330,6 +333,22 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       toNumber: toNumber || null
     }
   });
+  durablePersisted = true;
+  await prisma.auditLog
+    .create({
+      data: {
+        actorUserId: "twilio-sms",
+        actorRole: "SYSTEM",
+        action: "WEBHOOK_DURABLE_PERSISTED",
+        metadataJson: JSON.stringify({
+          requestId: req.requestId || null,
+          endpoint: "/api/twilio/sms",
+          provider: "TWILIO",
+          messageSid
+        })
+      }
+    })
+    .catch(() => null);
 
   if (incomingKeyword === "STOP") {
     await prisma.lead.updateMany({
@@ -559,26 +578,35 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   response.message(outboundBody);
   return res.type("text/xml").send(response.toString());
   } catch (error) {
+    const action = actionableMessage && !durablePersisted ? "WEBHOOK_RETRY_WORTHY_FAILURE" : "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED";
     await prisma.auditLog
       .create({
         data: {
           actorUserId: "twilio-sms",
           actorRole: "SYSTEM",
-          action: "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED",
+          action,
           metadataJson: JSON.stringify({
             requestId: req.requestId || null,
             endpoint: "/api/twilio/sms",
+            provider: "TWILIO",
+            durablePersisted,
+            actionableMessage,
             message: error instanceof Error ? error.message : "unknown_error"
           })
         }
       })
       .catch(() => null);
     const xml = new Twiml.MessagingResponse();
+    if (actionableMessage && !durablePersisted) {
+      return res.status(500).type("text/xml").send(xml.toString());
+    }
     return res.type("text/xml").send(xml.toString());
   }
 });
 
 smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
+  let durablePersisted = false;
+  let actionableMessage = false;
   try {
   const parsedPayload = z
     .object({
@@ -591,13 +619,14 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
       data: {
         actorUserId: "twilio-sms",
         actorRole: "SYSTEM",
-        action: "TWILIO_WEBHOOK_SCHEMA_IGNORED",
+        action: "WEBHOOK_SAFE_IGNORE",
         metadataJson: JSON.stringify({ requestId: req.requestId || null, endpoint: "/api/twilio/sms/status" })
       }
     });
     return res.json({ ok: true, ignored: true });
   }
   const messageSid = String(req.body.MessageSid || "").trim();
+  actionableMessage = Boolean(messageSid);
   const statusRaw = String(req.body.MessageStatus || "").trim();
   const errorCode = String(req.body.ErrorCode || "").trim();
   const errorMessage = String(req.body.ErrorMessage || "").trim();
@@ -653,23 +682,47 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
       }
     });
   }
+  durablePersisted = true;
+  await prisma.auditLog
+    .create({
+      data: {
+        actorUserId: "twilio-sms",
+        actorRole: "SYSTEM",
+        action: "WEBHOOK_DURABLE_PERSISTED",
+        metadataJson: JSON.stringify({
+          requestId: req.requestId || null,
+          endpoint: "/api/twilio/sms/status",
+          provider: "TWILIO",
+          messageSid,
+          messageStatus: statusRaw
+        })
+      }
+    })
+    .catch(() => null);
 
   return res.json({ ok: true });
   } catch (error) {
+    const action = actionableMessage && !durablePersisted ? "WEBHOOK_RETRY_WORTHY_FAILURE" : "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED";
     await prisma.auditLog
       .create({
         data: {
           actorUserId: "twilio-sms",
           actorRole: "SYSTEM",
-          action: "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED",
+          action,
           metadataJson: JSON.stringify({
             requestId: req.requestId || null,
             endpoint: "/api/twilio/sms/status",
+            provider: "TWILIO",
+            durablePersisted,
+            actionableMessage,
             message: error instanceof Error ? error.message : "unknown_error"
           })
         }
       })
       .catch(() => null);
+    if (actionableMessage && !durablePersisted) {
+      return res.status(500).json({ ok: false, retry: true });
+    }
     return res.json({ ok: true, ignored: true });
   }
 });

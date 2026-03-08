@@ -319,7 +319,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       data: {
         actorUserId: "vapi-webhook",
         actorRole: "SYSTEM",
-        action: "VAPI_WEBHOOK_SCHEMA_IGNORED",
+        action: "WEBHOOK_SAFE_IGNORE",
         metadataJson: JSON.stringify({ requestId: req.requestId || null })
       }
     });
@@ -404,6 +404,10 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const phoneNumberId = pickString(body.phoneNumberId, call.phoneNumberId, phoneNumber.id) || null;
   const durationSec = parseInteger(body.durationSec ?? call.durationSec ?? call.duration);
   const eventTs = parseEventTimestamp((asObject(body.message).timestamp as unknown) ?? body.timestamp);
+  let actionableEvent = false;
+  let durablePersisted = false;
+  let finalizeRequired = false;
+  let finalizeQueued = false;
 
   try {
     if (!callSid) {
@@ -426,6 +430,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       });
       return res.json({ ok: true, data: { queuedBackfill: true, reason: "missing_call_id" } });
     }
+    actionableEvent = true;
 
     await persistVapiWebhookEvent({
       prisma,
@@ -434,11 +439,30 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       eventTs,
       payload: body
     });
-    if (eventType === "end-of-call-report" || endedByStatus) {
+    durablePersisted = true;
+    await prisma.auditLog
+      .create({
+        data: {
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_DURABLE_PERSISTED",
+          metadataJson: JSON.stringify({
+            requestId: req.requestId || null,
+            provider: "VAPI",
+            endpoint: "/api/vapi/webhook",
+            callSid,
+            eventType
+          })
+        }
+      })
+      .catch(() => null);
+    finalizeRequired = eventType === "end-of-call-report" || endedByStatus;
+    if (finalizeRequired) {
       await enqueueFinalizeBookingJob({
         prisma,
         callId: callSid
       });
+      finalizeQueued = true;
     }
 
     const fromNumber = normalizeToE164(
@@ -731,15 +755,38 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
 
     return res.json({ ok: true, data: { eventType, callSid } });
   } catch (error) {
+    const durablyHandled = durablePersisted && (!finalizeRequired || finalizeQueued);
+    const retryWorthy = actionableEvent && !durablyHandled;
     await logWebhookEvent({
       orgId: orgIdFromPayload,
       requestId: req.requestId,
-      statusCode: 200,
+      statusCode: retryWorthy ? 500 : 200,
       reason: error instanceof Error ? error.message : "unknown_error",
       headers: req.headers as Record<string, unknown>,
       payload: body
     });
-    // Always acknowledge webhook to avoid retries storms.
+    await prisma.auditLog
+      .create({
+        data: {
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: retryWorthy ? "WEBHOOK_RETRY_WORTHY_FAILURE" : "VAPI_WEBHOOK_PROCESSING_ERROR_IGNORED",
+          metadataJson: JSON.stringify({
+            requestId: req.requestId || null,
+            callSid,
+            eventType,
+            actionableEvent,
+            durablePersisted,
+            finalizeRequired,
+            finalizeQueued,
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        }
+      })
+      .catch(() => null);
+    if (retryWorthy) {
+      return res.status(500).json({ ok: false, retry: true });
+    }
     return res.json({ ok: true, data: { accepted: true } });
   }
 });
