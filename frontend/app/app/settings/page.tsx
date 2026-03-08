@@ -465,7 +465,7 @@ export default function AppSettingsPage() {
         classificationShadowMode: state.classificationShadowMode,
         classificationLlmDailyCap: state.classificationLlmDailyCap
       });
-      showToast({ title: "Business settings saved", description: "Readiness should now pass business settings checks." });
+      showToast({ title: "Assistant settings saved", description: "Your receptionist rules and readiness settings have been updated." });
     } catch (error) {
       showToast({ title: "Save failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
     } finally {
@@ -476,12 +476,13 @@ export default function AppSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Business Settings</h1>
-        <p className="text-sm text-muted-foreground">Foolproof setup for routing, notifications, and readiness.</p>
+        <h1 className="text-3xl font-bold">Assistant Settings</h1>
+        <p className="text-sm text-muted-foreground">Shape how your receptionist handles calls, booking, follow-up, and team routing.</p>
       </div>
 
       <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-lg font-semibold">Required for Go-Live</h2>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Readiness</p>
+        <h2 className="text-lg font-semibold">Go-Live Readiness</h2>
         <ul className="mt-2 text-sm text-muted-foreground">
           <li>Transfer numbers: {readinessHints.transfer.length > 0 ? "Configured" : "Missing"}</li>
           <li>Notification emails: {readinessHints.emails.length > 0 ? "Configured" : "Missing"}</li>
@@ -491,7 +492,8 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-lg font-semibold">Security & Email Verification</h2>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
+        <h2 className="text-lg font-semibold">Security & Verification</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Verify your login email can receive codes and confirm whether 2FA is enforced for your role.
         </p>
@@ -529,6 +531,13 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
+          <h2 className="text-lg font-semibold">Business Info & Call Routing</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Set your timezone and choose what the receptionist should do after hours.
+          </p>
+        </div>
         <div>
           <Label>Timezone</Label>
           <Input value={state.timezone} onChange={(e) => setState((p) => ({ ...p, timezone: e.target.value }))} />
@@ -548,6 +557,7 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
         <h2 className="text-lg font-semibold">Calendar Connections</h2>
         {!featureFlags.calendarOauthEnabled ? (
           <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -772,9 +782,10 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-lg font-semibold">Operations Controls</h2>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Booking behavior</p>
+        <h2 className="text-lg font-semibold">Booking Rules & Alerts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure ROI defaults, scheduling windows, notification recipients, and classification policy.
+          Configure scheduling windows, job value defaults, alert recipients, and classification policy.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
@@ -850,7 +861,8 @@ export default function AppSettingsPage() {
       <section className="rounded-lg border bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold">Notifications</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
+            <h2 className="text-lg font-semibold">Notification Inbox</h2>
             <p className="text-sm text-muted-foreground">Operational alerts for leads, appointments, missed recovery, and emergencies.</p>
           </div>
           <Button
@@ -897,7 +909,8 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-lg font-semibold">Assistant Knowledge Files</h2>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Knowledge</p>
+        <h2 className="text-lg font-semibold">Knowledge Files</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Upload business detail files so your assistant can answer with your exact policies, services, and process details.
         </p>
@@ -936,6 +949,7 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Hours</p>
         <h2 className="text-lg font-semibold">Business Hours</h2>
         <div className="mt-3 grid gap-3">
           {DAYS.map((day) => {
@@ -985,6 +999,13 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Services & routing</p>
+          <h2 className="text-lg font-semibold">Services, Transfers, and Contact Lists</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Keep service offerings, transfer numbers, and office notification contacts current.
+          </p>
+        </div>
         <div>
           <Label>Transfer Numbers (one per line)</Label>
           <Textarea value={state.transferNumbers} onChange={(e) => setState((p) => ({ ...p, transferNumbers: e.target.value }))} />
@@ -1014,6 +1035,13 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Services & FAQs</p>
+          <h2 className="text-lg font-semibold">Policies and Customer Answers</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            These notes help the receptionist answer common service, warranty, and cancellation questions.
+          </p>
+        </div>
         <div>
           <Label>Warranty policy</Label>
           <Textarea value={state.warrantyPolicy} onChange={(e) => setState((p) => ({ ...p, warrantyPolicy: e.target.value }))} />
@@ -1032,7 +1060,9 @@ export default function AppSettingsPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
-        <Label>SMS First Message (sent on first inbound text)</Label>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">SMS follow-up behavior</p>
+        <h2 className="text-lg font-semibold">SMS Follow-Up</h2>
+        <Label className="mt-3">SMS First Message (sent on first inbound text)</Label>
         <Textarea
           placeholder="Thanks for texting {{businessName}}. Our team will ask a few quick questions to help you faster."
           value={state.smsWelcomeMessage}
@@ -1068,7 +1098,7 @@ export default function AppSettingsPage() {
       </section>
 
       <Button onClick={onSave} disabled={saving}>
-        {saving ? "Saving..." : "Save business settings"}
+        {saving ? "Saving..." : "Save assistant settings"}
       </Button>
     </div>
   );

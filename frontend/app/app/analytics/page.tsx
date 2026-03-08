@@ -78,7 +78,7 @@ export default function AppAnalyticsPage() {
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Revenue and operations view of call handling, lead capture, and messaging performance.
+            See how conversations, leads, requests, and bookings are performing across the business.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -120,8 +120,8 @@ export default function AppAnalyticsPage() {
       <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Answer Rate
-            <InfoHint text="Answered calls divided by total calls in selected range." />
+            AI Answer Rate
+            <InfoHint text="Answered calls divided by total calls in the selected range." />
           </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.answerRate) : "-"}</p>
         </div>
@@ -134,15 +134,15 @@ export default function AppAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Avg Call Duration
-            <InfoHint text="Average call duration in the selected time range." />
+            Avg Conversation Length
+            <InfoHint text="Average conversation duration in the selected time range." />
           </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? duration(kpis.avgCallDurationSec) : "-"}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            SMS Engagement Rate
-            <InfoHint text="Threads with both inbound and outbound SMS over total threads." />
+            Text Reply Rate
+            <InfoHint text="SMS threads with both outbound and inbound responses over total SMS threads." />
           </p>
           <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.smsEngagementRate) : "-"}</p>
         </div>
@@ -162,15 +162,8 @@ export default function AppAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Call Quality Avg
-            <InfoHint text="Average computed quality score for calls that have scoring data." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? Math.round(kpis.callQualityAverage) : "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            ROI Estimate
-            <InfoHint text="Estimated revenue opportunity = appointments booked x average job value." />
+            Revenue Opportunity
+            <InfoHint text="Estimated revenue opportunity based on booked appointments and average job value." />
           </p>
           <p className="mt-1 text-2xl font-semibold">
             {kpis?.estimatedRevenueOpportunityUsd
@@ -183,10 +176,10 @@ export default function AppAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Unknown Name Rate
-            <InfoHint text="Percent of newly created leads still using placeholder names." />
+            Known Customer Rate
+            <InfoHint text="Percent of newly created leads that are not still using placeholder names." />
           </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.unknownNameRate) : "-"}</p>
+          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(Math.max(0, 1 - kpis.unknownNameRate)) : "-"}</p>
         </div>
       </div>
 
@@ -201,7 +194,7 @@ export default function AppAnalyticsPage() {
         <section className="rounded-lg border bg-white p-4 lg:col-span-2">
           <div className="mb-3 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">Calls per day</h2>
+            <h2 className="font-semibold">Conversation Volume</h2>
           </div>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
@@ -226,7 +219,7 @@ export default function AppAnalyticsPage() {
         </section>
 
         <section className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 font-semibold">Outcome breakdown</h2>
+          <h2 className="mb-3 font-semibold">What Happened</h2>
           {data?.charts.outcomeBreakdown?.length ? (
             <div className="space-y-2">
               {data.charts.outcomeBreakdown.map((row) => (
@@ -245,7 +238,7 @@ export default function AppAnalyticsPage() {
 
       {!isViewer ? (
       <section className={`rounded-lg border bg-white p-4 ${!isPro ? "opacity-60" : ""}`}>
-        <h2 className="mb-3 font-semibold">Leads per day</h2>
+        <h2 className="mb-3 font-semibold">Leads Captured Over Time</h2>
         {data?.charts.leadsPerDay?.length ? (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {data.charts.leadsPerDay.map((row) => (
