@@ -6,6 +6,7 @@ import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { sendClientWelcomeEmail, sendNewSubscribedClientNotification } from "../../services/email";
+import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { createCheckoutSchema } from "./stripe.schema";
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
@@ -66,6 +67,28 @@ stripeRouter.post("/webhook", async (req, res) => {
   }
 
   try {
+    const replay = await registerWebhookReplay(prisma, {
+      provider: "STRIPE",
+      eventKey: event.id
+    });
+    if (replay.duplicate) {
+      await prisma.auditLog
+        .create({
+          data: {
+            actorUserId: "stripe-webhook",
+            actorRole: "SYSTEM",
+            action: "WEBHOOK_REPLAY_BLOCKED",
+            metadataJson: JSON.stringify({
+              provider: "STRIPE",
+              eventId: event.id,
+              eventType: event.type
+            })
+          }
+        })
+        .catch(() => null);
+      return res.json({ received: true, duplicate: true });
+    }
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const customerEmail = session.customer_details?.email || session.customer_email;
@@ -182,6 +205,6 @@ stripeRouter.post("/webhook", async (req, res) => {
         }
       })
       .catch(() => null);
-    return res.status(200).json({ received: true, processed: false });
+    return res.status(500).json({ received: false, processed: false });
   }
 });

@@ -6,12 +6,20 @@ import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { issueCsrfCookie } from "../../middleware/csrf";
 import { requireCsrf } from "../../middleware/csrf";
-import { hashToken, signAuthToken, signTrusted2faToken, verifyTrusted2faToken } from "../../lib/auth";
+import {
+  hashToken,
+  signAuthToken,
+  signStepUpToken,
+  signTrusted2faToken,
+  verifyStepUpToken,
+  verifyTrusted2faToken
+} from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { authRateLimit } from "../../middleware/rate-limit";
 import { isEmailProviderConfigured, sendLoginOtpEmail, sendPasswordResetEmail } from "../../services/email";
 import {
   createRefreshSession,
+  revokeRefreshSessionByToken,
   revokeAllRefreshSessionsForUser,
   rotateRefreshSession
 } from "./refresh-session.service";
@@ -21,6 +29,7 @@ import {
   resendLoginOtpSchema,
   resetPasswordSchema,
   signupSchema,
+  stepUpSchema,
   verifyLoginOtpSchema
 } from "./auth.schema";
 
@@ -31,6 +40,7 @@ const LOGIN_FAILS = new Map<string, { count: number; lastAt: number }>();
 const MAX_BACKOFF_MS = 10_000;
 const OTP_CHALLENGE_TIMEOUT_MS = 15_000;
 const TRUSTED_2FA_COOKIE = "kas_2fa_trust";
+const STEP_UP_COOKIE = "kas_step_up";
 const PASSWORD_RESET_TIMEOUT_MS = 15_000;
 
 function hashOtp(code: string) {
@@ -62,6 +72,10 @@ function clearRefreshCookie(res: Response) {
   res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
 }
 
+function clearStepUpCookie(res: Response) {
+  res.clearCookie(STEP_UP_COOKIE, { ...authCookieOptions(), path: "/" });
+}
+
 function fingerprintUserAgent(value: unknown) {
   return crypto.createHash("sha256").update(String(value || "unknown_ua")).digest("hex");
 }
@@ -71,6 +85,16 @@ function readTrusted2fa(req: Request) {
   if (!raw) return null;
   try {
     return verifyTrusted2faToken(raw);
+  } catch {
+    return null;
+  }
+}
+
+function readStepUp(req: Request) {
+  const raw = String(req.cookies?.[STEP_UP_COOKIE] || "").trim();
+  if (!raw) return null;
+  try {
+    return verifyStepUpToken(raw);
   } catch {
     return null;
   }
@@ -89,6 +113,26 @@ function setTrusted2faCookie(req: Request, res: Response, userId: string) {
   });
 }
 
+function setStepUpCookie(
+  req: Request,
+  res: Response,
+  input: { userId: string; method: "password" | "password+2fa" }
+) {
+  const token = signStepUpToken({
+    userId: input.userId,
+    uaHash: fingerprintUserAgent(req.headers["user-agent"]),
+    verifiedAt: Date.now(),
+    method: input.method
+  });
+  const ttlMinutes = Number.parseInt(env.AUTH_STEP_UP_WINDOW_MINUTES, 10);
+  const maxAge = (Number.isFinite(ttlMinutes) && ttlMinutes > 0 ? ttlMinutes : 15) * 60 * 1000;
+  res.cookie(STEP_UP_COOKIE, token, {
+    ...authCookieOptions(),
+    maxAge
+  });
+  return new Date(Date.now() + maxAge).toISOString();
+}
+
 function trackAuthFailure(key: string) {
   const now = Date.now();
   const current = LOGIN_FAILS.get(key);
@@ -102,8 +146,8 @@ function otpEmailUnavailableInProduction() {
 }
 
 function roleRequiresTwoFactor(role: UserRole) {
-  if (process.env.ADMIN_2FA_ENABLED !== "true") return false;
   if (env.AUTH_2FA_ENFORCE_ALL_USERS === "true") return true;
+  if (!(env.SECURITY_MODE === "production" && env.ADMIN_2FA_REQUIRED_IN_PROD === "true")) return false;
   return role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN;
 }
 
@@ -378,6 +422,7 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
         } else {
           clearRefreshCookie(res);
         }
+        setStepUpCookie(req, res, { userId: user.id, method: "password+2fa" });
         issueCsrfCookie(req, res);
         await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: user.id, role: user.role, via: "trusted_2fa" });
 
@@ -460,6 +505,7 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
     } else {
       clearRefreshCookie(res);
     }
+    setStepUpCookie(req, res, { userId: user.id, method: "password" });
     issueCsrfCookie(req, res);
     await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: user.id, role: user.role });
 
@@ -543,6 +589,7 @@ authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Re
       clearRefreshCookie(res);
     }
     setTrusted2faCookie(req, res, challenge.user.id);
+    setStepUpCookie(req, res, { userId: challenge.user.id, method: "password+2fa" });
     issueCsrfCookie(req, res);
     await auditAuthEvent("AUTH_LOGIN_SUCCESS", { userId: challenge.user.id, role: challenge.user.role, via: "otp" });
 
@@ -762,6 +809,7 @@ authRouter.post("/reset-password", authRateLimit, async (req: Request, res: Resp
     res.clearCookie("kas_auth_token", { ...authCookieOptions(), path: "/" });
     res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
     res.clearCookie(TRUSTED_2FA_COOKIE, { ...authCookieOptions(), path: "/" });
+    clearStepUpCookie(res);
     res.clearCookie("kas_csrf_token", { ...authCookieOptions(), path: "/" });
 
     await auditAuthEvent("AUTH_PASSWORD_RESET_COMPLETED", {
@@ -777,13 +825,20 @@ authRouter.post("/reset-password", authRateLimit, async (req: Request, res: Resp
   }
 });
 
-authRouter.post("/logout", requireAuth, requireCsrf, async (_req: AuthenticatedRequest, res: Response) => {
+authRouter.post("/logout", requireAuth, requireCsrf, async (req: AuthenticatedRequest, res: Response) => {
+  const refreshToken = String(req.cookies?.kas_refresh_token || "").trim();
+  if (refreshToken) {
+    await revokeRefreshSessionByToken(prisma, refreshToken);
+    await auditAuthEvent("AUTH_REFRESH_REVOKED", { userId: req.auth?.userId || null, reason: "logout" });
+  }
   res.clearCookie("kas_auth_token", {
     ...authCookieOptions(),
     path: "/"
   });
   res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
   res.clearCookie(TRUSTED_2FA_COOKIE, { ...authCookieOptions(), path: "/" });
+  clearStepUpCookie(res);
+  res.clearCookie("kas_csrf_token", { ...authCookieOptions(), path: "/" });
   return res.json({ ok: true });
 });
 
@@ -841,9 +896,51 @@ authRouter.post("/logout-all", requireAuth, requireCsrf, async (req: Authenticat
   res.clearCookie("kas_auth_token", { ...authCookieOptions(), path: "/" });
   res.clearCookie("kas_refresh_token", { ...authCookieOptions(), path: "/" });
   res.clearCookie(TRUSTED_2FA_COOKIE, { ...authCookieOptions(), path: "/" });
+  clearStepUpCookie(res);
   res.clearCookie("kas_csrf_token", { ...authCookieOptions(), path: "/" });
   await auditAuthEvent("AUTH_REFRESH_REVOKED", { userId: req.auth.userId, reason: "logout_all" });
   return res.json({ ok: true });
+});
+
+authRouter.post("/step-up", requireAuth, requireCsrf, authRateLimit, async (req: AuthenticatedRequest, res: Response) => {
+  const parsed = stepUpSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid step-up payload." });
+  const userId = req.auth?.userId;
+  if (!userId) return res.status(401).json({ ok: false, message: "Unauthorized" });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, passwordHash: true, role: true }
+  });
+  if (!user) return res.status(401).json({ ok: false, message: "Unauthorized" });
+
+  if (roleRequiresTwoFactor(user.role)) {
+    const trusted = readTrusted2fa(req);
+    const uaHash = fingerprintUserAgent(req.headers["user-agent"]);
+    if (!trusted || trusted.userId !== user.id || trusted.uaHash !== uaHash) {
+      await auditAuthEvent("AUTH_STEP_UP_FAIL", { userId: user.id, reason: "trusted_2fa_required" });
+      return res.status(403).json({ ok: false, message: "Trusted two-factor verification required." });
+    }
+  }
+
+  const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!passwordOk) {
+    await auditAuthEvent("AUTH_STEP_UP_FAIL", { userId: user.id, reason: "invalid_password" });
+    return res.status(401).json({ ok: false, message: "Invalid credentials." });
+  }
+
+  const expiresAt = setStepUpCookie(req, res, {
+    userId: user.id,
+    method: roleRequiresTwoFactor(user.role) ? "password+2fa" : "password"
+  });
+  await auditAuthEvent("AUTH_STEP_UP_SUCCESS", { userId: user.id, method: roleRequiresTwoFactor(user.role) ? "password+2fa" : "password" });
+  return res.json({
+    ok: true,
+    data: {
+      stepUpSatisfied: true,
+      expiresAt
+    }
+  });
 });
 
 authRouter.get("/me", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -907,6 +1004,17 @@ authRouter.get("/security-status", requireAuth, async (req: AuthenticatedRequest
     if (!lastTestEmailFailedAt && row.action === "AUTH_2FA_TEST_EMAIL_FAILED") lastTestEmailFailedAt = row.createdAt;
   }
 
+  const stepUp = readStepUp(req);
+  const currentUaHash = fingerprintUserAgent(req.headers["user-agent"]);
+  const stepUpVerifiedAt =
+    stepUp && stepUp.userId === userId && stepUp.uaHash === currentUaHash ? new Date(stepUp.verifiedAt) : null;
+  const stepUpWindowMinutes = Number.parseInt(env.AUTH_STEP_UP_WINDOW_MINUTES, 10);
+  const stepUpExpiresAt =
+    stepUpVerifiedAt && Number.isFinite(stepUpWindowMinutes) && stepUpWindowMinutes > 0
+      ? new Date(stepUpVerifiedAt.getTime() + stepUpWindowMinutes * 60 * 1000)
+      : null;
+  const stepUpSatisfied = Boolean(stepUpExpiresAt && stepUpExpiresAt.getTime() > Date.now());
+
   return res.json({
     ok: true,
     data: {
@@ -919,7 +1027,9 @@ authRouter.get("/security-status", requireAuth, async (req: AuthenticatedRequest
       lastOtpVerifiedAt: lastOtpVerifiedAt?.toISOString() || null,
       lastOtpFailureReason,
       lastTestEmailSentAt: lastTestEmailSentAt?.toISOString() || null,
-      lastTestEmailFailedAt: lastTestEmailFailedAt?.toISOString() || null
+      lastTestEmailFailedAt: lastTestEmailFailedAt?.toISOString() || null,
+      stepUpSatisfied,
+      stepUpExpiresAt: stepUpExpiresAt?.toISOString() || null
     }
   });
 });

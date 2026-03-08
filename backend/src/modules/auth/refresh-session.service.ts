@@ -77,3 +77,12 @@ export async function revokeAllRefreshSessionsForUser(prisma: PrismaClient, user
     data: { revokedAt: new Date() }
   });
 }
+
+export async function revokeRefreshSessionByToken(prisma: PrismaClient, token: string) {
+  const tokenHash = hashToken(token);
+  const result = await prisma.refreshSession.updateMany({
+    where: { tokenHash, revokedAt: null },
+    data: { revokedAt: new Date() }
+  });
+  return result.count > 0;
+}

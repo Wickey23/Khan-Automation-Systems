@@ -22,6 +22,13 @@ export type Trusted2faPayload = {
   uaHash: string;
 };
 
+export type StepUpPayload = {
+  userId: string;
+  uaHash: string;
+  verifiedAt: number;
+  method: "password" | "password+2fa";
+};
+
 export function signAuthToken(payload: AuthPayload) {
   const expiresInMinutes = Number.parseInt(env.ACCESS_TOKEN_TTL_MINUTES, 10);
   return jwt.sign(payload, env.JWT_SECRET as Secret, {
@@ -64,4 +71,16 @@ export function signTrusted2faToken(payload: Trusted2faPayload) {
 export function verifyTrusted2faToken(token: string) {
   const secret = env.REFRESH_TOKEN_SECRET || env.JWT_SECRET;
   return jwt.verify(token, secret) as Trusted2faPayload;
+}
+
+export function signStepUpToken(payload: StepUpPayload) {
+  const secret = env.REFRESH_TOKEN_SECRET || env.JWT_SECRET;
+  const ttlMinutes = Number.parseInt(env.AUTH_STEP_UP_WINDOW_MINUTES, 10);
+  const expires = (Number.isFinite(ttlMinutes) && ttlMinutes > 0 ? `${ttlMinutes}m` : "15m") as SignOptions["expiresIn"];
+  return jwt.sign(payload, secret as Secret, { expiresIn: expires });
+}
+
+export function verifyStepUpToken(token: string) {
+  const secret = env.REFRESH_TOKEN_SECRET || env.JWT_SECRET;
+  return jwt.verify(token, secret) as StepUpPayload;
 }

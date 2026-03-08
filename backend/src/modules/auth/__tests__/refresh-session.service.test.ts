@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createRefreshSession,
+  revokeRefreshSessionByToken,
   revokeAllRefreshSessionsForUser,
   rotateRefreshSession
 } from "../refresh-session.service";
@@ -81,3 +82,17 @@ test("logout-all revokes active refresh sessions", async () => {
   assert.equal(result, undefined);
 });
 
+test("revokeRefreshSessionByToken revokes the matching active session", async () => {
+  const prisma = createMockPrisma() as any;
+  const created = await createRefreshSession(prisma, "u3");
+  const revoked = await revokeRefreshSessionByToken(prisma, created.token);
+  assert.equal(revoked, true);
+  const reused = await rotateRefreshSession(prisma, created.token);
+  assert.equal(reused.ok, false);
+});
+
+test("revokeRefreshSessionByToken is a no-op for unknown token", async () => {
+  const prisma = createMockPrisma() as any;
+  const revoked = await revokeRefreshSessionByToken(prisma, "not-a-real-token");
+  assert.equal(revoked, false);
+});

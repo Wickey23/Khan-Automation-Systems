@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import { env } from "../../config/env";
 import { sendSmsMessage } from "../twilio/twilio.service";
+import { markAppointmentRequestScheduled } from "./appointment-request.service";
 import { getBusyBlocks } from "./calendar-busy.service";
 import { createCalendarEventFromConnection } from "./calendar-oauth.service";
 import { bookAppointmentWithHold } from "./booking.service";
@@ -344,6 +345,14 @@ function buildOfferedSlotsPayload(input: {
     source: input.source,
     slots
   } satisfies OfferedSlotsPayload;
+}
+
+export function buildSmsBookingIdempotencyKey(input: {
+  requestId: string;
+  offerVersion: string;
+  slotHash: string;
+}) {
+  return `sms-request:${input.requestId}:${input.offerVersion}:${input.slotHash}`;
 }
 
 export async function sendAppointmentRequestFollowUpSms(input: {
@@ -847,6 +856,11 @@ export async function handleAppointmentRequestSmsReply(input: {
     timezone: settings?.timezone || "America/New_York",
     appointmentBufferMinutes: settings?.appointmentBufferMinutes ?? 15,
     requestedProvider: "INTERNAL",
+    idempotencyKey: buildSmsBookingIdempotencyKey({
+      requestId: request.id,
+      offerVersion: offered.offerVersion,
+      slotHash: selected.slotHash
+    }),
     businessHoursValidation: {
       hoursJson: settings?.hoursJson || null,
       timezone: settings?.timezone || "America/New_York"
@@ -887,6 +901,24 @@ export async function handleAppointmentRequestSmsReply(input: {
   console.info(
     JSON.stringify({
       event: "requestSmsReplyBooked",
+      orgId: input.orgId,
+      requestId: request.id,
+      appointmentId: booking.appointment.id
+    })
+  );
+  await markAppointmentRequestScheduled({
+    prisma: input.prisma,
+    orgId: input.orgId,
+    requestId: request.id,
+    appointmentId: booking.appointment.id,
+    actorUserId: "twilio-sms",
+    actorRole: "SYSTEM",
+    startAt,
+    endAt
+  });
+  console.info(
+    JSON.stringify({
+      event: "REQUEST_SMS_BOOKING_SCHEDULED",
       orgId: input.orgId,
       requestId: request.id,
       appointmentId: booking.appointment.id

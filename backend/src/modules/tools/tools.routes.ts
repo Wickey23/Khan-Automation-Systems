@@ -235,70 +235,117 @@ function sanitizeCallId(value: unknown) {
   return text;
 }
 
+type TrustedToolContext = {
+  orgId: string;
+  callLogId: string;
+  providerCallId: string | null;
+  callerPhone: string;
+  leadId: string | null;
+};
+
+function extractToolRuntime(root: Record<string, unknown>) {
+  const messageRoot = asObject(root.message);
+  const callRoot = asObject(messageRoot.call);
+  const runtimeCallId = sanitizeCallId(
+    pickString(
+      root.callId,
+      root.providerCallId,
+      messageRoot.callId,
+      callRoot.id,
+      callRoot.callId,
+      callRoot.providerCallId
+    )
+  );
+  const runtimeCallerPhone = normalizePhone(
+    pickString(callRoot.customerNumber, callRoot.phoneNumber, callRoot.fromNumber, root.callerPhone)
+  );
+  return {
+    runtimeCallId,
+    runtimeCallerPhone
+  };
+}
+
+async function logToolContextRejected(route: string, reqBody: unknown, reason: string) {
+  await prisma.auditLog
+    .create({
+      data: {
+        actorUserId: "vapi-tool",
+        actorRole: "SYSTEM",
+        action: "TOOL_ORG_CONTEXT_REJECTED",
+        metadataJson: JSON.stringify({
+          route,
+          reason,
+          payload: reqBody || null
+        })
+      }
+    })
+    .catch(() => null);
+}
+
+async function rejectMissingTrustedContext(
+  res: Response,
+  route: string,
+  reqBody: unknown,
+  reason = "trusted_call_context_required"
+) {
+  await logToolContextRejected(route, reqBody, reason);
+  return toolError(res, "MISSING_CALL_CONTEXT", "Trusted call context is required for this tool.");
+}
+
+async function resolveTrustedToolContext(input: {
+  root: Record<string, unknown>;
+  explicitCallId?: string | null;
+}) {
+  const runtime = extractToolRuntime(input.root);
+  const effectiveCallId = sanitizeCallId(pickString(input.explicitCallId, runtime.runtimeCallId));
+  if (!effectiveCallId) return null;
+  const callLog = await prisma.callLog.findFirst({
+    where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      providerCallId: true,
+      orgId: true,
+      fromNumber: true,
+      leadId: true
+    }
+  });
+  if (!callLog?.orgId) return null;
+  return {
+    orgId: callLog.orgId,
+    callLogId: callLog.id,
+    providerCallId: callLog.providerCallId || null,
+    callerPhone: normalizePhone(callLog.fromNumber || runtime.runtimeCallerPhone || ""),
+    leadId: callLog.leadId || null
+  } satisfies TrustedToolContext;
+}
+
 toolsRouter.post("/create-lead-from-call", async (req, res) => {
   try {
     const parsed = createLeadSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid create-lead payload.");
 
     const root = asObject(req.body);
-    const messageRoot = asObject(root.message);
-    const call = asObject(messageRoot.call);
-    // Tool webhooks commonly put runtime ids at top-level; keep nested fallbacks for compatibility.
-    const runtimeOrgId = pickString(root.orgId, root.organizationId, call.orgId, call.organizationId, messageRoot.orgId);
-    const runtimeCallId = pickString(root.callId, root.providerCallId, call.id, call.callId, call.providerCallId);
-
-    const { orgId: explicitOrgId, name, phone, message, callId: explicitCallId } = parsed.data;
+    const { name, phone, message, callId: explicitCallId } = parsed.data;
     const normalizedPhone = normalizePhone(phone);
     const parsedNameFromMessage = extractHumanNameFromText(message || "");
     const normalizedInputName = toTitleCase(String(name || "").trim());
     const finalInputName = !isPlaceholderName(normalizedInputName)
       ? normalizedInputName
       : parsedNameFromMessage || "Unknown Caller";
-    let resolvedCallId = pickString(runtimeCallId, explicitCallId);
-    let resolvedOrgId = pickString(runtimeOrgId, explicitOrgId);
-
-    // If call id exists, use it to resolve org deterministically.
-    if (resolvedCallId) {
-      const callRow = await prisma.callLog.findFirst({
-        where: { OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, orgId: true, providerCallId: true }
-      });
-      if (callRow?.orgId) {
-        resolvedOrgId = callRow.orgId;
-      }
-      if (callRow?.id && !explicitCallId) {
-        resolvedCallId = callRow.id;
-      }
+    const trustedContext = await resolveTrustedToolContext({
+      root,
+      explicitCallId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/create-lead-from-call", req.body);
     }
 
-    // Fallback: resolve org/call from the most recent call from the same phone.
-    if (!resolvedOrgId || !resolvedCallId) {
-      const recentCall = await prisma.callLog.findFirst({
-        where: {
-          fromNumber: normalizedPhone,
-          createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
-        },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, orgId: true }
-      });
-      if (recentCall?.orgId && !resolvedOrgId) {
-        resolvedOrgId = recentCall.orgId;
-      }
-      if (recentCall?.id && !resolvedCallId) {
-        resolvedCallId = recentCall.id;
-      }
-    }
-
-    if (!resolvedOrgId) {
-      return toolError(res, "MISSING_ORG_CONTEXT", "Missing orgId and unable to resolve from recent call context.");
-    }
-
-    const org = await prisma.organization.findUnique({ where: { id: resolvedOrgId } });
+    const org = await prisma.organization.findUnique({ where: { id: trustedContext.orgId } });
     if (!org) return toolError(res, "ORG_NOT_FOUND", "Organization not found.", 404);
 
     const existingLead = await prisma.lead.findFirst({
-      where: { orgId: resolvedOrgId, phone: normalizedPhone },
+      where: { orgId: trustedContext.orgId, phone: normalizedPhone },
       orderBy: { createdAt: "desc" }
     });
 
@@ -317,7 +364,7 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
         })
       : await prisma.lead.create({
           data: {
-            orgId: resolvedOrgId,
+            orgId: trustedContext.orgId,
             name: finalInputName,
             business: org.name,
             email: `${normalizedPhone.replace(/\D/g, "") || "unknown"}@no-email.local`,
@@ -327,39 +374,30 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
           }
         });
 
-    if (resolvedCallId) {
-      await prisma.callLog.updateMany({
-        where: { orgId: resolvedOrgId, OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
-        data: { leadId: lead.id }
-      });
-    } else {
-      // Deterministic fallback when call id is absent in tool payload.
-      await prisma.callLog.updateMany({
-        where: {
-          orgId: resolvedOrgId,
-          fromNumber: normalizedPhone,
-          createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }
-        },
-        data: { leadId: lead.id }
-      });
-    }
+    await prisma.callLog.updateMany({
+      where: { orgId: trustedContext.orgId, id: trustedContext.callLogId },
+      data: { leadId: lead.id }
+    });
 
     await prisma.auditLog.create({
       data: {
-        orgId: resolvedOrgId,
+        orgId: trustedContext.orgId,
         actorUserId: "vapi-tool",
         actorRole: "SYSTEM",
         action: "TOOL_CREATE_LEAD",
         metadataJson: JSON.stringify({
-          resolvedOrgId,
-          resolvedCallId: resolvedCallId || null,
+          resolvedOrgId: trustedContext.orgId,
+          resolvedCallId: trustedContext.callLogId,
           leadId: lead.id,
           phone: normalizedPhone
         })
       }
     });
 
-    return res.json({ ok: true, data: { leadId: lead.id, orgId: resolvedOrgId, callId: resolvedCallId || null } });
+    return res.json({
+      ok: true,
+      data: { leadId: lead.id, orgId: trustedContext.orgId, callId: trustedContext.callLogId }
+    });
   } catch (error) {
     return toolError(res, "SERVER_ERROR", error instanceof Error ? error.message : "Unknown tool error", 500);
   }
@@ -370,7 +408,16 @@ toolsRouter.post("/send-sms", async (req, res) => {
     const parsed = sendSmsSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid send-sms payload.");
 
-    const { orgId, to, message } = parsed.data;
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId: parsed.data.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/send-sms", req.body);
+    }
+
+    const { to, message } = parsed.data;
+    const orgId = trustedContext.orgId;
     const isPro = await hasProMessaging(prisma, orgId);
     if (!isPro) {
       return toolError(res, "FEATURE_NOT_IN_PLAN", "SMS automation is available on Pro plan only.", 403);
@@ -500,56 +547,15 @@ toolsRouter.post("/book-appointment", async (req, res) => {
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid book-appointment payload.");
     const payload = parsed.data;
     const root = asObject(req.body);
-    const messageRoot = asObject(root.message);
-    const call = asObject(messageRoot.call);
-    let resolvedOrgId = pickString(
-      payload.orgId,
-      root.orgId,
-      root.organizationId,
-      call.orgId,
-      call.organizationId,
-      messageRoot.orgId,
-      process.env.DEFAULT_TOOL_ORG_ID,
-      process.env.ORG_ID
-    );
-    const runtimeCallId = pickString(
-      sanitizeCallId(call.id),
-      sanitizeCallId(call.callId),
-      sanitizeCallId(call.providerCallId),
-      sanitizeCallId(root.callId),
-      sanitizeCallId(root.providerCallId)
-    );
-    const payloadCallId = sanitizeCallId(payload.callId);
-    let resolvedCallId = runtimeCallId || payloadCallId;
-
-    if (!resolvedOrgId && resolvedCallId) {
-      const callRow = await prisma.callLog.findFirst({
-        where: { OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, orgId: true, leadId: true }
-      });
-      if (callRow?.orgId) {
-        resolvedOrgId = callRow.orgId;
-      }
-      if (callRow?.id) {
-        resolvedCallId = callRow.id;
-      }
+    const trustedContext = await resolveTrustedToolContext({
+      root,
+      explicitCallId: payload.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/book-appointment", req.body);
     }
-
-    if (!resolvedOrgId) {
-      const orgCandidates = await prisma.organization.findMany({
-        select: { id: true },
-        orderBy: { createdAt: "asc" },
-        take: 2
-      });
-      if (orgCandidates.length === 1) {
-        resolvedOrgId = orgCandidates[0].id;
-      }
-    }
-
-    if (!resolvedOrgId) {
-      return toolError(res, "MISSING_ORG_CONTEXT", "Missing org context for book-appointment tool payload.");
-    }
+    const resolvedOrgId = trustedContext.orgId;
+    const resolvedCallId = trustedContext.callLogId;
 
     if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, resolvedOrgId)) {
       return toolError(res, "FEATURE_DISABLED", "Appointments feature is disabled for this org.", 404);
@@ -567,12 +573,10 @@ toolsRouter.post("/book-appointment", async (req, res) => {
     });
     const timezone = settings?.timezone || "America/New_York";
     const calendarOauthEnabled = isFeatureEnabledForOrg(env.FEATURE_CALENDAR_OAUTH_ENABLED, resolvedOrgId);
-    const callLog = resolvedCallId
-      ? await prisma.callLog.findFirst({
-          where: { orgId: resolvedOrgId, OR: [{ id: resolvedCallId }, { providerCallId: resolvedCallId }] },
-          select: { id: true, leadId: true }
-        })
-      : null;
+    const callLog = await prisma.callLog.findFirst({
+      where: { orgId: resolvedOrgId, id: resolvedCallId },
+      select: { id: true, leadId: true }
+    });
 
     const buildSlots = async () => {
       const window = computeAvailabilityWindow({
@@ -818,65 +822,26 @@ toolsRouter.post("/mark-booking-intent", async (req, res) => {
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid mark-booking-intent payload.");
 
     const root = asObject(req.body);
-    const messageRoot = asObject(root.message);
-    const callRoot = asObject(messageRoot.call);
-
-    const runtimeCallId = sanitizeCallId(
-      pickString(root.callId, root.providerCallId, messageRoot.callId, callRoot.id, callRoot.callId, callRoot.providerCallId)
-    );
-    const runtimeOrgId = pickString(root.orgId, root.organizationId, messageRoot.orgId, callRoot.orgId, callRoot.organizationId);
-    const runtimeCallerPhone = pickString(callRoot.customerNumber, callRoot.phoneNumber, callRoot.fromNumber, root.callerPhone);
-
     const {
-      orgId: explicitOrgId,
       callId: explicitCallId,
       customerPhone,
       confidence,
       requestedDatetime,
       reason
     } = parsed.data;
-
-    const effectiveCallId = sanitizeCallId(pickString(explicitCallId, runtimeCallId));
-    let resolvedOrgId = pickString(explicitOrgId, runtimeOrgId);
-    let resolvedPhone = normalizePhone(customerPhone || "");
-
-    let callLog = effectiveCallId
-      ? await prisma.callLog.findFirst({
-          where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, orgId: true, fromNumber: true }
-        })
-      : null;
-
-    if (callLog?.orgId) resolvedOrgId = callLog.orgId;
-    if (!resolvedPhone && callLog?.fromNumber) resolvedPhone = normalizePhone(callLog.fromNumber);
-    if (!resolvedPhone && runtimeCallerPhone) resolvedPhone = normalizePhone(runtimeCallerPhone);
-
-    if ((!resolvedOrgId || !callLog) && resolvedPhone) {
-      const recentCall = await prisma.callLog.findFirst({
-        where: {
-          ...(resolvedOrgId ? { orgId: resolvedOrgId } : {}),
-          fromNumber: resolvedPhone,
-          createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
-        },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, orgId: true, fromNumber: true }
-      });
-      if (!callLog && recentCall) callLog = recentCall;
-      if (!resolvedOrgId && recentCall?.orgId) resolvedOrgId = recentCall.orgId;
-      if (!resolvedPhone && recentCall?.fromNumber) resolvedPhone = normalizePhone(recentCall.fromNumber);
+    const trustedContext = await resolveTrustedToolContext({
+      root,
+      explicitCallId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/mark-booking-intent", req.body);
     }
-
-    if (!resolvedOrgId || !callLog?.id) {
-      return toolError(
-        res,
-        "MISSING_CALL_CONTEXT",
-        "Unable to resolve booking intent to an organization and call context."
-      );
-    }
+    const resolvedOrgId = trustedContext.orgId;
+    const resolvedPhone = normalizePhone(customerPhone || trustedContext.callerPhone);
+    const callLogId = trustedContext.callLogId;
 
     await prisma.callLog.update({
-      where: { id: callLog.id },
+      where: { id: callLogId },
       data: {
         appointmentRequested: true,
         outcome: "APPOINTMENT_REQUEST"
@@ -890,7 +855,7 @@ toolsRouter.post("/mark-booking-intent", async (req, res) => {
         actorRole: "SYSTEM",
         action: "BOOKING_INTENT_SIGNALLED",
         metadataJson: JSON.stringify({
-          callId: callLog.id,
+          callId: callLogId,
           customerPhone: resolvedPhone || null,
           confidence,
           requestedDatetime: requestedDatetime || null,
@@ -903,7 +868,7 @@ toolsRouter.post("/mark-booking-intent", async (req, res) => {
       ok: true,
       data: {
         accepted: true,
-        callId: callLog.id,
+        callId: callLogId,
         orgId: resolvedOrgId,
         confidence
       }
@@ -934,40 +899,15 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
     const parsed = callerContextSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-caller-context payload.");
 
-    const { orgId: orgIdRaw, callId, callerPhone } = parsed.data;
-    let resolvedOrgId = String(orgIdRaw || "").trim();
-    let resolvedPhone = normalizePhone(callerPhone || "");
-
-    if (!resolvedOrgId && callId) {
-      const call = await prisma.callLog.findFirst({
-        where: { OR: [{ id: callId }, { providerCallId: callId }] },
-        select: { orgId: true, fromNumber: true }
-      });
-      if (call?.orgId) {
-        resolvedOrgId = call.orgId;
-      }
-      if (!resolvedPhone && call?.fromNumber) {
-        resolvedPhone = normalizePhone(call.fromNumber);
-      }
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId: parsed.data.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/get-caller-context", req.body);
     }
-
-    if (!resolvedOrgId) {
-      return toolError(
-        res,
-        "MISSING_ORG_CONTEXT",
-        "orgId is required when callId cannot be resolved to an organization."
-      );
-    }
-
-    if (!callerPhone && callId) {
-      const call = await prisma.callLog.findFirst({
-        where: { orgId: resolvedOrgId, OR: [{ id: callId }, { providerCallId: callId }] },
-        select: { fromNumber: true }
-      });
-      if (call?.fromNumber) {
-        resolvedPhone = normalizePhone(call.fromNumber);
-      }
-    }
+    const resolvedOrgId = trustedContext.orgId;
+    const resolvedPhone = normalizePhone(parsed.data.callerPhone || trustedContext.callerPhone);
 
     if (!resolvedPhone) {
       return res.json({
@@ -1062,47 +1002,17 @@ toolsRouter.post("/get-customer-context", async (req, res) => {
     const parsed = customerContextSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-customer-context payload.");
 
-    const root = asObject(req.body);
-    const messageRoot = asObject(root.message);
-    const callRoot = asObject(messageRoot.call);
-
-    const runtimeCallId = pickString(
-      root.callId,
-      root.providerCallId,
-      messageRoot.callId,
-      callRoot.id,
-      callRoot.callId,
-      callRoot.providerCallId
-    );
-    const runtimeOrgId = pickString(root.orgId, root.organizationId, messageRoot.orgId, callRoot.orgId, callRoot.organizationId);
-    const runtimeCallerPhone = pickString(callRoot.customerNumber, callRoot.phoneNumber, callRoot.fromNumber, root.callerPhone);
-
-    const { orgId: explicitOrgId, callId: explicitCallId, customerPhone, useCallerNumber } = parsed.data;
-    const effectiveCallId = sanitizeCallId(pickString(explicitCallId, runtimeCallId));
-
-    let resolvedOrgId = pickString(explicitOrgId, runtimeOrgId);
-    let resolvedPhone = normalizePhone(customerPhone || "");
-
-    if (!resolvedOrgId && effectiveCallId) {
-      const call = await prisma.callLog.findFirst({
-        where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
-        select: { orgId: true, fromNumber: true }
-      });
-      if (call?.orgId) resolvedOrgId = call.orgId;
-      if (!resolvedPhone && call?.fromNumber) resolvedPhone = normalizePhone(call.fromNumber);
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId: parsed.data.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/get-customer-context", req.body);
     }
-
-    if (!resolvedPhone && useCallerNumber) {
-      const caller = pickString(runtimeCallerPhone);
-      if (caller) resolvedPhone = normalizePhone(caller);
-    }
-
-    if (!resolvedOrgId) {
-      return toolError(
-        res,
-        "MISSING_ORG_CONTEXT",
-        "orgId is required when call context cannot be resolved to an organization."
-      );
+    const resolvedOrgId = trustedContext.orgId;
+    let resolvedPhone = normalizePhone(parsed.data.customerPhone || "");
+    if (!resolvedPhone && parsed.data.useCallerNumber) {
+      resolvedPhone = normalizePhone(trustedContext.callerPhone);
     }
 
     if (!resolvedPhone) {
@@ -1182,46 +1092,21 @@ toolsRouter.post("/get-available-times", async (req, res) => {
     const parsed = getAvailableTimesSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-available-times payload.");
 
-    const root = asObject(req.body);
-    const messageRoot = asObject(root.message);
-    const callRoot = asObject(messageRoot.call);
-
-    const runtimeCallId = pickString(
-      root.callId,
-      root.providerCallId,
-      messageRoot.callId,
-      callRoot.id,
-      callRoot.callId,
-      callRoot.providerCallId
-    );
-    const runtimeOrgId = pickString(root.orgId, root.organizationId, messageRoot.orgId, callRoot.orgId, callRoot.organizationId);
-
     const {
-      orgId: explicitOrgId,
       callId: explicitCallId,
       preferredDate,
       timeWindow,
       timezone: requestedTimezone
     } = parsed.data;
-
-    const effectiveCallId = sanitizeCallId(pickString(explicitCallId, runtimeCallId));
-    let resolvedOrgId = pickString(explicitOrgId, runtimeOrgId);
-
-    if (!resolvedOrgId && effectiveCallId) {
-      const call = await prisma.callLog.findFirst({
-        where: { OR: [{ id: effectiveCallId }, { providerCallId: effectiveCallId }] },
-        select: { orgId: true }
-      });
-      if (call?.orgId) resolvedOrgId = call.orgId;
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/get-available-times", req.body);
     }
-
-    if (!resolvedOrgId) {
-      return toolError(
-        res,
-        "MISSING_ORG_CONTEXT",
-        "orgId is required when call context cannot be resolved to an organization."
-      );
-    }
+    const resolvedOrgId = trustedContext.orgId;
+    const effectiveCallId = trustedContext.providerCallId || trustedContext.callLogId;
 
     if (!isFeatureEnabledForOrg(env.FEATURE_APPOINTMENTS_ENABLED, resolvedOrgId)) {
       return toolError(res, "FEATURE_DISABLED", "Appointments feature is disabled for this organization.", 404);

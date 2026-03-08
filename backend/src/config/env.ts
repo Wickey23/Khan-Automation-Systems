@@ -1,6 +1,11 @@
 import "dotenv/config";
 import { z } from "zod";
 
+const absoluteUrlSchema = z.string().url().refine((value) => {
+  const protocol = new URL(value).protocol;
+  return protocol === "http:" || protocol === "https:";
+}, "Must be an absolute URL.");
+
 const envSchema = z.object({
   PORT: z.string().default("4000"),
   DATABASE_URL: z.string().min(1),
@@ -36,11 +41,11 @@ const envSchema = z.object({
   STRIPE_STARTER_SETUP_FEE_PRICE_ID: z.string().optional(),
   STRIPE_PRO_SETUP_FEE_PRICE_ID: z.string().optional(),
   STRIPE_FOUNDING_SETUP_FEE_PRICE_ID: z.string().optional(),
-  STRIPE_SUCCESS_URL: z.string().default("https://khan-automation-systems-frontend.vercel.app/checkout/success"),
-  STRIPE_CANCEL_URL: z.string().default("https://khan-automation-systems-frontend.vercel.app/checkout/cancel"),
-  STRIPE_PORTAL_RETURN_URL: z.string().optional(),
-  FRONTEND_APP_URL: z.string().default("https://khan-automation-systems-frontend.vercel.app"),
-  API_BASE_URL: z.string().default("https://ai-auto-apply.onrender.com"),
+  STRIPE_SUCCESS_URL: absoluteUrlSchema.default("https://khan-automation-systems-frontend.vercel.app/checkout/success"),
+  STRIPE_CANCEL_URL: absoluteUrlSchema.default("https://khan-automation-systems-frontend.vercel.app/checkout/cancel"),
+  STRIPE_PORTAL_RETURN_URL: absoluteUrlSchema.optional(),
+  FRONTEND_APP_URL: absoluteUrlSchema.default("https://khan-automation-systems-frontend.vercel.app"),
+  API_BASE_URL: absoluteUrlSchema.default("https://ai-auto-apply.onrender.com"),
   AUTO_LIVE_ON_SETUP: z.string().default("false"),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
@@ -63,6 +68,7 @@ const envSchema = z.object({
   ADMIN_2FA_REQUIRED_IN_PROD: z.string().default("true"),
   AUTH_2FA_ENFORCE_ALL_USERS: z.string().default("false"),
   AUTH_2FA_TRUST_DAYS: z.string().default("1"),
+  AUTH_STEP_UP_WINDOW_MINUTES: z.string().default("15"),
   VAPI_BACKFILL_ENABLED: z.string().default("true"),
   VAPI_BACKFILL_INTERVAL_MS: z.string().default("60000"),
   ROUTING_ENGINE_ENABLED: z.string().default("false"),
@@ -106,6 +112,23 @@ if (!parsed.success) {
   // eslint-disable-next-line no-console
   console.error(parsed.error.flatten().fieldErrors);
   throw new Error("Invalid environment configuration.");
+}
+
+if (parsed.data.SECURITY_MODE === "production") {
+  const httpsFields = [
+    "STRIPE_SUCCESS_URL",
+    "STRIPE_CANCEL_URL",
+    "STRIPE_PORTAL_RETURN_URL",
+    "FRONTEND_APP_URL",
+    "API_BASE_URL"
+  ] as const;
+  for (const key of httpsFields) {
+    const value = parsed.data[key];
+    if (!value) continue;
+    if (!String(value).startsWith("https://")) {
+      throw new Error(`Invalid environment configuration: ${key} must use https in production.`);
+    }
+  }
 }
 
 export const env = {

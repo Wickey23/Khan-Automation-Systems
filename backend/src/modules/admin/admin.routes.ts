@@ -6,6 +6,7 @@ import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { requirePermission } from "../../middleware/require-permission";
+import { requireStepUp } from "../../middleware/require-step-up";
 import { toCsv } from "../../utils/csv";
 import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } from "../voice/vapi/vapi.service";
 import { provisionNumber } from "../twilio/twilio.service";
@@ -332,7 +333,7 @@ adminRouter.get("/settings/demo", async (_req: AuthenticatedRequest, res: Respon
   }
 });
 
-adminRouter.patch("/settings/demo", async (req: AuthenticatedRequest, res: Response) => {
+adminRouter.patch("/settings/demo", requireStepUp, async (req: AuthenticatedRequest, res: Response) => {
   const demoNumber = String(req.body?.demoNumber || "").trim();
   const demoVapiAssistantId = String(req.body?.demoVapiAssistantId || "").trim();
   const demoVapiPhoneNumberId = String(req.body?.demoVapiPhoneNumberId || "").trim();
@@ -1007,7 +1008,7 @@ adminRouter.get("/users", async (req, res) => {
   return res.json({ ok: true, data: { users: rows } });
 });
 
-adminRouter.patch("/users/:id", async (req: AuthenticatedRequest, res) => {
+adminRouter.patch("/users/:id", requireStepUp, async (req: AuthenticatedRequest, res) => {
   if (!requireSuperAdmin(req, res)) return;
   if (Object.prototype.hasOwnProperty.call(req.body || {}, "email")) {
     return res.status(400).json({ ok: false, message: "Email/login identity cannot be edited." });
@@ -1199,7 +1200,7 @@ adminRouter.get("/vapi/resources", async (_req, res) => {
   }
 });
 
-adminRouter.post("/system/backfill-vapi-calls", requirePermission("ADMIN_SYSTEM_MUTATE"), async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/system/backfill-vapi-calls", requireStepUp, requirePermission("ADMIN_SYSTEM_MUTATE"), async (req: AuthenticatedRequest, res) => {
   const result = await backfillMissedVapiCalls(prisma, req.auth!.userId);
   return res.json({
     ok: true,
@@ -1373,7 +1374,7 @@ adminRouter.get("/orgs/:id/messages", async (req, res) => {
   return res.json({ ok: true, data: { threads } });
 });
 
-adminRouter.post("/orgs/:id/config-package/generate", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/config-package/generate", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
   if (!org) return res.status(404).json({ ok: false, message: "Organization not found." });
   const configPackage = await generateConfigPackage({
@@ -1407,7 +1408,7 @@ adminRouter.get("/orgs/:id/config-package/versions", async (req, res) => {
   return res.json({ ok: true, data: { versions } });
 });
 
-adminRouter.post("/orgs/:id/config-package/versions/:versionId/revert", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/config-package/versions/:versionId/revert", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const target = await prisma.configPackageVersion.findFirst({
     where: { id: req.params.versionId, orgId: req.params.id }
   });
@@ -1463,7 +1464,7 @@ adminRouter.get("/orgs/:id/testing", async (req, res) => {
   return res.json({ ok: true, data: { scenarios, summary } });
 });
 
-adminRouter.post("/orgs/:id/testing/run", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/testing/run", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = createTestRunSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid test run payload.", errors: parsed.error.flatten() });
   const scenario = await prisma.testScenario.findFirst({
@@ -1490,7 +1491,7 @@ adminRouter.post("/orgs/:id/testing/run", async (req: AuthenticatedRequest, res)
   return res.json({ ok: true, data: { run } });
 });
 
-adminRouter.patch("/orgs/:id/status", async (req: AuthenticatedRequest, res) => {
+adminRouter.patch("/orgs/:id/status", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const status = String(req.body?.status || "");
   if (!["NEW", "ONBOARDING", "SUBMITTED", "NEEDS_CHANGES", "APPROVED", "PROVISIONING", "TESTING", "LIVE", "PAUSED"].includes(status)) {
     return res.status(400).json({ ok: false, message: "Invalid status value." });
@@ -1515,7 +1516,7 @@ adminRouter.patch("/orgs/:id/status", async (req: AuthenticatedRequest, res) => 
   return res.json({ ok: true, data: { org } });
 });
 
-adminRouter.post("/orgs/:id/provisioning/checklist-step", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/provisioning/checklist-step", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = provisioningStepUpdateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid checklist payload.", errors: parsed.error.flatten() });
   const checklist = await upsertChecklistStep({
@@ -1537,7 +1538,7 @@ adminRouter.post("/orgs/:id/provisioning/checklist-step", async (req: Authentica
   return res.json({ ok: true, data: { checklist } });
 });
 
-adminRouter.post("/orgs/:id/provisioning/approve-onboarding", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/provisioning/approve-onboarding", requireStepUp, async (req: AuthenticatedRequest, res) => {
   await prisma.organization.update({
     where: { id: req.params.id },
     data: { status: "APPROVED", onboardingApprovedAt: new Date() }
@@ -1564,7 +1565,7 @@ adminRouter.post("/orgs/:id/provisioning/approve-onboarding", async (req: Authen
   return res.json({ ok: true });
 });
 
-adminRouter.post("/orgs/:id/provisioning/sync-business-settings", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/provisioning/sync-business-settings", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const latestSubmission = await prisma.onboardingSubmission.findFirst({
     where: { orgId: req.params.id },
     orderBy: { submittedAt: "desc" }
@@ -1649,7 +1650,7 @@ adminRouter.post("/orgs/:id/provisioning/sync-business-settings", async (req: Au
   return res.json({ ok: true, data: { settings } });
 });
 
-adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/provisioning/generate-ai-config", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const [configPackageRecord, settings, knowledgeFiles] = await Promise.all([
     generateConfigPackage({
       prisma,
@@ -1729,7 +1730,7 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", async (req: Authen
   return res.json({ ok: true, data: { ai } });
 });
 
-adminRouter.post("/orgs/:id/twilio/assign-number", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/twilio/assign-number", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const providerRaw = String(req.body?.provider || "").trim().toUpperCase();
   const provider = providerRaw === "VAPI" ? NumberProvider.VAPI : NumberProvider.TWILIO;
   const autoPurchase = Boolean(req.body?.autoPurchase);
@@ -1777,7 +1778,7 @@ adminRouter.post("/orgs/:id/twilio/assign-number", async (req: AuthenticatedRequ
   return res.json({ ok: true, data: { phoneNumber } });
 });
 
-adminRouter.patch("/orgs/:id/ai/config", async (req: AuthenticatedRequest, res) => {
+adminRouter.patch("/orgs/:id/ai/config", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const parsed = updateAiConfigSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid AI config payload.", errors: parsed.error.flatten() });
   const payload = {
@@ -1843,7 +1844,7 @@ adminRouter.get("/orgs/:id/ai-config/versions", async (req, res) => {
   return res.json({ ok: true, data: { versions } });
 });
 
-adminRouter.post("/orgs/:id/ai-config/versions/:versionId/revert", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/ai-config/versions/:versionId/revert", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const target = await prisma.aiAgentConfigVersion.findFirst({
     where: { id: req.params.versionId, orgId: req.params.id }
   });
@@ -1891,7 +1892,7 @@ adminRouter.post("/orgs/:id/ai-config/versions/:versionId/revert", async (req: A
   return res.json({ ok: true, data: { ai } });
 });
 
-adminRouter.post("/orgs/:id/provisioning/testing", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/provisioning/testing", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const org = await prisma.organization.update({
     where: { id: req.params.id },
     data: { status: "TESTING", live: false }
@@ -1906,7 +1907,7 @@ adminRouter.post("/orgs/:id/provisioning/testing", async (req: AuthenticatedRequ
   return res.json({ ok: true, data: { org } });
 });
 
-adminRouter.post("/orgs/:id/provisioning/test-complete", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/provisioning/test-complete", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const notes = String(req.body?.notes || "").trim();
   if (!notes) return res.status(400).json({ ok: false, message: "Notes are required for test completion." });
   await upsertChecklistStep({
@@ -1928,7 +1929,7 @@ adminRouter.post("/orgs/:id/provisioning/test-complete", async (req: Authenticat
   return res.json({ ok: true });
 });
 
-adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/go-live", requireStepUp, async (req: AuthenticatedRequest, res) => {
   await writeAuditLog({
     prisma,
     orgId: req.params.id,
@@ -2034,7 +2035,7 @@ adminRouter.post("/orgs/:id/go-live", async (req: AuthenticatedRequest, res) => 
   return res.json({ ok: true, data: { org } });
 });
 
-adminRouter.post("/orgs/:id/repair/relink-call", requirePermission("DATA_REPAIR_EXECUTE"), async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/repair/relink-call", requireStepUp, requirePermission("DATA_REPAIR_EXECUTE"), async (req: AuthenticatedRequest, res) => {
   const parsed = relinkCallSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid relink payload.", errors: parsed.error.flatten() });
@@ -2077,7 +2078,7 @@ adminRouter.post("/orgs/:id/repair/relink-call", requirePermission("DATA_REPAIR_
   return res.json({ ok: true, data: { callId: call.id, leadId: lead.id } });
 });
 
-adminRouter.post("/orgs/:id/repair/merge-leads", requirePermission("DATA_REPAIR_EXECUTE"), async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/repair/merge-leads", requireStepUp, requirePermission("DATA_REPAIR_EXECUTE"), async (req: AuthenticatedRequest, res) => {
   const parsed = mergeLeadsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid merge payload.", errors: parsed.error.flatten() });
@@ -2139,7 +2140,7 @@ adminRouter.post("/orgs/:id/repair/merge-leads", requirePermission("DATA_REPAIR_
   return res.json({ ok: true, data: { primaryLeadId: primaryLead.id, mergedLeadIds: mergeIds } });
 });
 
-adminRouter.post("/orgs/:id/pause", async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/orgs/:id/pause", requireStepUp, async (req: AuthenticatedRequest, res) => {
   const org = await prisma.organization.update({
     where: { id: req.params.id },
     data: { live: false, status: "PAUSED" }
@@ -2154,7 +2155,7 @@ adminRouter.post("/orgs/:id/pause", async (req: AuthenticatedRequest, res) => {
   return res.json({ ok: true, data: { org } });
 });
 
-adminRouter.post("/orgs/:id/users/:userId/reset-password", async (req, res) => {
+adminRouter.post("/orgs/:id/users/:userId/reset-password", requireStepUp, async (req, res) => {
   const parsed = resetUserPasswordSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid password payload.", errors: parsed.error.flatten() });
   const user = await prisma.user.findFirst({ where: { id: req.params.userId, orgId: req.params.id } });
@@ -2167,7 +2168,7 @@ adminRouter.post("/orgs/:id/users/:userId/reset-password", async (req, res) => {
   return res.json({ ok: true, data: { user: { id: user.id, email: user.email, role: user.role } } });
 });
 
-adminRouter.post("/system/clear-data", requirePermission("ADMIN_SYSTEM_MUTATE"), async (req: AuthenticatedRequest, res) => {
+adminRouter.post("/system/clear-data", requireStepUp, requirePermission("ADMIN_SYSTEM_MUTATE"), async (req: AuthenticatedRequest, res) => {
   const parsed = clearAllDataSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "Invalid clear-data payload.", errors: parsed.error.flatten() });

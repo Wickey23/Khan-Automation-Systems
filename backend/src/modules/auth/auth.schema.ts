@@ -32,3 +32,7 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(20),
   password: z.string().min(8)
 });
+
+export const stepUpSchema = z.object({
+  password: z.string().min(8)
+});

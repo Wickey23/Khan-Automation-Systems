@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseSlotReply } from "../appointment-request-sms.service";
+import { buildSmsBookingIdempotencyKey, parseSlotReply } from "../appointment-request-sms.service";
 
 const offeredSlots = [
   {
@@ -51,3 +51,17 @@ test("parseSlotReply treats unmatched natural language as ambiguous instead of g
   assert.equal(result.kind, "ambiguous");
 });
 
+test("buildSmsBookingIdempotencyKey is stable for the same request offer and slot", () => {
+  const first = buildSmsBookingIdempotencyKey({
+    requestId: "req_1",
+    offerVersion: "offer_1",
+    slotHash: "slot_1"
+  });
+  const second = buildSmsBookingIdempotencyKey({
+    requestId: "req_1",
+    offerVersion: "offer_1",
+    slotHash: "slot_1"
+  });
+  assert.equal(first, "sms-request:req_1:offer_1:slot_1");
+  assert.equal(second, first);
+});
