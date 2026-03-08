@@ -8,6 +8,12 @@ import {
   type PrismaClient
 } from "@prisma/client";
 import { env } from "../../config/env";
+import {
+  assertOrgSmsQuota,
+  assertRequestClarificationAllowed,
+  assertRequestSlotOfferAllowed,
+  isClarificationSource
+} from "../sms/sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { markAppointmentRequestScheduled } from "./appointment-request.service";
 import { getBusyBlocks } from "./calendar-busy.service";
@@ -229,6 +235,30 @@ async function sendCanonicalRequestSms(input: {
   body: string;
   metadataJson: string;
 }) {
+  const metadata = parseMetadataJson(input.metadataJson);
+  const source = typeof metadata.source === "string" ? metadata.source : "request_sms";
+  const requestId = typeof metadata.appointmentRequestId === "string" ? metadata.appointmentRequestId : input.request.id;
+  if (requestId && isClarificationSource(source)) {
+    const clarification = await assertRequestClarificationAllowed({
+      prisma: input.prisma,
+      orgId: input.request.orgId,
+      requestId,
+      actorUserId: "system-request-sms",
+      actorRole: "SYSTEM",
+      source
+    });
+    if (!clarification.ok) return { ok: false as const, reason: clarification.reason };
+  }
+  const quota = await assertOrgSmsQuota({
+    prisma: input.prisma,
+    orgId: input.request.orgId,
+    actorUserId: "system-request-sms",
+    actorRole: "SYSTEM",
+    source,
+    metadata: { requestId }
+  });
+  if (!quota.ok) return { ok: false as const, reason: quota.reason };
+
   const toNumber = getEffectiveRequestSmsPhone(input.request);
   if (!toNumber) return { ok: false as const, reason: "missing_effective_phone" };
   const activePhone = await getActiveTwilioNumber(input.prisma, input.request.orgId);
@@ -395,6 +425,24 @@ export async function sendAppointmentRequestSlotOffer(input: {
 }) {
   const request = await loadRequestById(input.prisma, input.orgId, input.requestId);
   if (!request) return { ok: false as const, reason: "request_not_found" };
+  const resend = await assertRequestSlotOfferAllowed({
+    prisma: input.prisma,
+    orgId: input.orgId,
+    requestId: input.requestId,
+    actorUserId: input.actorId ?? "system-request-sms",
+    actorRole: input.actorType,
+    source: input.source
+  });
+  if (!resend.ok) return { ok: false as const, reason: resend.reason };
+  const quota = await assertOrgSmsQuota({
+    prisma: input.prisma,
+    orgId: input.orgId,
+    actorUserId: input.actorId ?? "system-request-sms",
+    actorRole: input.actorType,
+    source: input.source,
+    metadata: { requestId: input.requestId }
+  });
+  if (!quota.ok) return { ok: false as const, reason: quota.reason };
   const offerPayload = buildOfferedSlotsPayload({ slots: input.slots, source: input.source });
 
   await input.prisma.$transaction(async (tx) => {

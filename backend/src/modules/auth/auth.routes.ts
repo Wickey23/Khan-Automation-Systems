@@ -15,7 +15,17 @@ import {
   verifyTrusted2faToken
 } from "../../lib/auth";
 import { requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
-import { authRateLimit } from "../../middleware/rate-limit";
+import {
+  authForgotPasswordRateLimit,
+  authLoginRateLimit,
+  authOtpResendRateLimit,
+  authOtpVerifyRateLimit,
+  authRefreshRateLimit,
+  authResetPasswordRateLimit,
+  authSecurityOtpRateLimit,
+  authSignupRateLimit,
+  authStepUpRateLimit
+} from "../../middleware/rate-limit";
 import { isEmailProviderConfigured, sendLoginOtpEmail, sendPasswordResetEmail } from "../../services/email";
 import {
   createRefreshSession,
@@ -208,7 +218,7 @@ function genericForgotPasswordResponse(res: Response) {
   });
 }
 
-authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) => {
+authRouter.post("/signup", authSignupRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid signup payload." });
@@ -374,7 +384,7 @@ authRouter.post("/signup", authRateLimit, async (req: Request, res: Response) =>
   }
 });
 
-authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => {
+authRouter.post("/login", authLoginRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid login payload." });
@@ -524,7 +534,7 @@ authRouter.post("/login", authRateLimit, async (req: Request, res: Response) => 
   }
 });
 
-authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Response) => {
+authRouter.post("/login/verify-otp", authOtpVerifyRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = verifyLoginOtpSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid OTP payload." });
@@ -613,7 +623,7 @@ authRouter.post("/login/verify-otp", authRateLimit, async (req: Request, res: Re
   }
 });
 
-authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Response) => {
+authRouter.post("/login/resend-otp", authOtpResendRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = resendLoginOtpSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid resend request." });
@@ -682,7 +692,7 @@ authRouter.post("/login/resend-otp", authRateLimit, async (req: Request, res: Re
   }
 });
 
-authRouter.post("/forgot-password", authRateLimit, async (req: Request, res: Response) => {
+authRouter.post("/forgot-password", authForgotPasswordRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) return genericForgotPasswordResponse(res);
@@ -770,7 +780,7 @@ authRouter.post("/forgot-password", authRateLimit, async (req: Request, res: Res
   }
 });
 
-authRouter.post("/reset-password", authRateLimit, async (req: Request, res: Response) => {
+authRouter.post("/reset-password", authResetPasswordRateLimit, async (req: Request, res: Response) => {
   try {
     const parsed = resetPasswordSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid reset payload." });
@@ -847,7 +857,7 @@ authRouter.get("/csrf-token", async (req: Request, res: Response) => {
   return res.json({ ok: true, data: { csrfToken: token } });
 });
 
-authRouter.post("/refresh", authRateLimit, requireCsrf, async (req: Request, res: Response) => {
+authRouter.post("/refresh", authRefreshRateLimit, requireCsrf, async (req: Request, res: Response) => {
   try {
     if (!isSessionPersistenceEnabled()) {
       clearRefreshCookie(res);
@@ -902,7 +912,7 @@ authRouter.post("/logout-all", requireAuth, requireCsrf, async (req: Authenticat
   return res.json({ ok: true });
 });
 
-authRouter.post("/step-up", requireAuth, requireCsrf, authRateLimit, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.post("/step-up", requireAuth, requireCsrf, authStepUpRateLimit, async (req: AuthenticatedRequest, res: Response) => {
   const parsed = stepUpSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid step-up payload." });
   const userId = req.auth?.userId;
@@ -1034,7 +1044,7 @@ authRouter.get("/security-status", requireAuth, async (req: AuthenticatedRequest
   });
 });
 
-authRouter.post("/security/send-test-otp", requireAuth, requireCsrf, authRateLimit, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.post("/security/send-test-otp", requireAuth, requireCsrf, authSecurityOtpRateLimit, async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.auth?.userId;
   const email = req.auth?.email;
   const role = req.auth?.role;

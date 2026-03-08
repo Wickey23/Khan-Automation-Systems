@@ -3,8 +3,10 @@ import { Router, type Response } from "express";
 import { z } from "zod";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
+import { toolMutationRateLimit, toolReadRateLimit } from "../../middleware/rate-limit";
 import { verifyVapiToolSecret } from "../../middleware/webhook-security";
 import { hasProMessaging } from "../billing/plan-features";
+import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import {
   computeAvailabilityWindow,
@@ -320,7 +322,7 @@ async function resolveTrustedToolContext(input: {
   } satisfies TrustedToolContext;
 }
 
-toolsRouter.post("/create-lead-from-call", async (req, res) => {
+toolsRouter.post("/create-lead-from-call", toolMutationRateLimit, async (req, res) => {
   try {
     const parsed = createLeadSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid create-lead payload.");
@@ -403,7 +405,7 @@ toolsRouter.post("/create-lead-from-call", async (req, res) => {
   }
 });
 
-toolsRouter.post("/send-sms", async (req, res) => {
+toolsRouter.post("/send-sms", toolMutationRateLimit, async (req, res) => {
   try {
     const parsed = sendSmsSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid send-sms payload.");
@@ -438,6 +440,18 @@ toolsRouter.post("/send-sms", async (req, res) => {
     });
     if (matchedLead?.dnc) {
       return toolError(res, "DNC_BLOCKED", "Recipient has opted out of SMS (STOP).", 403);
+    }
+
+    const quota = await assertOrgSmsQuota({
+      prisma,
+      orgId,
+      actorUserId: "vapi-tool",
+      actorRole: "SYSTEM",
+      source: "tool_send_sms",
+      metadata: { route: "/api/tools/send-sms", toNumber }
+    });
+    if (!quota.ok) {
+      return toolError(res, quota.reason, "SMS quota reached for this organization.", 429);
     }
 
     const thread = await prisma.messageThread.upsert({
@@ -541,7 +555,7 @@ toolsRouter.post("/notify-manager", async (req, res) => {
   }
 });
 
-toolsRouter.post("/book-appointment", async (req, res) => {
+toolsRouter.post("/book-appointment", toolMutationRateLimit, async (req, res) => {
   try {
     const parsed = bookAppointmentSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid book-appointment payload.");
@@ -816,7 +830,7 @@ toolsRouter.post("/request-appointment", async (req, res) => {
   }
 });
 
-toolsRouter.post("/mark-booking-intent", async (req, res) => {
+toolsRouter.post("/mark-booking-intent", toolMutationRateLimit, async (req, res) => {
   try {
     const parsed = markBookingIntentSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid mark-booking-intent payload.");
@@ -894,7 +908,7 @@ toolsRouter.post("/transfer-call", async (req, res) => {
   }
 });
 
-toolsRouter.post("/get-caller-context", async (req, res) => {
+toolsRouter.post("/get-caller-context", toolReadRateLimit, async (req, res) => {
   try {
     const parsed = callerContextSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-caller-context payload.");
@@ -997,7 +1011,7 @@ toolsRouter.post("/get-caller-context", async (req, res) => {
   }
 });
 
-toolsRouter.post("/get-customer-context", async (req, res) => {
+toolsRouter.post("/get-customer-context", toolReadRateLimit, async (req, res) => {
   try {
     const parsed = customerContextSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-customer-context payload.");
@@ -1087,7 +1101,7 @@ toolsRouter.post("/get-customer-context", async (req, res) => {
   }
 });
 
-toolsRouter.post("/get-available-times", async (req, res) => {
+toolsRouter.post("/get-available-times", toolReadRateLimit, async (req, res) => {
   try {
     const parsed = getAvailableTimesSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid get-available-times payload.");

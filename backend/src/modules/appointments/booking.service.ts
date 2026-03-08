@@ -1,5 +1,6 @@
 import { Prisma, type CalendarProvider, type PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
+import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { buildExpandedBusyIntervals, type BusyWindow, validateSlotWithinBusinessHours } from "./slotting.service";
@@ -151,6 +152,15 @@ async function trySendCustomerConfirmationSms(input: {
     const addressLine = input.serviceAddress ? ` Address: ${input.serviceAddress}.` : "";
     const body = `Hi ${input.customerName}, your appointment is scheduled for ${localTime} with ${businessName}.${addressLine}`;
     const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(input.orgId)}`;
+    const quota = await assertOrgSmsQuota({
+      prisma: input.prisma,
+      orgId: input.orgId,
+      actorUserId: "system-booking",
+      actorRole: "SYSTEM",
+      source: input.appointmentRequestId ? "appointment_request_confirmation" : "appointment_confirmation",
+      metadata: { appointmentRequestId: input.appointmentRequestId || null }
+    });
+    if (!quota.ok) return;
 
     const sent = await sendSmsMessage({
       from: activePhone.e164Number,

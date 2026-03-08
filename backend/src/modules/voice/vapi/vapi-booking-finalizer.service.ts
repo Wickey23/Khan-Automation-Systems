@@ -11,6 +11,7 @@ import { bookAppointmentWithHold } from "../../appointments/booking.service";
 import { createCalendarEventFromConnection } from "../../appointments/calendar-oauth.service";
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
 import { generateAvailabilitySlots } from "../../appointments/slotting.service";
+import { assertOrgSmsQuota } from "../../sms/sms-governance.service";
 import { sendSmsMessage } from "../../twilio/twilio.service";
 import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
 import { evaluateBookingState } from "./booking-state-machine";
@@ -92,6 +93,17 @@ async function sendPostCallCustomerSms(input: {
           ? `Thanks ${safeName} - ${businessName} received your service request at ${input.serviceAddress}. Our team will contact you shortly to confirm scheduling.`
           : `Thanks ${safeName} - ${businessName} received your service request. Please reply with your full street address so we can finalize scheduling.`
         : `Thanks ${safeName} - ${businessName} received your service request. Our team will follow up shortly with scheduling options.`;
+    const quota = await assertOrgSmsQuota({
+      prisma: input.prisma,
+      orgId: input.orgId,
+      actorUserId: "postcall-worker",
+      actorRole: "SYSTEM",
+      source: "post_call_follow_up",
+      metadata: { state: input.state }
+    });
+    if (!quota.ok) {
+      return { sent: false as const, reason: quota.reason };
+    }
 
     const sms = await sendSmsMessage({
       from: activePhone.e164Number,
@@ -183,6 +195,16 @@ async function sendAvailabilityOptionsSms(input: {
     const businessName = org?.name || "Khan Systems";
     const slotLines = input.slots.map((slot, index) => `${index + 1}. ${slot.label}`).join("\n");
     const body = `Hi ${input.customerName || "there"}, here are the next available times from ${businessName}:\n${slotLines}\nReply with the option you want and our team will finalize scheduling.`;
+    const quota = await assertOrgSmsQuota({
+      prisma: input.prisma,
+      orgId: input.orgId,
+      actorUserId: "postcall-worker",
+      actorRole: "SYSTEM",
+      source: "availability_sms_fallback"
+    });
+    if (!quota.ok) {
+      return { sent: false as const, reason: quota.reason };
+    }
     const sms = await sendSmsMessage({
       from: activePhone.e164Number,
       to: normalizedPhone,

@@ -8,7 +8,13 @@ import { UserRole } from "@prisma/client";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
 import { requireCsrf } from "./middleware/csrf";
-import { leadRateLimit, toolRateLimit, webhookRateLimit } from "./middleware/rate-limit";
+import {
+  leadRateLimit,
+  toolRateLimit,
+  twilioSmsWebhookRateLimit,
+  twilioVoiceWebhookRateLimit,
+  vapiWebhookRateLimit
+} from "./middleware/rate-limit";
 import { requestContext } from "./middleware/request-context";
 import { adminRouter } from "./modules/admin/admin.routes";
 import { authRouter } from "./modules/auth/auth.routes";
@@ -140,9 +146,9 @@ app.use("/api/admin", requireCsrf, adminRouter);
 app.use("/api/stripe", stripeRouter);
 app.use("/api/billing", requireCsrf, billingRouter);
 app.use("/api/team", teamRouter);
-app.use("/api/twilio/voice", webhookRateLimit, voiceRouter);
-app.use("/api/twilio/sms", webhookRateLimit, smsRouter);
-app.use("/api/vapi", webhookRateLimit, vapiRouter);
+app.use("/api/twilio/voice", twilioVoiceWebhookRateLimit, voiceRouter);
+app.use("/api/twilio/sms", twilioSmsWebhookRateLimit, smsRouter);
+app.use("/api/vapi", vapiWebhookRateLimit, vapiRouter);
 app.use("/api/tools", toolRateLimit, toolsRouter);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {

@@ -104,7 +104,11 @@ const envSchema = z.object({
   WEBHOOK_RATE_LIMIT_WINDOW_MS: z.string().default("60000"),
   WEBHOOK_RATE_LIMIT_MAX: z.string().default("600"),
   TOOL_RATE_LIMIT_WINDOW_MS: z.string().default("60000"),
-  TOOL_RATE_LIMIT_MAX: z.string().default("300")
+  TOOL_RATE_LIMIT_MAX: z.string().default("300"),
+  SMS_ORG_HOURLY_CAP: z.string().default("60"),
+  SMS_ORG_DAILY_CAP: z.string().default("250"),
+  APPOINTMENT_REQUEST_SLOT_OFFER_MAX: z.string().default("4"),
+  APPOINTMENT_REQUEST_CLARIFICATION_MAX: z.string().default("3")
 });
 
 const parsed = envSchema.safeParse(process.env);

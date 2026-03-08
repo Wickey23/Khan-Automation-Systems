@@ -7,6 +7,7 @@ import { prisma } from "../../lib/prisma";
 import { isPrismaMissingColumnError } from "../../lib/prisma-errors";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { hasProMessaging } from "../billing/plan-features";
+import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { backfillMissedVapiCalls } from "../admin/backfill.service";
 import { hasActiveBilling } from "./runtime-access.service";
@@ -1395,7 +1396,10 @@ orgRouter.post("/appointment-requests/:requestId/offer-slots", requireAppointmen
     slots
   });
   if (!result.ok) {
-    return res.status(400).json({ ok: false, message: "Unable to send slot offer.", reason: result.reason });
+    const quotaReasons = new Set(["ORG_SMS_HOURLY_CAP", "ORG_SMS_DAILY_CAP", "REQUEST_SLOT_OFFER_CAP"]);
+    return res
+      .status(quotaReasons.has(String(result.reason || "")) ? 429 : 400)
+      .json({ ok: false, message: "Unable to send slot offer.", reason: result.reason });
   }
   return res.json({ ok: true, data: { updated: true, offerVersion: result.offerVersion } });
 });
@@ -2468,6 +2472,17 @@ orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
   let errorText: string | null = null;
 
   try {
+    const quota = await assertOrgSmsQuota({
+      prisma,
+      orgId: req.auth.orgId,
+      actorUserId: req.auth.userId,
+      actorRole: req.auth.role,
+      source: "org_manual_sms",
+      metadata: { route: "/api/org/messages/send", toNumber }
+    });
+    if (!quota.ok) {
+      return res.status(429).json({ ok: false, message: "SMS quota reached for this organization.", reason: quota.reason });
+    }
     const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(req.auth.orgId)}`;
     const sent = await sendSmsMessage({
       from: fromPhone.e164Number,

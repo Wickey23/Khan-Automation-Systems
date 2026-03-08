@@ -1,0 +1,42 @@
+name: Security Regression
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  security-regression:
+    runs-on: ubuntu-latest
+    env:
+      ADMIN_ACTION_PASSWORD: testpass123
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Backend typecheck
+        run: npx tsc --noEmit -p backend/tsconfig.json
+
+      - name: Security regression tests
+        working-directory: backend
+        run: |
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/auth/__tests__/refresh-session.service.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/middleware/__tests__/require-step-up.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/admin/__tests__/step-up-coverage.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/tools/__tests__/trusted-context.contract.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/stripe/__tests__/webhook-replay.contract.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/sms/__tests__/webhook-failure-policy.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/voice/vapi/__tests__/webhook-failure-policy.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/appointments/__tests__/appointment-request-sms.service.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/sms/__tests__/sms-governance.service.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/middleware/__tests__/rate-limit.config.test.ts

@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
+import { stripeWebhookRateLimit } from "../../middleware/rate-limit";
 import { sendClientWelcomeEmail, sendNewSubscribedClientNotification } from "../../services/email";
 import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { createCheckoutSchema } from "./stripe.schema";
@@ -55,7 +56,7 @@ stripeRouter.post(
   return res.json({ ok: true, data: { url: session.url } });
 });
 
-stripeRouter.post("/webhook", async (req, res) => {
+stripeRouter.post("/webhook", stripeWebhookRateLimit, async (req, res) => {
   const signature = req.headers["stripe-signature"] as string;
   if (!signature) return res.status(401).send("Missing signature");
 

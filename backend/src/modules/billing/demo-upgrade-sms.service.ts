@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
+import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 
 function normalizePhone(input: string) {
@@ -108,6 +109,23 @@ export async function sendThrottledUpgradeSms(input: {
     .trim();
 
   try {
+    const quota = await assertOrgSmsQuota({
+      prisma: prismaClient,
+      orgId: input.orgId,
+      actorUserId: "guided-demo",
+      actorRole: "SYSTEM",
+      source: "guided_demo_upgrade_sms",
+      metadata: { callerPhone }
+    });
+    if (!quota.ok) {
+      await writeAuditLog({
+        prismaClient,
+        orgId: input.orgId,
+        action: "DEMO_UPGRADE_SMS_THROTTLED",
+        metadata: { callerPhone, reason: quota.reason }
+      });
+      return { sent: false as const, reason: quota.reason };
+    }
     const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(input.orgId)}`;
     const sent = await sendSmsMessage({
       from: activePhone.e164Number,

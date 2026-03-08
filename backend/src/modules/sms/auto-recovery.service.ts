@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
 import { hasProMessaging, isActiveSubscriptionStatus } from "../billing/plan-features";
 import { emitRuntimeEvent } from "../runtime/runtime-events.service";
+import { assertOrgSmsQuota } from "./sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { normalizePhoneE164 } from "../voice/caller-profile.service";
 
@@ -159,6 +160,22 @@ export async function evaluateAndSendAutoRecovery(input: { prisma: PrismaClient;
 
   const body = "Sorry we missed your call. How can we help you today?";
   try {
+    const quota = await assertOrgSmsQuota({
+      prisma: input.prisma,
+      orgId: call.orgId,
+      actorUserId: "auto-recovery",
+      actorRole: "SYSTEM",
+      source: "auto_recovery_sms",
+      metadata: { callLogId: call.id, reasonCode }
+    });
+    if (!quota.ok) {
+      await writeSkipAudit(input.prisma, call.orgId, {
+        callLogId: call.id,
+        reasonCode,
+        skipped: quota.reason
+      });
+      return { sent: false, skipped: quota.reason };
+    }
     const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(call.orgId)}`;
     const result = await sendSmsMessage({
       from: activePhone.e164Number,
