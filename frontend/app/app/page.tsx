@@ -468,32 +468,34 @@ export default function AppOverviewPage() {
         }
       />
 
-      <section className="grid gap-3 lg:grid-cols-3">
-        <div className="surface-muted px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Today at a glance</p>
-          <p className="mt-1 text-sm text-foreground/90">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
-        </div>
-        <div className="surface-muted px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Follow-up</p>
-          <p className="mt-1 text-sm text-foreground/90">{loading ? "Checking follow-up queue..." : `${actionItems.length} items need attention right now`}</p>
-        </div>
-        <div className="surface-muted px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Requests waiting</p>
-          <p className="mt-1 text-sm text-foreground/90">{loading ? "Reviewing incoming requests..." : `${openRequests.length} new requests are ready for review`}</p>
+      <section className="rounded-[28px] border border-slate-800 bg-[linear-gradient(135deg,#0f172a_0%,#172554_52%,#0f172a_100%)] p-4 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Today at a glance</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Follow-up</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Checking follow-up queue..." : `${actionItems.length} items need attention right now`}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Requests waiting</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing incoming requests..." : `${openRequests.length} new requests are ready for review`}</p>
+          </div>
         </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.9fr)]">
-        <Card>
+        <Card className="border-slate-800 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(30,41,59,0.96)_100%)] text-white shadow-[0_22px_48px_rgba(15,23,42,0.18)]">
           <CardHeader>
-            <CardTitle>{scheduleTitle}</CardTitle>
-            <CardDescription>{scheduleDescription}</CardDescription>
+            <CardTitle className="text-white">{scheduleTitle}</CardTitle>
+            <CardDescription className="text-slate-300">{scheduleDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
               <div className="grid gap-3">
                 {[0, 1, 2].map((item) => (
-                    <div key={item} className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
+                    <div key={item} className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
                     {"Loading today's booking board..."}
                   </div>
                 ))}
@@ -502,20 +504,20 @@ export default function AppOverviewPage() {
               <>
                 <div className="space-y-3">
                   {bookingBoardItems.map((item) => (
-                    <div key={item.id} className="rounded-xl border border-border/90 bg-muted/20 px-4 py-3">
+                    <div key={item.id} className="rounded-xl border border-white/10 bg-white/6 px-4 py-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
-                          <p className="text-sm font-semibold text-foreground">{item.customerName || "Customer"}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-semibold text-white">{item.customerName || "Customer"}</p>
+                          <p className="text-sm text-slate-300">
                             {item.issueSummary || "Appointment details are waiting to be confirmed."}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-slate-400">
                             {item.requestedTimeLabel || item.requestedPreference || `Updated ${formatShortDateTime(item.lastEventAt)}`}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <Badge className={clientBadgeClass(requestStatusTone(item.status))}>{requestStatusLabel(item.status)}</Badge>
-                          <span className="text-sm font-medium text-foreground">
+                          <span className="text-sm font-medium text-slate-100">
                             {item.requestedStartAt ? formatShortTime(item.requestedStartAt) : item.requestedTimeLabel || "Time pending"}
                           </span>
                         </div>
@@ -524,7 +526,7 @@ export default function AppOverviewPage() {
                   ))}
                 </div>
                 <div className="pt-1">
-                  <Button asChild variant="ghost" className="px-0 text-primary hover:bg-transparent hover:text-primary/90">
+                  <Button asChild variant="ghost" className="px-0 text-blue-200 hover:bg-transparent hover:text-white">
                     <Link href="/app/appointments">
                       View full schedule
                       <ArrowRight className="h-4 w-4" />
@@ -533,7 +535,7 @@ export default function AppOverviewPage() {
                 </div>
               </>
             ) : (
-              <div className="empty-state">
+              <div className="rounded-xl border border-dashed border-white/12 bg-white/5 px-4 py-6 text-sm text-slate-300">
                 No appointments scheduled today yet. New booking requests will appear here.
               </div>
             )}
@@ -541,18 +543,22 @@ export default function AppOverviewPage() {
         </Card>
 
         {loading ? (
-          <Card>
+          <Card className="border-slate-800 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(30,41,59,0.96)_100%)] text-white shadow-[0_22px_48px_rgba(15,23,42,0.18)]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Needs attention</CardTitle>
+              <CardTitle className="text-lg text-white">Needs attention</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
                 Loading follow-up tasks...
               </div>
             </CardContent>
           </Card>
         ) : (
-          <ActionNeededPanel items={actionItems} />
+          <ActionNeededPanel
+            items={actionItems}
+            dark
+            className="border-slate-800 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(30,41,59,0.96)_100%)] text-white shadow-[0_22px_48px_rgba(15,23,42,0.18)]"
+          />
         )}
       </section>
 

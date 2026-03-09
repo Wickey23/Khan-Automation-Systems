@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, Search, SendHorizontal } from "lucide-react";
 import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, sendOrgMessage } from "@/lib/api";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
@@ -56,12 +56,19 @@ function getMessageBadge(message: OrgMessageThread["messages"][number]) {
   return { label: "Reply", tone: "neutral" as const };
 }
 
+function getLatestMessagePreview(thread: OrgMessageThread) {
+  const latest = [...thread.messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  if (!latest?.body) return "No message preview yet.";
+  return latest.body.length > 88 ? `${latest.body.slice(0, 88).trim()}...` : latest.body;
+}
+
 export default function AppMessagesPage() {
   const { showToast } = useToast();
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -109,6 +116,19 @@ export default function AppMessagesPage() {
   }, [load]);
 
   const selected = useMemo(() => threads.find((thread) => thread.id === selectedId) || null, [threads, selectedId]);
+  const filteredThreads = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return threads;
+    return threads.filter((thread) =>
+      [thread.contactName, thread.lead?.name, thread.contactPhone, getLatestMessagePreview(thread)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [search, threads]);
+  const threadsWithActionNeeded = useMemo(
+    () => threads.filter((thread) => getThreadDeliveryBadge(thread)?.tone === "failed" || getThreadPrimaryBadge(thread).tone === "booking").length,
+    [threads]
+  );
 
   async function onSend() {
     if (!canSendMessages) {
@@ -146,7 +166,7 @@ export default function AppMessagesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Client inbox"
         title="Messages"
@@ -159,15 +179,37 @@ export default function AppMessagesPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
-        <Card className="border-amber-200 bg-amber-50/70">
-          <CardContent className="flex items-start gap-3 px-5 py-6 text-sm text-amber-950 sm:px-6 sm:py-5">
-            <Lock className="mt-1 h-4 w-4 shrink-0" />
-            <div className="space-y-2">
-              <p className="font-semibold">Messaging automation is a Pro feature.</p>
-              <p className="text-amber-900/90">
-                Current plan: <strong>{subscriptionPlan || "NONE"}</strong> ({subscriptionStatus || "inactive"}). If sending is disabled,
-                upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
-              </p>
+        <Card className={canSendMessages ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}>
+          <CardContent className={`px-5 py-6 text-sm sm:px-6 sm:py-5 ${canSendMessages ? "text-emerald-950" : "text-amber-950"}`}>
+            <div className="flex items-start gap-3">
+              {canSendMessages ? <SendHorizontal className="mt-1 h-4 w-4 shrink-0" /> : <Lock className="mt-1 h-4 w-4 shrink-0" />}
+              <div className="space-y-2">
+                <p className="font-semibold">{canSendMessages ? "Outbound messaging is live." : "Messaging automation is a Pro feature."}</p>
+                <p className={canSendMessages ? "text-emerald-900/90" : "text-amber-900/90"}>
+                  Current plan: <strong>{subscriptionPlan || "NONE"}</strong> ({subscriptionStatus || "inactive"}).{" "}
+                  {canSendMessages ? (
+                    <>Use this inbox to review threads, reply manually, and keep booking conversations moving.</>
+                  ) : (
+                    <>
+                      If sending is disabled, upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-black/5 bg-white/65 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
+                <p className="mt-2 text-2xl font-semibold">{threads.length}</p>
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white/65 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Action needed</p>
+                <p className="mt-2 text-2xl font-semibold">{threadsWithActionNeeded}</p>
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white/65 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Selected</p>
+                <p className="mt-2 truncate text-sm font-semibold">{selected?.contactName || selected?.contactPhone || "No thread selected"}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -195,17 +237,33 @@ export default function AppMessagesPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:gap-5">
+      <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:gap-5">
         <Card className="self-start overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Threads</CardTitle>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-lg">Threads</CardTitle>
+                <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {filteredThreads.length}
+                </span>
+              </div>
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search contact or message"
+                  className="h-11 w-full rounded-xl border bg-background pl-10 pr-3 text-sm"
+                />
+              </label>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[620px] overflow-auto">
-            {!threads.length ? (
+            {!filteredThreads.length ? (
               <div className="empty-state m-5">No messages yet.</div>
             ) : (
-              threads.map((thread) => (
+              filteredThreads.map((thread) => (
                 (() => {
                   const primaryBadge = getThreadPrimaryBadge(thread);
                   const deliveryBadge = getThreadDeliveryBadge(thread);
@@ -225,7 +283,8 @@ export default function AppMessagesPage() {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
                           <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
-                          <p className="mt-2 text-xs text-muted-foreground">Last update {formatWhen(thread.lastMessageAt)}</p>
+                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{getLatestMessagePreview(thread)}</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">Last update {formatWhen(thread.lastMessageAt)}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
@@ -250,7 +309,12 @@ export default function AppMessagesPage() {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
           <Card className="self-start">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Compose message</CardTitle>
+              <div className="space-y-1">
+                <CardTitle className="text-lg">Compose message</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Send a manual follow-up to the selected contact or type any number directly.
+                </p>
+              </div>
             </CardHeader>
             <CardContent className="grid gap-3">
               <label className="grid gap-1.5 text-sm">
@@ -288,7 +352,12 @@ export default function AppMessagesPage() {
 
           <Card className="min-w-0 overflow-hidden">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Conversation</CardTitle>
+              <div className="space-y-1">
+                <CardTitle className="text-lg">Conversation</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {selected ? `${selected.contactName || selected.lead?.name || "Unknown contact"} • ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
+                </p>
+              </div>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="max-h-[620px] space-y-3 overflow-auto pr-1">
