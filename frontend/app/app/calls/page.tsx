@@ -229,10 +229,10 @@ export default function AppCallsPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="space-y-4">
+      <div className={`grid gap-6 ${selectedCall ? "xl:grid-cols-[minmax(0,1fr)_420px]" : ""}`}>
+        <div className="space-y-4 min-w-0">
           <Card>
-            <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_240px]">
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -299,18 +299,25 @@ export default function AppCallsPage() {
           </Card>
         </div>
 
-        <section ref={detailsRef} className="xl:sticky xl:top-24 xl:self-start">
-          <Card>
-            <CardContent className="p-6">
-              {selectedCall ? (
+        {selectedCall ? (
+          <section ref={detailsRef} className="xl:sticky xl:top-24 xl:self-start">
+            <Card>
+              <CardContent className="p-6">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <p className="page-eyebrow">Selected call</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-2xl">{extractCallerName(selectedCall)}</h2>
-                      <Badge className={clientBadgeClass(getDispositionTone(selectedCall))}>{getDispositionLabel(selectedCall)}</Badge>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-2">
+                        <p className="page-eyebrow">Selected call</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-2xl">{extractCallerName(selectedCall)}</h2>
+                          <Badge className={clientBadgeClass(getDispositionTone(selectedCall))}>{getDispositionLabel(selectedCall)}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{selectedCall.fromNumber}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedCall(null)}>
+                        Close
+                      </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground">{selectedCall.fromNumber}</p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -347,14 +354,10 @@ export default function AppCallsPage() {
                     </Button>
                   ) : null}
                 </div>
-              ) : (
-                <div className="empty-state py-12">
-                  Pick a call from the list to see its summary, transcript, and next step.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
       </div>
     </div>
   );
