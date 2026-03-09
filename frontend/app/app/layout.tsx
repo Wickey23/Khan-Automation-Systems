@@ -31,6 +31,7 @@ const navItems: Array<{
   { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
   { href: "/app/team", label: "Team & Routing", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
+const primaryNavHrefs = new Set(["/app", "/app/calls", "/app/leads", "/app/appointments", "/app/messages", "/app/analytics"]);
 
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {
   if (!requiredPlan) return true;
@@ -156,59 +157,77 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       });
   }, [pathname, router]);
 
+  const renderNavItem = (item: (typeof navItems)[number]) => {
+    if (
+      !hasRequiredPlan(currentPlan, item.requiredPlan) ||
+      !hasRequiredRole(currentRole, item.requiredRoles) ||
+      !hasRequiredFeature(features, item.requiredFeature)
+    ) {
+      return (
+        <div
+          key={item.href}
+          title={
+            !hasRequiredPlan(currentPlan, item.requiredPlan)
+              ? `Requires ${item.requiredPlan} plan`
+              : !hasRequiredRole(currentRole, item.requiredRoles)
+                ? "Role does not have access"
+                : "Feature is not enabled for this workspace"
+          }
+          className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-muted-foreground/70"
+        >
+          <span>{item.label}</span>
+          <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide">
+            <Lock className="h-3 w-3" />
+            {!hasRequiredPlan(currentPlan, item.requiredPlan)
+              ? item.requiredPlan
+              : !hasRequiredRole(currentRole, item.requiredRoles)
+                ? "ROLE"
+                : "OFF"}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          pathname === item.href
+            ? "bg-primary text-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(31,58,138,0.12)]"
+            : "text-foreground/80 hover:bg-muted/80 hover:text-foreground"
+        )}
+      >
+        {item.label}
+      </Link>
+    );
+  };
+
+  const primaryNavItems = navItems.filter((item) => primaryNavHrefs.has(item.href));
+  const secondaryNavItems = navItems.filter((item) => !primaryNavHrefs.has(item.href));
+
   return (
     <ClientGuard>
       <div className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <div className="grid gap-6 xl:grid-cols-[248px_minmax(0,1fr)] xl:items-start">
-          <aside className="surface-panel h-fit p-3 xl:sticky xl:top-24">
+          <aside className="surface-panel h-fit p-4 xl:sticky xl:top-24">
             <div className="px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
               <p className="mt-1 text-xs text-muted-foreground">Workspace navigation</p>
             </div>
-            <nav className="mt-2 grid gap-1">
-              {navItems.map((item) => (
-                hasRequiredPlan(currentPlan, item.requiredPlan) &&
-                hasRequiredRole(currentRole, item.requiredRoles) &&
-                hasRequiredFeature(features, item.requiredFeature) ? (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                      pathname === item.href
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-foreground/80 hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                ) : (
-                  <div
-                    key={item.href}
-                    title={
-                      !hasRequiredPlan(currentPlan, item.requiredPlan)
-                        ? `Requires ${item.requiredPlan} plan`
-                        : !hasRequiredRole(currentRole, item.requiredRoles)
-                          ? "Role does not have access"
-                          : "Feature is not enabled for this workspace"
-                    }
-                    className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-muted-foreground/70"
-                  >
-                    <span>{item.label}</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide">
-                      <Lock className="h-3 w-3" />
-                      {!hasRequiredPlan(currentPlan, item.requiredPlan)
-                        ? item.requiredPlan
-                        : !hasRequiredRole(currentRole, item.requiredRoles)
-                          ? "ROLE"
-                          : "OFF"}
-                    </span>
-                  </div>
-                )
-              ))}
+            <nav className="mt-2 space-y-4">
+              <div className="grid gap-1">
+                {primaryNavItems.map(renderNavItem)}
+              </div>
+              <div className="border-t pt-4">
+                <div className="grid gap-1">
+                  {secondaryNavItems.map(renderNavItem)}
+                </div>
+              </div>
             </nav>
             <div className="mt-4 border-t pt-4">
-              <Link href="/auth/logout" className="inline-block px-3 text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
+              <Link href="/auth/logout" className="inline-block rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground">
                 Logout
               </Link>
             </div>

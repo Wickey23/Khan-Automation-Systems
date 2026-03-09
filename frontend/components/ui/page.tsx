@@ -19,8 +19,8 @@ export function PageHeader({
       <div className="page-header-copy">
         {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
         <div className="space-y-2">
-          <h1>{title}</h1>
-          {description ? <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{description}</p> : null}
+          <h1 className="text-[32px] font-semibold tracking-tight text-foreground sm:text-[32px]">{title}</h1>
+          {description ? <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p> : null}
         </div>
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}

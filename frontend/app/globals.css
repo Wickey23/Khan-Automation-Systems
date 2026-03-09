@@ -21,8 +21,8 @@
   --secondary-foreground: 221 39% 11%;
   --muted: 210 20% 96%;
   --muted-foreground: 215 16% 35%;
-  --border: 220 14% 87%;
-  --input: 220 14% 87%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
   --accent: 224 64% 33%;
   --accent-foreground: 0 0% 100%;
   --ring: 224 64% 33%;
@@ -250,10 +250,26 @@ body {
   }
 
   .data-toolbar {
-    @apply rounded-2xl border bg-white p-4 shadow-sm;
+    @apply rounded-2xl border bg-white p-5 shadow-sm;
   }
 
   .table-shell {
     @apply overflow-hidden rounded-2xl border bg-white shadow-sm;
+  }
+
+  .status-dot {
+    @apply inline-flex h-2.5 w-2.5 rounded-full;
+  }
+
+  .status-dot-success {
+    @apply bg-emerald-500;
+  }
+
+  .status-dot-warning {
+    @apply bg-amber-500;
+  }
+
+  .status-dot-critical {
+    @apply bg-rose-500;
   }
 }

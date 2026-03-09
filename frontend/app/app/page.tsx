@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { fetchAppointmentRequests, fetchOrgAnalytics, fetchOrgCalls, fetchOrgHealth, fetchOrgLeads, fetchOrgMessagingReadiness, fetchOrgNotifications, fetchOrgOnboarding, fetchOrgProfile, getBillingStatus } from "@/lib/api";
 import type { ActionNeededItem, AppointmentRequest, Lead, OnboardingSubmission, Organization, OrgAnalytics, OrgCallRecord, OrgHealth, OrgMessagingReadiness, OrgNotification, OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,12 @@ function outcomeLabel(outcome: string | null | undefined) {
   if (outcome === "MESSAGE_TAKEN") return "Follow-up sent";
   if (outcome === "MISSED") return "Needs review";
   return outcome.replaceAll("_", " ");
+}
+
+function healthTone(level: OrgHealth["level"] | null | undefined) {
+  if (level === "RED") return "critical";
+  if (level === "YELLOW") return "warning";
+  return "success";
 }
 
 export default function AppOverviewPage() {
@@ -207,18 +214,21 @@ export default function AppOverviewPage() {
 
   const workspaceState = workspaceStateLabel(organization, subscription);
   const summaryStats = [
-    { label: "Calls today", value: todayCalls },
-    { label: "New leads", value: todayLeads },
-    { label: "Open requests", value: openRequestCount },
-    { label: "Answer rate", value: aiAnswerRate !== null ? `${aiAnswerRate}%` : "-" }
+    { label: "Calls today", value: todayCalls, subtext: todayCalls === 0 ? "No calls yet today" : "Last 24 hours" },
+    { label: "New leads", value: todayLeads, subtext: todayLeads === 0 ? "No new leads captured" : "Captured today" },
+    { label: "Open requests", value: openRequestCount, subtext: openRequestCount === 0 ? "Nothing waiting for review" : "Pending follow-up" },
+    { label: "Answer rate", value: aiAnswerRate !== null ? `${aiAnswerRate}%` : "-", subtext: "Current reporting window" }
   ];
+  const statusTone = healthTone(health?.level);
+  const statusDotClass =
+    statusTone === "critical" ? "status-dot-critical" : statusTone === "warning" ? "status-dot-warning" : "status-dot-success";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <PageHeader
         eyebrow="Client overview"
         title="Overview"
-        description="This page should tell you only three things: whether the system is healthy, what needs action, and what happened recently."
+        description="System health, recent calls, and leads activity."
         actions={
           <>
             <Button asChild>
@@ -231,67 +241,52 @@ export default function AppOverviewPage() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
         <div className="space-y-4">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-xl space-y-3">
-                  <p className="page-eyebrow">Workspace status</p>
+            <CardContent className="space-y-5 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl space-y-3">
+                  <p className="page-eyebrow">System status</p>
                   <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-3xl">{workspaceState}</h2>
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                      workspaceState === "Live" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"
-                    }`}>
-                      {workspaceState === "Live" ? "Healthy" : "Attention needed"}
-                    </span>
+                    <div className="inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+                      <span className={`status-dot ${statusDotClass}`} />
+                      <span>{workspaceState}</span>
+                    </div>
+                    <Badge className={clientBadgeClass(statusTone)}>{statusTone === "success" ? "All services operational" : "Needs attention"}</Badge>
                   </div>
                   <p className="text-sm leading-6 text-muted-foreground">
-                    {health?.summary || "Everything looks normal right now."}
+                    {health?.summary || "All services operational."}
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-1">
-                  <div className="rounded-2xl border bg-muted/20 p-4">
-                    <p className="page-eyebrow">Last synced</p>
-                    <p className="mt-2 text-lg font-semibold text-foreground">
-                      {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : "Syncing..."}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">{organization?.status || submission?.status || "Draft"}</p>
-                  </div>
-                  <div className="rounded-2xl border bg-muted/20 p-4">
-                    <p className="page-eyebrow">Phone line</p>
-                    <p className="mt-2 text-lg font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{assignedNumberProvider || "No provider yet"}</p>
-                  </div>
+                <div className="inline-flex items-center gap-2 rounded-xl border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                  <RefreshCw className="h-4 w-4" />
+                  {lastSyncedAt ? `Synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Syncing now"}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border bg-muted/20 p-5">
+                  <p className="page-eyebrow">Phone Number</p>
+                  <p className="mt-3 text-lg font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{assignedNumberProvider || "No provider"}</p>
+                </div>
+                <div className="rounded-2xl border bg-muted/20 p-5">
+                  <p className="page-eyebrow">Messaging</p>
+                  <p className="mt-3 text-lg font-semibold text-foreground">{messagingReadiness?.state === "A2P_REGISTERED" ? "A2P Registered" : (messagingReadiness?.state || "Unknown").replaceAll("_", " ")}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{messagingReadiness?.reasons?.[0] || "No blockers"}</p>
+                </div>
+                <div className="rounded-2xl border bg-muted/20 p-5">
+                  <p className="page-eyebrow">Last Synced</p>
+                  <p className="mt-3 text-lg font-semibold text-foreground">
+                    {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Syncing..."}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{organization?.status || submission?.status || "Live"}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <p className="page-eyebrow">Messaging</p>
-              <p className="mt-3 text-xl font-semibold text-foreground">{messagingReadiness?.state || "Unknown"}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {messagingReadiness?.reasons?.[0] || "No active blockers detected."}
-              </p>
-            </div>
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <p className="page-eyebrow">Today</p>
-              <p className="mt-3 text-xl font-semibold text-foreground">{todayCalls} calls handled</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {todayLeads} new leads captured and {openRequestCount} open request{openRequestCount === 1 ? "" : "s"} awaiting resolution.
-              </p>
-            </div>
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <p className="page-eyebrow">Answer rate</p>
-              <p className="mt-3 text-xl font-semibold text-foreground">{aiAnswerRate !== null ? `${aiAnswerRate}%` : "-"}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                The percentage of inbound calls answered by the assistant over the current reporting window.
-              </p>
-            </div>
-          </div>
         </div>
 
         <ActionNeededPanel items={actionItems} className="shadow-sm xl:sticky xl:top-24" />
@@ -302,7 +297,8 @@ export default function AppOverviewPage() {
           <Card key={item.label}>
             <CardContent className="p-5">
               <p className="page-eyebrow">{item.label}</p>
-              <p className="mt-3 text-3xl font-semibold tracking-tight">{item.value}</p>
+              <p className="mt-3 text-4xl font-semibold tracking-tight text-foreground">{item.value}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{item.subtext}</p>
             </CardContent>
           </Card>
         ))}
@@ -310,39 +306,41 @@ export default function AppOverviewPage() {
 
       <div className="grid gap-4 xl:items-start xl:grid-cols-2">
         <Card className="self-start">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle>Recent calls</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">The latest conversations handled by the assistant.</p>
               </div>
-              <Link href="/app/calls" className="text-sm font-medium text-primary">View all</Link>
+              <Link href="/app/calls" className="inline-flex items-center gap-1 text-sm font-medium text-primary">View all <ArrowUpRight className="h-4 w-4" /></Link>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {recentConversations.length ? (
               recentConversations.map((call) => (
-                <div key={call.id} className="rounded-xl border bg-muted/20 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="font-medium">{call.displayName || call.fromNumber}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(call.startedAt).toLocaleString()}</p>
+                <div key={call.id} className="rounded-2xl border bg-muted/15 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-semibold text-foreground">{call.displayName || call.fromNumber}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(call.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </p>
                     </div>
                     <Badge className={clientBadgeClass(call.outcome === "MISSED" ? "warning" : call.outcome === "APPOINTMENT_REQUEST" ? "booking" : "neutral")}>
                       {outcomeLabel(call.outcome)}
                     </Badge>
                   </div>
-                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{call.aiSummary || call.summary || "No summary available yet."}</p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-foreground/80">{call.aiSummary || call.summary || "No summary available yet."}</p>
                 </div>
               ))
             ) : (
-              <div className="empty-state py-8">No recent calls yet.</div>
+              <div className="empty-state py-8">No calls yet today.</div>
             )}
           </CardContent>
         </Card>
 
         <Card className="self-start">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle>Open leads and requests</CardTitle>
@@ -354,37 +352,37 @@ export default function AppOverviewPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {openLeads.length ? (
               openLeads.map((lead) => (
-                <div key={lead.id} className="rounded-xl border bg-muted/20 p-4">
+                <div key={lead.id} className="rounded-2xl border bg-muted/15 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <p className="font-medium">{lead.name}</p>
-                      <p className="text-xs text-muted-foreground">{lead.phone || lead.email || "No contact info"}</p>
+                      <p className="font-semibold text-foreground">{lead.name}</p>
+                      <p className="text-sm text-muted-foreground">{lead.phone || lead.email || "No contact info"}</p>
                     </div>
                     <Badge className={clientBadgeClass(lead.status === "NEW" ? "pending" : lead.status === "QUALIFIED" ? "success" : "neutral")}>
                       {lead.status}
                     </Badge>
                   </div>
-                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{lead.serviceRequested || lead.message || "No service details yet."}</p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-foreground/80">{lead.serviceRequested || lead.message || "No service details yet."}</p>
                 </div>
               ))
             ) : requests.slice(0, 3).length ? (
               requests.slice(0, 3).map((request) => (
-                <div key={request.id} className="rounded-xl border bg-muted/20 p-4">
+                <div key={request.id} className="rounded-2xl border bg-muted/15 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <p className="font-medium">{request.customerName || request.customerPhone}</p>
-                      <p className="text-xs text-muted-foreground">{request.requestedTimeLabel || request.requestedPreference || "Scheduling request"}</p>
+                      <p className="font-semibold text-foreground">{request.customerName || request.customerPhone}</p>
+                      <p className="text-sm text-muted-foreground">{request.requestedTimeLabel || request.requestedPreference || "Scheduling request"}</p>
                     </div>
                     <Badge className={clientBadgeClass("pending")}>{requestStatusLabel(request.status)}</Badge>
                   </div>
-                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{request.issueSummary || "No issue summary recorded."}</p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-foreground/80">{request.issueSummary || "No issue summary recorded."}</p>
                 </div>
               ))
             ) : (
-              <div className="empty-state py-8">No open leads or requests right now.</div>
+              <div className="empty-state py-8">No leads or requests need attention right now.</div>
             )}
           </CardContent>
         </Card>
