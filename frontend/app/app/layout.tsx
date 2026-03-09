@@ -159,10 +159,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClientGuard>
       <div className="page-shell">
-        <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[248px_minmax(0,1fr)]">
           <aside className="surface-panel h-fit p-3 xl:sticky xl:top-24">
-            <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
-            <nav className="mt-1 grid gap-1.5">
+            <div className="px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
+              <p className="mt-1 text-xs text-muted-foreground">Workspace navigation</p>
+            </div>
+            <nav className="mt-2 grid gap-1">
               {navItems.map((item) => (
                 hasRequiredPlan(currentPlan, item.requiredPlan) &&
                 hasRequiredRole(currentRole, item.requiredRoles) &&
@@ -172,7 +175,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     className={cn(
                       "rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                      pathname === item.href ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      pathname === item.href
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-foreground/80 hover:bg-muted hover:text-foreground"
                     )}
                   >
                     {item.label}
@@ -202,9 +207,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )
               ))}
             </nav>
-            <Link href="/auth/logout" className="mt-5 inline-block px-3 text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
-              Logout
-            </Link>
+            <div className="mt-4 border-t pt-4">
+              <Link href="/auth/logout" className="inline-block px-3 text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
+                Logout
+              </Link>
+            </div>
           </aside>
           <main className="min-w-0 space-y-4">
             {modeBanner ? (
