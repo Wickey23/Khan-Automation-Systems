@@ -78,6 +78,8 @@ export default function AppCallsPage() {
   const [query, setQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
   const detailsRef = useRef<HTMLElement | null>(null);
+  const shouldScrollToDetailsRef = useRef(false);
+  const selectedCallIdRef = useRef<string | null>(null);
   const pageRef = useRef(page);
   const queryRef = useRef(query);
   const outcomeFilterRef = useRef(outcomeFilter);
@@ -97,8 +99,8 @@ export default function AppCallsPage() {
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
       setLastUpdated(new Date());
-      if (selectedCall) {
-        const fresh = data.calls.find((item) => item.id === selectedCall.id) || null;
+      if (selectedCallIdRef.current) {
+        const fresh = data.calls.find((item) => item.id === selectedCallIdRef.current) || null;
         setSelectedCall(fresh);
       }
     } catch {
@@ -108,7 +110,7 @@ export default function AppCallsPage() {
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
     }
-  }, [pageSize, selectedCall]);
+  }, [pageSize]);
 
   const refreshAndRepopulate = useCallback(async () => {
     setRefreshing(true);
@@ -127,6 +129,10 @@ export default function AppCallsPage() {
     queryRef.current = query;
     outcomeFilterRef.current = outcomeFilter;
   }, [page, query, outcomeFilter]);
+
+  useEffect(() => {
+    selectedCallIdRef.current = selectedCall?.id || null;
+  }, [selectedCall]);
 
   useEffect(() => {
     void loadCalls({ page: 1, query: "", outcome: "ALL" });
@@ -152,7 +158,8 @@ export default function AppCallsPage() {
   }, [query, outcomeFilter, loadCalls]);
 
   useEffect(() => {
-    if (!selectedCall || !detailsRef.current) return;
+    if (!selectedCall || !detailsRef.current || !shouldScrollToDetailsRef.current) return;
+    shouldScrollToDetailsRef.current = false;
     detailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedCall]);
 
@@ -253,7 +260,10 @@ export default function AppCallsPage() {
                   <button
                     key={call.id}
                     type="button"
-                    onClick={() => setSelectedCall(call)}
+                    onClick={() => {
+                      shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
+                      setSelectedCall(call);
+                    }}
                     className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-colors ${
                       selected ? "border-primary ring-1 ring-primary/20" : "hover:bg-muted/20"
                     }`}
@@ -314,7 +324,14 @@ export default function AppCallsPage() {
                         </div>
                         <p className="text-sm text-muted-foreground">{selectedCall.fromNumber}</p>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedCall(null)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          shouldScrollToDetailsRef.current = false;
+                          setSelectedCall(null);
+                        }}
+                      >
                         Close
                       </Button>
                     </div>
