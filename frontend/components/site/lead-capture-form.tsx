@@ -151,9 +151,14 @@ export function LeadCaptureForm({
   }
 
   return (
-    <Card>
+      <Card>
       <CardHeader>
         <CardTitle className="text-xl">{title}</CardTitle>
+        {!compact ? (
+          <p className="max-w-md text-sm leading-6 text-muted-foreground">
+            Share your business details and rollout timing. We will use this to prepare a practical walkthrough of your call flow, intake process, and follow-up needs.
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         {submitted ? (
@@ -182,6 +187,7 @@ export function LeadCaptureForm({
 
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
           <input type="hidden" {...register("sourcePage")} value={sourcePage} />
+          {!compact ? <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Business details</p> : null}
           <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
             <div className="space-y-1.5">
               <Label htmlFor={`${sourcePage}-name`}>Name</Label>
@@ -208,6 +214,7 @@ export function LeadCaptureForm({
             </div>
           </div>
 
+          {!compact ? <p className="pt-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Portal access</p> : null}
           <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
             <div className="space-y-1.5">
               <Label htmlFor={`${sourcePage}-accountPassword`}>Create account password</Label>
@@ -222,6 +229,7 @@ export function LeadCaptureForm({
             </div>
           </div>
 
+          {!compact ? <p className="pt-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Fit and timing</p> : null}
           <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-3"}>
             <div className="space-y-1.5">
               <Label>Industry</Label>
@@ -278,6 +286,11 @@ export function LeadCaptureForm({
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Submitting..." : "Create Account & Submit Lead"}
           </Button>
+          {!compact ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              You will be able to log in after submission, and we will use your preferred contact method for the next step.
+            </p>
+          ) : null}
         </form>
       </CardContent>
     </Card>
