@@ -5,11 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchLeads } from "@/lib/api";
 import type { Lead } from "@/lib/types";
 import { LeadsTable } from "@/components/admin/leads-table";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page";
 import { siteConfig } from "@/lib/config";
-import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 
 export default function AdminLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -58,9 +59,9 @@ export default function AdminLeadsPage() {
 
   if (error) {
     return (
-      <div className="container py-14">
+      <div className="page-shell space-y-6">
         <Card>
-          <CardContent className="space-y-3 p-6">
+          <CardContent className="space-y-4 p-6">
             <p className="font-medium text-red-700">{error}</p>
             <Button asChild variant="outline">
               <Link href="/admin/login">Back to login</Link>
@@ -72,22 +73,41 @@ export default function AdminLeadsPage() {
   }
 
   return (
-    <div className="container py-10">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <AdminTopTabs className="mb-3" />
-          <h1 className="text-3xl font-bold">Admin Leads</h1>
-          <p className="text-sm text-muted-foreground">Manage lead status, tags, notes, and exports.</p>
-        </div>
-        <Button asChild variant="outline">
-          <a href={`${siteConfig.apiBase}/api/admin/export/leads.csv`} target="_blank" rel="noreferrer">
-            Export CSV
-          </a>
-        </Button>
+    <div className="page-shell space-y-6">
+      <AdminTopTabs />
+
+      <PageHeader
+        eyebrow="Admin pipeline"
+        title="Leads"
+        description="Manage lead status, notes, tags, and exports without turning the table into a crowded operations dump."
+        actions={
+          <Button asChild variant="outline">
+            <a href={`${siteConfig.apiBase}/api/admin/export/leads.csv`} target="_blank" rel="noreferrer">
+              Export CSV
+            </a>
+          </Button>
+        }
+      />
+
+      <div className="metric-grid">
+        {[
+          { label: "Loaded leads", value: leads.length },
+          { label: "New", value: leads.filter((lead) => lead.status === "NEW").length },
+          { label: "Qualified", value: leads.filter((lead) => lead.status === "QUALIFIED").length },
+          { label: "Won", value: leads.filter((lead) => lead.status === "WON").length }
+        ].map((item) => (
+          <Card key={item.label}>
+            <CardContent className="p-5">
+              <p className="page-eyebrow">{item.label}</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight">{item.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+
+      <div className="data-toolbar grid gap-4 xl:grid-cols-[220px_220px_minmax(0,1fr)_280px]">
         <select
-          className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+          className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
           value={status}
           onChange={(event) => setStatus(event.target.value)}
         >
@@ -99,21 +119,20 @@ export default function AdminLeadsPage() {
           <option value="LOST">LOST</option>
         </select>
         <Input placeholder="Filter by industry" value={industry} onChange={(event) => setIndustry(event.target.value)} />
-        <Input placeholder="Search name/business/email" value={search} onChange={(event) => setSearch(event.target.value)} />
-      </div>
-      <div className="mb-4 max-w-sm">
-        <Input
-          type="password"
-          placeholder="Delete password"
-          value={deletePassword}
-          onChange={(event) => setDeletePassword(event.target.value)}
-        />
+        <Input placeholder="Search name, business, or email" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Input type="password" placeholder="Delete password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} />
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading leads...</p>
+        <Card>
+          <CardContent className="p-6">
+            <div className="empty-state">Loading leads...</div>
+          </CardContent>
+        </Card>
       ) : (
-        <LeadsTable leads={leads} deletePassword={deletePassword} onDeleted={reloadLeads} />
+        <div className="table-shell">
+          <LeadsTable leads={leads} deletePassword={deletePassword} onDeleted={reloadLeads} />
+        </div>
       )}
     </div>
   );

@@ -5,6 +5,11 @@ import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { OrgCallRecord } from "@/lib/types";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { clientBadgeClass } from "@/lib/client-badges";
 
 function formatPercent(value: number) {
@@ -26,10 +31,8 @@ function getCallSuccessRating(call: OrgCallRecord) {
   else if (call.outcome === "MESSAGE_TAKEN") base = 75;
   else if (call.outcome === "SPAM") base = 40;
   else if (call.outcome === "MISSED") base = 20;
-
   if (call.transcript) base += 5;
   if (call.recordingUrl) base += 5;
-
   return Math.max(0, Math.min(100, base));
 }
 
@@ -55,18 +58,13 @@ function getDispositionTone(call: OrgCallRecord): "booking" | "success" | "autom
   if (call.outcome === "TRANSFERRED") return "success";
   if (call.outcome === "MESSAGE_TAKEN") return "automated";
   if (call.outcome === "MISSED") return "warning";
-  if (call.outcome === "SPAM") return "neutral";
   return "neutral";
 }
 
 function getSuccessBadgeClasses(score: number) {
-  if (score >= 85) {
-    return "border-emerald-300 bg-gradient-to-r from-emerald-50 to-lime-50 text-emerald-800";
-  }
-  if (score >= 65) {
-    return "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800";
-  }
-  return "border-rose-300 bg-gradient-to-r from-rose-50 to-red-50 text-rose-800";
+  if (score >= 85) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (score >= 65) return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
 function extractCallerName(call: OrgCallRecord) {
@@ -74,24 +72,7 @@ function extractCallerName(call: OrgCallRecord) {
   const source = (call.transcript || "").trim();
   if (!source) return "";
 
-  const stopWords = new Set([
-    "sorry",
-    "help",
-    "issue",
-    "problem",
-    "phone",
-    "number",
-    "looking",
-    "escalating",
-    "customer",
-    "caller",
-    "unknown",
-    "support",
-    "service",
-    "name",
-    "from"
-  ]);
-
+  const stopWords = new Set(["sorry", "help", "issue", "problem", "phone", "number", "looking", "escalating", "customer", "caller", "unknown", "support", "service", "name", "from"]);
   const patterns = [
     /\bmy name is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
     /\bthis is\s+([A-Za-z][A-Za-z'-]+(?:\s+[A-Za-z][A-Za-z'-]+){0,2})\b/i,
@@ -102,23 +83,13 @@ function extractCallerName(call: OrgCallRecord) {
     const match = source.match(pattern);
     const raw = match?.[1]?.trim() || "";
     if (!raw) continue;
-
-    const cleaned = raw
-      .replace(/\b(from|and|but)\b.*$/i, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const cleaned = raw.replace(/\b(from|and|but)\b.*$/i, "").replace(/\s+/g, " ").trim();
     if (!cleaned) continue;
-
     const parts = cleaned.split(" ").filter(Boolean);
     if (!parts.length || parts.length > 3) continue;
     if (parts.some((part) => stopWords.has(part.toLowerCase()))) continue;
-    if (parts.length === 1 && parts[0].length < 2) continue;
-
-    return parts
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(" ");
+    return parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ");
   }
-
   return "";
 }
 
@@ -169,7 +140,7 @@ export default function AppCallsPage() {
     try {
       await repopulateOrgCalls();
     } catch {
-      // if repopulate fails, still refresh list from existing records
+      // Refresh existing records even if repopulation fails.
     } finally {
       await loadCalls({ page, query, outcome: outcomeFilter });
       setRefreshing(false);
@@ -191,17 +162,13 @@ export default function AppCallsPage() {
       void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
     }, 12000);
 
-    const onFocus = () => {
-      void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-
+    const refresh = () => void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(intervalId);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [loadCalls]);
 
@@ -209,325 +176,279 @@ export default function AppCallsPage() {
     void loadCalls({ page: 1, query, outcome: outcomeFilter });
   }, [query, outcomeFilter, loadCalls]);
 
+  useEffect(() => {
+    if (!selectedCall || !detailsRef.current) return;
+    detailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedCall]);
+
   const metrics = useMemo(() => {
     const total = totalCalls;
     if (!total) {
-      return {
-        total,
-        successRate: 0,
-        transferRate: 0,
-        appointmentRate: 0,
-        missedRate: 0,
-        avgDurationSec: 0,
-        recordingCoverage: 0,
-        transcriptCoverage: 0
-      };
+      return { total, successRate: 0, transferRate: 0, appointmentRate: 0, missedRate: 0, avgDurationSec: 0, recordingCoverage: 0 };
     }
-
     const successful = calls.filter((call) => call.outcome !== "MISSED" && call.outcome !== "SPAM").length;
     const transferred = calls.filter((call) => call.outcome === "TRANSFERRED").length;
     const appointments = calls.filter((call) => call.outcome === "APPOINTMENT_REQUEST" || Boolean(call.appointmentRequested)).length;
     const missed = calls.filter((call) => call.outcome === "MISSED").length;
     const recordings = calls.filter((call) => Boolean(call.recordingUrl)).length;
-    const transcripts = calls.filter((call) => Boolean(call.transcript)).length;
     const durations = calls.map((call) => call.durationSec || 0).filter((value) => value > 0);
-    const avgDurationSec = durations.length
-      ? durations.reduce((sum, value) => sum + value, 0) / durations.length
-      : 0;
-
     return {
       total,
       successRate: (successful / total) * 100,
       transferRate: (transferred / total) * 100,
       appointmentRate: (appointments / total) * 100,
       missedRate: (missed / total) * 100,
-      avgDurationSec,
-      recordingCoverage: (recordings / total) * 100,
-      transcriptCoverage: (transcripts / total) * 100
+      avgDurationSec: durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : 0,
+      recordingCoverage: (recordings / total) * 100
     };
   }, [calls, totalCalls]);
 
   const detectedQuestions = useMemo(() => {
     if (!selectedCall?.transcript) return [];
-    const chunks = selectedCall.transcript
+    return selectedCall.transcript
       .split(/[\n\r]+|(?<=[?.!])\s+/)
       .map((part) => part.trim())
-      .filter(Boolean);
-    return chunks.filter((part) => part.includes("?"));
+      .filter((part) => part.includes("?"));
   }, [selectedCall]);
 
-  useEffect(() => {
-    if (!selectedCall || !detailsRef.current) return;
-    detailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [selectedCall]);
+  const metricCards = [
+    { label: "Success rating", value: formatPercent(metrics.successRate), hint: "Directional score based on outcomes, transcript presence, and recording coverage." },
+    { label: "Total calls", value: metrics.total, hint: "Total inbound calls in the currently loaded call-log set." },
+    { label: "Transfer rate", value: formatPercent(metrics.transferRate), hint: "Share of calls that ended with a transfer outcome." },
+    { label: "Appointments", value: formatPercent(metrics.appointmentRate), hint: "Share of calls marked as appointment requested." }
+  ];
 
   return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Conversations</h1>
-        <button
-          type="button"
-          className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
-          onClick={() => void refreshAndRepopulate()}
-          disabled={refreshing}
-        >
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Review customer conversations, outcomes, follow-up actions, and transcripts.
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
-        {assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Auto-refreshes every 12 seconds{lastUpdated ? ` (last updated ${lastUpdated.toLocaleTimeString()})` : ""}.
-      </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Success rating
-            <InfoHint text="Directional score based on call outcomes, transcript presence, and recording coverage." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.successRate)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Total calls
-            <InfoHint text="Total inbound calls in the currently loaded call-log set." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{metrics.total}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Transfer rate
-            <InfoHint text="Share of calls that ended with a transfer outcome." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.transferRate)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Appointments
-            <InfoHint text="Share of calls marked as appointment requested." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{formatPercent(metrics.appointmentRate)}</p>
-        </div>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border bg-white p-3 text-sm"><span className="text-muted-foreground">Missed:</span> {formatPercent(metrics.missedRate)}</div>
-        <div className="rounded-lg border bg-white p-3 text-sm"><span className="text-muted-foreground">Avg duration:</span> {formatDuration(metrics.avgDurationSec)}</div>
-        <div className="rounded-lg border bg-white p-3 text-sm"><span className="text-muted-foreground">Recording coverage:</span> {formatPercent(metrics.recordingCoverage)}</div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Conversations"
+        title="Call review"
+        description="Review customer conversations, outcomes, follow-up actions, and transcripts in one place."
+        actions={
+          <Button onClick={() => void refreshAndRepopulate()} disabled={refreshing}>
+            {refreshing ? "Refreshing..." : "Refresh calls"}
+          </Button>
+        }
+      />
 
-      <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {["ALL", "MISSED", "TRANSFERRED", "APPOINTMENT_REQUEST", "MESSAGE_TAKEN"].map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
-                outcomeFilter === value ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
-              }`}
-              onClick={() => setOutcomeFilter(value as "ALL" | OrgCallRecord["outcome"])}
-            >
-              {value === "ALL" ? "All" : value.replaceAll("_", " ")}
-            </button>
-          ))}
-        </div>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name, phone, summary, call id..."
-          className="w-full rounded-md border px-3 py-2 text-sm sm:max-w-sm"
-        />
-      </div>
-
-      <div className="mt-4 overflow-x-auto rounded-lg border bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted/40">
-            <tr>
-              <th className="p-3">Started</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Caller</th>
-              <th className="p-3">Outcome</th>
-              <th className="p-3">Success</th>
-              <th className="p-3">Duration</th>
-              <th className="p-3">Recording</th>
-              <th className="p-3">Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {calls.map((call) => (
-              <tr key={call.id} className="border-t hover:bg-muted/20">
-                {(() => {
-                  const success = getCallSuccessRating(call);
-                  return (
-                    <>
-                <td className="p-3">{new Date(call.startedAt).toLocaleString()}</td>
-                <td className="p-3">{extractCallerName(call) || "-"}</td>
-                <td className="p-3 font-mono text-xs">{call.fromNumber}</td>
-                <td className="p-3">
-                  <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
-                </td>
-                <td className="p-3">
-                  <span
-                    className={`inline-flex min-w-[72px] justify-center rounded-md border px-2 py-1 text-xs font-semibold ${getSuccessBadgeClasses(success)}`}
-                  >
-                    {formatPercent(success)}
-                  </span>
-                </td>
-                <td className="p-3">{call.durationSec ? `${call.durationSec}s` : "-"}</td>
-                <td className="p-3">
-                  {call.recordingUrl ? (
-                    <a
-                      href={call.recordingUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Open
-                    </a>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </td>
-                <td className="p-3">
-                  <button
-                    type="button"
-                    className="rounded border px-2 py-1 text-xs font-medium text-primary hover:bg-muted"
-                    onClick={() => setSelectedCall(call)}
-                  >
-                    View
-                  </button>
-                </td>
-                    </>
-                  );
-                })()}
-              </tr>
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <p className="page-eyebrow">Assigned line</p>
+            <p className="text-lg font-semibold">{assignedPhoneNumber || "Not assigned"}{assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}</p>
+            <p className="text-sm text-muted-foreground">Auto-refreshes every 12 seconds{lastUpdated ? `, last updated ${lastUpdated.toLocaleTimeString()}` : ""}.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["ALL", "MISSED", "TRANSFERRED", "APPOINTMENT_REQUEST", "MESSAGE_TAKEN"].map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors ${
+                  outcomeFilter === value ? "border-primary bg-primary text-primary-foreground" : "bg-white text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                onClick={() => setOutcomeFilter(value as "ALL" | OrgCallRecord["outcome"])}
+              >
+                {value === "ALL" ? "All" : value.replaceAll("_", " ")}
+              </button>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="metric-grid">
+        {metricCards.map((metric) => (
+          <Card key={metric.label}>
+            <CardContent className="p-5">
+              <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {metric.label}
+                <InfoHint text={metric.hint} />
+              </p>
+              <p className="mt-3 text-3xl font-semibold tracking-tight">{metric.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, phone, summary, or call ID"
+          />
+          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm"><span className="text-muted-foreground">Missed</span><div className="mt-1 font-semibold">{formatPercent(metrics.missedRate)}</div></div>
+            <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm"><span className="text-muted-foreground">Avg duration</span><div className="mt-1 font-semibold">{formatDuration(metrics.avgDurationSec)}</div></div>
+            <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm"><span className="text-muted-foreground">Recording coverage</span><div className="mt-1 font-semibold">{formatPercent(metrics.recordingCoverage)}</div></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="table-shell">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Started</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Caller</TableHead>
+              <TableHead>Outcome</TableHead>
+              <TableHead>Success</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Recording</TableHead>
+              <TableHead className="text-right">Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {calls.map((call) => {
+              const success = getCallSuccessRating(call);
+              return (
+                <TableRow key={call.id}>
+                  <TableCell>{new Date(call.startedAt).toLocaleString()}</TableCell>
+                  <TableCell className="font-medium">{extractCallerName(call) || "-"}</TableCell>
+                  <TableCell className="font-mono text-xs">{call.fromNumber}</TableCell>
+                  <TableCell>
+                    <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`inline-flex min-w-[76px] justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getSuccessBadgeClasses(success)}`}>
+                      {formatPercent(success)}
+                    </span>
+                  </TableCell>
+                  <TableCell>{call.durationSec ? `${call.durationSec}s` : "-"}</TableCell>
+                  <TableCell>
+                    {call.recordingUrl ? (
+                      <a href={call.recordingUrl} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">
+                        Open
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedCall(call)}>
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {!calls.length ? (
-              <tr>
-                <td className="p-3 text-muted-foreground" colSpan={9}>
-                  No calls logged yet.
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={8}>
+                  <div className="empty-state">No calls logged yet.</div>
+                </TableCell>
+              </TableRow>
             ) : null}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-      <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          Page {page} of {totalPages} · {totalCalls} total call{totalCalls === 1 ? "" : "s"}
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={page <= 1}
-            onClick={() => void loadCalls({ page: page - 1, query, outcome: outcomeFilter })}
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={page >= totalPages}
-            onClick={() => void loadCalls({ page: page + 1, query, outcome: outcomeFilter })}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages} · {totalCalls} total call{totalCalls === 1 ? "" : "s"}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" disabled={page <= 1} onClick={() => void loadCalls({ page: page - 1, query, outcome: outcomeFilter })}>
+              Previous
+            </Button>
+            <Button variant="outline" disabled={page >= totalPages} onClick={() => void loadCalls({ page: page + 1, query, outcome: outcomeFilter })}>
+              Next
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedCall ? (
-        <section ref={detailsRef} className="mt-5 rounded-lg border bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold">Conversation details</h2>
-              <p className="text-xs text-muted-foreground">
-                Click another conversation row to switch details.
-              </p>
+        <section ref={detailsRef}>
+        <Card>
+          <CardHeader className="border-b pb-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <CardTitle>Conversation details</CardTitle>
+                <p className="text-sm text-muted-foreground">Click another row to switch details without leaving the page.</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedCall(null)}>
+                Close
+              </Button>
             </div>
-            <button
-              type="button"
-              className="rounded border px-2 py-1 text-xs hover:bg-muted"
-              onClick={() => setSelectedCall(null)}
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div><span className="text-muted-foreground">Started:</span> {new Date(selectedCall.startedAt).toLocaleString()}</div>
-            <div><span className="text-muted-foreground">Ended:</span> {selectedCall.endedAt ? new Date(selectedCall.endedAt).toLocaleString() : "-"}</div>
-            <div><span className="text-muted-foreground">Duration:</span> {selectedCall.durationSec ? `${selectedCall.durationSec}s` : "-"}</div>
-            <div><span className="text-muted-foreground">From:</span> {selectedCall.fromNumber}</div>
-            <div><span className="text-muted-foreground">Caller name:</span> {extractCallerName(selectedCall) || "-"}</div>
-            <div><span className="text-muted-foreground">To:</span> {selectedCall.toNumber}</div>
-            <div>
-              <span className="text-muted-foreground">Disposition:</span>{" "}
-              <Badge className={clientBadgeClass(getDispositionTone(selectedCall))}>{getDispositionLabel(selectedCall)}</Badge>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Success rating:</span>{" "}
-              <span
-                className={`inline-flex min-w-[72px] justify-center rounded-md border px-2 py-1 text-xs font-semibold ${getSuccessBadgeClasses(
-                  getCallSuccessRating(selectedCall)
-                )}`}
-              >
-                {formatPercent(getCallSuccessRating(selectedCall))}
-              </span>
-            </div>
-            <div><span className="text-muted-foreground">Appointment:</span> {selectedCall.appointmentRequested ? "Yes" : "No"}</div>
-            <div><span className="text-muted-foreground">Next action:</span> {getNextAction(selectedCall)}</div>
-            <div><span className="text-muted-foreground">Lead ID:</span> {selectedCall.leadId || "-"}</div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <span className="text-muted-foreground">Call SID:</span>{" "}
-              <span className="font-mono text-xs">{selectedCall.providerCallId || "-"}</span>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="rounded border p-3">
-              <p className="text-sm font-medium">AI Summary</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                {selectedCall.aiSummary || selectedCall.summary || "-"}
-              </p>
-            </div>
-            <div className="rounded border p-3">
-              <p className="text-sm font-medium">Recording</p>
-              <div className="mt-2 text-sm">
-                {selectedCall.recordingUrl ? (
-                  <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
-                    Open recording
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground">No recording URL</span>
-                )}
+          </CardHeader>
+          <CardContent className="space-y-6 p-6">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {[
+                ["Started", new Date(selectedCall.startedAt).toLocaleString()],
+                ["Ended", selectedCall.endedAt ? new Date(selectedCall.endedAt).toLocaleString() : "-"],
+                ["Duration", selectedCall.durationSec ? `${selectedCall.durationSec}s` : "-"],
+                ["From", selectedCall.fromNumber],
+                ["Caller name", extractCallerName(selectedCall) || "-"],
+                ["To", selectedCall.toNumber],
+                ["Appointment", selectedCall.appointmentRequested ? "Yes" : "No"],
+                ["Next action", getNextAction(selectedCall)],
+                ["Lead ID", selectedCall.leadId || "-"]
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border bg-muted/30 p-4">
+                  <p className="page-eyebrow">{label}</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
+                </div>
+              ))}
+              <div className="rounded-2xl border bg-muted/30 p-4">
+                <p className="page-eyebrow">Disposition</p>
+                <div className="mt-2">
+                  <Badge className={clientBadgeClass(getDispositionTone(selectedCall))}>{getDispositionLabel(selectedCall)}</Badge>
+                </div>
+              </div>
+              <div className="rounded-2xl border bg-muted/30 p-4">
+                <p className="page-eyebrow">Success rating</p>
+                <div className="mt-2">
+                  <span className={`inline-flex min-w-[76px] justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getSuccessBadgeClasses(getCallSuccessRating(selectedCall))}`}>
+                    {formatPercent(getCallSuccessRating(selectedCall))}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl border bg-muted/30 p-4 md:col-span-2 xl:col-span-1">
+                <p className="page-eyebrow">Call SID</p>
+                <p className="mt-2 break-all font-mono text-xs text-muted-foreground">{selectedCall.providerCallId || "-"}</p>
               </div>
             </div>
-          </div>
 
-          <div className="mt-4 rounded border p-3">
-            <p className="text-sm font-medium">Transcript</p>
-            <p className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground">
-              {selectedCall.transcript || "-"}
-            </p>
-          </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border p-5">
+                <p className="text-sm font-semibold">AI summary</p>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{selectedCall.aiSummary || selectedCall.summary || "-"}</p>
+              </div>
+              <div className="rounded-2xl border p-5">
+                <p className="text-sm font-semibold">Recording</p>
+                <div className="mt-3 text-sm">
+                  {selectedCall.recordingUrl ? (
+                    <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">
+                      Open recording
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">No recording URL</span>
+                  )}
+                </div>
+              </div>
+            </div>
 
-          <div className="mt-4 rounded border p-3">
-            <p className="text-sm font-medium">Detected questions (from transcript)</p>
-            {detectedQuestions.length ? (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                {detectedQuestions.map((question, idx) => (
-                  <li key={`${idx}-${question.slice(0, 20)}`}>{question}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">No question lines detected.</p>
-            )}
-          </div>
+            <div className="rounded-2xl border p-5">
+              <p className="text-sm font-semibold">Transcript</p>
+              <p className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{selectedCall.transcript || "-"}</p>
+            </div>
+
+            <div className="rounded-2xl border p-5">
+              <p className="text-sm font-semibold">Detected questions</p>
+              {detectedQuestions.length ? (
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+                  {detectedQuestions.map((question, idx) => (
+                    <li key={`${idx}-${question.slice(0, 20)}`}>{question}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">No question lines detected.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
         </section>
       ) : null}
     </div>

@@ -25,6 +25,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 
@@ -475,12 +476,18 @@ export default function AppSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Assistant Settings</h1>
-        <p className="text-sm text-muted-foreground">Shape how your receptionist handles calls, booking, follow-up, and team routing.</p>
-      </div>
+      <PageHeader
+        eyebrow="Assistant configuration"
+        title="Assistant Settings"
+        description="Shape how your receptionist handles calls, booking, follow-up, and team routing."
+        actions={
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? "Saving..." : "Save assistant settings"}
+          </Button>
+        }
+      />
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Readiness</p>
         <h2 className="text-lg font-semibold">Go-Live Readiness</h2>
         <ul className="mt-2 text-sm text-muted-foreground">
@@ -491,7 +498,7 @@ export default function AppSettingsPage() {
         </ul>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
         <h2 className="text-lg font-semibold">Security & Verification</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -530,7 +537,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">
+      <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
           <h2 className="text-lg font-semibold">Business Info & Call Routing</h2>
@@ -556,7 +563,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
         <h2 className="text-lg font-semibold">Calendar Connections</h2>
         {!featureFlags.calendarOauthEnabled ? (
@@ -781,7 +788,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Booking behavior</p>
         <h2 className="text-lg font-semibold">Booking Rules & Alerts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -858,7 +865,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
@@ -908,7 +915,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Knowledge</p>
         <h2 className="text-lg font-semibold">Knowledge Files</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -948,7 +955,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Hours</p>
         <h2 className="text-lg font-semibold">Business Hours</h2>
         <div className="mt-3 grid gap-3">
@@ -998,7 +1005,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">
+      <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Services & routing</p>
           <h2 className="text-lg font-semibold">Services, Transfers, and Contact Lists</h2>
@@ -1034,7 +1041,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-lg border bg-white p-4 sm:grid-cols-2">
+      <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Services & FAQs</p>
           <h2 className="text-lg font-semibold">Policies and Customer Answers</h2>
@@ -1059,7 +1066,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">SMS follow-up behavior</p>
         <h2 className="text-lg font-semibold">SMS Follow-Up</h2>
         <Label className="mt-3">SMS First Message (sent on first inbound text)</Label>
@@ -1097,9 +1104,11 @@ export default function AppSettingsPage() {
         </label>
       </section>
 
-      <Button onClick={onSave} disabled={saving}>
-        {saving ? "Saving..." : "Save assistant settings"}
-      </Button>
+      <div className="flex justify-end">
+        <Button onClick={onSave} disabled={saving}>
+          {saving ? "Saving..." : "Save assistant settings"}
+        </Button>
+      </div>
     </div>
   );
 }

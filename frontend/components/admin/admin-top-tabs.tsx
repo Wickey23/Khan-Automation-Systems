@@ -27,7 +27,7 @@ const adminTabGroups: AdminTabGroup[] = [
   {
     label: "Revenue",
     icon: ClipboardList,
-    tone: "from-emerald-50 to-white border-emerald-100",
+    tone: "from-white to-zinc-50 border-zinc-200",
     tabs: [
       { label: "Revenue", href: "/admin/revenue", matches: ["/admin/revenue"], description: "MRR, Stripe paid totals, and plan mix." },
       { label: "Leads", href: "/admin/leads", matches: ["/admin/leads"], description: "Captured demand and pipeline hygiene." },
@@ -37,7 +37,7 @@ const adminTabGroups: AdminTabGroup[] = [
   {
     label: "Conversations",
     icon: MessageSquare,
-    tone: "from-sky-50 to-white border-sky-100",
+    tone: "from-white to-zinc-50 border-zinc-200",
     tabs: [
       { label: "Calls", href: "/admin/calls", matches: ["/admin/calls"], description: "Inbound call quality and outcomes." },
       { label: "Messages", href: "/admin/messages", matches: ["/admin/messages"], description: "SMS threads and delivery health." },
@@ -47,7 +47,7 @@ const adminTabGroups: AdminTabGroup[] = [
   {
     label: "Operations",
     icon: Settings,
-    tone: "from-violet-50 to-white border-violet-100",
+    tone: "from-white to-zinc-50 border-zinc-200",
     tabs: [
       { label: "Organizations", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"], description: "Tenant readiness and lifecycle." },
       { label: "Users", href: "/admin/users", matches: ["/admin/users"], description: "Account access and login activity." },
@@ -166,7 +166,7 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
           </div>
         </div>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-white to-zinc-50 p-4 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white">
@@ -207,7 +207,7 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
                         "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                         isActive(tab)
                           ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-white bg-white/80 text-zinc-600 hover:bg-white hover:text-zinc-900"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
                       )}
                     >
                       {tab.label}

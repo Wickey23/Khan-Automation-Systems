@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { BadgeCheck, CalendarClock, Clock3, Handshake, MessageSquareText, PhoneCall, Plug, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarClock, Clock3, Handshake, MessageSquareText, PhoneCall, Plug, ShieldCheck } from "lucide-react";
 import { MotionInView } from "@/components/site/motion-in-view";
 import { LeadCaptureForm } from "@/components/site/lead-capture-form";
 import { PricingCards } from "@/components/site/pricing-cards";
@@ -9,6 +9,7 @@ import { SmsDemo } from "@/components/site/sms-demo";
 import { DemoCallCard } from "@/components/site/demo-call-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SectionHeading } from "@/components/ui/page";
 import { siteConfig } from "@/lib/config";
 import { caseStudies } from "@/lib/case-studies";
 
@@ -16,12 +17,12 @@ const outcomes: Array<{ title: string; icon: LucideIcon; copy: string }> = [
   {
     title: "24/7 call answer coverage",
     icon: PhoneCall,
-    copy: "Every inbound call gets answered or captured, including nights, weekends, and peak hours."
+    copy: "Every inbound call is answered or captured, including nights, weekends, and peak hours."
   },
   {
     title: "Faster quote turnaround",
     icon: Clock3,
-    copy: "Collects the right job details on first contact so your team can quote and follow up faster."
+    copy: "Collect the right job details on first contact so your team can quote and follow up faster."
   },
   {
     title: "Consistent intake notes",
@@ -31,17 +32,17 @@ const outcomes: Array<{ title: string; icon: LucideIcon; copy: string }> = [
   {
     title: "Automated SMS confirmations",
     icon: MessageSquareText,
-    copy: "Sends immediate confirmations and follow-up messages to reduce drop-off after first contact."
+    copy: "Send immediate confirmations and follow-up messages to reduce drop-off after first contact."
   },
   {
     title: "Smart scheduling + handoff",
     icon: CalendarClock,
-    copy: "Routes urgent calls correctly and hands off priority jobs to the right person without delay."
+    copy: "Route urgent calls correctly and hand off priority jobs to the right person without delay."
   },
   {
     title: "Call log visibility",
     icon: ShieldCheck,
-    copy: "Gives your team a searchable record of calls, outcomes, and summaries for operational control."
+    copy: "Give your team a searchable record of calls, outcomes, and summaries for operational control."
   }
 ];
 
@@ -52,115 +53,97 @@ const steps: Array<{ title: string; icon: LucideIcon; copy: string }> = [
   { title: "Optimize", icon: BadgeCheck, copy: "Tune response quality and conversion weekly." }
 ];
 
+const heroMetrics = [
+  { value: "24/7", label: "Coverage for inbound calls" },
+  { value: "<1 min", label: "Intake start target" },
+  { value: "1 view", label: "Calls, leads, and summaries" }
+];
+
+const missedCallFigures = [
+  {
+    figure: "20-30%",
+    title: "Calls can hit voicemail or ring out",
+    detail: "Common range when shops are busy, after-hours, or short-staffed."
+  },
+  {
+    figure: "<5 min",
+    title: "Response window for high-intent callers",
+    detail: "Fast first response often decides who wins the booking."
+  },
+  {
+    figure: "10-20%",
+    title: "Pipeline can leak from delayed follow-up",
+    detail: "Missed or late callbacks compound into lost jobs over time."
+  }
+];
+
+const integrationLabels = [
+  "Current phone workflows",
+  "Scheduling calendars",
+  "CRM and dispatch systems",
+  "Existing intake processes"
+];
+
 export default function HomePage() {
-  const missedCallFigures = [
-    {
-      figure: "20-30%",
-      title: "Calls can hit voicemail or ring out",
-      detail: "Common range when shops are busy, after-hours, or short-staffed."
-    },
-    {
-      figure: "<5 min",
-      title: "Response window for many high-intent callers",
-      detail: "Fast first response often decides who wins the booking."
-    },
-    {
-      figure: "10-20%",
-      title: "Pipeline can leak from delayed follow-up",
-      detail: "Missed or late callbacks compound into lost jobs over time."
-    }
-  ];
-
-  const integrationLabels = [
-    "Current phone workflows",
-    "Scheduling calendars",
-    "CRM and dispatch systems",
-    "Existing intake processes"
-  ];
-
-  const serviceShopFigures = [
-    { figure: "24/7", label: "Inbound coverage" },
-    { figure: "<1 min", label: "Intake start target" },
-    { figure: "1 view", label: "Calls + leads visibility" },
-    { figure: "Weekly", label: "Optimization cadence" }
-  ];
-
   return (
     <div>
-      <section className="container grid gap-10 py-14 md:py-20 lg:grid-cols-[1.05fr_0.95fr]">
-        <MotionInView>
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Enterprise Call Operations Infrastructure
-            </p>
-            <h1 className="mt-3 text-4xl font-bold leading-tight sm:text-5xl">
-              AI Reception + Follow-Up System for Service Shops
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
-              Answers calls 24/7, captures job details, confirms by text, books appointments, and escalates to your team
-              when needed.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/book">Book a 15-min Call</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/how-it-works">See How It Works</Link>
-              </Button>
-            </div>
-          </div>
-        </MotionInView>
-        <MotionInView delay={0.1}>
-          <LeadCaptureForm sourcePage="/" />
-        </MotionInView>
-      </section>
-
-      <section className="border-y bg-white">
-        <div className="container flex flex-col items-start justify-between gap-4 py-8 md:flex-row md:items-center">
-          <div>
-            <p className="text-sm font-semibold">Built for service shops</p>
-            <p className="mt-1 text-xs text-muted-foreground">HVAC, Auto & Diesel, Home Services, Field Operations</p>
-          </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-4">
-            {serviceShopFigures.map((item) => (
-              <div key={item.label} className="rounded-md border bg-background px-3 py-2">
-                <p className="text-sm font-semibold text-foreground">{item.figure}</p>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
+      <section className="border-b bg-[radial-gradient(circle_at_top_left,_rgba(31,58,138,0.08),_transparent_36%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
+        <div className="page-shell grid gap-10 py-14 md:py-20 lg:grid-cols-[minmax(0,1.1fr)_420px] lg:items-start">
+          <MotionInView>
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <p className="page-eyebrow">Enterprise Call Operations Infrastructure</p>
+                <h1 className="max-w-3xl">
+                  AI reception and follow-up for service shops that need cleaner intake and faster response.
+                </h1>
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                  Answers calls around the clock, captures job details, confirms by text, books appointments, and escalates to your team when needed.
+                </p>
               </div>
-            ))}
-          </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button asChild size="lg">
+                  <Link href="/book">Book a 15-min Call</Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/how-it-works">See How It Works</Link>
+                </Button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {heroMetrics.map((item) => (
+                  <div key={item.label} className="rounded-2xl border bg-white/90 px-4 py-4 shadow-sm">
+                    <p className="text-2xl font-semibold tracking-tight">{item.value}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </MotionInView>
+
+          <MotionInView delay={0.08}>
+            <LeadCaptureForm sourcePage="/" />
+          </MotionInView>
         </div>
       </section>
 
-      <section className="container py-14">
-        <h2 className="text-3xl font-semibold">The Cost of Missed Calls</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {missedCallFigures.map((item) => (
-            <Card key={item.title}>
-              <CardContent className="space-y-2 p-5">
-                <p className="text-2xl font-semibold text-foreground">{item.figure}</p>
-                <p className="text-sm font-medium text-foreground">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.detail}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Figures are directional operating benchmarks and vary by market, call volume, and response process.
-        </p>
-      </section>
-
-      <section className="container py-14">
-        <h2 className="text-3xl font-semibold">What You Get</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="page-shell section-shell">
+        <SectionHeading
+          eyebrow="Built for service operations"
+          title="What the system improves first"
+          description="The goal is not more software. The goal is cleaner intake, faster first response, and less operational leakage after the first call."
+        />
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {outcomes.map(({ title, icon: Icon, copy }, index) => (
             <MotionInView delay={index * 0.04} key={title}>
               <Card>
                 <CardContent className="flex items-start gap-3 p-5">
-                  <Icon className="mt-0.5 h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium">{title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{copy}</p>
+                  <div className="rounded-xl bg-muted p-2">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold">{title}</p>
+                    <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -169,147 +152,148 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container grid gap-6 py-14 lg:grid-cols-2">
-        <DemoCallCard demoNumber={siteConfig.demoNumber} />
-        <SmsDemo />
-      </section>
-
-      <section id="how-it-works" className="container scroll-mt-24 py-14">
-        <h2 className="text-3xl font-semibold">How It Works</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          {steps.map(({ title, icon: Icon, copy }) => (
-            <Card key={title}>
-              <CardContent className="space-y-3 p-5">
-                <Icon className="h-5 w-5 text-primary" />
-                <p className="font-medium">{title}</p>
-                <p className="text-sm text-muted-foreground">{copy}</p>
-              </CardContent>
-            </Card>
-          ))}
+      <section className="surface-muted">
+        <div className="page-shell section-shell">
+          <SectionHeading
+            eyebrow="Operational reality"
+            title="Missed calls create avoidable revenue leakage"
+            description="These directional benchmarks show why first response and consistent follow-up matter so much in service businesses."
+          />
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {missedCallFigures.map((item) => (
+              <Card key={item.title} className="shadow-none">
+                <CardContent className="space-y-3 p-6">
+                  <p className="text-3xl font-semibold tracking-tight">{item.figure}</p>
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-sm leading-6 text-muted-foreground">{item.detail}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Figures are directional operating benchmarks and vary by market, call volume, and response process.
+          </p>
         </div>
       </section>
 
-      <section className="border-y bg-white">
-        <div className="container py-14">
-          <h2 className="text-3xl font-semibold">Works with your current tools</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Integrates into your current operating stack first, so you can launch without disrupting the way your team already works.
-          </p>
-          <div className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-            {integrationLabels.map((item) => (
-              <div key={item} className="rounded-md border bg-background px-4 py-3">
-                {item}
-              </div>
+      <section className="page-shell section-shell">
+        <SectionHeading
+          eyebrow="Experience"
+          title="See the call and SMS flow together"
+          description="The system should feel cohesive for your staff: conversations, summaries, follow-up messages, and appointment requests all live in one operational view."
+        />
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <DemoCallCard demoNumber={siteConfig.demoNumber} />
+          <SmsDemo />
+        </div>
+      </section>
+
+      <section id="how-it-works" className="surface-muted scroll-mt-24">
+        <div className="page-shell section-shell">
+          <SectionHeading
+            eyebrow="How it works"
+            title="A clean rollout sequence"
+            description="Implementation starts with your current intake workflow, then tightens routing, capture, and follow-up without forcing a disruptive process reset."
+          />
+          <div className="mt-8 grid gap-4 md:grid-cols-4">
+            {steps.map(({ title, icon: Icon, copy }) => (
+              <Card key={title} className="shadow-none">
+                <CardContent className="space-y-4 p-6">
+                  <div className="rounded-xl bg-white p-2.5 shadow-sm w-fit">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold">{title}</p>
+                    <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="case-studies" className="container scroll-mt-24 py-14">
-        <h2 className="text-3xl font-semibold">Case Studies</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Real-world examples of lead-flow improvement in service operations.
-        </p>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {caseStudies.slice(0, 2).map((item) => (
-            <Card key={item.slug}>
-              <CardContent className="p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">{item.industry}</p>
-                <p className="mt-1 text-base font-semibold">{item.title}</p>
-                <p className="mt-2 text-sm text-muted-foreground">{item.summary}</p>
-                <div className="mt-3">
-                  <Link href="/case-studies" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-                    View all case studies
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+      <section className="page-shell section-shell">
+        <SectionHeading
+          eyebrow="Compatibility"
+          title="Works with your current tools"
+          description="Launch into the operating stack you already use first. Tool changes can come later if they actually improve throughput."
+        />
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {integrationLabels.map((item) => (
+            <div key={item} className="rounded-2xl border bg-white px-4 py-4 text-sm text-muted-foreground shadow-sm">
+              {item}
+            </div>
           ))}
         </div>
       </section>
 
-      <section id="pricing" className="container scroll-mt-24 py-14">
-        <h2 className="text-3xl font-semibold">Pricing</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Pilot-first pricing designed for reliable rollout, measurable outcomes, and disciplined scale.
-        </p>
-        <div className="mt-6">
+      <section id="case-studies" className="surface-muted scroll-mt-24">
+        <div className="page-shell section-shell">
+          <SectionHeading
+            eyebrow="Proof"
+            title="Case studies"
+            description="Examples of how cleaner intake and follow-up can improve service-operations throughput."
+            actions={
+              <Button asChild variant="outline">
+                <Link href="/case-studies">View all case studies</Link>
+              </Button>
+            }
+          />
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {caseStudies.slice(0, 2).map((item) => (
+              <Card key={item.slug}>
+                <CardContent className="space-y-3 p-6">
+                  <p className="page-eyebrow text-primary">{item.industry}</p>
+                  <p className="text-lg font-semibold">{item.title}</p>
+                  <p className="text-sm leading-6 text-muted-foreground">{item.summary}</p>
+                  <Link href="/case-studies" className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+                    View all case studies
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="page-shell section-shell scroll-mt-24">
+        <SectionHeading
+          eyebrow="Pricing"
+          title="Pilot-first pricing built for disciplined rollout"
+          description="Pricing is set up to keep onboarding quality high and deployment reliable, not to optimize for raw client volume."
+        />
+        <div className="mt-8">
           <PricingCards />
         </div>
-        <div className="mt-6 overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/60">
-              <tr>
-                <th className="p-3 text-left">Feature</th>
-                <th className="p-3 text-left">Founding Partner</th>
-                <th className="p-3 text-left">Standard</th>
-                <th className="p-3 text-left">Growth/Pro</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-t">
-                <td className="p-3">Call handling + intake</td>
-                <td className="p-3">Included</td>
-                <td className="p-3">Included</td>
-                <td className="p-3">Included</td>
-              </tr>
-              <tr className="border-t">
-                <td className="p-3">Commitment</td>
-                <td className="p-3">6 months</td>
-                <td className="p-3">Month-to-month or 3 months</td>
-                <td className="p-3">6 or 12 months</td>
-              </tr>
-              <tr className="border-t">
-                <td className="p-3">Support model</td>
-                <td className="p-3">High-touch pilot + monthly feedback ritual</td>
-                <td className="p-3">Structured standard support</td>
-                <td className="p-3">Priority SLA-oriented support</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </section>
 
-      <section className="border-y bg-white">
-        <div className="container py-14">
-          <h2 className="text-2xl font-semibold">Also on our roadmap</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Not part of v1 implementation yet. Planned extensions: review + reactivation SMS automation, tool/inventory tracking,
-            and operations dashboards.
-          </p>
-        </div>
-      </section>
-
-      <section className="container py-14">
-        <h2 className="text-3xl font-semibold">FAQ</h2>
-        <div className="mt-5">
+      <section className="page-shell section-shell pt-0">
+        <SectionHeading
+          eyebrow="Questions"
+          title="FAQ"
+          description="Common rollout, workflow, and implementation questions."
+        />
+        <div className="mt-6">
           <FAQAccordion />
         </div>
       </section>
 
-      <section className="container py-14">
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="text-2xl font-semibold">About the Founder</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Sameer Khan is an engineering student with hands-on exposure to service shop operations. Khan Automation Systems
-              is built around practical workflows that reduce missed calls and improve follow-through.
+      <section id="contact" className="border-t scroll-mt-24">
+        <div className="page-shell grid gap-8 py-14 lg:grid-cols-[minmax(0,0.95fr)_420px] lg:items-start">
+          <div className="space-y-4">
+            <p className="page-eyebrow">Next step</p>
+            <h2>Ready to tighten your lead flow?</h2>
+            <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+              Book a call or send your details. The follow-up should be practical: current process review, rollout constraints, and the clearest first deployment path.
             </p>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section id="contact" className="container scroll-mt-24 grid gap-6 py-14 lg:grid-cols-[1fr_1.1fr]">
-        <div className="space-y-3">
-          <h2 className="text-3xl font-semibold">Ready to tighten your lead flow?</h2>
-          <p className="text-sm text-muted-foreground">
-            Book your call or submit your details. We will send a practical rollout plan for your operation.
-          </p>
-          <Button asChild>
-            <Link href="/book">Book a 15-min Call</Link>
-          </Button>
+            <Button asChild>
+              <Link href="/book">Book a 15-min Call</Link>
+            </Button>
+          </div>
+          <LeadCaptureForm sourcePage="/#final-cta" title="Prefer we contact you first?" />
         </div>
-        <LeadCaptureForm sourcePage="/#final-cta" title="Prefer we contact you first?" />
       </section>
     </div>
   );

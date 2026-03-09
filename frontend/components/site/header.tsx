@@ -102,20 +102,20 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur">
+      <div className="container flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <BrandMark href={homeHref} size="sm" iconTone={planTone} />
           <span className="hidden text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground lg:inline-flex">
             v{siteConfig.version}
           </span>
         </div>
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden items-center gap-5 md:flex">
           {portalNav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               onClick={(event) => handleAnchorNavClick(event, item.href)}
             >
               {item.label}

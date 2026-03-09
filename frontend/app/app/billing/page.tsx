@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
+import { PageHeader } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
 
 const PLAN_COPY = {
@@ -300,44 +301,40 @@ export default function AppBillingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold">Billing</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage your subscription, payment method, and invoices.
-            </p>
-          </div>
+      <PageHeader
+        eyebrow="Billing"
+        title="Billing"
+        description="Manage your subscription, payment method, invoices, and billing diagnostics."
+        actions={
           <Badge className={statusStyles(subscription?.status)}>
             {subscription ? `Status: ${formatStatus(subscription.status)}` : "No active subscription"}
           </Badge>
-        </div>
-      </div>
+        }
+      />
 
       <Card className="overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500" />
         <CardHeader>
           <CardTitle>Current subscription</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           {showDemoCard ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
               <p className="text-sm font-semibold text-amber-900">Guided Demo Mode</p>
               <p className="mt-1 text-xs text-amber-900/90">
                 Evaluation mode only. This is not live deployment and has strict call limits until you activate a paid plan.
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded border bg-white px-3 py-2">
+                <div className="rounded-xl border bg-white px-3 py-2">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Usage</p>
                   <p className="text-sm font-semibold">
                     {demo?.callsUsed ?? 0}/{demo?.callCap ?? 15} calls
                   </p>
                 </div>
-                <div className="rounded border bg-white px-3 py-2">
+                <div className="rounded-xl border bg-white px-3 py-2">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">State</p>
                   <p className="text-sm font-semibold">{demo?.state || "ACTIVE"}</p>
                 </div>
-                <div className="rounded border bg-white px-3 py-2">
+                <div className="rounded-xl border bg-white px-3 py-2">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Window end</p>
                   <p className="text-sm font-semibold">
                     {demo?.windowEndsAt ? new Date(demo.windowEndsAt).toLocaleDateString() : "Starts on first AI call"}
@@ -346,22 +343,22 @@ export default function AppBillingPage() {
               </div>
             </div>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border bg-white p-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border bg-white p-4">
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Plan
                 <InfoHint text="Active plan tier used for feature access and pricing." />
               </p>
               <p className="mt-1 text-base font-semibold">{formatPlan(subscription?.plan)}</p>
             </div>
-            <div className="rounded-lg border bg-white p-3">
+            <div className="rounded-2xl border bg-white p-4">
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Status
                 <InfoHint text="Billing state from Stripe (for example active, trialing, or past_due)." />
               </p>
               <p className="mt-1 text-base font-semibold">{subscription ? formatStatus(subscription.status) : "not active"}</p>
             </div>
-            <div className="rounded-lg border bg-white p-3">
+            <div className="rounded-2xl border bg-white p-4">
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Current period end
                 <InfoHint text="Date the current paid billing period ends before renewal." />
@@ -372,7 +369,7 @@ export default function AppBillingPage() {
             </div>
           </div>
           {subscription?.pendingPlan ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
               <p className="text-sm font-semibold text-amber-900">Pending change</p>
               <p className="mt-1 text-xs text-amber-900/90">
                 {subscription.pendingPlan === "STARTER" ? "Downgrade to Standard" : "Upgrade to Growth/Pro"}
@@ -388,7 +385,7 @@ export default function AppBillingPage() {
           ) : null}
 
           {hasRealSubscription ? (
-            <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
               <p className="text-sm text-blue-900">
                 {isActiveSubscription
                   ? "Manage payment method, invoices, and cancellation in Stripe's customer portal."
@@ -461,9 +458,9 @@ export default function AppBillingPage() {
                 return (
                   <div
                     key={planKey}
-                    className={`flex h-full flex-col rounded-xl border p-5 ${
+                    className={`flex h-full flex-col rounded-2xl border p-5 ${
                       planKey === "founding"
-                        ? "border-amber-300 bg-gradient-to-b from-amber-50 via-amber-50/30 to-white shadow-[0_0_0_1px_rgba(245,158,11,0.14)]"
+                        ? "border-amber-300 bg-amber-50/40"
                         : "bg-white shadow-sm"
                     }`}
                   >
@@ -489,7 +486,7 @@ export default function AppBillingPage() {
                     {planKey === "founding" ? (
                       <p className="mt-2 text-xs font-medium text-amber-800">Enrollment closes once all 5 seats are filled.</p>
                     ) : null}
-                    <p className="mt-3 rounded-md border bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
+                    <p className="mt-3 rounded-xl border bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
                       {PLAN_COPY[planKey].bestFor}
                     </p>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Included</p>
@@ -539,7 +536,6 @@ export default function AppBillingPage() {
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-slate-400 via-zinc-400 to-slate-500" />
         <CardHeader>
           <CardTitle>Billing diagnostics</CardTitle>
         </CardHeader>
@@ -563,7 +559,7 @@ export default function AppBillingPage() {
               </div>
 
               {diagnostics.summary.topIssues?.length ? (
-                <div className="rounded-md border bg-muted/20 p-3">
+                <div className="rounded-xl border bg-muted/20 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top issues</p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
                     {[...new Set(diagnostics.summary.topIssues)].map((issue) => (
@@ -580,11 +576,11 @@ export default function AppBillingPage() {
                     ["Stripe checks", diagnostics.checks.stripe],
                     ["Org linkage", diagnostics.checks.orgLinkage]
                   ] as Array<[string, BillingDiagnosticCheck[]]>).map(([title, list]) => (
-                    <div key={title} className="rounded-md border bg-white p-3">
+                    <div key={title} className="rounded-2xl border bg-white p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
                       <div className="mt-2 space-y-2">
                         {list.map((check) => (
-                          <div key={check.key} className="rounded border p-2">
+                          <div key={check.key} className="rounded-xl border p-3">
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-xs font-medium">{humanizeCheckKey(check.key)}</p>
                               <Badge className={checkBadgeClass(check.status)}>{check.status}</Badge>
@@ -601,7 +597,7 @@ export default function AppBillingPage() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border bg-muted/20 p-3">
+                <div className="rounded-xl border bg-muted/20 p-3">
                   <p className="text-xs text-muted-foreground">
                     Internal diagnostics are restricted to platform admins. You can still use checkout, plan change, and billing portal actions normally.
                   </p>

@@ -52,20 +52,22 @@ export function PricingCards() {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {tiers.map((tier) => (
-        <Card key={tier.name} className="border-border">
-          <CardHeader>
-            <p className="text-sm font-semibold text-primary">{tier.name}</p>
-            <p className="text-xs text-muted-foreground">{tier.badge}</p>
-            <CardTitle>{tier.price}</CardTitle>
+        <Card key={tier.name} className={tier.name === "Standard" ? "border-primary/20" : ""}>
+          <CardHeader className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-primary">{tier.name}</p>
+              <p className="text-xs text-muted-foreground">{tier.badge}</p>
+            </div>
+            <CardTitle className="text-3xl">{tier.price}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {tier.features.map((item) => (
-              <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Check className="h-4 w-4 text-primary" />
+              <div key={item} className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                <Check className="mt-1 h-4 w-4 shrink-0 text-primary" />
                 <span>{item}</span>
               </div>
             ))}
-            <Button asChild className="mt-4 w-full">
+            <Button asChild className="mt-4 w-full" variant={tier.name === "Standard" ? "default" : "outline"}>
               <Link href={tier.ctaHref}>{tier.ctaLabel}</Link>
             </Button>
           </CardContent>

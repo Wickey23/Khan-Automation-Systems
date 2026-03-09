@@ -116,15 +116,17 @@ export function LeadsTable({
           <TableRow key={lead.id}>
             <TableCell>{formatDate(lead.createdAt)}</TableCell>
             <TableCell>
-              <p className="font-medium">{lead.name}</p>
-              <p className="text-xs text-muted-foreground">{lead.email}</p>
+              <div className="space-y-1">
+                <p className="font-medium">{lead.name}</p>
+                <p className="text-xs text-muted-foreground">{lead.email}</p>
+              </div>
             </TableCell>
             <TableCell>{lead.business}</TableCell>
             <TableCell>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <Badge variant={statusVariant[lead.status]}>{lead.status}</Badge>
                 <select
-                  className="h-9 w-full rounded-md border border-input bg-white px-2 text-xs"
+                  className="h-9 w-full rounded-lg border border-input bg-background px-3 text-xs font-medium shadow-sm"
                   value={lead.status}
                   onChange={(event) =>
                     setStatusById((prev) => ({
@@ -156,7 +158,7 @@ export function LeadsTable({
             </TableCell>
             <TableCell>
               <Textarea
-                className="min-h-[70px] min-w-52 text-xs"
+                className="min-h-[84px] min-w-52 text-xs"
                 placeholder="Call notes + follow-up date"
                 value={lead.notes || ""}
                 onChange={(event) =>
@@ -170,7 +172,7 @@ export function LeadsTable({
             <TableCell>{lead.industry || "-"}</TableCell>
             <TableCell>{lead.sourcePage || "-"}</TableCell>
             <TableCell>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   variant="default"
                   size="sm"
@@ -179,10 +181,10 @@ export function LeadsTable({
                 >
                   <Save className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => copyToClipboard(lead.email, "Email")}>
+                <Button variant="outline" size="sm" disabled={!lead.email} onClick={() => copyToClipboard(lead.email, "Email")}>
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => copyToClipboard(lead.phone, "Phone")}>
+                <Button variant="outline" size="sm" disabled={!lead.phone} onClick={() => copyToClipboard(lead.phone, "Phone")}>
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
                 <Button asChild variant="outline" size="sm">

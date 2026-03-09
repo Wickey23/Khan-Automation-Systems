@@ -11,6 +11,10 @@
   --foreground: 221 39% 11%;
   --card: 0 0% 100%;
   --card-foreground: 221 39% 11%;
+  --surface: 210 20% 98%;
+  --surface-strong: 0 0% 100%;
+  --surface-muted: 210 20% 96%;
+  --surface-contrast: 220 33% 98%;
   --primary: 224 64% 33%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 20% 96%;
@@ -21,6 +25,13 @@
   --input: 220 14% 87%;
   --accent: 224 64% 33%;
   --accent-foreground: 0 0% 100%;
+  --ring: 224 64% 33%;
+  --success: 152 63% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 36 92% 45%;
+  --warning-foreground: 26 83% 14%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
   --radius: 0.375rem;
 }
 
@@ -133,8 +144,12 @@ html[data-theme="premium-minimal"] {
   @apply border-border;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  @apply bg-background text-foreground;
+  @apply bg-background text-foreground antialiased;
   font-family:
     "Inter",
     "Neue Haas Grotesk Text Pro",
@@ -168,4 +183,77 @@ body {
 
 .animate-accordion-up {
   animation: accordion-up 0.2s ease-out;
+}
+
+@layer base {
+  h1 {
+    @apply text-4xl font-semibold tracking-tight text-foreground sm:text-5xl;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold tracking-tight text-foreground sm:text-3xl;
+  }
+
+  h3 {
+    @apply text-xl font-semibold tracking-tight text-foreground;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10;
+  }
+
+  .section-shell {
+    @apply py-12 sm:py-16;
+  }
+
+  .surface-panel {
+    @apply rounded-2xl border bg-white shadow-sm;
+  }
+
+  .surface-muted {
+    background-color: hsl(var(--surface-muted));
+    @apply rounded-2xl border;
+  }
+
+  .page-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-4 md:flex-row md:items-end md:justify-between;
+  }
+
+  .page-header-copy {
+    @apply max-w-3xl space-y-2;
+  }
+
+  .page-header-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .metric-grid {
+    @apply grid gap-4 md:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .metric-card {
+    @apply rounded-2xl border bg-white p-5 shadow-sm;
+  }
+
+  .card-stack {
+    @apply space-y-4;
+  }
+
+  .empty-state {
+    @apply rounded-2xl border border-dashed bg-white/70 px-6 py-10 text-center text-sm text-muted-foreground;
+  }
+
+  .data-toolbar {
+    @apply rounded-2xl border bg-white p-4 shadow-sm;
+  }
+
+  .table-shell {
+    @apply overflow-hidden rounded-2xl border bg-white shadow-sm;
+  }
 }
