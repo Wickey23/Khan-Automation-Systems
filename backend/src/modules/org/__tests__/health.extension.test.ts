@@ -64,5 +64,6 @@ test("health includes additive quality and SLA checks", async () => {
 
   assert.equal(typeof health.checks.callQualityAverage.ok, "boolean");
   assert.equal(typeof health.checks.slaDegradation.ok, "boolean");
+  assert.equal(health.runtimeHealth.level, health.level);
+  assert.equal(typeof health.readiness.canGoLive, "boolean");
 });
-

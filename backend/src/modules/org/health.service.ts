@@ -67,8 +67,7 @@ export async function computeOrgHealth(input: {
     .sort((a, b) => b.getTime() - a.getTime())[0] || null;
   const hasRecentActivity = Boolean(lastActivity && lastActivity >= since7d);
 
-  const checks = {
-    ...readiness.checks,
+  const runtimeChecks = {
     callSuccessScore: {
       ok: avgSuccessScore >= 0.75,
       reason: `Average call success score is ${(avgSuccessScore * 100).toFixed(0)}%`,
@@ -93,21 +92,27 @@ export async function computeOrgHealth(input: {
     }
   };
 
-  const failed = Object.values(checks).filter((check) => !check.ok).length;
-  const missingChecks = Object.entries(checks)
+  const runtimeFailed = Object.values(runtimeChecks).filter((check) => !check.ok).length;
+  const runtimeMissingChecks = Object.entries(runtimeChecks)
     .filter(([, check]) => !check.ok)
     .map(([key, check]) => ({ key, reason: check.reason, fixHint: check.fixHint }));
-  const level: HealthLevel = failed === 0 ? "GREEN" : failed <= 2 ? "YELLOW" : "RED";
+  const readinessMissingChecks = Object.entries(readiness.checks)
+    .filter(([, check]) => !check.ok)
+    .map(([key, check]) => ({ key, reason: check.reason, fixHint: check.fixHint }));
 
-  return {
-    level,
-    score: Math.max(0, 100 - failed * 12),
-    checks,
+  const runtimeLevel: HealthLevel = runtimeFailed === 0 ? "GREEN" : runtimeFailed <= 2 ? "YELLOW" : "RED";
+  const readinessLevel =
+    readinessMissingChecks.length === 0 ? "READY" : readiness.canGoLive ? "NEEDS_ACTION" : "INCOMPLETE";
+
+  const runtimeHealth = {
+    level: runtimeLevel,
+    score: Math.max(0, 100 - runtimeFailed * 18),
+    checks: runtimeChecks,
     summary:
-      level === "GREEN"
+      runtimeLevel === "GREEN"
         ? "All systems operational."
-        : level === "YELLOW"
-          ? "Action recommended on key operational checks."
+        : runtimeLevel === "YELLOW"
+          ? "Action recommended on live operational checks."
           : "Critical operational issues need attention.",
     metrics: {
       avgSuccessScore,
@@ -115,6 +120,25 @@ export async function computeOrgHealth(input: {
       slaSeverity,
       recentActivityAt: lastActivity ? lastActivity.toISOString() : null
     },
-    missingChecks
+    missingChecks: runtimeMissingChecks
+  };
+
+  const readinessStatus = {
+    level: readinessLevel as "READY" | "NEEDS_ACTION" | "INCOMPLETE",
+    canGoLive: readiness.canGoLive,
+    summary:
+      readinessMissingChecks.length === 0
+        ? "Setup and readiness checks are complete."
+        : readiness.canGoLive
+          ? "Minor readiness follow-up remains."
+          : "Setup steps still need review before go-live.",
+    checks: readiness.checks,
+    missingChecks: readinessMissingChecks
+  };
+
+  return {
+    ...runtimeHealth,
+    runtimeHealth,
+    readiness: readinessStatus
   };
 }

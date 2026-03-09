@@ -420,12 +420,14 @@ export default function AppOverviewPage() {
     return [...requestItems, ...leadItems].slice(0, 4);
   }, [openRequests, state.leads]);
 
-  const healthState = healthTone(state.health?.level);
+  const runtimeHealth = state.health?.runtimeHealth || state.health;
+  const readiness = state.health?.readiness || null;
+  const healthStateFromRuntime = healthTone(runtimeHealth?.level);
   const systemHealthMessage =
-    state.health?.level === "GREEN" ? "All services operational" : state.health?.summary || "Review the system health details.";
+    runtimeHealth?.level === "GREEN" ? "All services operational" : runtimeHealth?.summary || "Review the system health details.";
   const failingHealthChecks = useMemo(
-    () => Object.entries(state.health?.checks || {}).filter(([, check]) => !check.ok),
-    [state.health]
+    () => Object.entries(runtimeHealth?.checks || {}).filter(([, check]) => !check.ok),
+    [runtimeHealth]
   );
 
   const answerRate = state.analytics?.kpis.answerRate ?? 0;
@@ -683,9 +685,9 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex flex-wrap items-center gap-3">
-              <Badge className={clientBadgeClass(healthState.badge)}>
-                <span className={`status-dot ${healthState.dot}`} />
-                {healthState.label}
+              <Badge className={clientBadgeClass(healthStateFromRuntime.badge)}>
+                <span className={`status-dot ${healthStateFromRuntime.dot}`} />
+                {healthStateFromRuntime.label}
               </Badge>
               <p className="text-sm text-muted-foreground">{systemHealthMessage}</p>
             </div>
@@ -707,8 +709,8 @@ export default function AppOverviewPage() {
               <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Status</p>
                 <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <span className={`status-dot ${healthState.dot}`} />
-                  {healthState.label}
+                  <span className={`status-dot ${healthStateFromRuntime.dot}`} />
+                  {healthStateFromRuntime.label}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">{systemHealthMessage}</p>
               </div>
@@ -727,12 +729,21 @@ export default function AppOverviewPage() {
                 </p>
               </div>
               <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Last Synced</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Readiness</p>
                 <p className="mt-3 text-sm font-semibold text-foreground">
-                  {state.health?.metrics.recentActivityAt ? formatShortTime(state.health.metrics.recentActivityAt) : "Awaiting sync"}
+                  {readiness?.level === "READY" ? "Ready" : readiness?.level === "NEEDS_ACTION" ? "Minor follow-up" : "Setup incomplete"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {state.health?.metrics.recentActivityAt ? formatShortDate(state.health.metrics.recentActivityAt) : loading ? "Checking now" : "No recent activity"}
+                  {readiness?.summary || "Setup status unavailable"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Last Synced</p>
+                <p className="mt-3 text-sm font-semibold text-foreground">
+                  {runtimeHealth?.metrics.recentActivityAt ? formatShortTime(runtimeHealth.metrics.recentActivityAt) : "Awaiting sync"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {runtimeHealth?.metrics.recentActivityAt ? formatShortDate(runtimeHealth.metrics.recentActivityAt) : loading ? "Checking now" : "No recent activity"}
                 </p>
               </div>
             </div>

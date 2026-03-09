@@ -47,10 +47,14 @@ async function submitLeadWithRetry(apiBase: string, payload: Record<string, unkn
 
 export function LeadCaptureForm({
   sourcePage,
+  sourceSection,
+  ctaVariant,
   title = "Request a Custom Walkthrough",
   compact = false
 }: {
   sourcePage: string;
+  sourceSection?: string;
+  ctaVariant?: string;
   title?: string;
   compact?: boolean;
 }) {
@@ -76,7 +80,9 @@ export function LeadCaptureForm({
       message: "",
       preferredContact: "call",
       urgency: "this_month",
-      sourcePage
+      sourcePage,
+      sourceSection,
+      ctaVariant
     }
   });
 
@@ -90,7 +96,9 @@ export function LeadCaptureForm({
       const response = await submitLeadWithRetry(apiBase, {
         ...values,
         accountPassword: values.accountPassword,
-        sourcePage: window.location.pathname,
+        sourcePage: values.sourcePage,
+        sourceSection: values.sourceSection,
+        ctaVariant: values.ctaVariant,
         createAccount: true
       });
 
@@ -115,7 +123,9 @@ export function LeadCaptureForm({
       }
 
       trackEvent("lead_submitted", {
-        sourcePage: window.location.pathname,
+        sourcePage: values.sourcePage,
+        sourceSection: values.sourceSection,
+        ctaVariant: values.ctaVariant,
         leadId: payload.data?.leadId
       });
       setSubmittedEmail(values.email);
@@ -138,7 +148,9 @@ export function LeadCaptureForm({
         message: "",
         preferredContact: "call",
         urgency: "this_month",
-        sourcePage: window.location.pathname
+        sourcePage,
+        sourceSection,
+        ctaVariant
       });
     } catch (error) {
       showToast({
@@ -186,7 +198,9 @@ export function LeadCaptureForm({
         ) : null}
 
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
-          <input type="hidden" {...register("sourcePage")} value={sourcePage} />
+          <input type="hidden" {...register("sourcePage")} />
+          <input type="hidden" {...register("sourceSection")} />
+          <input type="hidden" {...register("ctaVariant")} />
           {!compact ? <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Business details</p> : null}
           <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
             <div className="space-y-1.5">

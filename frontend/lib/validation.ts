@@ -11,7 +11,9 @@ export const leadFormSchema = z.object({
   message: z.string().max(1000, "Message must be under 1000 chars.").optional(),
   preferredContact: z.enum(["call", "text", "email"]).optional(),
   urgency: z.enum(["this_week", "this_month", "exploring"]).optional(),
-  sourcePage: z.string().min(1)
+  sourcePage: z.string().min(1),
+  sourceSection: z.string().optional(),
+  ctaVariant: z.string().optional()
 }).refine((data) => data.accountPassword === data.confirmPassword, {
   message: "Passwords do not match.",
   path: ["confirmPassword"]

@@ -11,6 +11,8 @@ export const createLeadSchema = z.object({
   preferredContact: z.enum(["call", "text", "email"]).optional(),
   urgency: z.enum(["this_week", "this_month", "exploring"]).optional(),
   sourcePage: z.string().optional(),
+  sourceSection: z.string().optional(),
+  ctaVariant: z.string().optional(),
   orgId: z.string().optional(),
   source: z.enum(["WEB_FORM", "PHONE_CALL", "SMS"]).optional(),
   createAccount: z.boolean().optional().default(true)

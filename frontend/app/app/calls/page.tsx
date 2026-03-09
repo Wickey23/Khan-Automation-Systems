@@ -50,13 +50,6 @@ function shiftDateValue(value: string, delta: number) {
   return `${year}-${month}-${day}`;
 }
 
-function dateWindow(value: string) {
-  return {
-    from: new Date(`${value}T00:00:00`).toISOString(),
-    to: new Date(`${value}T23:59:59.999`).toISOString()
-  };
-}
-
 function formatDayHeading(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString([], {
     weekday: "long",
@@ -110,9 +103,9 @@ function extractCallerName(call: OrgCallRecord) {
 export default function AppCallsPage() {
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [selectedDay, setSelectedDay] = useState(todayDateValue());
-  const [totalCalls, setTotalCalls] = useState(0);
-  const page = 1;
-  const totalPages = 1;
+  const [page, setPage] = useState(1);
+  const [totalVisible, setTotalVisible] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -126,18 +119,21 @@ export default function AppCallsPage() {
   const selectedDayRef = useRef(selectedDay);
   const queryRef = useRef(query);
   const outcomeFilterRef = useRef(outcomeFilter);
+  const pageRef = useRef(page);
 
-  const loadCalls = useCallback(async (next: { day: string; query: string; outcome: "ALL" | OrgCallRecord["outcome"] }) => {
+  const loadCalls = useCallback(async (next: { day: string; query: string; outcome: "ALL" | OrgCallRecord["outcome"]; page: number }) => {
     try {
-      const window = dateWindow(next.day);
       const data = await fetchOrgCalls({
-        from: window.from,
-        to: window.to,
+        date: next.day,
+        page: next.page,
+        pageSize: 25,
         ...(next.outcome !== "ALL" ? { outcome: next.outcome } : {}),
         ...(next.query.trim() ? { query: next.query.trim() } : {})
       });
       setCalls(data.calls);
-      setTotalCalls(data.total);
+      setPage(data.page);
+      setTotalVisible(data.totalVisible);
+      setTotalPages(data.totalPages);
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
       setLastUpdated(new Date());
@@ -147,7 +143,8 @@ export default function AppCallsPage() {
       }
     } catch {
       setCalls([]);
-      setTotalCalls(0);
+      setTotalVisible(0);
+      setTotalPages(1);
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
     }
@@ -160,16 +157,17 @@ export default function AppCallsPage() {
     } catch {
       // still refresh current data
     } finally {
-      await loadCalls({ day: selectedDay, query, outcome: outcomeFilter });
+      await loadCalls({ day: selectedDay, query, outcome: outcomeFilter, page });
       setRefreshing(false);
     }
-  }, [loadCalls, outcomeFilter, query, selectedDay]);
+  }, [loadCalls, outcomeFilter, page, query, selectedDay]);
 
   useEffect(() => {
     selectedDayRef.current = selectedDay;
     queryRef.current = query;
     outcomeFilterRef.current = outcomeFilter;
-  }, [selectedDay, query, outcomeFilter]);
+    pageRef.current = page;
+  }, [selectedDay, query, outcomeFilter, page]);
 
   useEffect(() => {
     selectedCallIdRef.current = selectedCall?.id || null;
@@ -177,10 +175,10 @@ export default function AppCallsPage() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
+      void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
     }, 12000);
 
-    const refresh = () => void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
+    const refresh = () => void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
@@ -191,8 +189,8 @@ export default function AppCallsPage() {
   }, [loadCalls]);
 
   useEffect(() => {
-    void loadCalls({ day: selectedDay, query, outcome: outcomeFilter });
-  }, [selectedDay, query, outcomeFilter, loadCalls]);
+    void loadCalls({ day: selectedDay, query, outcome: outcomeFilter, page });
+  }, [selectedDay, query, outcomeFilter, page, loadCalls]);
 
   useEffect(() => {
     if (!selectedCall || !detailsRef.current || !shouldScrollToDetailsRef.current) return;
@@ -245,7 +243,7 @@ export default function AppCallsPage() {
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>Updated {formatRelativeUpdate(lastUpdated)}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>{totalCalls} matching calls</span>
+              <span>{totalVisible} matching calls</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -258,7 +256,10 @@ export default function AppCallsPage() {
                     ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(31,58,138,0.16)]"
                     : "bg-white text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
-                onClick={() => setOutcomeFilter(value as "ALL" | OrgCallRecord["outcome"])}
+                onClick={() => {
+                  setOutcomeFilter(value as "ALL" | OrgCallRecord["outcome"]);
+                  setPage(1);
+                }}
               >
                 {value === "ALL" ? "All" : value.replaceAll("_", " ")}
               </button>
@@ -269,10 +270,10 @@ export default function AppCallsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Calls on day", value: metrics.totalVisible, meta: formatDayHeading(selectedDay) },
-          { label: "Need review", value: metrics.needsReview, meta: "Missed calls for this day" },
-          { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests for this day" },
-          { label: "Answer rate", value: formatPercent(metrics.answerRate), meta: "Answered and non-spam calls for this day" }
+          { label: "Visible calls", value: metrics.totalVisible, meta: `Page ${page} of ${totalPages}` },
+          { label: "Need review", value: metrics.needsReview, meta: "Missed calls on this page" },
+          { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests on this page" },
+          { label: "Visible answer rate", value: formatPercent(metrics.answerRate), meta: "Answered and non-spam calls on this page" }
         ].map((item) => (
           <Card key={item.label}>
             <CardContent className="p-5">
@@ -296,10 +297,20 @@ export default function AppCallsPage() {
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-                  <Input type="date" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={selectedDay}
+                    onChange={(e) => {
+                      setSelectedDay(e.target.value);
+                      setPage(1);
+                    }}
+                  />
                   <Input
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setPage(1);
+                    }}
                     placeholder="Search by caller name, phone number, summary, or call ID"
                   />
                 </div>
@@ -307,8 +318,8 @@ export default function AppCallsPage() {
               <div className="rounded-xl border bg-slate-50 px-4 py-4 text-sm">
                 <p className="font-medium text-foreground">Queue summary</p>
                 <div className="mt-3 space-y-2 text-muted-foreground">
-                  <p>{totalCalls} matching calls on {formatDayHeading(selectedDay)}.</p>
-                  <p>{calls.length} calls currently loaded for this day.</p>
+                  <p>{totalVisible} matching calls on {formatDayHeading(selectedDay)}.</p>
+                  <p>{calls.length} calls currently loaded on page {page}.</p>
                   <p>Use the day selector or day navigation to move the review queue backward or forward.</p>
                 </div>
               </div>
@@ -322,7 +333,7 @@ export default function AppCallsPage() {
                 <p className="text-sm text-muted-foreground">Open a call to inspect the outcome, summary, transcript, and next step.</p>
               </div>
               <span className="rounded-full border bg-slate-50 px-3 py-1 text-xs font-medium text-muted-foreground">
-                {calls.length} loaded
+                {calls.length} loaded on this page
               </span>
             </div>
             {calls.length ? (
@@ -375,22 +386,51 @@ export default function AppCallsPage() {
                 <p className="page-eyebrow">Day navigation</p>
                 <p className="text-sm text-muted-foreground">{formatDayHeading(selectedDay)}</p>
               </div>
-              <p className="hidden text-sm text-muted-foreground">
-                Page {page} of {totalPages} · {totalCalls} total call{totalCalls === 1 ? "" : "s"}
+              <p className="hidden text-sm text-muted-foreground xl:block">
+                Page {page} of {totalPages} - {totalVisible} matching call{totalVisible === 1 ? "" : "s"}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setSelectedDay((current) => shiftDateValue(current, -1))}>
+                <Button variant="outline" onClick={() => {
+                  setSelectedDay((current) => shiftDateValue(current, -1));
+                  setPage(1);
+                }}>
                   Previous day
                 </Button>
-                <Button variant="outline" onClick={() => setSelectedDay(todayDateValue())} disabled={selectedDay === todayDateValue()}>
+                <Button variant="outline" onClick={() => {
+                  setSelectedDay(todayDateValue());
+                  setPage(1);
+                }} disabled={selectedDay === todayDateValue()}>
                   Today
                 </Button>
-                <Button variant="outline" onClick={() => setSelectedDay((current) => shiftDateValue(current, 1))}>
+                <Button variant="outline" onClick={() => {
+                  setSelectedDay((current) => shiftDateValue(current, 1));
+                  setPage(1);
+                }}>
                   Next day
                 </Button>
               </div>
             </CardContent>
           </Card>
+          {totalPages > 1 ? (
+            <Card className="border-slate-200 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
+              <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="page-eyebrow">Page controls</p>
+                  <p className="text-sm text-muted-foreground">
+                    Page {page} of {totalPages} for {formatDayHeading(selectedDay)}.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}>
+                    Previous page
+                  </Button>
+                  <Button variant="outline" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages}>
+                    Next page
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
         <section ref={detailsRef} className="xl:sticky xl:top-24 xl:self-start">

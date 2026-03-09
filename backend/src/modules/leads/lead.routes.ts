@@ -22,6 +22,8 @@ async function createLeadResilient(data: {
   preferredContact?: "call" | "text" | "email";
   urgency?: "this_week" | "this_month" | "exploring";
   sourcePage?: string;
+  sourceSection?: string;
+  ctaVariant?: string;
   orgId?: string | null;
   source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
   ip?: string | null;

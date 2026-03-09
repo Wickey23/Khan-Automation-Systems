@@ -169,7 +169,7 @@ export default function HomePage() {
           </MotionInView>
 
           <MotionInView delay={0.08}>
-            <LeadCaptureForm sourcePage="/" />
+            <LeadCaptureForm sourcePage="/" sourceSection="hero" ctaVariant="primary" />
           </MotionInView>
         </div>
       </section>
@@ -401,7 +401,7 @@ export default function HomePage() {
               <Link href="/book">Book a 15-min Call</Link>
             </Button>
           </div>
-          <LeadCaptureForm sourcePage="/#final-cta" title="Prefer we contact you first?" />
+          <LeadCaptureForm sourcePage="/#final-cta" sourceSection="final_cta" ctaVariant="secondary" title="Prefer we contact you first?" />
         </div>
       </section>
     </div>

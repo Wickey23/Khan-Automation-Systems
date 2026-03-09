@@ -1332,26 +1332,43 @@ adminRouter.get("/orgs/:id/health", async (req, res) => {
     });
     return res.json({ ok: true, data: health });
   } catch {
+    const fallbackRuntimeHealth = {
+      level: "RED",
+      score: 0,
+      checks: {},
+      summary: "Health checks are temporarily unavailable.",
+      metrics: {
+        avgSuccessScore: 0,
+        avgCallQuality: 0,
+        slaSeverity: "UNKNOWN",
+        recentActivityAt: null
+      },
+      missingChecks: [
+        {
+          key: "health_unavailable",
+          reason: "Health computation temporarily failed",
+          fixHint: "/admin/events"
+        }
+      ]
+    };
     return res.json({
       ok: true,
       data: {
-        level: "RED",
-        score: 0,
-        checks: {},
-        summary: "Health checks are temporarily unavailable.",
-        metrics: {
-          avgSuccessScore: 0,
-          avgCallQuality: 0,
-          slaSeverity: "UNKNOWN",
-          recentActivityAt: null
+        ...fallbackRuntimeHealth,
+        runtimeHealth: fallbackRuntimeHealth,
+        readiness: {
+          level: "INCOMPLETE",
+          canGoLive: false,
+          summary: "Readiness checks are temporarily unavailable.",
+          checks: {},
+          missingChecks: [
+            {
+              key: "readiness_unavailable",
+              reason: "Readiness computation temporarily failed",
+              fixHint: `/admin/orgs/${req.params.id}`
+            }
+          ]
         },
-        missingChecks: [
-          {
-            key: "health_unavailable",
-            reason: "Health computation temporarily failed",
-            fixHint: "/admin/events"
-          }
-        ]
       }
     });
   }

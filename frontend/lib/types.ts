@@ -20,6 +20,8 @@ export type Lead = {
   preferredContact: string | null;
   urgency: string | null;
   sourcePage: string | null;
+  sourceSection?: string | null;
+  ctaVariant?: string | null;
   status: LeadStatus;
   pipelineStage?: LeadPipelineStage;
   tags: string;
@@ -48,6 +50,8 @@ export type LeadPayload = {
   preferredContact?: "call" | "text" | "email";
   urgency?: "this_week" | "this_month" | "exploring";
   sourcePage: string;
+  sourceSection?: string;
+  ctaVariant?: string;
   orgId?: string;
   source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
   createAccount?: boolean;
@@ -285,6 +289,7 @@ export type OrgCallRecord = {
   aiSummary?: string | null;
   appointmentRequested?: boolean;
   leadId?: string | null;
+  appointmentRequestId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -860,7 +865,30 @@ export type OrgHealth = {
   checks: Record<string, { ok: boolean; reason: string; fixHint: string }>;
   metrics: {
     avgSuccessScore: number;
+    avgCallQuality?: number;
+    slaSeverity?: string;
     recentActivityAt: string | null;
+  };
+  missingChecks?: Array<{ key: string; reason: string; fixHint: string }>;
+  runtimeHealth?: {
+    level: "GREEN" | "YELLOW" | "RED";
+    score: number;
+    summary: string;
+    checks: Record<string, { ok: boolean; reason: string; fixHint: string }>;
+    metrics: {
+      avgSuccessScore: number;
+      avgCallQuality: number;
+      slaSeverity: string;
+      recentActivityAt: string | null;
+    };
+    missingChecks: Array<{ key: string; reason: string; fixHint: string }>;
+  };
+  readiness?: {
+    level: "READY" | "NEEDS_ACTION" | "INCOMPLETE";
+    summary: string;
+    canGoLive: boolean;
+    checks: Record<string, { ok: boolean; reason: string; fixHint: string }>;
+    missingChecks: Array<{ key: string; reason: string; fixHint: string }>;
   };
 };
 

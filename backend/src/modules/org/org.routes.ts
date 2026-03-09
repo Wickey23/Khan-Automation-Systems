@@ -264,6 +264,7 @@ const listOrgCallsSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"]).optional(),
   query: z.string().trim().max(100).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional()
 });
@@ -781,14 +782,26 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   const pageSize = parsed.data.pageSize || 25;
   const query = String(parsed.data.query || "").trim();
   const normalizedQuery = query.toLowerCase();
-  const hasDateWindow = Boolean(parsed.data.from && parsed.data.to);
+  const hasExplicitDate = Boolean(parsed.data.date);
+  const dateWindow =
+    parsed.data.date
+      ? {
+          from: new Date(`${parsed.data.date}T00:00:00`),
+          to: new Date(`${parsed.data.date}T23:59:59.999`)
+        }
+      : parsed.data.from && parsed.data.to
+        ? {
+            from: new Date(String(parsed.data.from)),
+            to: new Date(String(parsed.data.to))
+          }
+        : null;
   const callWhere = {
     orgId,
-    ...(hasDateWindow
+    ...(dateWindow
       ? {
           startedAt: {
-            gte: new Date(String(parsed.data.from)),
-            lte: new Date(String(parsed.data.to))
+            gte: dateWindow.from,
+            lte: dateWindow.to
           }
         }
       : {}),
@@ -805,19 +818,10 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
       : {})
   };
 
-  const [calls, total, activePhone] = await Promise.all([
+  const [allMatchedCalls, activePhone] = await Promise.all([
     prisma.callLog.findMany({
       where: callWhere,
-      orderBy: { startedAt: "desc" },
-      ...(hasDateWindow
-        ? {}
-        : {
-            skip: (page - 1) * pageSize,
-            take: pageSize
-          })
-    }),
-    prisma.callLog.count({
-      where: callWhere
+      orderBy: { startedAt: "desc" }
     }),
     prisma.phoneNumber.findFirst({
       where: { orgId: req.auth.orgId, status: "ACTIVE" },
@@ -826,24 +830,27 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     })
   ]);
 
-  const pageLeadIds = [...new Set(calls.map((call) => String(call.leadId || "")).filter(Boolean))];
-  const pagePhones = [...new Set(calls.map((call) => normalizePhoneE164(call.fromNumber)).filter(Boolean))];
-  const leads = await prisma.lead.findMany({
-    where: {
-      orgId,
-      OR: [
-        ...(pageLeadIds.length ? [{ id: { in: pageLeadIds } }] : []),
-        ...(pagePhones.length ? [{ phone: { in: pagePhones } }] : [])
-      ]
-    },
-    select: {
-      id: true,
-      phone: true,
-      name: true,
-      createdAt: true
-    },
-    orderBy: { createdAt: "desc" }
-  });
+  const allLeadIds = [...new Set(allMatchedCalls.map((call) => String(call.leadId || "")).filter(Boolean))];
+  const allPhones = [...new Set(allMatchedCalls.map((call) => normalizePhoneE164(call.fromNumber)).filter(Boolean))];
+  const leads =
+    allLeadIds.length || allPhones.length
+      ? await prisma.lead.findMany({
+          where: {
+            orgId,
+            OR: [
+              ...(allLeadIds.length ? [{ id: { in: allLeadIds } }] : []),
+              ...(allPhones.length ? [{ phone: { in: allPhones } }] : [])
+            ]
+          },
+          select: {
+            id: true,
+            phone: true,
+            name: true,
+            createdAt: true
+          },
+          orderBy: { createdAt: "desc" }
+        })
+      : [];
 
   const leadById = new Map(leads.map((lead) => [lead.id, lead]));
   const leadByPhone = new Map<string, (typeof leads)[number]>();
@@ -853,7 +860,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     leadByPhone.set(key, lead);
   }
   const dedupedCalls = dedupeOrgCallRows(
-    calls.map((call) => ({
+    allMatchedCalls.map((call) => ({
       id: call.id,
       startedAt: call.startedAt,
       fromNumber: call.fromNumber,
@@ -868,7 +875,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     }))
   );
   const dedupedCallIds = new Set(dedupedCalls.map((call) => call.id));
-  const enrichedCalls = calls
+  const visibleCalls = allMatchedCalls
     .filter((call) => dedupedCallIds.has(call.id))
     .map((call) => ({
       ...call,
@@ -892,8 +899,22 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
         String(call.providerCallId || "").toLowerCase().includes(normalizedQuery)
       );
     });
+  const totalVisible = visibleCalls.length;
+  const totalPages = Math.max(1, Math.ceil(totalVisible / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedCalls = visibleCalls.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const appointmentRequests = pagedCalls.length
+    ? await prisma.appointmentRequest.findMany({
+        where: {
+          orgId,
+          callLogId: { in: pagedCalls.map((call) => call.id) }
+        },
+        select: { id: true, callLogId: true }
+      })
+    : [];
+  const appointmentRequestByCallId = new Map(appointmentRequests.map((item) => [item.callLogId, item.id]));
   if (isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, req.auth?.orgId)) {
-    const topForClassification = enrichedCalls.slice(0, 50);
+    const topForClassification = visibleCalls.slice(0, 50);
     await Promise.all(
       topForClassification.map((call) =>
         classifyCallAndMaybeUpdateLead({
@@ -908,11 +929,16 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   return res.json({
     ok: true,
     data: {
-      calls: enrichedCalls,
-      page,
+      calls: pagedCalls.map((call) => ({
+        ...call,
+        appointmentRequestId: appointmentRequestByCallId.get(call.id) || null
+      })),
+      page: safePage,
       pageSize,
-      total,
-      totalPages: hasDateWindow ? 1 : Math.max(1, Math.ceil(total / pageSize)),
+      totalVisible,
+      total: totalVisible,
+      totalPages,
+      ...(hasExplicitDate ? { date: parsed.data.date } : {}),
       assignedPhoneNumber: activePhone?.e164Number || null,
       assignedNumberProvider: activePhone?.provider || null
     }
@@ -2341,26 +2367,43 @@ orgRouter.get("/health", async (req: AuthenticatedRequest, res) => {
     });
     return res.json({ ok: true, data: health });
   } catch {
+    const fallbackRuntimeHealth = {
+      level: "RED",
+      score: 0,
+      checks: {},
+      summary: "Health checks are temporarily unavailable. Retry shortly.",
+      metrics: {
+        avgSuccessScore: 0,
+        avgCallQuality: 0,
+        slaSeverity: "UNKNOWN",
+        recentActivityAt: null
+      },
+      missingChecks: [
+        {
+          key: "health_unavailable",
+          reason: "Health computation temporarily failed",
+          fixHint: "/app/settings"
+        }
+      ]
+    };
     return res.json({
       ok: true,
       data: {
-        level: "RED",
-        score: 0,
-        checks: {},
-        summary: "Health checks are temporarily unavailable. Retry shortly.",
-        metrics: {
-          avgSuccessScore: 0,
-          avgCallQuality: 0,
-          slaSeverity: "UNKNOWN",
-          recentActivityAt: null
+        ...fallbackRuntimeHealth,
+        runtimeHealth: fallbackRuntimeHealth,
+        readiness: {
+          level: "INCOMPLETE",
+          canGoLive: false,
+          summary: "Readiness checks are temporarily unavailable.",
+          checks: {},
+          missingChecks: [
+            {
+              key: "readiness_unavailable",
+              reason: "Readiness computation temporarily failed",
+              fixHint: "/app/onboarding"
+            }
+          ]
         },
-        missingChecks: [
-          {
-            key: "health_unavailable",
-            reason: "Health computation temporarily failed",
-            fixHint: "/app/settings"
-          }
-        ]
       }
     });
   }

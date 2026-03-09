@@ -507,6 +507,7 @@ export async function fetchOrgCalls(params?: {
   pageSize?: number;
   outcome?: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
   query?: string;
+  date?: string;
   from?: string;
   to?: string;
 }) {
@@ -515,16 +516,19 @@ export async function fetchOrgCalls(params?: {
   if (params?.pageSize) search.set("pageSize", String(params.pageSize));
   if (params?.outcome) search.set("outcome", params.outcome);
   if (params?.query) search.set("query", params.query);
+  if (params?.date) search.set("date", params.date);
   if (params?.from) search.set("from", params.from);
   if (params?.to) search.set("to", params.to);
   return request<{
     calls: OrgCallRecord[];
     page: number;
     pageSize: number;
-    total: number;
+    totalVisible: number;
     totalPages: number;
+    date?: string;
     assignedPhoneNumber: string | null;
     assignedNumberProvider: "TWILIO" | "VAPI" | null;
+    total?: number;
   }>(`/api/org/calls${search.toString() ? `?${search.toString()}` : ""}`);
 }
 
