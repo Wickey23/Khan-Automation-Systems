@@ -620,25 +620,34 @@ export default function AppAppointmentsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">Appointments</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage captured requests, offered slots, and the appointments that are already on the calendar.
-          </p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-4">
-          <label className="text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">View</span>
-            <select
-              value={viewMode}
-              onChange={(event) => setViewMode(event.target.value as "LIST" | "CALENDAR")}
-              className="mt-1 h-10 rounded-md border bg-background px-3"
+      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Scheduling Workspace</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">Appointments</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Review captured requests first, then manage the appointments already on the calendar.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={viewMode === "CALENDAR" ? "default" : "outline"}
+              onClick={() => setViewMode("CALENDAR")}
             >
-              <option value="CALENDAR">Calendar</option>
-              <option value="LIST">List</option>
-            </select>
-          </label>
+              Calendar
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "LIST" ? "default" : "outline"}
+              onClick={() => setViewMode("LIST")}
+            >
+              List
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="text-sm">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
             <select
@@ -648,14 +657,14 @@ export default function AppAppointmentsPage() {
                 setStatus(next);
                 void load(next, fromDate, toDate);
               }}
-              className="mt-1 h-10 rounded-md border bg-background px-3"
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
             >
-              <option value="ALL">All statuses</option>
-              <option value="PENDING">PENDING</option>
-              <option value="CONFIRMED">CONFIRMED</option>
-              <option value="COMPLETED">COMPLETED</option>
-              <option value="CANCELED">CANCELED</option>
-              <option value="NO_SHOW">NO_SHOW</option>
+              <option value="ALL">All appointments</option>
+              <option value="PENDING">Pending</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELED">Canceled</option>
+              <option value="NO_SHOW">No show</option>
             </select>
           </label>
           <label className="text-sm">
@@ -668,7 +677,7 @@ export default function AppAppointmentsPage() {
                 setFromDate(next);
                 void load(status, next, toDate);
               }}
-              className="mt-1 h-10 rounded-md border bg-background px-3"
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
             />
           </label>
           <label className="text-sm">
@@ -681,9 +690,19 @@ export default function AppAppointmentsPage() {
                 setToDate(next);
                 void load(status, fromDate, next);
               }}
-              className="mt-1 h-10 rounded-md border bg-background px-3"
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
             />
           </label>
+          <div className="rounded-xl border bg-slate-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Workspace focus</p>
+            <p className="mt-1 text-sm font-medium text-slate-900">
+              {pendingAppointmentRequests.length > 0
+                ? `${pendingAppointmentRequests.length} requests need review`
+                : viewMode === "CALENDAR"
+                  ? "Review the schedule for conflicts"
+                  : "Review the appointment list"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -695,133 +714,22 @@ export default function AppAppointmentsPage() {
 
       {!featureDisabled ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending review</p>
-            <p className="mt-1 text-xl font-semibold">{pendingAppointmentRequests.length}</p>
+          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending Review</p>
+            <p className="mt-1 text-2xl font-semibold">{pendingAppointmentRequests.length}</p>
           </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
-            <p className="mt-1 text-xl font-semibold">{offeredAppointmentRequests.length}</p>
+          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting Reply</p>
+            <p className="mt-1 text-2xl font-semibold">{offeredAppointmentRequests.length}</p>
           </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Requests scheduled</p>
-            <p className="mt-1 text-xl font-semibold">{scheduledAppointmentRequests.length}</p>
+          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Scheduled from Requests</p>
+            <p className="mt-1 text-2xl font-semibold">{scheduledAppointmentRequests.length}</p>
           </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Calendar appointments</p>
-            <p className="mt-1 text-xl font-semibold">{appointments.length}</p>
+          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointments on Calendar</p>
+            <p className="mt-1 text-2xl font-semibold">{appointments.length}</p>
           </div>
-        </div>
-      ) : null}
-
-      {canWrite && !featureDisabled ? (
-        <div className="rounded-lg border bg-white p-4">
-          <h2 className="text-lg font-semibold">Book an appointment</h2>
-          <p className="text-sm text-muted-foreground">
-            Book directly from the office when you already know the customer and preferred time.
-          </p>
-          {customerBase.length > 0 ? (
-            <label className="mt-3 block text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Select customer from customer base</span>
-              <select
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                value={selectedCustomerPhone}
-                onChange={(event) => {
-                  const phone = event.target.value;
-                  setSelectedCustomerPhone(phone);
-                  if (!phone) return;
-                  const selected = customerBase.find((row) => row.phoneNumber === phone);
-                  if (!selected) return;
-                  setCustomerPhone(selected.phoneNumber);
-                  setCustomerName(selected.lead?.name || selected.displayName || "");
-                }}
-              >
-                <option value="">Manual entry</option>
-                {customerBase.map((customer) => (
-                  <option key={customer.phoneNumber} value={customer.phoneNumber}>
-                    {(customer.lead?.name || customer.displayName || customer.phoneNumber).trim()} - {customer.phoneNumber}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer name</span>
-              <input
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
-                placeholder="Jane Smith"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer phone</span>
-              <input
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-                placeholder="+15165551234"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Calendar provider</span>
-              <select
-                value={slotProvider}
-                onChange={(event) => setSlotProvider(event.target.value as "INTERNAL" | "GOOGLE" | "OUTLOOK")}
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-              >
-                {!hasExternalCalendar ? <option value="INTERNAL">INTERNAL</option> : null}
-                {calendarFeatureEnabled && hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
-                {calendarFeatureEnabled && hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
-              </select>
-              {!canManageCalendar ? (
-                <p className="mt-1 text-xs text-muted-foreground">Google/Outlook booking is admin-managed in Settings.</p>
-              ) : null}
-            </label>
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Date</span>
-              <input
-                type="date"
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                value={slotDate}
-                min={todayDateValue}
-                onChange={(event) => setSlotDate(event.target.value)}
-              />
-            </label>
-          </div>
-          <label className="mt-3 block text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue summary</span>
-            <input
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-              value={issueSummary}
-              onChange={(event) => setIssueSummary(event.target.value)}
-              placeholder="No heat, furnace inspection requested"
-            />
-          </label>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => void onFetchSlots()} disabled={loadingSlots}>
-              {loadingSlots ? "Loading slots..." : "Find available slots"}
-            </Button>
-            <span className="text-xs text-muted-foreground">Timezone: {slotTimezone}</span>
-          </div>
-          {availableSlots.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {availableSlots.map((slot) => (
-                <Button
-                  key={slot.startAt}
-                  size="sm"
-                  variant="outline"
-                  disabled={creatingSlot === slot.startAt}
-                  onClick={() => void onCreateFromSlot(slot)}
-                >
-                  {creatingSlot === slot.startAt
-                    ? "Booking..."
-                    : `${new Date(slot.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} - ${new Date(slot.endAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
-                </Button>
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -852,7 +760,7 @@ export default function AppAppointmentsPage() {
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</h3>
                       <span className="text-xs text-muted-foreground">{section.items.length}</span>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="space-y-3">
                       {section.items.map((request) => {
                         const reviewTone =
                           request.status === "APPROVED"
@@ -866,8 +774,8 @@ export default function AppAppointmentsPage() {
                         const requestSlotDate = requestSlotDates[request.id] || "";
                         const slotsForRequest = requestAvailableSlots[request.id] || [];
                         return (
-                          <div key={request.id} className="rounded-lg border p-4 shadow-sm">
-                            <div className="flex items-start justify-between gap-3">
+                          <div key={request.id} className="rounded-xl border bg-white p-4 shadow-sm">
+                            <div className="flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between">
                               <div>
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>
                                 <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
@@ -882,48 +790,60 @@ export default function AppAppointmentsPage() {
                                       : request.status.replaceAll("_", " ")}
                               </span>
                             </div>
-                            <div className="mt-3 grid gap-3 text-sm">
-                              <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="mt-3 grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
+                              <div className="space-y-3 text-sm">
                                 <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested on</span>
-                                  <p>{new Date(request.startedAt).toLocaleString()}</p>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>
+                                  <p className="mt-1 line-clamp-3 text-slate-900">{request.issueSummary}</p>
                                 </div>
-                                <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested for</span>
-                                  <p>{request.requestedTimeLabel || "Not captured yet"}</p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <div>
+                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested On</span>
+                                    <p className="mt-1">{new Date(request.startedAt).toLocaleString()}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested For</span>
+                                    <p className="mt-1">{request.requestedTimeLabel || "Not captured yet"}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Address</span>
+                                    <p className="mt-1">{request.serviceAddress || "Not captured yet"}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned</span>
+                                    <p className="mt-1">{request.assignedUserLabel || "Unassigned"}</p>
+                                  </div>
                                 </div>
-                              </div>
-                              <div>
-                                <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>
-                                <p className="line-clamp-4">{request.issueSummary}</p>
-                              </div>
-                              <div>
-                                <span className="text-xs uppercase tracking-wide text-muted-foreground">Address</span>
-                                <p>{request.serviceAddress || "Not captured yet"}</p>
-                              </div>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Request status</span>
-                                  <p>{request.requestState}</p>
-                                </div>
-                                <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned technician</span>
-                                  <p>{request.assignedUserLabel || "Unassigned"}</p>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                                {request.leadId ? (
-                                  <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
-                                    Open lead
+                                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                  <span>State: {request.requestState}</span>
+                                  {request.leadId ? (
+                                    <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
+                                      Open lead
+                                    </Link>
+                                  ) : null}
+                                  <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>
+                                    Open conversation
                                   </Link>
-                                ) : null}
-                                <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>
-                                  Open call
-                                </Link>
+                                </div>
+                              </div>
+                              <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
+                                <div>
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Next office action</span>
+                                  <p className="mt-1 text-sm text-slate-900">
+                                    {request.status === "PENDING_REVIEW"
+                                      ? "Review and assign this request."
+                                      : request.status === "APPROVED"
+                                        ? "Offer a time or schedule directly."
+                                        : request.status === "SLOT_OFFERED"
+                                          ? "Waiting for the customer to reply."
+                                          : "No immediate action required."}
+                                  </p>
+                                </div>
+                                <div className="text-xs text-muted-foreground">SMS: {request.effectiveSmsPhone}</div>
                               </div>
                             </div>
                             {canWrite && request.status !== "DENIED" && request.status !== "SCHEDULED" && request.status !== "CLOSED" ? (
-                              <div className="mt-4 space-y-2">
+                              <div className="mt-4 rounded-xl border bg-slate-50 p-4">
                                 <label className="block text-sm">
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
                                   <select
@@ -944,7 +864,7 @@ export default function AppAppointmentsPage() {
                                     ))}
                                   </select>
                                 </label>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="mt-2 flex flex-wrap gap-2">
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -970,8 +890,7 @@ export default function AppAppointmentsPage() {
                                     Deny
                                   </Button>
                                 </div>
-                                <div className="rounded-md border bg-muted/20 p-3">
-                                  <div className="flex flex-wrap items-end gap-2">
+                                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end">
                                     <label className="min-w-[180px] flex-1 text-sm">
                                       <span className="text-xs uppercase tracking-wide text-muted-foreground">Find schedule slots</span>
                                       <input
@@ -987,15 +906,15 @@ export default function AppAppointmentsPage() {
                                         }
                                       />
                                     </label>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      disabled={requestLoadingSlotsId === request.id}
-                                      onClick={() => void onFetchRequestSlots(request)}
-                                    >
-                                      {requestLoadingSlotsId === request.id ? "Loading..." : "Find slots"}
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={requestLoadingSlotsId === request.id}
+                                    onClick={() => void onFetchRequestSlots(request)}
+                                  >
+                                    {requestLoadingSlotsId === request.id ? "Loading..." : "Find slots"}
+                                  </Button>
+                                </div>
                                   {slotsForRequest.length ? (
                                     <div className="mt-3 flex flex-wrap gap-2">
                                       {slotsForRequest.map((slot) => {
@@ -1019,7 +938,6 @@ export default function AppAppointmentsPage() {
                                       })}
                                     </div>
                                   ) : null}
-                                </div>
                               </div>
                             ) : null}
                           </div>
@@ -1257,6 +1175,120 @@ export default function AppAppointmentsPage() {
           </div>
         </div>
       )}
+
+      {canWrite && !featureDisabled ? (
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Office Booking</p>
+            <h2 className="mt-2 text-xl font-semibold">Book directly when you already have the details</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Use this when the office already knows the customer and just needs to place the appointment on the calendar.
+            </p>
+          </div>
+          {customerBase.length > 0 ? (
+            <label className="mt-4 block text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Select customer</span>
+              <select
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={selectedCustomerPhone}
+                onChange={(event) => {
+                  const phone = event.target.value;
+                  setSelectedCustomerPhone(phone);
+                  if (!phone) return;
+                  const selected = customerBase.find((row) => row.phoneNumber === phone);
+                  if (!selected) return;
+                  setCustomerPhone(selected.phoneNumber);
+                  setCustomerName(selected.lead?.name || selected.displayName || "");
+                }}
+              >
+                <option value="">Manual entry</option>
+                {customerBase.map((customer) => (
+                  <option key={customer.phoneNumber} value={customer.phoneNumber}>
+                    {(customer.lead?.name || customer.displayName || customer.phoneNumber).trim()} - {customer.phoneNumber}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer name</span>
+              <input
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="Jane Smith"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Customer phone</span>
+              <input
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={customerPhone}
+                onChange={(event) => setCustomerPhone(event.target.value)}
+                placeholder="+15165551234"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Calendar provider</span>
+              <select
+                value={slotProvider}
+                onChange={(event) => setSlotProvider(event.target.value as "INTERNAL" | "GOOGLE" | "OUTLOOK")}
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              >
+                {!hasExternalCalendar ? <option value="INTERNAL">INTERNAL</option> : null}
+                {calendarFeatureEnabled && hasGoogle ? <option value="GOOGLE">GOOGLE</option> : null}
+                {calendarFeatureEnabled && hasOutlook ? <option value="OUTLOOK">OUTLOOK</option> : null}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Date</span>
+              <input
+                type="date"
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={slotDate}
+                min={todayDateValue}
+                onChange={(event) => setSlotDate(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="mt-3 block text-sm">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue summary</span>
+            <input
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              value={issueSummary}
+              onChange={(event) => setIssueSummary(event.target.value)}
+              placeholder="No heat, furnace inspection requested"
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => void onFetchSlots()} disabled={loadingSlots}>
+              {loadingSlots ? "Loading slots..." : "Find available slots"}
+            </Button>
+            <span className="text-xs text-muted-foreground">Timezone: {slotTimezone}</span>
+            {!canManageCalendar ? (
+              <span className="text-xs text-muted-foreground">Google/Outlook booking is admin-managed in Assistant Settings.</span>
+            ) : null}
+          </div>
+          {availableSlots.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {availableSlots.map((slot) => (
+                <Button
+                  key={slot.startAt}
+                  size="sm"
+                  variant="outline"
+                  disabled={creatingSlot === slot.startAt}
+                  onClick={() => void onCreateFromSlot(slot)}
+                >
+                  {creatingSlot === slot.startAt
+                    ? "Booking..."
+                    : `${new Date(slot.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} - ${new Date(slot.endAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {selectedCalendarDetail ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[1px]">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, PhoneCall, ShieldCheck, Sparkles } from "lucide-react";
 import {
   fetchAppointmentRequests,
   fetchOrgAnalytics,
@@ -86,6 +87,51 @@ function workspaceStateLabel(organization: Organization | null, subscription: Or
   return "Setup in progress";
 }
 
+function metricTone(value: number | null | undefined) {
+  if (value === null || value === undefined) return "neutral";
+  if (value === 0) return "neutral";
+  return "success";
+}
+
+function MetricCard({
+  title,
+  hint,
+  value,
+  accent
+}: {
+  title: string;
+  hint: string;
+  value: string | number;
+  accent?: "success" | "warning" | "critical" | "neutral";
+}) {
+  return (
+    <Card className="border-slate-200 shadow-none">
+      <CardHeader className="space-y-0 pb-2">
+        <CardTitle className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {title}
+          <InfoHint text={hint} />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-end justify-between gap-3">
+          <p className="text-4xl font-semibold tracking-tight text-slate-950">{value}</p>
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              accent === "critical"
+                ? "bg-rose-500"
+                : accent === "warning"
+                  ? "bg-amber-500"
+                  : accent === "success"
+                    ? "bg-emerald-500"
+                    : "bg-slate-300"
+            }`}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AppOverviewPage() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [submission, setSubmission] = useState<OnboardingSubmission | null>(null);
@@ -138,16 +184,16 @@ export default function AppOverviewPage() {
   const todayLeads = useMemo(() => leads.filter((lead) => isToday(lead.createdAt)).length, [leads]);
   const todayRequests = useMemo(() => requests.filter((request) => isToday(request.createdAt)).length, [requests]);
 
-  const recentConversations = useMemo(() => calls.slice(0, 5), [calls]);
+  const recentConversations = useMemo(() => calls.slice(0, 4), [calls]);
   const openLeads = useMemo(
     () =>
       leads
         .filter((lead) => lead.status !== "WON" && lead.status !== "LOST")
-        .slice(0, 5),
+        .slice(0, 4),
     [leads]
   );
   const awaitingReplyRequests = useMemo(
-    () => requests.filter((request) => request.status === "SLOT_OFFERED").slice(0, 5),
+    () => requests.filter((request) => request.status === "SLOT_OFFERED").slice(0, 4),
     [requests]
   );
 
@@ -249,105 +295,123 @@ export default function AppOverviewPage() {
   const workspaceState = workspaceStateLabel(organization, subscription);
   const aiAnswerRate = analytics ? Math.round(analytics.kpis.answerRate * 100) : null;
   const missedRecoveries = analytics?.kpis.missedCallsRecovered ?? analytics?.kpis.autoRecoveryLeadConversions ?? 0;
+  const bookedRequests = requests.filter((request) => request.status === "SCHEDULED").length;
+  const openRequestCount = requests.filter((request) => request.status !== "SCHEDULED" && request.status !== "DENIED").length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Overview</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Track calls, leads, requests, and the items that need attention.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/app/calls" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-            Review Conversations
-          </Link>
-          <Link href="/app/appointments" className="rounded-md border px-4 py-2 text-sm font-medium">
-            Review Requests
-          </Link>
-          <Link href="/app/settings" className="rounded-md border px-4 py-2 text-sm font-medium">
-            Update Business Hours
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="border-slate-200 bg-white shadow-none">
+          <CardContent className="flex flex-col gap-5 p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-600">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Client Overview
+                </div>
+                <div>
+                  <h1 className="text-4xl font-semibold tracking-tight text-slate-950">Overview</h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                    See what happened today, what the assistant captured, and what needs attention next.
+                  </p>
+                </div>
+              </div>
+              <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 lg:inline-flex">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {workspaceState}
+              </div>
+            </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="inline-flex items-center gap-1 text-sm">
-              Calls Today
-              <InfoHint text="Calls logged today from the most recent conversation feed." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{todayCalls}</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <Link
+                href="/app/calls"
+                className="inline-flex items-center justify-between rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-95"
+              >
+                Review Conversations
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/app/appointments"
+                className="inline-flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50"
+              >
+                Review Requests
+                <ArrowRight className="h-4 w-4 text-slate-500" />
+              </Link>
+              <Link
+                href="/app/settings"
+                className="inline-flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50"
+              >
+                Update Business Hours
+                <ArrowRight className="h-4 w-4 text-slate-500" />
+              </Link>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="inline-flex items-center gap-1 text-sm">
-              Leads Captured
-              <InfoHint text="New leads created today." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{todayLeads}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="inline-flex items-center gap-1 text-sm">
-              Requests Captured
-              <InfoHint text="New appointment requests captured today." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{todayRequests}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="inline-flex items-center gap-1 text-sm">
-              Missed Call Recoveries
-              <InfoHint text="Recovered missed calls based on the current analytics window." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{missedRecoveries}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="inline-flex items-center gap-1 text-sm">
-              AI Answer Rate
-              <InfoHint text="Answer rate from the current analytics window." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{aiAnswerRate !== null ? `${aiAnswerRate}%` : "Unavailable"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="inline-flex items-center gap-1 text-sm">
-              Open Attention Items
-              <InfoHint text="Operational exceptions that need review, follow-up, or a fix." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{actionItems.length}</p>
+
+        <Card className="border-slate-200 bg-slate-950 text-white shadow-none">
+          <CardContent className="flex h-full flex-col justify-between gap-5 p-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">System Status</p>
+              <p className="text-2xl font-semibold tracking-tight">{workspaceState}</p>
+              <p className="text-sm leading-6 text-slate-300">
+                {health?.summary || "Health checks are available and the workspace is ready for review."}
+              </p>
+            </div>
+            <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-1">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-300">Assigned Number</p>
+                <p className="mt-1 font-medium text-white">{assignedPhoneNumber || "Not assigned"}</p>
+                <p className="text-xs text-slate-400">{assignedNumberProvider || "No provider yet"}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-300">Messaging</p>
+                <p className="mt-1 font-medium text-white">{messagingReadiness?.state || "Unknown"}</p>
+                <p className="text-xs text-slate-400">
+                  {messagingReadiness?.reasons?.[0] || "No active blockers detected."}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400">
+              Last synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Syncing..."}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <MetricCard title="Calls Today" hint="Calls logged today from the recent conversation feed." value={todayCalls} accent={metricTone(todayCalls)} />
+        <MetricCard title="Leads Captured" hint="New leads created today." value={todayLeads} accent={metricTone(todayLeads)} />
+        <MetricCard title="Requests Captured" hint="New appointment requests captured today." value={todayRequests} accent={metricTone(todayRequests)} />
+        <MetricCard
+          title="Missed Call Recoveries"
+          hint="Recovered missed calls based on the current analytics window."
+          value={missedRecoveries}
+          accent={metricTone(missedRecoveries)}
+        />
+        <MetricCard
+          title="AI Answer Rate"
+          hint="Answer rate from the current analytics window."
+          value={aiAnswerRate !== null ? `${aiAnswerRate}%` : "Unavailable"}
+          accent={aiAnswerRate !== null && aiAnswerRate < 70 ? "warning" : "success"}
+        />
+        <MetricCard
+          title="Open Attention Items"
+          hint="Operational exceptions that need review, follow-up, or a fix."
+          value={actionItems.length}
+          accent={actionItems.length > 0 ? "warning" : "success"}
+        />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_380px]">
         <div className="grid gap-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-3">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-slate-200 shadow-none">
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base">Recent Conversations</CardTitle>
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-slate-950">Recent Conversations</CardTitle>
+                    <p className="mt-1 text-sm text-slate-500">Latest customer activity handled by the assistant.</p>
+                  </div>
                   <Link href="/app/calls" className="text-xs font-medium text-primary hover:underline">
                     View all
                   </Link>
@@ -356,33 +420,36 @@ export default function AppOverviewPage() {
               <CardContent className="space-y-3">
                 {recentConversations.length ? (
                   recentConversations.map((call) => (
-                    <div key={call.id} className="rounded-lg border p-3">
+                    <div key={call.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium">{call.displayName || call.fromNumber}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(call.startedAt).toLocaleString()}</p>
+                          <p className="text-sm font-semibold text-slate-950">{call.displayName || call.fromNumber}</p>
+                          <p className="text-xs text-slate-500">{new Date(call.startedAt).toLocaleString()}</p>
                         </div>
                         <Badge className={clientBadgeClass(call.outcome === "MISSED" ? "warning" : call.outcome === "APPOINTMENT_REQUEST" ? "booking" : "neutral")}>
                           {outcomeLabel(call.outcome)}
                         </Badge>
                       </div>
-                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                         {call.aiSummary || call.summary || "No summary available yet."}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                  <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                     No recent conversations yet.
                   </p>
                 )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="border-slate-200 shadow-none">
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base">Open Leads</CardTitle>
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-slate-950">Open Leads</CardTitle>
+                    <p className="mt-1 text-sm text-slate-500">New opportunities that still need follow-up.</p>
+                  </div>
                   <Link href="/app/leads" className="text-xs font-medium text-primary hover:underline">
                     View all
                   </Link>
@@ -391,33 +458,38 @@ export default function AppOverviewPage() {
               <CardContent className="space-y-3">
                 {openLeads.length ? (
                   openLeads.map((lead) => (
-                    <div key={lead.id} className="rounded-lg border p-3">
+                    <div key={lead.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium">{lead.name}</p>
-                          <p className="text-xs text-muted-foreground">{lead.phone || lead.email || "No contact info"}</p>
+                          <p className="text-sm font-semibold text-slate-950">{lead.name}</p>
+                          <p className="text-xs text-slate-500">{lead.phone || lead.email || "No contact info"}</p>
                         </div>
                         <Badge className={clientBadgeClass(lead.status === "NEW" ? "pending" : lead.status === "QUALIFIED" ? "success" : "neutral")}>
-                          {lead.status}
+                          {lead.status === "NEW" ? "New" : lead.status === "QUALIFIED" ? "Qualified" : lead.status}
                         </Badge>
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
+                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
                         {lead.serviceRequested || lead.message || "No service details yet."}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                  <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                     No open leads at the moment.
                   </p>
                 )}
               </CardContent>
             </Card>
+          </div>
 
-            <Card>
-              <CardHeader className="pb-3">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <Card className="border-slate-200 shadow-none">
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base">Requests Awaiting Reply</CardTitle>
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-slate-950">Requests Awaiting Reply</CardTitle>
+                    <p className="mt-1 text-sm text-slate-500">Open offers that still need a customer response.</p>
+                  </div>
                   <Link href="/app/appointments" className="text-xs font-medium text-primary hover:underline">
                     View all
                   </Link>
@@ -426,67 +498,102 @@ export default function AppOverviewPage() {
               <CardContent className="space-y-3">
                 {awaitingReplyRequests.length ? (
                   awaitingReplyRequests.map((request) => (
-                    <div key={request.id} className="rounded-lg border p-3">
+                    <div key={request.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium">{request.customerName || request.customerPhone}</p>
-                          <p className="text-xs text-muted-foreground">{request.requestedTimeLabel || request.requestedPreference || "Awaiting a customer reply"}</p>
+                          <p className="text-sm font-semibold text-slate-950">{request.customerName || request.customerPhone}</p>
+                          <p className="text-xs text-slate-500">
+                            {request.requestedTimeLabel || request.requestedPreference || "Awaiting a customer reply"}
+                          </p>
                         </div>
                         <Badge className={clientBadgeClass("pending")}>{requestStatusLabel(request.status)}</Badge>
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
+                      <p className="mt-3 text-sm leading-6 text-slate-600">
                         {request.issueSummary || "No issue summary recorded."}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                  <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                     No requests are currently awaiting a reply.
                   </p>
                 )}
               </CardContent>
             </Card>
+
+            <Card className="border-slate-200 bg-slate-50 shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">At a glance</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 text-sm">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Scheduled</p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{bookedRequests}</p>
+                  <p className="mt-1 text-xs text-slate-500">Requests already moved into appointments.</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Still Open</p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{openRequestCount}</p>
+                  <p className="mt-1 text-xs text-slate-500">Requests that still need review, follow-up, or a reply.</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Quick Test</p>
+                  <Link
+                    href="/app/calls"
+                    className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <PhoneCall className="h-4 w-4" />
+                    Review live activity
+                  </Link>
+                  <p className="mt-2 text-sm text-slate-500">Use conversations and requests to confirm the assistant is behaving correctly.</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">System Status</CardTitle>
+          <Card className="border-slate-200 shadow-none">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-slate-950">Workspace Status</CardTitle>
+                  <p className="mt-1 text-sm text-slate-500">Configuration and readiness details for the current workspace.</p>
+                </div>
+                <Badge className={clientBadgeClass(health?.level === "RED" ? "critical" : health?.level === "YELLOW" ? "warning" : "success")}>
+                  {workspaceState}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Workspace</p>
-                  <p className="mt-1 text-lg font-semibold">{workspaceState}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{organization?.status || submission?.status || "DRAFT"}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Workspace</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-950">{workspaceState}</p>
+                  <p className="mt-1 text-sm text-slate-500">{organization?.status || submission?.status || "DRAFT"}</p>
                 </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Assigned Number</p>
-                  <p className="mt-1 text-lg font-semibold">{assignedPhoneNumber || "Not assigned"}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{assignedNumberProvider || "No provider yet"}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Assigned Number</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-950">{assignedPhoneNumber || "Not assigned"}</p>
+                  <p className="mt-1 text-sm text-slate-500">{assignedNumberProvider || "No provider yet"}</p>
                 </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Messaging</p>
-                  <p className="mt-1 text-lg font-semibold">{messagingReadiness?.state || "Unknown"}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Messaging</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-950">{messagingReadiness?.state || "Unknown"}</p>
+                  <p className="mt-1 text-sm text-slate-500">
                     {messagingReadiness?.reasons?.[0] || "No active blockers detected."}
                   </p>
                 </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Health</p>
-                  <p className="mt-1 text-lg font-semibold">{health?.level || "Unknown"}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{health?.summary || "Health checks are still loading."}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Health</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-950">{health?.level || "Unknown"}</p>
+                  <p className="mt-1 text-sm text-slate-500">{health?.summary || "Health checks are still loading."}</p>
                 </div>
               </div>
-              <p className="mt-4 text-xs text-muted-foreground">
-                Last synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Syncing..."}
-              </p>
             </CardContent>
           </Card>
         </div>
 
-        <ActionNeededPanel items={actionItems} />
+        <ActionNeededPanel items={actionItems} className="border-slate-200 shadow-none xl:sticky xl:top-6" />
       </div>
     </div>
   );
 }
-
