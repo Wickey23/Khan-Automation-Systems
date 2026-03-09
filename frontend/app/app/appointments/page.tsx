@@ -71,6 +71,7 @@ export default function AppAppointmentsPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [issueSummary, setIssueSummary] = useState("");
+  const [showDirectBooking, setShowDirectBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<Array<{ startAt: string; endAt: string }>>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadingCalendarEvents, setLoadingCalendarEvents] = useState(false);
@@ -604,6 +605,14 @@ export default function AppAppointmentsPage() {
   const offeredAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SLOT_OFFERED");
   const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
   const scheduledAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SCHEDULED");
+  const nextFocusLabel =
+    pendingAppointmentRequests.length > 0
+      ? `${pendingAppointmentRequests.length} requests need review`
+      : offeredAppointmentRequests.length > 0
+        ? `${offeredAppointmentRequests.length} customers are waiting on slot follow-up`
+        : viewMode === "CALENDAR"
+          ? "Review the schedule for conflicts"
+          : "Review the appointment list";
 
   function buildEventViewUrl(event: OrgCalendarEvent) {
     if (event.viewUrl && String(event.viewUrl).trim()) return String(event.viewUrl).trim();
@@ -620,7 +629,7 @@ export default function AppAppointmentsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Scheduling workspace"
         title="Appointments"
@@ -645,88 +654,89 @@ export default function AppAppointmentsPage() {
         }
       />
 
-      <div className="data-toolbar grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <label className="text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
-            <select
-              value={status}
-              onChange={(event) => {
-                const next = event.target.value as Appointment["status"] | "ALL";
-                setStatus(next);
-                void load(next, fromDate, toDate);
-              }}
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-            >
-              <option value="ALL">All appointments</option>
-              <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELED">Canceled</option>
-              <option value="NO_SHOW">No show</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(event) => {
-                const next = event.target.value;
-                setFromDate(next);
-                void load(status, next, toDate);
-              }}
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(event) => {
-                const next = event.target.value;
-                setToDate(next);
-                void load(status, fromDate, next);
-              }}
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-            />
-          </label>
-          <div className="rounded-xl border bg-slate-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Workspace focus</p>
-            <p className="mt-1 text-sm font-medium text-slate-900">
-              {pendingAppointmentRequests.length > 0
-                ? `${pendingAppointmentRequests.length} requests need review`
-                : viewMode === "CALENDAR"
-                  ? "Review the schedule for conflicts"
-                  : "Review the appointment list"}
-            </p>
+      <div className="rounded-2xl border bg-white p-4 shadow-sm">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start">
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workspace focus</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{nextFocusLabel}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Start with requests that need a decision, then switch to calendar or list view for schedule management.
+              </p>
+            </div>
+            {!featureDisabled ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs review</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
+                </div>
+                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{offeredAppointmentRequests.length}</p>
+                </div>
+                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">On calendar</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{appointments.length}</p>
+                </div>
+              </div>
+            ) : null}
           </div>
+          <div className="rounded-xl border bg-slate-50/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">View filters</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <label className="text-sm">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
+                <select
+                  value={status}
+                  onChange={(event) => {
+                    const next = event.target.value as Appointment["status"] | "ALL";
+                    setStatus(next);
+                    void load(next, fromDate, toDate);
+                  }}
+                  className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                >
+                  <option value="ALL">All appointments</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELED">Canceled</option>
+                  <option value="NO_SHOW">No show</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFromDate(next);
+                    void load(status, next, toDate);
+                  }}
+                  className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setToDate(next);
+                    void load(status, fromDate, next);
+                  }}
+                  className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       {featureDisabled ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           Appointments are currently disabled for this workspace. Ask an admin to enable the feature flag for your org.
-        </div>
-      ) : null}
-
-      {!featureDisabled ? (
-        <div className="metric-grid">
-          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending Review</p>
-            <p className="mt-1 text-2xl font-semibold">{pendingAppointmentRequests.length}</p>
-          </div>
-          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting Reply</p>
-            <p className="mt-1 text-2xl font-semibold">{offeredAppointmentRequests.length}</p>
-          </div>
-          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Scheduled from Requests</p>
-            <p className="mt-1 text-2xl font-semibold">{scheduledAppointmentRequests.length}</p>
-          </div>
-          <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointments on Calendar</p>
-            <p className="mt-1 text-2xl font-semibold">{appointments.length}</p>
-          </div>
         </div>
       ) : null}
 
@@ -1175,13 +1185,20 @@ export default function AppAppointmentsPage() {
 
       {canWrite && !featureDisabled ? (
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Office Booking</p>
-            <h2 className="mt-2 text-xl font-semibold">Book directly when you already have the details</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use this when the office already knows the customer and just needs to place the appointment on the calendar.
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Office Booking</p>
+              <h2 className="mt-2 text-xl font-semibold">Book directly when you already have the details</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Use this when the office already knows the customer and just needs to place the appointment on the calendar.
+              </p>
+            </div>
+            <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)}>
+              {showDirectBooking ? "Hide booking form" : "Open booking form"}
+            </Button>
           </div>
+          {showDirectBooking ? (
+            <>
           {customerBase.length > 0 ? (
             <label className="mt-4 block text-sm">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">Select customer</span>
@@ -1284,6 +1301,12 @@ export default function AppAppointmentsPage() {
               ))}
             </div>
           ) : null}
+            </>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed bg-slate-50 px-4 py-4 text-sm text-muted-foreground">
+              Keep this closed until you need to manually place a job. The page stays easier to scan when booking is tucked away.
+            </div>
+          )}
         </div>
       ) : null}
 
