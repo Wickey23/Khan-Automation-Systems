@@ -22,6 +22,7 @@ import {
   uploadOrgKnowledgeFile
 } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -490,12 +491,19 @@ export default function AppSettingsPage() {
       <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Readiness</p>
         <h2 className="text-lg font-semibold">Go-Live Readiness</h2>
-        <ul className="mt-2 text-sm text-muted-foreground">
-          <li>Transfer numbers: {readinessHints.transfer.length > 0 ? "Configured" : "Missing"}</li>
-          <li>Notification emails: {readinessHints.emails.length > 0 ? "Configured" : "Missing"}</li>
-          <li>Notification phones: {readinessHints.phones.length > 0 ? "Configured" : "Missing"}</li>
-          <li>Business hours: {readinessHints.hasHours ? "Configured" : "Missing"}</li>
-        </ul>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Transfer numbers", readinessHints.transfer.length > 0 ? "Configured" : "Missing"],
+            ["Notification emails", readinessHints.emails.length > 0 ? "Configured" : "Missing"],
+            ["Notification phones", readinessHints.phones.length > 0 ? "Configured" : "Missing"],
+            ["Business hours", readinessHints.hasHours ? "Configured" : "Missing"]
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border bg-muted/20 p-4">
+              <p className="page-eyebrow">{label}</p>
+              <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -537,6 +545,7 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
+      <Accordion type="multiple" defaultValue={["call-handling", "business-hours"]} className="space-y-4">
       <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
@@ -563,7 +572,12 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <AccordionItem value="calendar" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Calendar connections
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="rounded-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
         <h2 className="text-lg font-semibold">Calendar Connections</h2>
         {!featureFlags.calendarOauthEnabled ? (
@@ -787,8 +801,15 @@ export default function AppSettingsPage() {
           ) : null}
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <AccordionItem value="booking" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Booking rules and alerts
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="rounded-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Booking behavior</p>
         <h2 className="text-lg font-semibold">Booking Rules & Alerts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -864,8 +885,15 @@ export default function AppSettingsPage() {
           ) : null}
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <AccordionItem value="notifications" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Notification inbox
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
@@ -914,8 +942,15 @@ export default function AppSettingsPage() {
           )}
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <AccordionItem value="knowledge" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Knowledge files
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="rounded-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Knowledge</p>
         <h2 className="text-lg font-semibold">Knowledge Files</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -954,8 +989,15 @@ export default function AppSettingsPage() {
           )}
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <AccordionItem value="business-hours" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Business hours
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="rounded-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Hours</p>
         <h2 className="text-lg font-semibold">Business Hours</h2>
         <div className="mt-3 grid gap-3">
@@ -1004,8 +1046,15 @@ export default function AppSettingsPage() {
           })}
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
+      <AccordionItem value="services" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Services and routing
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="grid gap-4 rounded-2xl bg-white sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Services & routing</p>
           <h2 className="text-lg font-semibold">Services, Transfers, and Contact Lists</h2>
@@ -1040,8 +1089,15 @@ export default function AppSettingsPage() {
           <Textarea value={state.languages} onChange={(e) => setState((p) => ({ ...p, languages: e.target.value }))} />
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
+      <AccordionItem value="policies" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Policies and answers
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="grid gap-4 rounded-2xl bg-white sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Services & FAQs</p>
           <h2 className="text-lg font-semibold">Policies and Customer Answers</h2>
@@ -1065,8 +1121,15 @@ export default function AppSettingsPage() {
           <Textarea value={state.diagnosticsPolicy} onChange={(e) => setState((p) => ({ ...p, diagnosticsPolicy: e.target.value }))} />
         </div>
       </section>
+        </AccordionContent>
+      </AccordionItem>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <AccordionItem value="sms" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          SMS follow-up
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="rounded-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">SMS follow-up behavior</p>
         <h2 className="text-lg font-semibold">SMS Follow-Up</h2>
         <Label className="mt-3">SMS First Message (sent on first inbound text)</Label>
@@ -1103,6 +1166,9 @@ export default function AppSettingsPage() {
           Recording consent required
         </label>
       </section>
+        </AccordionContent>
+      </AccordionItem>
+      </Accordion>
 
       <div className="flex justify-end">
         <Button onClick={onSave} disabled={saving}>

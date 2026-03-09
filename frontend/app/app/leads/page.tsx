@@ -12,9 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
+
+function prettyStage(value: string) {
+  return value.replaceAll("_", " ").toLowerCase();
+}
 
 export default function AppLeadsPage() {
   const { showToast } = useToast();
@@ -59,22 +62,13 @@ export default function AppLeadsPage() {
     });
   }, [leads, query, statusFilter]);
 
-  const stats = useMemo(() => {
-    const withPhone = leads.filter((lead) => Boolean(lead.phone)).length;
-    const withEmail = leads.filter((lead) => Boolean(lead.email && !lead.email.endsWith("@no-email.local"))).length;
-    const newCount = leads.filter((lead) => lead.status === "NEW").length;
-    return { total: leads.length, withPhone, withEmail, newCount };
-  }, [leads]);
-
-  const customerStats = useMemo(
-    () => ({
-      total: customers.length,
-      vip: customers.filter((customer) => customer.flaggedVIP).length,
-      repeatCallers: customers.filter((customer) => customer.totalCalls > 1).length,
-      linkedLeads: customers.filter((customer) => Boolean(customer.lead)).length
-    }),
-    [customers]
-  );
+  const customerFiltered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((customer) =>
+      [customer.displayName, customer.phoneNumber, customer.lastOutcome || ""].join(" ").toLowerCase().includes(q)
+    );
+  }, [customers, query]);
 
   const planLabel = plan === "PRO" ? "Pro" : plan === "STARTER" ? "Standard" : "No active plan";
   const canEditPipeline = role === "CLIENT_STAFF" || role === "CLIENT_ADMIN" || role === "ADMIN" || role === "SUPER_ADMIN";
@@ -110,27 +104,27 @@ export default function AppLeadsPage() {
     }
   }
 
-  const primaryStats =
+  const stats =
     view === "OPEN_LEADS"
       ? [
           { label: "Plan", value: planLabel },
-          { label: "Total leads", value: stats.total },
-          { label: "With phone", value: stats.withPhone },
-          { label: "New status", value: stats.newCount }
+          { label: "Open leads", value: filtered.length },
+          { label: "New", value: filtered.filter((lead) => lead.status === "NEW").length },
+          { label: "Need scheduling", value: filtered.filter((lead) => lead.pipelineStage === "NEEDS_SCHEDULING").length }
         ]
       : [
           { label: "Plan", value: planLabel },
-          { label: "Known customers", value: customerStats.total },
-          { label: "Repeat callers", value: customerStats.repeatCallers },
-          { label: "VIP flagged", value: customerStats.vip }
+          { label: "Known customers", value: customerFiltered.length },
+          { label: "Repeat callers", value: customerFiltered.filter((customer) => customer.totalCalls > 1).length },
+          { label: "VIP", value: customerFiltered.filter((customer) => customer.flaggedVIP).length }
         ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Lead pipeline"
+        eyebrow="Leads"
         title="Leads"
-        description="Track open opportunities and keep customer memory visible without leaving the workspace."
+        description="This page should help you see who needs follow-up next, not make you manage a spreadsheet."
         actions={
           <div className="inline-flex rounded-xl border bg-white p-1 shadow-sm">
             <button
@@ -138,7 +132,7 @@ export default function AppLeadsPage() {
               onClick={() => setView("OPEN_LEADS")}
               className={`rounded-lg px-3 py-2 text-sm font-medium ${view === "OPEN_LEADS" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
             >
-              Open leads
+              Follow-up queue
             </button>
             <button
               type="button"
@@ -153,57 +147,25 @@ export default function AppLeadsPage() {
         }
       />
 
-      <div className="metric-grid">
-        {primaryStats.map((item) => (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((item) => (
           <Card key={item.label}>
             <CardContent className="p-5">
               <p className="page-eyebrow">{item.label}</p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight">{item.value}</p>
+              <p className="mt-3 text-3xl font-semibold tracking-tight">{item.value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <Card>
-        <CardContent className="grid gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="space-y-2">
-            <p className="text-sm leading-6 text-muted-foreground">
-              {plan === "PRO"
-                ? "Pro active: manage open leads and review known customers from the same workspace."
-                : "Standard active: this is your main lead pipeline workspace."}
-            </p>
-            {!pipelineAvailable ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                Pipeline stage controls are currently disabled for this workspace.
-              </div>
-            ) : null}
-            {!canEditPipeline ? (
-              <div className="rounded-xl border bg-muted px-4 py-3 text-sm text-muted-foreground">
-                Your role has read-only access to lead pipeline stages.
-              </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {plan === "PRO" ? (
-              <>
-                <Button variant="outline" onClick={() => setView("CUSTOMERS")}>Open customers view</Button>
-                <Button asChild variant="ghost">
-                  <Link href="/app/customer-base">Legacy customer memory</Link>
-                </Button>
-              </>
-            ) : (
-              <Button asChild>
-                <Link href="/app/billing">Upgrade to Pro</Link>
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {view === "OPEN_LEADS" ? (
-        <>
-          <div className="data-toolbar grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, business, phone, email, or source" />
+        <CardContent className="grid gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={view === "OPEN_LEADS" ? "Search by name, business, phone, email, or source" : "Search customers by name or phone"}
+          />
+          {view === "OPEN_LEADS" ? (
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as Lead["status"] | "ALL")}
@@ -216,146 +178,123 @@ export default function AppLeadsPage() {
               <option value="WON">WON</option>
               <option value="LOST">LOST</option>
             </select>
+          ) : (
+            <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+              Pro customer memory view
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {plan === "PRO" ? (
+              <Button asChild variant="outline">
+                <Link href="/app/customer-base">Legacy customer memory</Link>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link href="/app/billing">Upgrade to Pro</Link>
+              </Button>
+            )}
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="table-shell">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Pipeline</TableHead>
-                  <TableHead>Classified</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell>{new Date(lead.createdAt).toLocaleString()}</TableCell>
-                    <TableCell>
+      {!pipelineAvailable && view === "OPEN_LEADS" ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Pipeline stage controls are currently disabled for this workspace.
+        </div>
+      ) : null}
+
+      {!canEditPipeline && view === "OPEN_LEADS" ? (
+        <div className="rounded-2xl border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          Your role has read-only access to lead pipeline stages.
+        </div>
+      ) : null}
+
+      {view === "OPEN_LEADS" ? (
+        <div className="space-y-3">
+          {filtered.length ? (
+            filtered.map((lead) => (
+              <Card key={lead.id}>
+                <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_180px_190px] lg:items-center">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <p className="font-medium">{lead.name}</p>
-                        <p className="text-xs text-muted-foreground">{lead.dnc ? "Do not contact" : "Contactable"}</p>
+                        <p className="text-base font-semibold text-foreground">{lead.name}</p>
+                        <p className="text-sm text-muted-foreground">{lead.business}</p>
                       </div>
-                    </TableCell>
-                    <TableCell>{lead.business}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p>{lead.phone || "-"}</p>
-                        <p className="text-xs text-muted-foreground">{lead.email && !lead.email.endsWith("@no-email.local") ? lead.email : "-"}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{lead.source || "-"}</TableCell>
-                    <TableCell>
                       <Badge className={clientBadgeClass(leadStatusTone(lead.status))}>{lead.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <select
-                        value={lead.pipelineStage || "NEW_LEAD"}
-                        onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
-                        className="h-9 rounded-lg border border-input bg-background px-3 text-xs font-medium shadow-sm"
-                        disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
-                      >
-                        {pipelineStages.map((stage) => (
-                          <option key={stage} value={stage}>
-                            {stage}
-                          </option>
-                        ))}
-                      </select>
-                    </TableCell>
-                    <TableCell>
-                      {lead.classification ? (
-                        <div className="text-xs">
-                          <div className="font-medium">{lead.classification}</div>
-                          <div className="text-muted-foreground">
-                            {typeof lead.classificationConfidence === "number" ? `${Math.round(lead.classificationConfidence * 100)}%` : "-"}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!filtered.length ? (
-                  <TableRow>
-                    <TableCell colSpan={8}>
-                      <div className="empty-state">No leads match this filter yet.</div>
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </>
-      ) : (
-        <div className="space-y-4">
-          <div className="metric-grid">
-            {[
-              { label: "Known customers", value: customerStats.total },
-              { label: "Repeat callers", value: customerStats.repeatCallers },
-              { label: "VIP flagged", value: customerStats.vip },
-              { label: "Linked leads", value: customerStats.linkedLeads }
-            ].map((item) => (
-              <Card key={item.label}>
-                <CardContent className="p-5">
-                  <p className="page-eyebrow">{item.label}</p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight">{item.value}</p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <p>{lead.phone || lead.email || "No contact info"}</p>
+                      <p className="mt-1 line-clamp-2">{lead.serviceRequested || lead.message || "No service details yet."}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="page-eyebrow">Next stage</p>
+                    <select
+                      value={lead.pipelineStage || "NEW_LEAD"}
+                      onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                      disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
+                    >
+                      {pipelineStages.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {prettyStage(stage)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <p className="page-eyebrow">Details</p>
+                    <p className="text-muted-foreground">Created {new Date(lead.createdAt).toLocaleDateString()}</p>
+                    <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
+                    {lead.classification ? (
+                      <p className="text-muted-foreground">
+                        Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}
+                      </p>
+                    ) : null}
+                  </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-
-          <div className="table-shell">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Last outcome</TableHead>
-                  <TableHead>Calls</TableHead>
-                  <TableHead>Last seen</TableHead>
-                  <TableHead>Lead link</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customers.map((customer) => (
-                  <TableRow key={customer.phoneNumber}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{customer.displayName}</span>
-                        {customer.flaggedVIP ? <Badge className={clientBadgeClass("booking")}>VIP</Badge> : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>{customer.phoneNumber}</TableCell>
-                    <TableCell>{customer.lastOutcome || "-"}</TableCell>
-                    <TableCell>{customer.totalCalls}</TableCell>
-                    <TableCell>{new Date(customer.lastCallAt).toLocaleString()}</TableCell>
-                    <TableCell>
-                      {customer.lead ? (
-                        <Link href={`/app/leads?leadId=${encodeURIComponent(customer.lead.id)}`} className="font-medium text-primary underline-offset-4 hover:underline">
-                          Open lead
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!customers.length ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <div className="empty-state">No known customers yet. Customer memory appears here after repeat calls and follow-up activity.</div>
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
+            ))
+          ) : (
+            <div className="empty-state">No leads match this filter yet.</div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {customerFiltered.length ? (
+            customerFiltered.map((customer) => (
+              <Card key={customer.phoneNumber}>
+                <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px_120px] lg:items-center">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-base font-semibold text-foreground">{customer.displayName}</p>
+                      {customer.flaggedVIP ? <Badge className={clientBadgeClass("booking")}>VIP</Badge> : null}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{customer.phoneNumber}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Last outcome: {customer.lastOutcome || "Unknown"} · Last seen {new Date(customer.lastCallAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>Total calls: {customer.totalCalls}</p>
+                    <p>{customer.lead ? "Linked to a lead" : "No linked lead yet"}</p>
+                  </div>
+                  <div>
+                    {customer.lead ? (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/app/leads?leadId=${encodeURIComponent(customer.lead.id)}`}>Open lead</Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="empty-state">No known customers yet. Customer memory appears here after repeat calls and follow-up activity.</div>
+          )}
         </div>
       )}
     </div>
