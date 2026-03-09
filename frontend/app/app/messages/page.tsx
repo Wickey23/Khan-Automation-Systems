@@ -8,6 +8,9 @@ import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgMessageThread, OrgMessagingReadiness } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page";
 
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
@@ -143,53 +146,64 @@ export default function AppMessagesPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">Messages</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage SMS threads, automated follow-up, and booking-related text conversations in one inbox.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
-        >
-          Refresh
-        </button>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Client inbox"
+        title="Messages"
+        description="Review SMS threads, send manual follow-up when needed, and keep booking conversations in one clear inbox."
+        actions={
+          <Button type="button" variant="outline" onClick={() => void load()}>
+            Refresh inbox
+          </Button>
+        }
+      />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
+        <Card className="border-amber-200 bg-amber-50/70">
+          <CardContent className="flex items-start gap-3 p-5 text-sm text-amber-950">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1.5">
+              <p className="font-semibold">Messaging automation is a Pro feature.</p>
+              <p className="text-amber-900/90">
+                Current plan: <strong>{subscriptionPlan || "NONE"}</strong> ({subscriptionStatus || "inactive"}). If sending is disabled,
+                upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="grid gap-3 p-5 text-sm">
+            <div>
+              <p className="page-eyebrow">Assigned number</p>
+              <p className="mt-2 font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{assignedNumberProvider ? `Provider: ${assignedNumberProvider}` : "No provider connected yet."}</p>
+            </div>
+            <div className="border-t pt-3">
+              <p className="page-eyebrow">Messaging readiness</p>
+              <p className="mt-2 font-semibold text-foreground">{messagingReadiness?.state || "Unknown"}</p>
+              {messagingReadiness?.reasons?.length ? (
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {messagingReadiness.reasons.slice(0, 2).map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">No blocking issues detected.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-900">
-        <div className="flex items-center gap-2 font-medium">
-          <Lock className="h-4 w-4" />
-          Messaging automation is a <strong>Pro</strong> feature.
-        </div>
-        {" "}Current plan: <strong>{subscriptionPlan || "NONE"}</strong>
-        {" "}({subscriptionStatus || "inactive"}).
-        {" "}If sending is disabled, upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
-      </div>
-      <div className="rounded-lg border bg-white p-3 text-sm">
-        Assigned number: <span className="font-medium">{assignedPhoneNumber || "Not assigned"}</span>
-        {assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}
-      </div>
-      <div className="rounded-lg border bg-white p-3 text-sm">
-        Messaging readiness: <span className="font-medium">{messagingReadiness?.state || "Unknown"}</span>
-        {messagingReadiness?.reasons?.length ? (
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-            {messagingReadiness.reasons.slice(0, 3).map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <aside className="rounded-lg border bg-white">
-          <div className="border-b p-3 text-sm font-semibold">Threads</div>
-          <div className="max-h-[560px] overflow-auto">
+      <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:gap-5">
+        <Card className="self-start overflow-hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Threads</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[620px] overflow-auto">
             {!threads.length ? (
-              <p className="p-3 text-sm text-muted-foreground">No messages yet.</p>
+              <div className="empty-state m-5">No messages yet.</div>
             ) : (
               threads.map((thread) => (
                 (() => {
@@ -203,16 +217,17 @@ export default function AppMessagesPage() {
                         setSelectedId(thread.id);
                         setTo(thread.contactPhone || "");
                       }}
-                      className={`w-full border-b p-3 text-left hover:bg-muted/40 ${
-                        selectedId === thread.id ? "bg-primary/5" : ""
+                      className={`w-full border-t px-5 py-4 text-left transition-colors first:border-t-0 hover:bg-muted/30 ${
+                        selectedId === thread.id ? "bg-primary/[0.06]" : ""
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
-                          <p className="text-xs text-muted-foreground">{thread.contactPhone}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
+                          <p className="mt-2 text-xs text-muted-foreground">Last update {formatWhen(thread.lastMessageAt)}</p>
                         </div>
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
                             {primaryBadge.label}
                           </span>
@@ -223,55 +238,64 @@ export default function AppMessagesPage() {
                           ) : null}
                         </div>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">Last: {formatWhen(thread.lastMessageAt)}</p>
                     </button>
                   );
                 })()
               ))
             )}
-          </div>
-        </aside>
+            </div>
+          </CardContent>
+        </Card>
 
-        <section className="space-y-3">
-          <div className="rounded-lg border bg-white p-3">
-            <div className="grid gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">To</label>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+          <Card className="self-start">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Compose message</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <label className="grid gap-1.5 text-sm">
+                <span className="page-eyebrow">To</span>
               <input
                 value={to}
                 onChange={(event) => setTo(event.target.value)}
                 placeholder="+15163067876"
                 disabled={!canSendMessages || sending}
-                className="rounded-md border px-3 py-2 text-sm"
+                  className="h-11 rounded-xl border bg-background px-3 text-sm"
               />
-              <label className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Message</label>
+              </label>
+              <label className="grid gap-1.5 text-sm">
+                <span className="page-eyebrow">Message</span>
               <textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 placeholder="Type an outbound message..."
                 disabled={!canSendMessages || sending}
-                className="min-h-[92px] rounded-md border px-3 py-2 text-sm"
+                  className="min-h-[148px] rounded-xl border bg-background px-3 py-3 text-sm"
               />
-              <div>
-                <button
+              </label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
                   type="button"
                   onClick={() => void onSend()}
                   disabled={sending || !canSendMessages}
                   title={!canSendMessages ? "Upgrade to Pro to enable outbound SMS." : "Send message"}
-                  className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
                 >
                   {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}
-                </button>
+                </Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="rounded-lg border bg-white">
-            <div className="border-b p-3 text-sm font-semibold">Conversation</div>
-            <div className="max-h-[440px] space-y-2 overflow-auto p-3">
+          <Card className="min-w-0 overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Conversation</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="max-h-[620px] space-y-3 overflow-auto pr-1">
               {!selected ? (
-                <p className="text-sm text-muted-foreground">Select a thread to view messages.</p>
+                <div className="empty-state">Select a thread to view messages.</div>
               ) : !selected.messages.length ? (
-                <p className="text-sm text-muted-foreground">No messages in this thread yet.</p>
+                <div className="empty-state">No messages in this thread yet.</div>
               ) : (
                 [...selected.messages]
                   .reverse()
@@ -280,8 +304,8 @@ export default function AppMessagesPage() {
                     return (
                       <div
                         key={message.id}
-                        className={`max-w-[82%] rounded-lg border px-3 py-2 text-sm ${
-                          message.direction === "OUTBOUND" ? "ml-auto bg-blue-50" : "bg-zinc-50"
+                        className={`max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
+                          message.direction === "OUTBOUND" ? "ml-auto bg-blue-50/70" : "bg-zinc-50/70"
                         }`}
                       >
                         <div className="mb-2 flex items-center justify-between gap-2">
@@ -289,20 +313,21 @@ export default function AppMessagesPage() {
                             {badge.label}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {message.direction === "OUTBOUND" ? "Office -> Customer" : "Customer -> Office"}
+                            {message.direction === "OUTBOUND" ? "Office to customer" : "Customer to office"}
                           </span>
                         </div>
-                        <p className="whitespace-pre-wrap">{message.body}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="whitespace-pre-wrap leading-6">{message.body}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
                           {message.status} | {formatWhen(message.createdAt)}
                         </p>
                       </div>
                     );
                   })
               )}
-            </div>
-          </div>
-        </section>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

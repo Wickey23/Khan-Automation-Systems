@@ -32,6 +32,7 @@ import type {
 } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page";
 
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
@@ -619,16 +620,12 @@ export default function AppAppointmentsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Scheduling Workspace</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight">Appointments</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Review captured requests first, then manage the appointments already on the calendar.
-            </p>
-          </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Scheduling workspace"
+        title="Appointments"
+        description="Review captured requests first, then manage the appointments already on the calendar."
+        actions={
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
@@ -645,9 +642,10 @@ export default function AppAppointmentsPage() {
               List
             </Button>
           </div>
-        </div>
+        }
+      />
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="data-toolbar grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="text-sm">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
             <select
@@ -703,7 +701,6 @@ export default function AppAppointmentsPage() {
                   : "Review the appointment list"}
             </p>
           </div>
-        </div>
       </div>
 
       {featureDisabled ? (
@@ -713,7 +710,7 @@ export default function AppAppointmentsPage() {
       ) : null}
 
       {!featureDisabled ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="metric-grid">
           <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending Review</p>
             <p className="mt-1 text-2xl font-semibold">{pendingAppointmentRequests.length}</p>

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page";
 
 function toRoleInput(role: TeamMember["role"]): "admin" | "manager" | "viewer" {
   if (role === "ADMIN") return "admin";
@@ -214,37 +215,41 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold">Team &amp; Routing</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage who receives calls, messages, alerts, and escalation handoffs alongside your team seats.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="People and permissions"
+        title="Team & Routing"
+        description="Control who receives escalations, who can manage the workspace, and how your available seats are being used."
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/app/settings">Open assistant settings</Link>
+          </Button>
+        }
+      />
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Routing at a glance</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm md:grid-cols-3">
-            <div className="rounded-lg border bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Call routing</p>
-              <p className="mt-1 font-medium text-slate-900">Review transfer destinations and after-hours behavior.</p>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="page-eyebrow">Call routing</p>
+              <p className="mt-2 font-medium text-foreground">Review transfer destinations and after-hours behavior.</p>
             </div>
-            <div className="rounded-lg border bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Alerts</p>
-              <p className="mt-1 font-medium text-slate-900">Keep the right people informed when requests need follow-up.</p>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="page-eyebrow">Alerts</p>
+              <p className="mt-2 font-medium text-foreground">Keep the right people informed when requests need follow-up.</p>
             </div>
-            <div className="rounded-lg border bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Escalation</p>
-              <p className="mt-1 font-medium text-slate-900">Use assistant behavior and routing rules to control urgent handoffs.</p>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="page-eyebrow">Escalation</p>
+              <p className="mt-2 font-medium text-foreground">Use assistant behavior and routing rules to control urgent handoffs.</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Quick links</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
@@ -265,7 +270,7 @@ export default function TeamPage() {
 
       {roleBlocked ? (
         <Card>
-          <CardContent className="pt-6 text-sm">
+          <CardContent className="p-5 text-sm">
             You do not have access to Team management. Contact your admin for role access.
           </CardContent>
         </Card>
@@ -273,26 +278,42 @@ export default function TeamPage() {
 
       {!proEnabled && !roleBlocked ? (
         <Card>
-          <CardContent className="pt-6 text-sm">
+          <CardContent className="p-5 text-sm">
             Team management is a Pro feature. Upgrade to Pro to invite and manage multiple users.
           </CardContent>
         </Card>
       ) : null}
 
       <Card className={roleBlocked ? "opacity-60" : ""}>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Seat usage</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-2 text-sm md:grid-cols-4">
-          <div>Active members: <span className="font-semibold">{seats.activeMembers ?? activeCount}</span></div>
-          <div>Pending invites: <span className="font-semibold">{seats.pendingInvites ?? 0}</span></div>
-          <div>Included seats: <span className="font-semibold">{seats.includedSeats}</span></div>
-          <div>Purchased seats: <span className="font-semibold">{seats.purchasedSeats}</span></div>
-          <div>Allowed seats: <span className="font-semibold">{seats.allowedSeats}</span></div>
-          <div>Used seats: <span className="font-semibold">{usedSeats}</span></div>
-          <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+              <p className="page-eyebrow">Active members</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.activeMembers ?? activeCount}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+              <p className="page-eyebrow">Pending invites</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.pendingInvites ?? 0}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+              <p className="page-eyebrow">Allowed seats</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.allowedSeats}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+              <p className="page-eyebrow">Used seats</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight">{usedSeats}</p>
+            </div>
+          </div>
+          <div className="grid gap-2 text-sm md:grid-cols-3">
+            <div>Included seats: <span className="font-semibold">{seats.includedSeats}</span></div>
+            <div>Purchased seats: <span className="font-semibold">{seats.purchasedSeats}</span></div>
+            <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
+          </div>
           {seatsFull ? (
-            <p className="md:col-span-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+            <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
               {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
               {" "}
               <Link href="/app/billing" className="font-medium underline">
@@ -305,7 +326,7 @@ export default function TeamPage() {
 
       {canManage && proEnabled && !roleBlocked ? (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Invite team member</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-4">
@@ -345,7 +366,7 @@ export default function TeamPage() {
       ) : null}
 
       <Card className={!proEnabled || roleBlocked ? "opacity-60" : ""}>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Team members and role coverage</CardTitle>
         </CardHeader>
         <CardContent>
@@ -354,7 +375,7 @@ export default function TeamPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="border-b bg-muted/40">
+                <thead className="border-b bg-muted/30">
                   <tr>
                     <th className="p-2">Email</th>
                     <th className="p-2">Role</th>

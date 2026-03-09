@@ -214,7 +214,7 @@ export default function AppOverviewPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         eyebrow="Client overview"
         title="Overview"
@@ -231,9 +231,9 @@ export default function AppOverviewPage() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_380px]">
-        <Card>
-          <CardContent className="space-y-5 p-6">
+      <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,1.15fr)_380px]">
+        <Card className="self-start">
+          <CardContent className="space-y-4 p-6">
             <div className="space-y-2">
               <p className="page-eyebrow">Workspace status</p>
               <h2 className="text-3xl">{workspaceState}</h2>
@@ -259,10 +259,19 @@ export default function AppOverviewPage() {
                 <p className="mt-1 text-xs text-muted-foreground">{organization?.status || submission?.status || "DRAFT"}</p>
               </div>
             </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button asChild size="sm">
+                <Link href="/app/calls">Open calls</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/app/appointments">Open requests</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <ActionNeededPanel items={actionItems} className="shadow-sm xl:sticky xl:top-24" />
+        <ActionNeededPanel items={actionItems} className="self-start shadow-sm xl:sticky xl:top-24" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -276,9 +285,9 @@ export default function AppOverviewPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
+      <div className="grid gap-4 xl:items-start xl:grid-cols-2">
+        <Card className="self-start">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle>Recent calls</CardTitle>
@@ -309,8 +318,8 @@ export default function AppOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="self-start">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle>Open leads and requests</CardTitle>

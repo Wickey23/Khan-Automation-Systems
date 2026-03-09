@@ -39,10 +39,10 @@ export function ActionNeededPanel({
 
   return (
     <Card className={className}>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <CardTitle className="text-lg">Next actions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2.5">
         {visibleItems.length ? (
           visibleItems.map((item) => (
             <Link

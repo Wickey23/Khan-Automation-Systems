@@ -6,7 +6,10 @@ import { BarChart3, Lock } from "lucide-react";
 import { fetchOrgAnalytics, getBillingStatus, getMe } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgAnalytics } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
+import { PageHeader } from "@/components/ui/page";
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -71,131 +74,111 @@ export default function AppAnalyticsPage() {
 
   const kpis = useMemo(() => data?.kpis, [data]);
   const isViewer = role === "CLIENT";
+  const metricCards = [
+    { label: "AI Answer Rate", hint: "Answered calls divided by total calls in the selected range.", value: kpis ? pct(kpis.answerRate) : "-" },
+    { label: "Lead Capture Rate", hint: "Phone-call leads created divided by total calls.", value: kpis ? pct(kpis.leadCaptureRate) : "-" },
+    { label: "Avg Conversation Length", hint: "Average conversation duration in the selected time range.", value: kpis ? duration(kpis.avgCallDurationSec) : "-" },
+    { label: "Text Reply Rate", hint: "SMS threads with both outbound and inbound responses over total SMS threads.", value: kpis ? pct(kpis.smsEngagementRate) : "-" },
+    { label: "Appointment Requests", hint: "Number of calls marked as appointment requested in selected range.", value: kpis?.appointmentRequests ?? "-" },
+    { label: "Missed Calls", hint: "Calls marked MISSED in the selected range.", value: kpis?.missedCalls ?? "-" },
+    {
+      label: "Revenue Opportunity",
+      hint: "Estimated revenue opportunity based on booked appointments and average job value.",
+      value: kpis?.estimatedRevenueOpportunityUsd ? `$${kpis.estimatedRevenueOpportunityUsd.toLocaleString()}` : "$0",
+      meta: `${kpis?.appointmentsBooked ?? 0} booked x $${kpis?.averageJobValueUsd ?? 650}`
+    },
+    { label: "Known Customer Rate", hint: "Percent of newly created leads that are not still using placeholder names.", value: kpis ? pct(Math.max(0, 1 - kpis.unknownNameRate)) : "-" }
+  ];
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            See how conversations, leads, requests, and bookings are performing across the business.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              Data freshness
+      <PageHeader
+        eyebrow="Business performance"
+        title="Analytics"
+        description="Track conversation volume, lead capture, and booking performance without digging through raw operational data."
+        actions={
+          <div className="inline-flex rounded-2xl border bg-white p-1 shadow-sm">
+            {(["7d", "30d"] as const).map((option) => (
+              <Button
+                key={option}
+                type="button"
+                size="sm"
+                variant={range === option ? "default" : "ghost"}
+                onClick={() => setRange(option)}
+              >
+                Last {option === "7d" ? "7 days" : "30 days"}
+              </Button>
+            ))}
+          </div>
+        }
+      />
+
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm">
+          <div>
+            <p className="page-eyebrow">Data freshness</p>
+            <p className="mt-2 inline-flex items-center gap-1 font-semibold text-foreground">
+              Latest analytics snapshot
               <InfoHint text="Timestamp of the latest analytics aggregation used in this view." />
-            </span>
-            : {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "n/a"}
-          </p>
-        </div>
-        <div className="inline-flex rounded-md border bg-white p-1">
-          {(["7d", "30d"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`rounded px-3 py-1 text-sm ${range === option ? "bg-muted font-medium" : ""}`}
-              onClick={() => setRange(option)}
-            >
-              Last {option === "7d" ? "7 days" : "30 days"}
-            </button>
-          ))}
-        </div>
-      </div>
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "Not available yet"}
+            </p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            {loading ? "Refreshing analytics..." : "Metrics update automatically from the current reporting window."}
+          </div>
+        </CardContent>
+      </Card>
 
       {!isPro ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <div className="flex items-center gap-2 font-semibold">
-            <Lock className="h-4 w-4" />
-            Advanced analytics is a Pro feature
-          </div>
-          <p className="mt-1">
-            Upgrade to Pro to unlock expanded KPI reporting and trend analysis.
-          </p>
-          <Link href="/app/billing" className="mt-2 inline-block rounded border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium">
-            Upgrade to Pro
-          </Link>
-        </div>
+        <Card className="border-amber-200 bg-amber-50/70">
+          <CardContent className="p-5 text-sm text-amber-950">
+            <div className="flex items-center gap-2 font-semibold">
+              <Lock className="h-4 w-4" />
+              Advanced analytics is a Pro feature
+            </div>
+            <p className="mt-1">
+              Upgrade to Pro to unlock expanded KPI reporting and trend analysis.
+            </p>
+            <Link href="/app/billing" className="mt-3 inline-block rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-medium">
+              Upgrade to Pro
+            </Link>
+          </CardContent>
+        </Card>
       ) : null}
 
-      <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            AI Answer Rate
-            <InfoHint text="Answered calls divided by total calls in the selected range." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.answerRate) : "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Lead Capture Rate
-            <InfoHint text="Phone-call leads created divided by total calls." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.leadCaptureRate) : "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Avg Conversation Length
-            <InfoHint text="Average conversation duration in the selected time range." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? duration(kpis.avgCallDurationSec) : "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Text Reply Rate
-            <InfoHint text="SMS threads with both outbound and inbound responses over total SMS threads." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(kpis.smsEngagementRate) : "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Appointment Requests
-            <InfoHint text="Number of calls marked as appointment requested in selected range." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis?.appointmentRequests ?? "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Missed Calls
-            <InfoHint text="Calls marked MISSED in the selected range." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis?.missedCalls ?? "-"}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Revenue Opportunity
-            <InfoHint text="Estimated revenue opportunity based on booked appointments and average job value." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">
-            {kpis?.estimatedRevenueOpportunityUsd
-              ? `$${kpis.estimatedRevenueOpportunityUsd.toLocaleString()}`
-              : "$0"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {kpis?.appointmentsBooked ?? 0} booked x ${kpis?.averageJobValueUsd ?? 650}
-          </p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Known Customer Rate
-            <InfoHint text="Percent of newly created leads that are not still using placeholder names." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{kpis ? pct(Math.max(0, 1 - kpis.unknownNameRate)) : "-"}</p>
-        </div>
+      <div className={`metric-grid ${!isPro ? "opacity-60" : ""}`}>
+        {metricCards.map((item) => (
+          <Card key={item.label}>
+            <CardContent className="p-5">
+              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+                {item.label}
+                <InfoHint text={item.hint} />
+              </p>
+              <p className="mt-2 text-3xl font-semibold tracking-tight">{item.value}</p>
+              {item.meta ? <p className="mt-1 text-xs text-muted-foreground">{item.meta}</p> : null}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {isViewer ? (
-        <div className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-900">
-          Viewer role access: summary KPI cards only.
-        </div>
+        <Card className="border-amber-200 bg-amber-50/70">
+          <CardContent className="p-4 text-sm text-amber-950">Viewer role access: summary KPI cards only.</CardContent>
+        </Card>
       ) : null}
 
       {!isViewer ? (
       <div className={`grid gap-4 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
-        <section className="rounded-lg border bg-white p-4 lg:col-span-2">
-          <div className="mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">Conversation Volume</h2>
-          </div>
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <CardTitle>Conversation volume</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : data?.charts.callsPerDay?.length ? (
@@ -216,10 +199,14 @@ export default function AppAnalyticsPage() {
           ) : (
             <p className="text-sm text-muted-foreground">No call data in this range.</p>
           )}
-        </section>
+          </CardContent>
+        </Card>
 
-        <section className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 font-semibold">What Happened</h2>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>What happened</CardTitle>
+          </CardHeader>
+          <CardContent>
           {data?.charts.outcomeBreakdown?.length ? (
             <div className="space-y-2">
               {data.charts.outcomeBreakdown.map((row) => (
@@ -232,13 +219,17 @@ export default function AppAnalyticsPage() {
           ) : (
             <p className="text-sm text-muted-foreground">No outcomes to display.</p>
           )}
-        </section>
+          </CardContent>
+        </Card>
       </div>
       ) : null}
 
       {!isViewer ? (
-      <section className={`rounded-lg border bg-white p-4 ${!isPro ? "opacity-60" : ""}`}>
-        <h2 className="mb-3 font-semibold">Leads Captured Over Time</h2>
+      <Card className={!isPro ? "opacity-60" : ""}>
+        <CardHeader className="pb-3">
+          <CardTitle>Leads captured over time</CardTitle>
+        </CardHeader>
+        <CardContent>
         {data?.charts.leadsPerDay?.length ? (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {data.charts.leadsPerDay.map((row) => (
@@ -251,7 +242,8 @@ export default function AppAnalyticsPage() {
         ) : (
           <p className="text-sm text-muted-foreground">No lead data in this range.</p>
         )}
-      </section>
+        </CardContent>
+      </Card>
       ) : null}
     </div>
   );
