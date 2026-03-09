@@ -9,6 +9,7 @@ function successScoreFromOutcome(outcome: string) {
   if (outcome === "TRANSFERRED") return 0.9;
   if (outcome === "MESSAGE_TAKEN") return 0.75;
   if (outcome === "SPAM") return 0.2;
+  if (outcome === "ABANDONED") return 0;
   if (outcome === "MISSED") return 0;
   return 0.5;
 }

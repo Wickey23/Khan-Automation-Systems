@@ -262,7 +262,7 @@ const listCalendarEventsSchema = z.object({
 const listOrgCallsSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
-  outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"]).optional(),
+  outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "ABANDONED", "SPAM"]).optional(),
   query: z.string().trim().max(100).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   from: z.string().datetime().optional(),
@@ -308,8 +308,8 @@ function parseBooleanLike(input: unknown) {
 
 function normalizeOutcome(input: unknown) {
   const raw = String(input || "").trim().toUpperCase().replace(/\s+/g, "_");
-  if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"].includes(raw)) {
-    return raw as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "ABANDONED", "SPAM"].includes(raw)) {
+    return raw as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "ABANDONED" | "SPAM";
   }
   return null;
 }

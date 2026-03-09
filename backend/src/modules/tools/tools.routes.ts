@@ -69,10 +69,19 @@ const bookAppointmentSchema = z.object({
 });
 
 const transferSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   callId: z.string().optional(),
-  transferTo: z.string().min(1),
-  reason: z.string().optional()
+  transferTo: z.string().min(1).optional(),
+  reason: z.enum([
+    "HUMAN_REQUEST",
+    "LOW_CONFIDENCE",
+    "FRUSTRATION",
+    "EMERGENCY",
+    "UNRESOLVED_AFTER_3_ATTEMPTS",
+    "TIMEOUT_90_SECONDS",
+    "REPETITION_LOOP",
+    "SYSTEM_FAILURE"
+  ]).optional()
 });
 
 const callerContextSchema = z.object({
@@ -198,6 +207,16 @@ function parseOptionalDate(value: unknown) {
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return undefined;
   return date;
+}
+
+function safeParseStringArray(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
 }
 
 function addDays(date: Date, days: number) {
@@ -923,14 +942,58 @@ toolsRouter.post("/mark-booking-intent", toolMutationRateLimit, async (req, res)
   }
 });
 
-toolsRouter.post("/transfer-call", async (req, res) => {
+toolsRouter.post("/transfer-call", toolMutationRateLimit, async (req, res) => {
   try {
     const parsed = transferSchema.safeParse(req.body);
     if (!parsed.success) return toolError(res, "VALIDATION_ERROR", "Invalid transfer-call payload.");
+    const trustedContext = await resolveTrustedToolContext({
+      root: asObject(req.body),
+      explicitCallId: parsed.data.callId
+    });
+    if (!trustedContext) {
+      return rejectMissingTrustedContext(res, "/transfer-call", req.body);
+    }
+    const settings = await prisma.businessSettings.findUnique({
+      where: { orgId: trustedContext.orgId },
+      select: { transferNumbersJson: true }
+    });
+    const fallbackTransferTarget = safeParseStringArray(settings?.transferNumbersJson)[0] || "";
+    const resolvedTransferTarget = normalizePhone(parsed.data.transferTo || fallbackTransferTarget);
+    if (!resolvedTransferTarget) {
+      return toolError(res, "TRANSFER_TARGET_MISSING", "No transfer destination is configured for this organization.");
+    }
+    await prisma.callLog.update({
+      where: { id: trustedContext.callLogId },
+      data: {
+        outcome: "TRANSFERRED",
+        transferReason: parsed.data.reason || "HUMAN_REQUEST",
+        transferTarget: resolvedTransferTarget,
+        durationBeforeTransferSec: null,
+        unansweredTransfer: false,
+        transferredAt: new Date()
+      }
+    });
+    await prisma.auditLog.create({
+      data: {
+        orgId: trustedContext.orgId,
+        actorUserId: "vapi-tool",
+        actorRole: "SYSTEM",
+        action: "TOOL_TRANSFER_CALL",
+        metadataJson: JSON.stringify({
+          resolvedOrgId: trustedContext.orgId,
+          resolvedCallId: trustedContext.callLogId,
+          transferTarget: resolvedTransferTarget,
+          transferReason: parsed.data.reason || "HUMAN_REQUEST"
+        })
+      }
+    });
     return res.json({
       ok: true,
       data: {
-        transferTo: parsed.data.transferTo,
+        orgId: trustedContext.orgId,
+        callId: trustedContext.callLogId,
+        transferTo: resolvedTransferTarget,
+        transferReason: parsed.data.reason || "HUMAN_REQUEST",
         instructions: "Return TwiML <Dial> with transferTo in Twilio action flow."
       }
     });

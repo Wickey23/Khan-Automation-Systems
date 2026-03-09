@@ -1,3 +1,4 @@
+import { LeadSource } from "@prisma/client";
 import { Router } from "express";
 import { z } from "zod";
 import { twiml as Twiml } from "twilio";
@@ -293,6 +294,22 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     where: { orgId, phone: { in: fromPhoneVariants } },
     select: { id: true, name: true, dnc: true }
   });
+  const resolvedLead =
+    existingLead ||
+    (body
+      ? await prisma.lead.create({
+          data: {
+            orgId,
+            name: "SMS Customer",
+            business: orgPhone.organization.name,
+            email: `${normalizedFrom.replace(/\D/g, "") || "unknown"}@no-email.local`,
+            phone: normalizedFrom,
+            message: body,
+            source: LeadSource.SMS
+          },
+          select: { id: true, name: true, dnc: true }
+        }).catch(() => null)
+      : null);
 
   const thread = await prisma.messageThread.upsert({
     where: {
@@ -303,16 +320,16 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       }
     },
     update: {
-      leadId: existingLead?.id || undefined,
-      contactName: existingLead?.name || undefined,
+      leadId: resolvedLead?.id || undefined,
+      contactName: resolvedLead?.name || undefined,
       lastMessageAt: new Date()
     },
     create: {
       orgId,
       channel: "SMS",
       contactPhone: normalizedFrom,
-      contactName: existingLead?.name || null,
-      leadId: existingLead?.id || null,
+      contactName: resolvedLead?.name || null,
+      leadId: resolvedLead?.id || null,
       lastMessageAt: new Date()
     }
   });
@@ -326,7 +343,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     data: {
       threadId: thread.id,
       orgId,
-      leadId: existingLead?.id || null,
+      leadId: resolvedLead?.id || null,
       direction: "INBOUND",
       status: "RECEIVED",
       body: body || "(empty sms)",
@@ -353,12 +370,39 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     })
     .catch(() => null);
 
+  const latestRecoveryMessage = await prisma.message.findFirst({
+    where: {
+      threadId: thread.id,
+      direction: "OUTBOUND",
+      metadataJson: { contains: "\"recovery\":true" }
+    },
+    orderBy: { createdAt: "desc" },
+    select: { metadataJson: true }
+  });
+  if (latestRecoveryMessage?.metadataJson) {
+    try {
+      const parsedMetadata = JSON.parse(latestRecoveryMessage.metadataJson) as { callLogId?: string };
+      if (parsedMetadata.callLogId) {
+        await prisma.callLog.updateMany({
+          where: { id: parsedMetadata.callLogId, orgId },
+          data: {
+            recoverySmsResponse: body || "(empty sms)",
+            recoverySmsThreadId: thread.id,
+            ...(resolvedLead?.id ? { leadId: resolvedLead.id } : {})
+          }
+        });
+      }
+    } catch {
+      // Ignore malformed metadata from legacy recovery messages.
+    }
+  }
+
   if (incomingKeyword === "STOP") {
     await prisma.lead.updateMany({
       where: {
         orgId,
         OR: [
-          { id: existingLead?.id || "" },
+          { id: resolvedLead?.id || "" },
           { phone: { in: fromPhoneVariants } }
         ]
       },
@@ -369,7 +413,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       data: {
         threadId: thread.id,
         orgId,
-        leadId: existingLead?.id || null,
+        leadId: resolvedLead?.id || null,
         direction: "OUTBOUND",
         status: "SENT",
         body: reply,
@@ -398,7 +442,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       where: {
         orgId,
         OR: [
-          { id: existingLead?.id || "" },
+          { id: resolvedLead?.id || "" },
           { phone: { in: fromPhoneVariants } }
         ]
       },
@@ -409,7 +453,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       data: {
         threadId: thread.id,
         orgId,
-        leadId: existingLead?.id || null,
+        leadId: resolvedLead?.id || null,
         direction: "OUTBOUND",
         status: "SENT",
         body: reply,
@@ -439,7 +483,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
       data: {
         threadId: thread.id,
         orgId,
-        leadId: existingLead?.id || null,
+        leadId: resolvedLead?.id || null,
         direction: "OUTBOUND",
         status: "SENT",
         body: reply,
@@ -454,7 +498,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     return res.type("text/xml").send(response.toString());
   }
 
-  if (existingLead?.dnc) {
+  if (resolvedLead?.dnc) {
     const reply = "You are currently opted out of SMS updates. Reply START to re-enable texting.";
     response.message(reply);
     return res.type("text/xml").send(response.toString());
@@ -542,7 +586,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
     data: {
       threadId: thread.id,
       orgId,
-      leadId: existingLead?.id || null,
+      leadId: resolvedLead?.id || null,
       direction: "OUTBOUND",
       status: "SENT",
       body: outboundBody,

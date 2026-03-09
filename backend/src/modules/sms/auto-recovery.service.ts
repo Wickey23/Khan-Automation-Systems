@@ -21,10 +21,11 @@ function reasonForAutoRecovery(call: {
   aiStartedAt: Date | null;
   transferredAt: Date | null;
   outcome: string;
+  unansweredTransfer?: boolean | null;
 }) {
-  if ((call.durationSec || 0) > 0 && (call.durationSec || 0) < 10) return "SHORT_CALL";
-  if (!call.aiStartedAt) return "NO_AI_ENGAGEMENT";
-  if (call.transferredAt && call.outcome === "MISSED") return "TRANSFER_FAILED";
+  if (call.outcome === "MISSED") return "MISSED_CALL";
+  if (call.outcome === "ABANDONED") return "ABANDONED_CALL";
+  if (call.outcome === "TRANSFERRED" && call.unansweredTransfer) return "TRANSFER_UNANSWERED";
   return null;
 }
 
@@ -55,7 +56,8 @@ export async function evaluateAndSendAutoRecovery(input: { prisma: PrismaClient;
     durationSec: call.durationSec,
     aiStartedAt: call.aiStartedAt,
     transferredAt: call.transferredAt,
-    outcome: String(call.outcome || "")
+    outcome: String(call.outcome || ""),
+    unansweredTransfer: (call as { unansweredTransfer?: boolean | null }).unansweredTransfer ?? null
   });
   if (!reasonCode) return { sent: false, skipped: "TRIGGER_NOT_MET" as const };
 
@@ -158,7 +160,7 @@ export async function evaluateAndSendAutoRecovery(input: { prisma: PrismaClient;
     }
   });
 
-  const body = "Sorry we missed your call. How can we help you today?";
+  const body = "Hi - sorry we missed your call. How can we help today?";
   try {
     const quota = await assertOrgSmsQuota({
       prisma: input.prisma,
@@ -202,6 +204,14 @@ export async function evaluateAndSendAutoRecovery(input: { prisma: PrismaClient;
           callLogId: call.id
         }),
         sentAt: new Date()
+      }
+    });
+
+    await input.prisma.callLog.update({
+      where: { id: call.id },
+      data: {
+        recoverySmsSentAt: new Date(),
+        recoverySmsThreadId: thread.id
       }
     });
 

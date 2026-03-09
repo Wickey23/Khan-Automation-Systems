@@ -74,6 +74,8 @@ async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, o
     transcript?: string | null;
     durationSec?: number | null;
     endedAt?: Date;
+    outcome?: "ABANDONED";
+    unansweredTransfer?: boolean;
   } = {};
 
   if (recordingUrl !== null) data.recordingUrl = recordingUrl;
@@ -81,12 +83,17 @@ async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, o
   if (durationSec !== null) data.durationSec = durationSec;
   if (endedAt) data.endedAt = endedAt;
 
-  if (!Object.keys(data).length) return;
-
   const existing = await prisma.callLog.findFirst({
     where: { providerCallId: callSid },
     orderBy: { createdAt: "desc" }
   });
+
+  if (existing && ["busy", "no-answer", "failed", "timeout"].includes(callStatus)) {
+    data.outcome = "ABANDONED";
+    data.unansweredTransfer = Boolean(existing.transferredAt);
+  }
+
+  if (!Object.keys(data).length) return;
 
   if (existing) {
     await prisma.callLog.update({ where: { id: existing.id }, data });

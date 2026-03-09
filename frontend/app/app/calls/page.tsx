@@ -64,6 +64,7 @@ function getCallSuccessRating(call: OrgCallRecord) {
   else if (call.outcome === "TRANSFERRED") base = 90;
   else if (call.outcome === "MESSAGE_TAKEN") base = 75;
   else if (call.outcome === "SPAM") base = 40;
+  else if (call.outcome === "ABANDONED") base = 10;
   else if (call.outcome === "MISSED") base = 20;
   if (call.transcript) base += 5;
   if (call.recordingUrl) base += 5;
@@ -71,7 +72,8 @@ function getCallSuccessRating(call: OrgCallRecord) {
 }
 
 function getNextAction(call: OrgCallRecord) {
-  if (call.outcome === "MISSED") return "Call this customer back.";
+  if (call.outcome === "MISSED" || call.outcome === "ABANDONED") return "Call this customer back.";
+  if (call.outcome === "TRANSFERRED" && call.unansweredTransfer) return "Follow up because the transfer was not answered.";
   if (call.outcome === "TRANSFERRED") return "Confirm the transfer solved the issue.";
   if (call.outcome === "APPOINTMENT_REQUEST") return "Review the request and confirm scheduling.";
   if (!call.transcript) return "Open the call and add notes.";
@@ -82,6 +84,7 @@ function getDispositionLabel(call: OrgCallRecord) {
   if (call.outcome === "APPOINTMENT_REQUEST") return "Request captured";
   if (call.outcome === "TRANSFERRED") return "Transferred";
   if (call.outcome === "MESSAGE_TAKEN") return "Follow-up sent";
+  if (call.outcome === "ABANDONED") return "Abandoned";
   if (call.outcome === "MISSED") return "Needs review";
   if (call.outcome === "SPAM") return "Spam";
   return "Conversation";
@@ -91,8 +94,14 @@ function getDispositionTone(call: OrgCallRecord): "booking" | "success" | "autom
   if (call.outcome === "APPOINTMENT_REQUEST") return "booking";
   if (call.outcome === "TRANSFERRED") return "success";
   if (call.outcome === "MESSAGE_TAKEN") return "automated";
+  if (call.outcome === "ABANDONED") return "warning";
   if (call.outcome === "MISSED") return "warning";
   return "neutral";
+}
+
+function formatTransferReason(value: string | null | undefined) {
+  if (!value) return "Transfer triggered";
+  return value.replaceAll("_", " ").toLowerCase();
 }
 
 function extractCallerName(call: OrgCallRecord) {
@@ -203,10 +212,10 @@ export default function AppCallsPage() {
     if (!totalVisible) {
       return { totalVisible, needsReview: 0, requestCount: 0, answerRate: 0 };
     }
-    const successful = calls.filter((call) => call.outcome !== "MISSED" && call.outcome !== "SPAM").length;
+    const successful = calls.filter((call) => !["MISSED", "ABANDONED", "SPAM"].includes(call.outcome)).length;
     return {
       totalVisible,
-      needsReview: calls.filter((call) => call.outcome === "MISSED").length,
+      needsReview: calls.filter((call) => call.outcome === "MISSED" || call.outcome === "ABANDONED" || Boolean(call.unansweredTransfer)).length,
       requestCount: calls.filter((call) => call.outcome === "APPOINTMENT_REQUEST").length,
       answerRate: (successful / totalVisible) * 100
     };
@@ -247,7 +256,7 @@ export default function AppCallsPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {["ALL", "MISSED", "TRANSFERRED", "APPOINTMENT_REQUEST", "MESSAGE_TAKEN"].map((value) => (
+            {["ALL", "MISSED", "ABANDONED", "TRANSFERRED", "APPOINTMENT_REQUEST", "MESSAGE_TAKEN"].map((value) => (
               <button
                 key={value}
                 type="button"
@@ -474,6 +483,42 @@ export default function AppCallsPage() {
                       </div>
                     ))}
                   </div>
+
+                  {selectedCall.outcome === "TRANSFERRED" || selectedCall.recoverySmsSentAt ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {selectedCall.outcome === "TRANSFERRED" ? (
+                        <>
+                          <div className="rounded-xl border bg-slate-50 p-4">
+                            <p className="page-eyebrow">Transfer reason</p>
+                            <p className="mt-2 text-sm font-medium text-foreground">{formatTransferReason(selectedCall.transferReason)}</p>
+                          </div>
+                          <div className="rounded-xl border bg-slate-50 p-4">
+                            <p className="page-eyebrow">Transfer target</p>
+                            <p className="mt-2 text-sm font-medium text-foreground">
+                              {selectedCall.transferTarget || "Office routing"}
+                              {selectedCall.unansweredTransfer ? " (not answered)" : ""}
+                            </p>
+                          </div>
+                        </>
+                      ) : null}
+                      {selectedCall.recoverySmsSentAt ? (
+                        <>
+                          <div className="rounded-xl border bg-slate-50 p-4">
+                            <p className="page-eyebrow">Recovery SMS</p>
+                            <p className="mt-2 text-sm font-medium text-foreground">
+                              Sent {new Date(selectedCall.recoverySmsSentAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border bg-slate-50 p-4">
+                            <p className="page-eyebrow">Recovery response</p>
+                            <p className="mt-2 text-sm font-medium text-foreground">
+                              {selectedCall.recoverySmsResponse || "No reply yet"}
+                            </p>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="space-y-2">
                     <p className="page-eyebrow">Summary</p>

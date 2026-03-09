@@ -121,6 +121,8 @@ function outcomeLabel(outcome: OrgCallRecord["outcome"]) {
       return "Message taken";
     case "TRANSFERRED":
       return "Transferred";
+    case "ABANDONED":
+      return "Abandoned";
     case "MISSED":
       return "Missed call";
     case "SPAM":
@@ -138,6 +140,8 @@ function outcomeTone(outcome: OrgCallRecord["outcome"]) {
       return "manual" as const;
     case "TRANSFERRED":
       return "automated" as const;
+    case "ABANDONED":
+      return "warning" as const;
     case "MISSED":
       return "warning" as const;
     case "SPAM":
@@ -300,13 +304,13 @@ export default function AppOverviewPage() {
       });
     }
 
-    for (const call of state.calls.filter((item) => item.outcome === "MISSED")) {
+    for (const call of state.calls.filter((item) => item.outcome === "MISSED" || item.outcome === "ABANDONED" || item.unansweredTransfer)) {
       items.push({
         id: `missed-${call.id}`,
         type: "NEEDS_FOLLOW_UP",
         severity: "warning",
-        label: `Missed call from ${call.displayName || call.fromNumber}`,
-        detail: "Call back and help them get scheduled.",
+        label: `${call.outcome === "ABANDONED" ? "Abandoned call" : call.unansweredTransfer ? "Unanswered transfer" : "Missed call"} from ${call.displayName || call.fromNumber}`,
+        detail: call.unansweredTransfer ? "Follow up because the transfer did not connect." : "Call back and help them get scheduled.",
         href: "/app/calls",
         timestamp: call.startedAt,
         sourceModule: "conversations"
@@ -672,6 +676,17 @@ export default function AppOverviewPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Answer Rate</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{formatPercent(answerRate)}</p>
               <p className="text-sm text-muted-foreground">{loading ? "Loading reporting..." : "Answered calls divided by total calls in the current reporting window"}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-2 pt-5 sm:pt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">AI Rescue Rate</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">
+                {loading ? "-" : `${state.analytics?.kpis.rescuedCalls ?? 0}`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {loading ? "Loading rescue rate..." : `${formatPercent(state.analytics?.kpis.aiRescueRate ?? 0)} of AI-handled calls produced follow-up value`}
+              </p>
             </CardContent>
           </Card>
         </div>

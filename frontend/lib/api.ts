@@ -505,7 +505,7 @@ export async function fetchOrgLeads() {
 export async function fetchOrgCalls(params?: {
   page?: number;
   pageSize?: number;
-  outcome?: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  outcome?: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "ABANDONED" | "SPAM";
   query?: string;
   date?: string;
   from?: string;

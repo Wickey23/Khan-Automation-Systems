@@ -80,7 +80,13 @@ export default function AppAnalyticsPage() {
     { label: "Avg Conversation Length", hint: "Average conversation duration in the selected time range.", value: kpis ? duration(kpis.avgCallDurationSec) : "-" },
     { label: "Text Reply Rate", hint: "SMS threads with both outbound and inbound responses over total SMS threads.", value: kpis ? pct(kpis.smsEngagementRate) : "-" },
     { label: "Appointment Requests", hint: "Number of calls marked as appointment requested in selected range.", value: kpis?.appointmentRequests ?? "-" },
-    { label: "Missed Calls", hint: "Calls marked MISSED in the selected range.", value: kpis?.missedCalls ?? "-" },
+    { label: "Missed Calls", hint: "Calls marked MISSED or ABANDONED in the selected range.", value: kpis?.missedCalls ?? "-" },
+    {
+      label: "AI Rescue Rate",
+      hint: "Estimated share of AI-handled calls that produced a lead, request, or successful handoff.",
+      value: kpis ? pct(kpis.aiRescueRate ?? 0) : "-",
+      meta: `${kpis?.rescuedCalls ?? 0} rescued calls`
+    },
     {
       label: "Revenue Opportunity",
       hint: "Estimated revenue opportunity based on booked appointments and average job value.",

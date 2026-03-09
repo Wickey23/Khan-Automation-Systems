@@ -30,8 +30,8 @@ function classifyByRules(input: {
   const signals: string[] = [];
   const normalizedText = `${input.summary} ${input.transcript}`.toLowerCase();
 
-  if (input.outcome === "MISSED") {
-    signals.push("missed_outcome");
+  if (input.outcome === "MISSED" || input.outcome === "ABANDONED") {
+    signals.push(input.outcome === "ABANDONED" ? "abandoned_outcome" : "missed_outcome");
     return {
       classification: LeadClassification.MISSED_CALL_RECOVERY,
       confidence: 0.92,

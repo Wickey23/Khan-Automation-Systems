@@ -103,8 +103,8 @@ export async function computeOrgAnalytics(
   }
 
   const totalCalls = calls.length;
-  const answeredCalls = calls.filter((call) => call.outcome !== "MISSED").length;
-  const missedCalls = calls.filter((call) => call.outcome === "MISSED").length;
+  const answeredCalls = calls.filter((call) => !["MISSED", "ABANDONED"].includes(String(call.outcome))).length;
+  const missedCalls = calls.filter((call) => ["MISSED", "ABANDONED"].includes(String(call.outcome))).length;
   const appointmentRequests = calls.filter(
     (call) => call.appointmentRequested || call.outcome === "APPOINTMENT_REQUEST"
   ).length;
@@ -146,6 +146,14 @@ export async function computeOrgAnalytics(
   const conversionRate = qualifiedLeads > 0 ? appointmentsBooked / qualifiedLeads : 0;
   const averageJobValueUsd = Math.max(0, settings?.averageJobValueUsd || 650);
   const estimatedRevenueOpportunityUsd = appointmentsBooked * averageJobValueUsd;
+  const aiHandledCalls = calls.filter((call) => call.outcome !== "SPAM" && call.outcome !== "MISSED" && call.outcome !== "ABANDONED").length;
+  const rescuedCalls = calls.filter((call) =>
+    Boolean(call.leadId) ||
+    Boolean(call.appointmentRequested) ||
+    call.outcome === "APPOINTMENT_REQUEST" ||
+    call.outcome === "TRANSFERRED"
+  ).length;
+  const aiRescueRate = safeDivide(rescuedCalls, Math.max(1, aiHandledCalls));
 
   const latestCallAt = calls
     .map((call) => call.startedAt.getTime())
@@ -212,6 +220,8 @@ export async function computeOrgAnalytics(
       appointmentsBooked,
       qualifiedLeads,
       missedCallsRecovered,
+      rescuedCalls,
+      aiRescueRate,
       conversionRate,
       averageJobValueUsd,
       estimatedRevenueOpportunityUsd

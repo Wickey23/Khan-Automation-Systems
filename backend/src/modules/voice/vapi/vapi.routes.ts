@@ -75,10 +75,72 @@ function parseEventTimestamp(value: unknown) {
 
 function normalizeOutcome(value: string) {
   const upper = value.trim().toUpperCase();
-  if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"].includes(upper)) {
-    return upper as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
+  if (["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "ABANDONED", "SPAM"].includes(upper)) {
+    return upper as "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "ABANDONED" | "SPAM";
   }
   return null;
+}
+
+function deriveOutcomeFromStatus(input: {
+  callStatus: string;
+  currentOutcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "ABANDONED" | "SPAM" | null;
+}) {
+  if (input.currentOutcome) return input.currentOutcome;
+  if (["busy", "no-answer", "timeout", "failed", "canceled", "cancelled"].includes(input.callStatus)) {
+    return "ABANDONED" as const;
+  }
+  return null;
+}
+
+const allowedVapiActionNames = new Set([
+  "create_lead",
+  "create_lead_from_call",
+  "create_appointment_request",
+  "book_appointment",
+  "mark_booking_intent",
+  "transfer_call",
+  "send_sms_followup",
+  "send_sms",
+  "log_call",
+  "notify_manager",
+  "get_caller_context",
+  "get_customer_context",
+  "get_available_times"
+]);
+
+type ExtractedToolCall = {
+  name: string;
+  args: Record<string, unknown>;
+};
+
+function extractToolCallsFromPayload(payload: unknown) {
+  const root = asObject(payload);
+  const candidates = [
+    root.toolCallList,
+    root.toolCalls,
+    asObject(root.message).toolCallList,
+    asObject(root.message).toolCalls
+  ];
+  const out: ExtractedToolCall[] = [];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue;
+    for (const item of candidate) {
+      const obj = asObject(item);
+      const functionCall = asObject(obj.function);
+      const name = pickString(obj.name, obj.toolName, functionCall.name);
+      const argsNode = obj.args ?? obj.arguments ?? functionCall.arguments ?? functionCall.args ?? {};
+      let args = asObject(argsNode);
+      if (!Object.keys(args).length && typeof argsNode === "string") {
+        try {
+          args = asObject(JSON.parse(argsNode));
+        } catch {
+          args = {};
+        }
+      }
+      if (name) out.push({ name, args });
+    }
+  }
+  return out;
 }
 
 function deriveAppointmentIntentFallback(input: {
@@ -88,7 +150,7 @@ function deriveAppointmentIntentFallback(input: {
   rawPayload: unknown;
   fromNumber: string;
   appointmentRequested: boolean | null;
-  outcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM" | null;
+  outcome: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "ABANDONED" | "SPAM" | null;
 }) {
   if (input.appointmentRequested === true || input.outcome === "APPOINTMENT_REQUEST") {
     return {
@@ -392,7 +454,14 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const summary = pickString(body.summary, analysis.summary) || null;
   const transcript = pickString(body.transcript, artifact.transcript) || null;
   const recordingUrl = pickString(body.recordingUrl, artifact.recordingUrl) || null;
-  const outcome = normalizeOutcome(pickString(body.outcome, analysis.outcome, call.outcome));
+  const toolCalls = extractToolCallsFromPayload(body);
+  const invalidToolCalls = toolCalls.filter((item) => !allowedVapiActionNames.has(item.name));
+  const transferToolCall = [...toolCalls].reverse().find((item) => item.name === "transfer_call") || null;
+  const durationSec = parseInteger(body.durationSec ?? call.durationSec ?? call.duration);
+  const outcome = deriveOutcomeFromStatus({
+    callStatus: pickString(body.status, call.status).toLowerCase(),
+    currentOutcome: normalizeOutcome(pickString(body.outcome, analysis.outcome, call.outcome))
+  });
   const appointmentRequested = toBoolean(body.appointmentRequested ?? analysis.appointmentRequested);
   const leadId = pickString(body.leadId, analysis.leadId) || null;
   const callStatus = pickString(body.status, call.status).toLowerCase();
@@ -403,7 +472,6 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const orgIdFromPayload = pickString(body.orgId, call.orgId) || null;
   const assistantId = pickString(body.assistantId, call.assistantId, assistant.id, assistant.assistantId) || null;
   const phoneNumberId = pickString(body.phoneNumberId, call.phoneNumberId, phoneNumber.id) || null;
-  const durationSec = parseInteger(body.durationSec ?? call.durationSec ?? call.duration);
   const eventTs = parseEventTimestamp((asObject(body.message).timestamp as unknown) ?? body.timestamp);
   let actionableEvent = false;
   let durablePersisted = false;
@@ -556,6 +624,22 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       return res.json({ ok: true, data: { queuedBackfill: true, eventType, callSid } });
     }
 
+    if (invalidToolCalls.length) {
+      await prisma.auditLog.create({
+        data: {
+          orgId: resolvedOrgId,
+          actorUserId: "vapi-webhook",
+          actorRole: "SYSTEM",
+          action: "VAPI_TOOL_ACTION_REJECTED",
+          metadataJson: JSON.stringify({
+            callSid,
+            eventType,
+            invalidActions: invalidToolCalls.map((item) => item.name)
+          })
+        }
+      });
+    }
+
     const appointmentIntentFallback = deriveAppointmentIntentFallback({
       transcript,
       summary,
@@ -568,6 +652,30 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
 
     const effectiveAppointmentRequested = appointmentIntentFallback.appointmentRequested;
     const effectiveOutcome = appointmentIntentFallback.outcome;
+    const transferReason = pickString(
+      transferToolCall?.args.reason,
+      transferToolCall?.args.transferReason,
+      structuredData.transferReason,
+      analysis.transferReason
+    ) || null;
+    const transferTarget = normalizeToE164(
+      pickString(
+        transferToolCall?.args.transferTo,
+        transferToolCall?.args.transferTarget,
+        structuredData.transferTarget,
+        analysis.transferTarget
+      )
+    ) || null;
+    const durationBeforeTransferSec =
+      parseInteger(
+        transferToolCall?.args.durationBeforeTransferSec ??
+          structuredData.durationBeforeTransferSec ??
+          analysis.durationBeforeTransferSec
+      ) ?? durationSec;
+    const unansweredTransfer = Boolean(
+      toBoolean(transferToolCall?.args.unanswered ?? structuredData.unansweredTransfer ?? analysis.unansweredTransfer) ??
+        (callStatus === "no-answer" && effectiveOutcome === "TRANSFERRED")
+    );
 
     const updateData: Record<string, unknown> = {
       fromNumber,
@@ -581,6 +689,10 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     if (leadId !== null) updateData.leadId = leadId;
     if (effectiveAppointmentRequested !== null) updateData.appointmentRequested = effectiveAppointmentRequested;
     if (effectiveOutcome) updateData.outcome = effectiveOutcome;
+    if (transferReason) updateData.transferReason = transferReason;
+    if (transferTarget) updateData.transferTarget = transferTarget;
+    if (durationBeforeTransferSec !== null && effectiveOutcome === "TRANSFERRED") updateData.durationBeforeTransferSec = durationBeforeTransferSec;
+    if (effectiveOutcome === "TRANSFERRED") updateData.unansweredTransfer = unansweredTransfer;
     if (eventType === "end-of-call-report" || endedByStatus) updateData.endedAt = new Date();
 
     const persistedCall = await prisma.callLog.upsert({
@@ -605,6 +717,12 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         ...(leadId ? { leadId } : {}),
         ...(effectiveOutcome ? { outcome: effectiveOutcome } : {}),
         ...(effectiveAppointmentRequested !== null ? { appointmentRequested: effectiveAppointmentRequested } : {}),
+        ...(transferReason ? { transferReason } : {}),
+        ...(transferTarget ? { transferTarget } : {}),
+        ...(durationBeforeTransferSec !== null && effectiveOutcome === "TRANSFERRED"
+          ? { durationBeforeTransferSec }
+          : {}),
+        ...(effectiveOutcome === "TRANSFERRED" ? { unansweredTransfer } : {}),
         ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
       }
     });
@@ -740,7 +858,8 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
           status: callStatus || null,
           successEvaluation,
           structuredData,
-          toolCallList: body.toolCallList || body.toolCalls || null
+          toolCallList: body.toolCallList || body.toolCalls || null,
+          validatedToolActions: toolCalls.map((item) => item.name)
         })
       }
     });
