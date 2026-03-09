@@ -231,8 +231,9 @@ export default function AppOverviewPage() {
         }
       />
 
-      <div className="grid gap-5 xl:items-start xl:grid-cols-[minmax(0,1.15fr)_380px]">
-        <Card className="self-start">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
+        <div className="min-w-0 flex-1">
+        <Card>
           <CardHeader className="space-y-3 pb-4">
             <div className="space-y-3">
               <p className="page-eyebrow">Workspace status</p>
@@ -264,8 +265,9 @@ export default function AppOverviewPage() {
             </div>
           </CardContent>
         </Card>
+        </div>
 
-        <ActionNeededPanel items={actionItems} className="self-start shadow-sm xl:sticky xl:top-24" />
+        <ActionNeededPanel items={actionItems} className="shadow-sm xl:sticky xl:top-24 xl:w-[380px] xl:flex-none" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
