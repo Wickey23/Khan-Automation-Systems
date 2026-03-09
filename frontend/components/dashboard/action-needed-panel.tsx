@@ -52,7 +52,7 @@ export function ActionNeededPanel({
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Next actions</CardTitle>
+        <CardTitle className="text-lg">Needs attention</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2.5">
         {visibleItems.length ? (
@@ -71,6 +71,7 @@ export function ActionNeededPanel({
                     </div>
                     <div className="min-w-0 space-y-1.5">
                       <p className="text-sm font-medium leading-5 text-foreground">{item.label}</p>
+                      {item.detail ? <p className="text-sm leading-5 text-muted-foreground">{item.detail}</p> : null}
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <Badge className={clientBadgeClass(severityTone(item.severity))}>{item.severity}</Badge>
                         <span>{sourceLabel(item.sourceModule)}</span>
@@ -84,7 +85,7 @@ export function ActionNeededPanel({
             })()
           ))
         ) : (
-          <div className="empty-state py-8">Nothing urgent needs attention right now.</div>
+          <div className="empty-state py-8">Nothing needs attention right now.</div>
         )}
       </CardContent>
     </Card>

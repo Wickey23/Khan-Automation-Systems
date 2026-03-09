@@ -211,7 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <ClientGuard>
       <div className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <div className="grid gap-6 xl:grid-cols-[248px_minmax(0,1fr)] xl:items-start">
-          <aside className="surface-panel h-fit p-4 xl:sticky xl:top-24">
+          <aside className="h-fit rounded-[28px] border bg-card p-4 shadow-none xl:sticky xl:top-24">
             <div className="px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
               <p className="mt-1 text-xs text-muted-foreground">Workspace navigation</p>
@@ -227,7 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </nav>
             <div className="mt-4 border-t pt-4">
-              <Link href="/auth/logout" className="inline-block rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground">
+              <Link href="/auth/logout" className="inline-flex w-full rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground">
                 Logout
               </Link>
             </div>

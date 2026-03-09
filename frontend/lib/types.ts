@@ -555,6 +555,7 @@ export type ActionNeededItem = {
   type: "NEEDS_REVIEW" | "NEEDS_FOLLOW_UP" | "NEEDS_FIX";
   severity: "info" | "warning" | "critical";
   label: string;
+  detail?: string;
   href: string;
   timestamp?: string | null;
   sourceModule: "conversations" | "leads" | "appointments" | "messages" | "system";
