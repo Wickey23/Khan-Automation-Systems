@@ -11,6 +11,7 @@ import { transitionCallState } from "../call-state.service";
 import { updateCallerProfileOutcome } from "../caller-profile.service";
 import { classifyCallAndMaybeUpdateLead } from "../../org/call-classification.service";
 import { emitOrgNotification } from "../../notifications/notification.service";
+import { maybeEmitWebhookRetryAlert } from "../../notifications/security-alert.service";
 import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 import { enqueueFinalizeBookingJob, persistVapiWebhookEvent } from "./vapi-booking-finalizer.service";
 import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
@@ -784,6 +785,14 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         }
       })
       .catch(() => null);
+    if (retryWorthy) {
+      await maybeEmitWebhookRetryAlert({
+        prisma,
+        orgId: orgIdFromPayload,
+        provider: "VAPI",
+        endpoint: "/api/vapi/webhook"
+      }).catch(() => null);
+    }
     if (retryWorthy) {
       return res.status(500).json({ ok: false, retry: true });
     }

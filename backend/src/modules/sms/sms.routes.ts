@@ -7,6 +7,7 @@ import { verifyTwilioRequest } from "../../middleware/webhook-security";
 import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { hasProMessaging } from "../billing/plan-features";
 import { handleAppointmentRequestSmsReply } from "../appointments/appointment-request-sms.service";
+import { maybeEmitWebhookRetryAlert } from "../notifications/security-alert.service";
 
 export const smsRouter = Router();
 const twilioSmsSchema = z.object({
@@ -211,6 +212,7 @@ async function getVapiSmsReply(input: {
 smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   let durablePersisted = false;
   let actionableMessage = false;
+  let resolvedOrgIdForAlert: string | null = null;
   try {
   const parsedPayload = twilioSmsSchema.safeParse(req.body || {});
   if (!parsedPayload.success) {
@@ -283,6 +285,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
   }
 
   const orgId = orgPhone.organization.id;
+  resolvedOrgIdForAlert = orgId;
   const normalizedFrom = fromNumber;
   const incomingKeyword = classifySmsKeyword(body);
   const fromPhoneVariants = phoneVariants(fromNumber);
@@ -596,6 +599,14 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
         }
       })
       .catch(() => null);
+    if (actionableMessage && !durablePersisted) {
+      await maybeEmitWebhookRetryAlert({
+        prisma,
+        orgId: resolvedOrgIdForAlert,
+        provider: "TWILIO",
+        endpoint: "/api/twilio/sms"
+      }).catch(() => null);
+    }
     const xml = new Twiml.MessagingResponse();
     if (actionableMessage && !durablePersisted) {
       return res.status(500).type("text/xml").send(xml.toString());
@@ -607,6 +618,7 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
 smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
   let durablePersisted = false;
   let actionableMessage = false;
+  let resolvedOrgIdForAlert: string | null = null;
   try {
   const parsedPayload = z
     .object({
@@ -656,6 +668,7 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
     orderBy: { createdAt: "desc" }
   });
   let resolvedOrgId = candidate?.orgId || orgIdFromQuery;
+  resolvedOrgIdForAlert = resolvedOrgId || null;
   if (candidate?.orgId && orgIdFromQuery && candidate.orgId !== orgIdFromQuery) {
     await prisma.auditLog
       .create({
@@ -758,6 +771,14 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
         }
       })
       .catch(() => null);
+    if (actionableMessage && !durablePersisted) {
+      await maybeEmitWebhookRetryAlert({
+        prisma,
+        orgId: resolvedOrgIdForAlert,
+        provider: "TWILIO",
+        endpoint: "/api/twilio/sms/status"
+      }).catch(() => null);
+    }
     if (actionableMessage && !durablePersisted) {
       return res.status(500).json({ ok: false, retry: true });
     }

@@ -5,6 +5,10 @@ import { prisma } from "../../../../lib/prisma";
 import { vapiRouter } from "../vapi.routes";
 import * as finalizer from "../vapi-booking-finalizer.service";
 
+function uniqueId(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function getRouteHandler(router: Router, path: string, method: "post") {
   const layer = (router as any).stack.find((entry: any) => entry?.route?.path === path && entry.route.methods?.[method]);
   if (!layer) throw new Error(`Route not found: ${method.toUpperCase()} ${path}`);
@@ -31,6 +35,7 @@ function createMockResponse() {
 
 test("Vapi webhook returns 200 when downstream failure happens after durable persistence", async () => {
   const handler = getRouteHandler(vapiRouter, "/webhook", "post");
+  const callSid = uniqueId("call_retry");
   const originalPersist = finalizer.persistVapiWebhookEvent;
   const originalEnqueue = finalizer.enqueueFinalizeBookingJob;
   const originalCallLogUpsert = prisma.callLog.upsert;
@@ -51,7 +56,7 @@ test("Vapi webhook returns 200 when downstream failure happens after durable per
       {
         body: {
           messageType: "end-of-call-report",
-          callSid: "call_retry_1",
+          callSid,
           orgId: "org_1"
         },
         headers: {},
@@ -103,6 +108,7 @@ test("Vapi webhook safe-ignores schema-invalid payloads with 200", async () => {
 
 test("Vapi webhook returns retry-worthy 500 when actionable event fails before durable persistence", async () => {
   const handler = getRouteHandler(vapiRouter, "/webhook", "post");
+  const callSid = uniqueId("call_retry");
   const originalPersist = finalizer.persistVapiWebhookEvent;
   const originalAuditCreate = prisma.auditLog.create;
   const originalWebhookLogCreate = prisma.webhookEventLog.create;
@@ -119,7 +125,7 @@ test("Vapi webhook returns retry-worthy 500 when actionable event fails before d
       {
         body: {
           messageType: "end-of-call-report",
-          callSid: "call_retry_2"
+          callSid
         },
         headers: {},
         header() {

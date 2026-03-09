@@ -3,8 +3,10 @@ import Twilio from "twilio";
 import { env } from "../config/env";
 import { prisma } from "../lib/prisma";
 import { redactObject } from "../lib/log-redaction";
+import { maybeEmitWebhookSignatureInvalidAlert } from "../modules/notifications/security-alert.service";
 
 function logRejectedWebhook(req: Request, statusCode: number, reason: string) {
+  const provider = req.originalUrl.includes("/api/twilio") ? "TWILIO" : "VAPI";
   const safeHeaders =
     env.LOG_REDACTION_ENABLED === "true"
       ? redactObject((req.headers || {}) as Record<string, unknown>)
@@ -12,7 +14,7 @@ function logRejectedWebhook(req: Request, statusCode: number, reason: string) {
   void prisma.webhookEventLog
     .create({
       data: {
-        provider: req.originalUrl.includes("/api/twilio") ? "TWILIO" : "VAPI",
+        provider,
         endpoint: req.originalUrl,
         requestId: req.requestId || null,
         statusCode,
@@ -27,6 +29,14 @@ function logRejectedWebhook(req: Request, statusCode: number, reason: string) {
         })()
       }
     })
+    .then(() =>
+      maybeEmitWebhookSignatureInvalidAlert({
+        prisma,
+        provider,
+        endpoint: req.originalUrl,
+        reason
+      }).catch(() => null)
+    )
     .catch(() => null);
 }
 

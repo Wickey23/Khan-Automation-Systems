@@ -1,5 +1,6 @@
 import { AppointmentRequestEventType, type PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
+import { maybeEmitSmsSuppressionAlert } from "../notifications/security-alert.service";
 
 function parsePositiveInt(value: string, fallback: number) {
   const parsed = Number.parseInt(String(value || ""), 10);
@@ -58,6 +59,13 @@ async function writeSuppressionAudit(input: {
       ...(input.metadata || {})
     })
   );
+  await maybeEmitSmsSuppressionAlert({
+    prisma: input.prisma,
+    orgId: input.orgId,
+    reason: input.reason,
+    source: input.source,
+    requestId: typeof input.metadata?.requestId === "string" ? input.metadata.requestId : null
+  }).catch(() => null);
 }
 
 export async function assertOrgSmsQuota(input: {

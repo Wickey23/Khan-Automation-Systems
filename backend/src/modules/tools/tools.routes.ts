@@ -8,6 +8,7 @@ import { verifyVapiToolSecret } from "../../middleware/webhook-security";
 import { hasProMessaging } from "../billing/plan-features";
 import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
+import { maybeEmitToolContextRejectedAlert } from "../notifications/security-alert.service";
 import {
   computeAvailabilityWindow,
   generateAvailabilitySlots,
@@ -282,6 +283,10 @@ async function logToolContextRejected(route: string, reqBody: unknown, reason: s
       }
     })
     .catch(() => null);
+  await maybeEmitToolContextRejectedAlert({
+    prisma,
+    route
+  }).catch(() => null);
 }
 
 async function rejectMissingTrustedContext(
