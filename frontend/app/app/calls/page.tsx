@@ -33,6 +33,38 @@ function formatRelativeUpdate(value: Date | null) {
   return value.toLocaleString();
 }
 
+function todayDateValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDateValue(value: string, delta: number) {
+  const base = new Date(`${value}T00:00:00`);
+  base.setDate(base.getDate() + delta);
+  const year = base.getFullYear();
+  const month = String(base.getMonth() + 1).padStart(2, "0");
+  const day = String(base.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateWindow(value: string) {
+  return {
+    from: new Date(`${value}T00:00:00`).toISOString(),
+    to: new Date(`${value}T23:59:59.999`).toISOString()
+  };
+}
+
+function formatDayHeading(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString([], {
+    weekday: "long",
+    month: "short",
+    day: "numeric"
+  });
+}
+
 function getCallSuccessRating(call: OrgCallRecord) {
   let base = 60;
   if (call.outcome === "APPOINTMENT_REQUEST") base = 95;
@@ -77,10 +109,10 @@ function extractCallerName(call: OrgCallRecord) {
 
 export default function AppCallsPage() {
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(25);
+  const [selectedDay, setSelectedDay] = useState(todayDateValue());
   const [totalCalls, setTotalCalls] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const page = 1;
+  const totalPages = 1;
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -91,22 +123,21 @@ export default function AppCallsPage() {
   const detailsRef = useRef<HTMLElement | null>(null);
   const shouldScrollToDetailsRef = useRef(false);
   const selectedCallIdRef = useRef<string | null>(null);
-  const pageRef = useRef(page);
+  const selectedDayRef = useRef(selectedDay);
   const queryRef = useRef(query);
   const outcomeFilterRef = useRef(outcomeFilter);
 
-  const loadCalls = useCallback(async (next: { page: number; query: string; outcome: "ALL" | OrgCallRecord["outcome"] }) => {
+  const loadCalls = useCallback(async (next: { day: string; query: string; outcome: "ALL" | OrgCallRecord["outcome"] }) => {
     try {
+      const window = dateWindow(next.day);
       const data = await fetchOrgCalls({
-        page: next.page,
-        pageSize,
+        from: window.from,
+        to: window.to,
         ...(next.outcome !== "ALL" ? { outcome: next.outcome } : {}),
         ...(next.query.trim() ? { query: next.query.trim() } : {})
       });
       setCalls(data.calls);
-      setPage(data.page);
       setTotalCalls(data.total);
-      setTotalPages(data.totalPages);
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
       setLastUpdated(new Date());
@@ -117,11 +148,10 @@ export default function AppCallsPage() {
     } catch {
       setCalls([]);
       setTotalCalls(0);
-      setTotalPages(1);
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
     }
-  }, [pageSize]);
+  }, []);
 
   const refreshAndRepopulate = useCallback(async () => {
     setRefreshing(true);
@@ -130,31 +160,27 @@ export default function AppCallsPage() {
     } catch {
       // still refresh current data
     } finally {
-      await loadCalls({ page, query, outcome: outcomeFilter });
+      await loadCalls({ day: selectedDay, query, outcome: outcomeFilter });
       setRefreshing(false);
     }
-  }, [loadCalls, outcomeFilter, page, query]);
+  }, [loadCalls, outcomeFilter, query, selectedDay]);
 
   useEffect(() => {
-    pageRef.current = page;
+    selectedDayRef.current = selectedDay;
     queryRef.current = query;
     outcomeFilterRef.current = outcomeFilter;
-  }, [page, query, outcomeFilter]);
+  }, [selectedDay, query, outcomeFilter]);
 
   useEffect(() => {
     selectedCallIdRef.current = selectedCall?.id || null;
   }, [selectedCall]);
 
   useEffect(() => {
-    void loadCalls({ page: 1, query: "", outcome: "ALL" });
-  }, [loadCalls]);
-
-  useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
+      void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
     }, 12000);
 
-    const refresh = () => void loadCalls({ page: pageRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
+    const refresh = () => void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current });
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
@@ -165,8 +191,8 @@ export default function AppCallsPage() {
   }, [loadCalls]);
 
   useEffect(() => {
-    void loadCalls({ page: 1, query, outcome: outcomeFilter });
-  }, [query, outcomeFilter, loadCalls]);
+    void loadCalls({ day: selectedDay, query, outcome: outcomeFilter });
+  }, [selectedDay, query, outcomeFilter, loadCalls]);
 
   useEffect(() => {
     if (!selectedCall || !detailsRef.current || !shouldScrollToDetailsRef.current) return;
@@ -215,6 +241,8 @@ export default function AppCallsPage() {
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>Showing {filteredLabel}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
+              <span>{formatDayHeading(selectedDay)}</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>Updated {formatRelativeUpdate(lastUpdated)}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>{totalCalls} matching calls</span>
@@ -241,10 +269,10 @@ export default function AppCallsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Visible calls", value: metrics.totalVisible, meta: "Calls on this page" },
-          { label: "Need review", value: metrics.needsReview, meta: "Missed calls in view" },
-          { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests in view" },
-          { label: "Visible answer rate", value: formatPercent(metrics.answerRate), meta: "Answered and non-spam calls in view" }
+          { label: "Calls on day", value: metrics.totalVisible, meta: formatDayHeading(selectedDay) },
+          { label: "Need review", value: metrics.needsReview, meta: "Missed calls for this day" },
+          { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests for this day" },
+          { label: "Answer rate", value: formatPercent(metrics.answerRate), meta: "Answered and non-spam calls for this day" }
         ].map((item) => (
           <Card key={item.label}>
             <CardContent className="p-5">
@@ -267,18 +295,21 @@ export default function AppCallsPage() {
                     Search the queue, open a call, then review the summary, transcript, and recommended next step.
                   </p>
                 </div>
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by caller name, phone number, summary, or call ID"
-                />
+                <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                  <Input type="date" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search by caller name, phone number, summary, or call ID"
+                  />
+                </div>
               </div>
               <div className="rounded-xl border bg-slate-50 px-4 py-4 text-sm">
                 <p className="font-medium text-foreground">Queue summary</p>
                 <div className="mt-3 space-y-2 text-muted-foreground">
-                  <p>{totalCalls} total matching calls across all pages.</p>
-                  <p>{calls.length} calls currently loaded in this view.</p>
-                  <p>Use filters first, then open a call for the full details.</p>
+                  <p>{totalCalls} matching calls on {formatDayHeading(selectedDay)}.</p>
+                  <p>{calls.length} calls currently loaded for this day.</p>
+                  <p>Use the day selector or day navigation to move the review queue backward or forward.</p>
                 </div>
               </div>
             </CardContent>
@@ -340,15 +371,22 @@ export default function AppCallsPage() {
 
           <Card className="border-slate-200 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
             <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <p className="page-eyebrow">Day navigation</p>
+                <p className="text-sm text-muted-foreground">{formatDayHeading(selectedDay)}</p>
+              </div>
+              <p className="hidden text-sm text-muted-foreground">
                 Page {page} of {totalPages} · {totalCalls} total call{totalCalls === 1 ? "" : "s"}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" disabled={page <= 1} onClick={() => void loadCalls({ page: page - 1, query, outcome: outcomeFilter })}>
-                  Previous
+                <Button variant="outline" onClick={() => setSelectedDay((current) => shiftDateValue(current, -1))}>
+                  Previous day
                 </Button>
-                <Button variant="outline" disabled={page >= totalPages} onClick={() => void loadCalls({ page: page + 1, query, outcome: outcomeFilter })}>
-                  Next
+                <Button variant="outline" onClick={() => setSelectedDay(todayDateValue())} disabled={selectedDay === todayDateValue()}>
+                  Today
+                </Button>
+                <Button variant="outline" onClick={() => setSelectedDay((current) => shiftDateValue(current, 1))}>
+                  Next day
                 </Button>
               </div>
             </CardContent>

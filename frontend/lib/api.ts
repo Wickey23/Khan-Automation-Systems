@@ -507,12 +507,16 @@ export async function fetchOrgCalls(params?: {
   pageSize?: number;
   outcome?: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "SPAM";
   query?: string;
+  from?: string;
+  to?: string;
 }) {
   const search = new URLSearchParams();
   if (params?.page) search.set("page", String(params.page));
   if (params?.pageSize) search.set("pageSize", String(params.pageSize));
   if (params?.outcome) search.set("outcome", params.outcome);
   if (params?.query) search.set("query", params.query);
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
   return request<{
     calls: OrgCallRecord[];
     page: number;

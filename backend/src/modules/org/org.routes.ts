@@ -263,7 +263,9 @@ const listOrgCallsSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "SPAM"]).optional(),
-  query: z.string().trim().max(100).optional()
+  query: z.string().trim().max(100).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional()
 });
 
 function normalizePhone(input: string) {
@@ -779,8 +781,17 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   const pageSize = parsed.data.pageSize || 25;
   const query = String(parsed.data.query || "").trim();
   const normalizedQuery = query.toLowerCase();
+  const hasDateWindow = Boolean(parsed.data.from && parsed.data.to);
   const callWhere = {
     orgId,
+    ...(hasDateWindow
+      ? {
+          startedAt: {
+            gte: new Date(String(parsed.data.from)),
+            lte: new Date(String(parsed.data.to))
+          }
+        }
+      : {}),
     ...(parsed.data.outcome ? { outcome: parsed.data.outcome } : {}),
     ...(query
       ? {
@@ -798,8 +809,12 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     prisma.callLog.findMany({
       where: callWhere,
       orderBy: { startedAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize
+      ...(hasDateWindow
+        ? {}
+        : {
+            skip: (page - 1) * pageSize,
+            take: pageSize
+          })
     }),
     prisma.callLog.count({
       where: callWhere
@@ -897,7 +912,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
       page,
       pageSize,
       total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      totalPages: hasDateWindow ? 1 : Math.max(1, Math.ceil(total / pageSize)),
       assignedPhoneNumber: activePhone?.e164Number || null,
       assignedNumberProvider: activePhone?.provider || null
     }
