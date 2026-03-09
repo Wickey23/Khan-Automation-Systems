@@ -160,9 +160,9 @@ export default function AppMessagesPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
         <Card className="border-amber-200 bg-amber-50/70">
-          <CardContent className="flex items-start gap-3 p-5 text-sm text-amber-950">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-            <div className="space-y-1.5">
+          <CardContent className="flex items-start gap-3 px-5 py-6 text-sm text-amber-950 sm:px-6 sm:py-5">
+            <Lock className="mt-1 h-4 w-4 shrink-0" />
+            <div className="space-y-2">
               <p className="font-semibold">Messaging automation is a Pro feature.</p>
               <p className="text-amber-900/90">
                 Current plan: <strong>{subscriptionPlan || "NONE"}</strong> ({subscriptionStatus || "inactive"}). If sending is disabled,
