@@ -650,21 +650,39 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
     return res.json({ ok: true, ignored: true });
   }
 
-  let resolvedOrgId = orgIdFromQuery;
-  if (!resolvedOrgId) {
-    const candidate = await prisma.message.findFirst({
-      where: { providerMessageId: messageSid },
-      select: { orgId: true },
-      orderBy: { createdAt: "desc" }
-    });
-    resolvedOrgId = candidate?.orgId || "";
+  const candidate = await prisma.message.findFirst({
+    where: { providerMessageId: messageSid },
+    select: { orgId: true },
+    orderBy: { createdAt: "desc" }
+  });
+  let resolvedOrgId = candidate?.orgId || orgIdFromQuery;
+  if (candidate?.orgId && orgIdFromQuery && candidate.orgId !== orgIdFromQuery) {
+    await prisma.auditLog
+      .create({
+        data: {
+          actorUserId: "twilio-sms",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_SAFE_IGNORE",
+          metadataJson: JSON.stringify({
+            requestId: req.requestId || null,
+            endpoint: "/api/twilio/sms/status",
+            provider: "TWILIO",
+            reason: "org_query_mismatch",
+            messageSid,
+            orgIdFromQuery,
+            resolvedOrgId: candidate.orgId
+          })
+        }
+      })
+      .catch(() => null);
   }
 
   const nextStatus = mapTwilioMessageStatus(statusRaw);
   const errorText = errorCode || errorMessage ? `Twilio ${errorCode} ${errorMessage}`.trim() : null;
 
+  let updateResult = { count: 0 };
   if (resolvedOrgId) {
-    await prisma.message.updateMany({
+    updateResult = await prisma.message.updateMany({
       where: { orgId: resolvedOrgId, providerMessageId: messageSid },
       data: {
         status: nextStatus,
@@ -673,7 +691,7 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
       }
     });
   } else {
-    await prisma.message.updateMany({
+    updateResult = await prisma.message.updateMany({
       where: { providerMessageId: messageSid },
       data: {
         status: nextStatus,
@@ -681,6 +699,26 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
         deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined
       }
     });
+  }
+  if (updateResult.count === 0) {
+    await prisma.auditLog
+      .create({
+        data: {
+          actorUserId: "twilio-sms",
+          actorRole: "SYSTEM",
+          action: "WEBHOOK_SAFE_IGNORE",
+          metadataJson: JSON.stringify({
+            requestId: req.requestId || null,
+            endpoint: "/api/twilio/sms/status",
+            provider: "TWILIO",
+            reason: "message_not_found",
+            messageSid,
+            resolvedOrgId: resolvedOrgId || null
+          })
+        }
+      })
+      .catch(() => null);
+    return res.json({ ok: true, ignored: true });
   }
   durablePersisted = true;
   await prisma.auditLog

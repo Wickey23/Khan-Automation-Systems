@@ -127,6 +127,122 @@ export default function AdminSystemPage() {
           </div>
         </div>
 
+        <section className="mt-4 rounded-lg border bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Security Signals</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Step-up failures, cross-org tool rejects, webhook retries, and SMS suppression events from the last 24 hours.
+              </p>
+            </div>
+          </div>
+
+          {dashboard?.securityAlerts?.length ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {dashboard.securityAlerts.map((alert) => (
+                <div
+                  key={alert.key}
+                  className={`rounded border px-3 py-2 text-sm ${
+                    alert.severity === "critical"
+                      ? "border-rose-300 bg-rose-50 text-rose-900"
+                      : "border-amber-300 bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  <div className="font-medium">{alert.label}</div>
+                  <div className="text-xs opacity-80">
+                    {alert.key} · {alert.value} in the last 24h
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-emerald-700">No elevated security counters right now.</p>
+          )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Step-Up Forbidden</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.stepUpForbidden24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Tool Context Rejects</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.toolOrgContextRejected24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Signature Invalid</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.webhookSignatureInvalid24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Replay Blocked</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.webhookReplayBlocked24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Retry-Worthy Failures</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.webhookRetryWorthyFailure24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">SMS Suppressed</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.smsAutomationSuppressed24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Hourly SMS Cap</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.quotaOrgSmsHourly24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Daily SMS Cap</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.quotaOrgSmsDaily24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Offer Suppressed</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.requestOfferSuppressed24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Clarification Suppressed</p>
+              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.requestClarificationSuppressed24h ?? 0}</p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="font-medium">Recent security events</h3>
+            <div className="mt-2 overflow-x-auto rounded-lg border">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="p-3">Time</th>
+                    <th className="p-3">Action</th>
+                    <th className="p-3">Source</th>
+                    <th className="p-3">Org</th>
+                    <th className="p-3">Provider</th>
+                    <th className="p-3">Route</th>
+                    <th className="p-3">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard?.recentSecurityEvents?.length ? (
+                    dashboard.recentSecurityEvents.map((row) => (
+                      <tr key={row.id} className="border-t align-top">
+                        <td className="p-3">{new Date(row.createdAt).toLocaleString()}</td>
+                        <td className="p-3">{row.action}</td>
+                        <td className="p-3">{row.source}</td>
+                        <td className="p-3 font-mono text-xs">{row.orgId || "-"}</td>
+                        <td className="p-3">{row.provider || "-"}</td>
+                        <td className="p-3 font-mono text-xs">{row.route || "-"}</td>
+                        <td className="p-3">{row.reason || "-"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="p-3 text-muted-foreground">
+                        {loading ? "Loading..." : "No recent security events."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <section className="rounded-lg border bg-white p-4">
             <h2 className="mb-2 font-semibold">Routing Tier Distribution (24h)</h2>

@@ -36,6 +36,11 @@ function extractSeverity(metadataJson: string) {
   return String(metadata.severity || "").toUpperCase();
 }
 
+function containsAnyReason(value: string | null | undefined, reasons: string[]) {
+  const normalized = String(value || "");
+  return reasons.some((reason) => normalized.includes(reason));
+}
+
 export async function computeOperatorDashboard(prisma: PrismaClient) {
   const now = Date.now();
   const since5m = new Date(now - 5 * 60 * 1000);
@@ -43,7 +48,7 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
   const since24h = new Date(now - 24 * 60 * 60 * 1000);
   const olderThan1h = new Date(now - 60 * 60 * 1000);
 
-  const [calls5m, calls1h, calls24h, webhookEvents1h, messages1h, vapiEvents1h, calls24hRows, autoRecovery24h, orgs, p1Incidents14d, calls7dByOrg, authFails24h, forbidden24h, rejectedWebhooks24h, auth2faRequired24h, authOtpSuccess24h, authOtpInvalid24h, authOtpEmailFailure24h, auth2faTestSent24h, auth2faTestFailed24h] =
+  const [calls5m, calls1h, calls24h, webhookEvents1h, messages1h, vapiEvents1h, calls24hRows, autoRecovery24h, orgs, p1Incidents14d, calls7dByOrg, authFails24h, forbidden24h, rejectedWebhooks24h, auth2faRequired24h, authOtpSuccess24h, authOtpInvalid24h, authOtpEmailFailure24h, auth2faTestSent24h, auth2faTestFailed24h, securityAuditRows24h, securityWebhookRows24h] =
     await Promise.all([
       prisma.callLog.count({ where: { startedAt: { gte: since5m } } }),
       prisma.callLog.count({ where: { startedAt: { gte: since1h } } }),
@@ -92,7 +97,44 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
         where: { createdAt: { gte: since24h }, action: "AUTH_LOGIN_FAIL", metadataJson: { contains: "otp_email" } }
       }),
       prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_2FA_TEST_EMAIL_SENT" } }),
-      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_2FA_TEST_EMAIL_FAILED" } })
+      prisma.auditLog.count({ where: { createdAt: { gte: since24h }, action: "AUTH_2FA_TEST_EMAIL_FAILED" } }),
+      prisma.auditLog.findMany({
+        where: {
+          createdAt: { gte: since24h },
+          action: {
+            in: [
+              "STEP_UP_FORBIDDEN",
+              "TOOL_ORG_CONTEXT_REJECTED",
+              "WEBHOOK_REPLAY_BLOCKED",
+              "WEBHOOK_RETRY_WORTHY_FAILURE",
+              "SMS_AUTOMATION_SUPPRESSED"
+            ]
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          orgId: true,
+          actorUserId: true,
+          action: true,
+          metadataJson: true,
+          createdAt: true
+        }
+      }),
+      prisma.webhookEventLog.findMany({
+        where: { createdAt: { gte: since24h } },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          orgId: true,
+          provider: true,
+          endpoint: true,
+          requestId: true,
+          statusCode: true,
+          reason: true,
+          createdAt: true
+        }
+      })
     ]);
 
   const webhookTotal = webhookEvents1h.length;
@@ -180,6 +222,116 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
     });
   }
 
+  const webhookSignatureInvalid24h = securityWebhookRows24h.filter((row) =>
+    containsAnyReason(row.reason, [
+      "invalid_twilio_signature",
+      "missing_twilio_signature",
+      "missing_twilio_auth_token",
+      "invalid_vapi_tool_secret"
+    ])
+  ).length;
+
+  const securityCounters = {
+    stepUpForbidden24h: securityAuditRows24h.filter((row) => row.action === "STEP_UP_FORBIDDEN").length,
+    toolOrgContextRejected24h: securityAuditRows24h.filter((row) => row.action === "TOOL_ORG_CONTEXT_REJECTED").length,
+    webhookSignatureInvalid24h,
+    webhookReplayBlocked24h: securityAuditRows24h.filter((row) => row.action === "WEBHOOK_REPLAY_BLOCKED").length,
+    webhookRetryWorthyFailure24h: securityAuditRows24h.filter((row) => row.action === "WEBHOOK_RETRY_WORTHY_FAILURE").length,
+    smsAutomationSuppressed24h: securityAuditRows24h.filter((row) => row.action === "SMS_AUTOMATION_SUPPRESSED").length,
+    quotaOrgSmsHourly24h: securityAuditRows24h.filter(
+      (row) => row.action === "SMS_AUTOMATION_SUPPRESSED" && String(row.metadataJson || "").includes("\"reason\":\"ORG_SMS_HOURLY_CAP\"")
+    ).length,
+    quotaOrgSmsDaily24h: securityAuditRows24h.filter(
+      (row) => row.action === "SMS_AUTOMATION_SUPPRESSED" && String(row.metadataJson || "").includes("\"reason\":\"ORG_SMS_DAILY_CAP\"")
+    ).length,
+    requestOfferSuppressed24h: securityAuditRows24h.filter(
+      (row) => row.action === "SMS_AUTOMATION_SUPPRESSED" && String(row.metadataJson || "").includes("\"reason\":\"REQUEST_SLOT_OFFER_CAP\"")
+    ).length,
+    requestClarificationSuppressed24h: securityAuditRows24h.filter(
+      (row) => row.action === "SMS_AUTOMATION_SUPPRESSED" && String(row.metadataJson || "").includes("\"reason\":\"REQUEST_CLARIFICATION_CAP\"")
+    ).length
+  };
+
+  const securityAlerts: Array<{
+    key: string;
+    severity: "warning" | "critical";
+    label: string;
+    value: number;
+  }> = [];
+  if (securityCounters.webhookRetryWorthyFailure24h >= 5) {
+    securityAlerts.push({
+      key: "webhook.retry_worthy_failure",
+      severity: securityCounters.webhookRetryWorthyFailure24h >= 20 ? "critical" : "warning",
+      label: "Webhook retry-worthy failures are elevated",
+      value: securityCounters.webhookRetryWorthyFailure24h
+    });
+  }
+  if (securityCounters.webhookSignatureInvalid24h >= 5) {
+    securityAlerts.push({
+      key: "webhook.signature_invalid",
+      severity: securityCounters.webhookSignatureInvalid24h >= 20 ? "critical" : "warning",
+      label: "Webhook signature failures are elevated",
+      value: securityCounters.webhookSignatureInvalid24h
+    });
+  }
+  if (securityCounters.toolOrgContextRejected24h >= 3) {
+    securityAlerts.push({
+      key: "tool.org_context_rejected",
+      severity: securityCounters.toolOrgContextRejected24h >= 10 ? "critical" : "warning",
+      label: "Tool requests are being rejected for missing trusted context",
+      value: securityCounters.toolOrgContextRejected24h
+    });
+  }
+  if (securityCounters.smsAutomationSuppressed24h >= 5) {
+    securityAlerts.push({
+      key: "sms.automation_suppressed",
+      severity: securityCounters.smsAutomationSuppressed24h >= 20 ? "critical" : "warning",
+      label: "SMS automation suppressions are elevated",
+      value: securityCounters.smsAutomationSuppressed24h
+    });
+  }
+
+  const recentSecurityEvents = [
+    ...securityAuditRows24h.map((row) => {
+      const metadata = safeParseJson(row.metadataJson);
+      return {
+        id: `audit:${row.id}`,
+        source: "AUDIT" as const,
+        action: row.action,
+        orgId: row.orgId,
+        provider: null,
+        route: String(metadata.path || metadata.route || metadata.source || "-"),
+        requestId: String(metadata.requestId || "-"),
+        actorUserId: row.actorUserId,
+        reason: String(metadata.reason || "-"),
+        createdAt: row.createdAt.toISOString()
+      };
+    }),
+    ...securityWebhookRows24h
+      .filter((row) =>
+        containsAnyReason(row.reason, [
+          "invalid_twilio_signature",
+          "missing_twilio_signature",
+          "missing_twilio_auth_token",
+          "invalid_vapi_tool_secret"
+        ])
+      )
+      .map((row) => ({
+        id: `webhook:${row.id}`,
+        source: "WEBHOOK" as const,
+        action: "WEBHOOK_SIGNATURE_INVALID",
+        orgId: row.orgId,
+        provider: row.provider,
+        route: row.endpoint,
+        requestId: row.requestId || "-",
+        actorUserId: null,
+        reason: row.reason || "-",
+        createdAt: row.createdAt.toISOString()
+      }))
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 20);
+
   return {
     inboundCalls: { last5m: calls5m, last1h: calls1h, last24h: calls24h },
     webhookSuccessRate,
@@ -214,7 +366,10 @@ export async function computeOperatorDashboard(prisma: PrismaClient) {
       authFails24h,
       forbidden24h,
       rejectedWebhooks24h
-    }
+    },
+    securityCounters,
+    securityAlerts,
+    recentSecurityEvents
   };
 }
 

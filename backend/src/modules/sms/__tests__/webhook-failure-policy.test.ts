@@ -107,3 +107,73 @@ test("Twilio status callback returns retry-worthy 500 on pre-durable update fail
     (prisma.auditLog as any).create = originalAuditCreate;
   }
 });
+
+test("Twilio status callback safe-ignores mismatched query org when stored message belongs to another org", async () => {
+  const handler = getRouteHandler(smsRouter, "/status", "post");
+  const messageSid = `SM_status_mismatch_${Date.now()}`;
+  const originalMessageFindFirst = prisma.message.findFirst;
+  const originalMessageUpdateMany = prisma.message.updateMany;
+  const originalAuditCreate = prisma.auditLog.create;
+
+  let updateWhere: unknown = null;
+  (prisma.message as any).findFirst = async () => ({ orgId: "org_actual" });
+  (prisma.message as any).updateMany = async (args: any) => {
+    updateWhere = args.where;
+    return { count: 1 };
+  };
+  (prisma.auditLog as any).create = async () => ({ id: "audit_3" });
+
+  try {
+    const { res, state } = createMockResponse();
+    await handler(
+      {
+        body: {
+          MessageSid: messageSid,
+          MessageStatus: "delivered"
+        },
+        query: { orgId: "org_wrong" },
+        requestId: "req_sms_status_2"
+      },
+      res
+    );
+    assert.equal(state.statusCode, 200);
+    assert.deepEqual(updateWhere, { orgId: "org_actual", providerMessageId: messageSid });
+  } finally {
+    (prisma.message as any).findFirst = originalMessageFindFirst;
+    (prisma.message as any).updateMany = originalMessageUpdateMany;
+    (prisma.auditLog as any).create = originalAuditCreate;
+  }
+});
+
+test("Twilio status callback safe-ignores unknown messages instead of marking durable success", async () => {
+  const handler = getRouteHandler(smsRouter, "/status", "post");
+  const messageSid = `SM_status_missing_${Date.now()}`;
+  const originalMessageFindFirst = prisma.message.findFirst;
+  const originalMessageUpdateMany = prisma.message.updateMany;
+  const originalAuditCreate = prisma.auditLog.create;
+
+  (prisma.message as any).findFirst = async () => null;
+  (prisma.message as any).updateMany = async () => ({ count: 0 });
+  (prisma.auditLog as any).create = async () => ({ id: "audit_4" });
+
+  try {
+    const { res, state } = createMockResponse();
+    await handler(
+      {
+        body: {
+          MessageSid: messageSid,
+          MessageStatus: "delivered"
+        },
+        query: {},
+        requestId: "req_sms_status_3"
+      },
+      res
+    );
+    assert.equal(state.statusCode, 200);
+    assert.equal((state.body as any)?.ignored, true);
+  } finally {
+    (prisma.message as any).findFirst = originalMessageFindFirst;
+    (prisma.message as any).updateMany = originalMessageUpdateMany;
+    (prisma.auditLog as any).create = originalAuditCreate;
+  }
+});

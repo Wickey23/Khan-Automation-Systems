@@ -72,3 +72,22 @@ test("protected tool routes reject explicit orgId without trusted call context",
     assert.equal((state.body as any)?.error?.code, "MISSING_CALL_CONTEXT");
   }
 });
+
+test("transfer-call remains non-tenant-affecting even though it accepts orgId for validation", async () => {
+  const handler = getRouteHandler(toolsRouter, "/transfer-call", "post");
+  const { res, state } = createMockResponse();
+
+  await handler(
+    {
+      body: {
+        orgId: "org_foreign",
+        transferTo: "+15165550000"
+      }
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 200);
+  assert.equal((state.body as any)?.ok, true);
+  assert.equal((state.body as any)?.data?.transferTo, "+15165550000");
+});

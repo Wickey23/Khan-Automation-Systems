@@ -100,3 +100,41 @@ test("Vapi webhook safe-ignores schema-invalid payloads with 200", async () => {
     (prisma.auditLog as any).create = originalAuditCreate;
   }
 });
+
+test("Vapi webhook returns retry-worthy 500 when actionable event fails before durable persistence", async () => {
+  const handler = getRouteHandler(vapiRouter, "/webhook", "post");
+  const originalPersist = finalizer.persistVapiWebhookEvent;
+  const originalAuditCreate = prisma.auditLog.create;
+  const originalWebhookLogCreate = prisma.webhookEventLog.create;
+
+  (finalizer as any).persistVapiWebhookEvent = async () => {
+    throw new Error("persist_failed");
+  };
+  (prisma.auditLog as any).create = async () => ({ id: "audit_3" });
+  (prisma.webhookEventLog as any).create = async () => ({ id: "log_3" });
+
+  try {
+    const { res, state } = createMockResponse();
+    await handler(
+      {
+        body: {
+          messageType: "end-of-call-report",
+          callSid: "call_retry_2"
+        },
+        headers: {},
+        header() {
+          return "";
+        },
+        requestId: "req_vapi_3"
+      },
+      res
+    );
+
+    assert.equal(state.statusCode, 500);
+    assert.equal((state.body as any)?.retry, true);
+  } finally {
+    (finalizer as any).persistVapiWebhookEvent = originalPersist;
+    (prisma.auditLog as any).create = originalAuditCreate;
+    (prisma.webhookEventLog as any).create = originalWebhookLogCreate;
+  }
+});

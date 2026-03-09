@@ -761,6 +761,36 @@ export type AdminSystemDashboard = {
     testEmailsSent24h: number;
     testEmailsFailed24h: number;
   };
+  securityCounters?: {
+    stepUpForbidden24h: number;
+    toolOrgContextRejected24h: number;
+    webhookSignatureInvalid24h: number;
+    webhookReplayBlocked24h: number;
+    webhookRetryWorthyFailure24h: number;
+    smsAutomationSuppressed24h: number;
+    quotaOrgSmsHourly24h: number;
+    quotaOrgSmsDaily24h: number;
+    requestOfferSuppressed24h: number;
+    requestClarificationSuppressed24h: number;
+  };
+  securityAlerts?: Array<{
+    key: string;
+    severity: "warning" | "critical";
+    label: string;
+    value: number;
+  }>;
+  recentSecurityEvents?: Array<{
+    id: string;
+    source: "AUDIT" | "WEBHOOK";
+    action: string;
+    orgId: string | null;
+    provider: string | null;
+    route: string;
+    requestId: string;
+    actorUserId: string | null;
+    reason: string;
+    createdAt: string;
+  }>;
 };
 
 export type AuthSecurityStatus = {
