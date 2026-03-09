@@ -604,7 +604,6 @@ export default function AppAppointmentsPage() {
   const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "APPROVED");
   const offeredAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SLOT_OFFERED");
   const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
-  const scheduledAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SCHEDULED");
   const nextFocusLabel =
     pendingAppointmentRequests.length > 0
       ? `${pendingAppointmentRequests.length} requests need review`
