@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, BadgeCheck, CalendarClock, Clock3, Handshake, MessageSquareText, PhoneCall, Plug, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, BarChart3, CalendarClock, Clock3, Handshake, LayoutDashboard, MessageSquareText, PhoneCall, Plug, ShieldCheck, SlidersHorizontal, UserRoundSearch } from "lucide-react";
 import { MotionInView } from "@/components/site/motion-in-view";
 import { LeadCaptureForm } from "@/components/site/lead-capture-form";
 import { PricingCards } from "@/components/site/pricing-cards";
@@ -56,7 +56,54 @@ const steps: Array<{ title: string; icon: LucideIcon; copy: string }> = [
 const heroMetrics = [
   { value: "24/7", label: "Coverage for inbound calls" },
   { value: "<1 min", label: "Intake start target" },
-  { value: "1 view", label: "Calls, leads, and summaries" }
+  { value: "1 workspace", label: "Calls, leads, appointments, and SMS" }
+];
+
+const platformUpdates: Array<{ title: string; icon: LucideIcon; copy: string }> = [
+  {
+    title: "Client portal navigation",
+    icon: LayoutDashboard,
+    copy: "The client workspace now gives staff a clearer path across overview, conversations, leads, appointments, messages, analytics, and settings."
+  },
+  {
+    title: "Inbox with thread context",
+    icon: MessageSquareText,
+    copy: "The messages area now surfaces thread previews, search, readiness state, and cleaner conversation context for manual follow-up."
+  },
+  {
+    title: "Scheduling workspace",
+    icon: CalendarClock,
+    copy: "Appointments are organized around request review first, schedule visibility second, and manual booking only when needed."
+  },
+  {
+    title: "Operations dashboard",
+    icon: BarChart3,
+    copy: "The overview page now acts more like a front-desk command view, with daily focus, requests, booking activity, and action-needed items."
+  }
+];
+
+const portalViews: Array<{ title: string; eyebrow: string; copy: string; bullets: string[]; icon: LucideIcon }> = [
+  {
+    eyebrow: "Front desk overview",
+    title: "A cleaner command layer for daily operations",
+    icon: SlidersHorizontal,
+    copy: "The client portal is designed to help office staff decide what matters now: who needs a reply, what needs review, and what is already booked.",
+    bullets: ["Daily dashboard with action queue", "Request review tied to schedule flow", "System and messaging readiness visibility"]
+  },
+  {
+    eyebrow: "Lead + call continuity",
+    title: "Conversations stay connected to real customer records",
+    icon: UserRoundSearch,
+    copy: "Calls, lead capture, summaries, and follow-up workflows stay tied together so your team is not jumping between disconnected tools.",
+    bullets: ["Call outcomes and summaries in one place", "Lead records tied to follow-up context", "Cleaner handoff from first contact to booking"]
+  },
+  {
+    eyebrow: "Messaging + booking",
+    title: "Follow-up tools built around operational speed",
+    icon: BadgeCheck,
+    copy: "Manual texts, automated confirmations, and appointment follow-up live closer to the booking workflow so staff can move faster.",
+    bullets: ["Threaded inbox with previews", "Scheduling workspace for request triage", "Manual outreach when the office needs to step in"]
+  }
 ];
 
 const missedCallFigures = [
@@ -97,7 +144,7 @@ export default function HomePage() {
                   AI reception and follow-up for service shops that need cleaner intake and faster response.
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  Answers calls around the clock, captures job details, confirms by text, books appointments, and escalates to your team when needed.
+                  Answers calls around the clock, captures job details, confirms by text, books appointments, and escalates to your team when needed. The result is a tighter front-desk workflow, a clearer client portal, and less leakage between first contact and booked work.
                 </p>
               </div>
 
@@ -124,6 +171,31 @@ export default function HomePage() {
           <MotionInView delay={0.08}>
             <LeadCaptureForm sourcePage="/" />
           </MotionInView>
+        </div>
+      </section>
+
+      <section className="page-shell section-shell pt-12 md:pt-16">
+        <SectionHeading
+          eyebrow="Platform updates"
+          title="Built out for the way a service office actually works"
+          description="The product now reflects a fuller operating loop: dashboard triage, cleaner client navigation, message threads with context, and a scheduling workspace that prioritizes request review before manual data entry."
+        />
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {platformUpdates.map(({ title, icon: Icon, copy }, index) => (
+            <MotionInView delay={index * 0.05} key={title}>
+              <Card className="h-full">
+                <CardContent className="flex h-full flex-col gap-4 p-6">
+                  <div className="w-fit rounded-2xl bg-muted px-3 py-3">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold">{title}</p>
+                    <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </MotionInView>
+          ))}
         </div>
       </section>
 
@@ -178,13 +250,50 @@ export default function HomePage() {
 
       <section className="page-shell section-shell">
         <SectionHeading
-          eyebrow="Experience"
-          title="See the call and SMS flow together"
-          description="The system should feel cohesive for your staff: conversations, summaries, follow-up messages, and appointment requests all live in one operational view."
+          eyebrow="Client portal"
+          title="A more professional operating surface for your team"
+          description="This is not just an answering layer. It is a workspace for office staff to review what came in, see what needs action, and move customers toward booked work without losing context."
         />
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <DemoCallCard demoNumber={siteConfig.demoNumber} />
-          <SmsDemo />
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {portalViews.map(({ eyebrow, title, copy, bullets, icon: Icon }, index) => (
+            <MotionInView delay={index * 0.05} key={title}>
+              <Card className="h-full">
+                <CardContent className="space-y-5 p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <p className="page-eyebrow text-primary">{eyebrow}</p>
+                      <p className="text-xl font-semibold">{title}</p>
+                    </div>
+                    <div className="rounded-2xl bg-muted p-3">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
+                  <div className="space-y-2">
+                    {bullets.map((item) => (
+                      <div key={item} className="rounded-xl border bg-muted/35 px-4 py-3 text-sm text-foreground/88">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </MotionInView>
+          ))}
+        </div>
+      </section>
+
+      <section className="surface-muted">
+        <div className="page-shell section-shell">
+          <SectionHeading
+            eyebrow="Experience"
+            title="See the call, SMS, and booking flow together"
+            description="The system should feel cohesive for your staff: conversations, summaries, follow-up messages, appointment requests, and daily dashboard priorities all live in one operational view."
+          />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <DemoCallCard demoNumber={siteConfig.demoNumber} />
+            <SmsDemo />
+          </div>
         </div>
       </section>
 
