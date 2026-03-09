@@ -5,7 +5,7 @@ This document verifies the Wave 1A/1B `P0` security fixes merged in commit `360e
 Evidence retention rule:
 - commit hash: `360e3c2`
 - test names: listed per finding below
-- validation output reference: local validation commands listed below; use CI run reference once CI security gate is added
+- validation output reference: local validation commands listed below; CI reference is `.github/workflows/security-regression.yml`
 
 Target completion marker:
 - now

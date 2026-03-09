@@ -163,6 +163,7 @@ let slaMonitorTimer: NodeJS.Timeout | null = null;
 let dataIntegrityGuardTimer: NodeJS.Timeout | null = null;
 let webhookRetentionTimer: NodeJS.Timeout | null = null;
 let finalizeBookingTimer: NodeJS.Timeout | null = null;
+let securityRetentionTimer: NodeJS.Timeout | null = null;
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -323,22 +324,93 @@ function startWebhookPayloadRetentionWorker() {
   const interval = 24 * 60 * 60 * 1000;
   webhookRetentionTimer = setInterval(() => {
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    void prisma.webhookEventLog
-      .updateMany({
+    void Promise.all([
+      prisma.webhookEventLog.updateMany({
         where: {
           createdAt: { lt: cutoff },
           payloadSnippet: { not: "{}" }
         },
         data: { payloadSnippet: "{}" }
+      }),
+      prisma.webhookEventLog.updateMany({
+        where: {
+          createdAt: { lt: cutoff },
+          headersJson: { not: "{}" }
+        },
+        data: { headersJson: "{}" }
       })
-      .then((result) => {
-        if (result.count > 0) {
+    ])
+      .then(([payloadResult, headerResult]) => {
+        const compacted = payloadResult.count + headerResult.count;
+        if (compacted > 0) {
           return prisma.auditLog.create({
             data: {
               actorUserId: "system-security",
               actorRole: "SYSTEM",
               action: "WEBHOOK_PAYLOAD_RETENTION_COMPACTED",
-              metadataJson: JSON.stringify({ compacted: result.count, cutoff: cutoff.toISOString() })
+              metadataJson: JSON.stringify({
+                compactedPayloads: payloadResult.count,
+                compactedHeaders: headerResult.count,
+                cutoff: cutoff.toISOString()
+              })
+            }
+          });
+        }
+        return null;
+      })
+      .catch(() => null);
+  }, interval);
+}
+
+function startSecuritySignalRetentionWorker() {
+  const interval = 24 * 60 * 60 * 1000;
+  securityRetentionTimer = setInterval(() => {
+    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const securityAuditActions = [
+      "STEP_UP_FORBIDDEN",
+      "TOOL_ORG_CONTEXT_REJECTED",
+      "WEBHOOK_REPLAY_BLOCKED",
+      "WEBHOOK_RETRY_WORTHY_FAILURE",
+      "WEBHOOK_DURABLE_PERSISTED",
+      "WEBHOOK_SAFE_IGNORE",
+      "AUTH_REFRESH_REVOKED",
+      "AUTH_STEP_UP_SUCCESS",
+      "AUTH_STEP_UP_FAIL",
+      "SECURITY_ALERT_WEBHOOK_RETRY_FAILURE_SPIKE",
+      "SECURITY_ALERT_SMS_SUPPRESSION_SPIKE",
+      "SECURITY_ALERT_TOOL_CONTEXT_REJECTED_SPIKE",
+      "SECURITY_ALERT_WEBHOOK_SIGNATURE_INVALID_SPIKE"
+    ];
+
+    void Promise.all([
+      prisma.auditLog.deleteMany({
+        where: {
+          action: { in: securityAuditActions },
+          createdAt: { lt: cutoff }
+        }
+      }),
+      prisma.orgNotification.deleteMany({
+        where: {
+          type: {
+            in: ["SECURITY_WEBHOOK_RETRY_FAILURE", "SECURITY_SMS_AUTOMATION_SUPPRESSED"]
+          },
+          createdAt: { lt: cutoff }
+        }
+      })
+    ])
+      .then(([auditResult, notificationResult]) => {
+        const deleted = auditResult.count + notificationResult.count;
+        if (deleted > 0) {
+          return prisma.auditLog.create({
+            data: {
+              actorUserId: "system-security",
+              actorRole: "SYSTEM",
+              action: "SECURITY_SIGNAL_RETENTION_CLEANUP",
+              metadataJson: JSON.stringify({
+                deletedAuditLogs: auditResult.count,
+                deletedNotifications: notificationResult.count,
+                cutoff: cutoff.toISOString()
+              })
             }
           });
         }
@@ -396,6 +468,7 @@ void (async () => {
   startDataIntegrityGuardWorker();
   startWebhookReplayCleanupWorker();
   startWebhookPayloadRetentionWorker();
+  startSecuritySignalRetentionWorker();
   startFinalizeBookingWorker();
   app.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
@@ -409,6 +482,7 @@ const shutdown = async () => {
   if (dataIntegrityGuardTimer) clearInterval(dataIntegrityGuardTimer);
   if (finalizeBookingTimer) clearInterval(finalizeBookingTimer);
   if (webhookRetentionTimer) clearInterval(webhookRetentionTimer);
+  if (securityRetentionTimer) clearInterval(securityRetentionTimer);
   await prisma.$disconnect();
   process.exit(0);
 };

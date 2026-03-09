@@ -34,6 +34,7 @@ jobs:
           node -r dotenv/config -r ts-node/register/transpile-only src/middleware/__tests__/require-step-up.test.ts
           node -r dotenv/config -r ts-node/register/transpile-only src/modules/admin/__tests__/step-up-coverage.test.ts
           node -r dotenv/config -r ts-node/register/transpile-only src/modules/tools/__tests__/trusted-context.contract.test.ts
+          node -r dotenv/config -r ts-node/register/transpile-only src/modules/notifications/__tests__/security-alert.service.test.ts
           node -r dotenv/config -r ts-node/register/transpile-only src/modules/stripe/__tests__/webhook-replay.contract.test.ts
           node -r dotenv/config -r ts-node/register/transpile-only src/modules/sms/__tests__/webhook-failure-policy.test.ts
           node -r dotenv/config -r ts-node/register/transpile-only src/modules/voice/vapi/__tests__/webhook-failure-policy.test.ts
