@@ -76,6 +76,10 @@ function formatShortDate(value: string | null | undefined) {
   return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
 function requestStatusLabel(status: AppointmentRequest["status"]) {
   switch (status) {
     case "SCHEDULED":
@@ -419,6 +423,10 @@ export default function AppOverviewPage() {
   const healthState = healthTone(state.health?.level);
   const systemHealthMessage =
     state.health?.level === "GREEN" ? "All services operational" : state.health?.summary || "Review the system health details.";
+  const failingHealthChecks = useMemo(
+    () => Object.entries(state.health?.checks || {}).filter(([, check]) => !check.ok),
+    [state.health]
+  );
 
   const answerRate = state.analytics?.kpis.answerRate ?? 0;
 
@@ -660,8 +668,8 @@ export default function AppOverviewPage() {
           <Card>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Answer Rate</p>
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{Math.round(answerRate)}%</p>
-              <p className="text-sm text-muted-foreground">{loading ? "Loading reporting..." : "Current reporting window"}</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatPercent(answerRate)}</p>
+              <p className="text-sm text-muted-foreground">{loading ? "Loading reporting..." : "Answered calls divided by total calls in the current reporting window"}</p>
             </CardContent>
           </Card>
         </div>
@@ -681,6 +689,20 @@ export default function AppOverviewPage() {
               </Badge>
               <p className="text-sm text-muted-foreground">{systemHealthMessage}</p>
             </div>
+            {failingHealthChecks.length ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-700">Checks needing review</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {failingHealthChecks.slice(0, 6).map(([key, check]) => (
+                    <div key={key} className="rounded-lg border border-rose-200 bg-white px-3 py-3">
+                      <p className="text-sm font-semibold text-rose-950">{key}</p>
+                      <p className="mt-1 text-sm text-rose-900">{check.reason}</p>
+                      <p className="mt-1 text-xs text-rose-700">Fix path: {check.fixHint}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Status</p>
