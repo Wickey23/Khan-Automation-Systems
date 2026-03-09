@@ -158,8 +158,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <ClientGuard>
-      <div className="page-shell">
-        <div className="grid gap-6 xl:grid-cols-[248px_minmax(0,1fr)]">
+      <div className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <div className="grid gap-6 xl:grid-cols-[248px_minmax(0,1fr)] xl:items-start">
           <aside className="surface-panel h-fit p-3 xl:sticky xl:top-24">
             <div className="px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
