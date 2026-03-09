@@ -471,15 +471,15 @@ export default function AppOverviewPage() {
       <section className="grid gap-3 lg:grid-cols-3">
         <div className="surface-muted px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Today at a glance</p>
-          <p className="mt-1 text-sm text-foreground">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
+          <p className="mt-1 text-sm text-foreground/90">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
         </div>
         <div className="surface-muted px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Follow-up</p>
-          <p className="mt-1 text-sm text-foreground">{loading ? "Checking follow-up queue..." : `${actionItems.length} items need attention right now`}</p>
+          <p className="mt-1 text-sm text-foreground/90">{loading ? "Checking follow-up queue..." : `${actionItems.length} items need attention right now`}</p>
         </div>
         <div className="surface-muted px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Requests waiting</p>
-          <p className="mt-1 text-sm text-foreground">{loading ? "Reviewing incoming requests..." : `${openRequests.length} new requests are ready for review`}</p>
+          <p className="mt-1 text-sm text-foreground/90">{loading ? "Reviewing incoming requests..." : `${openRequests.length} new requests are ready for review`}</p>
         </div>
       </section>
 
@@ -493,7 +493,7 @@ export default function AppOverviewPage() {
             {loading ? (
               <div className="grid gap-3">
                 {[0, 1, 2].map((item) => (
-                  <div key={item} className="rounded-xl border border-border/80 bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
+                    <div key={item} className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
                     {"Loading today's booking board..."}
                   </div>
                 ))}
@@ -502,7 +502,7 @@ export default function AppOverviewPage() {
               <>
                 <div className="space-y-3">
                   {bookingBoardItems.map((item) => (
-                    <div key={item.id} className="rounded-xl border border-border/80 bg-muted/10 px-4 py-3">
+                    <div key={item.id} className="rounded-xl border border-border/90 bg-muted/20 px-4 py-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-semibold text-foreground">{item.customerName || "Customer"}</p>
@@ -546,7 +546,7 @@ export default function AppOverviewPage() {
               <CardTitle className="text-lg">Needs attention</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-xl border border-border/80 bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
                 Loading follow-up tasks...
               </div>
             </CardContent>
@@ -569,12 +569,12 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="rounded-xl border border-border/80 bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
                 Loading new requests and leads...
               </div>
             ) : newRequestsAndLeads.length ? (
               newRequestsAndLeads.map((item) => (
-                <div key={item.id} className="rounded-xl border border-border/80 bg-muted/10 px-4 py-3">
+                <div key={item.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{item.title}</p>
@@ -603,12 +603,12 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="rounded-xl border border-border/80 bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
                 Loading recent customer conversations...
               </div>
             ) : recentCalls.length ? (
               recentCalls.map((call) => (
-                <div key={call.id} className="rounded-xl border border-border/80 bg-muted/10 px-4 py-3">
+                <div key={call.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{call.displayName || call.fromNumber}</p>
@@ -666,7 +666,7 @@ export default function AppOverviewPage() {
       </section>
 
       <section>
-        <Card className="bg-muted/10">
+        <Card className="bg-muted/18">
           <CardHeader>
             <CardTitle>System health</CardTitle>
             <CardDescription>Support information for the front desk and booking workflow.</CardDescription>
@@ -680,7 +680,7 @@ export default function AppOverviewPage() {
               <p className="text-sm text-muted-foreground">{systemHealthMessage}</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-xl border border-border/80 bg-background px-4 py-4">
+              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Status</p>
                 <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                   <span className={`status-dot ${healthState.dot}`} />
@@ -688,12 +688,12 @@ export default function AppOverviewPage() {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">{systemHealthMessage}</p>
               </div>
-              <div className="rounded-xl border border-border/80 bg-background px-4 py-4">
+              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Phone Number</p>
                 <p className="mt-3 text-sm font-semibold text-foreground">{state.assignedPhoneNumber || "Not assigned"}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{state.assignedNumberProvider || "Phone setup pending"}</p>
               </div>
-              <div className="rounded-xl border border-border/80 bg-background px-4 py-4">
+              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Messaging</p>
                 <p className="mt-3 text-sm font-semibold text-foreground">
                   {state.messagingReadiness?.state === "A2P_REGISTERED" ? "A2P registered" : state.messagingReadiness?.state === "A2P_PENDING" ? "Registration pending" : "Needs setup"}
@@ -702,7 +702,7 @@ export default function AppOverviewPage() {
                   {state.messagingReadiness?.state === "A2P_REGISTERED" ? "No blockers" : "Review messaging setup"}
                 </p>
               </div>
-              <div className="rounded-xl border border-border/80 bg-background px-4 py-4">
+              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Last Synced</p>
                 <p className="mt-3 text-sm font-semibold text-foreground">
                   {state.health?.metrics.recentActivityAt ? formatShortTime(state.health.metrics.recentActivityAt) : "Awaiting sync"}
