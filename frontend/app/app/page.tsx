@@ -231,42 +231,36 @@ export default function AppOverviewPage() {
         }
       />
 
-      <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,1.15fr)_380px]">
+      <div className="grid gap-5 xl:items-start xl:grid-cols-[minmax(0,1.15fr)_380px]">
         <Card className="self-start">
-          <CardContent className="space-y-4 p-6">
-            <div className="space-y-2">
+          <CardHeader className="space-y-3 pb-4">
+            <div className="space-y-3">
               <p className="page-eyebrow">Workspace status</p>
               <h2 className="text-3xl">{workspaceState}</h2>
               <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                 {health?.summary || "Everything looks normal right now."}
               </p>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border bg-muted/25 p-4">
+          </CardHeader>
+          <CardContent className="space-y-5 pt-0">
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="rounded-2xl border bg-muted/20 p-5">
                 <p className="page-eyebrow">Phone number</p>
-                <p className="mt-2 text-sm font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{assignedNumberProvider || "No provider yet"}</p>
+                <p className="mt-3 text-lg font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{assignedNumberProvider || "No provider yet"}</p>
               </div>
-              <div className="rounded-xl border bg-muted/25 p-4">
-                <p className="page-eyebrow">Messaging</p>
-                <p className="mt-2 text-sm font-semibold text-foreground">{messagingReadiness?.state || "Unknown"}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{messagingReadiness?.reasons?.[0] || "No active blockers detected."}</p>
-              </div>
-              <div className="rounded-xl border bg-muted/25 p-4">
-                <p className="page-eyebrow">Last synced</p>
-                <p className="mt-2 text-sm font-semibold text-foreground">{lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : "Syncing..."}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{organization?.status || submission?.status || "DRAFT"}</p>
-              </div>
-            </div>
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button asChild size="sm">
-                <Link href="/app/calls">Open calls</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/app/appointments">Open requests</Link>
-              </Button>
+              <div className="rounded-2xl border bg-muted/20 p-5">
+                <p className="page-eyebrow">Messaging</p>
+                <p className="mt-3 text-lg font-semibold text-foreground">{messagingReadiness?.state || "Unknown"}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{messagingReadiness?.reasons?.[0] || "No active blockers detected."}</p>
+              </div>
+
+              <div className="rounded-2xl border bg-muted/20 p-5">
+                <p className="page-eyebrow">Last synced</p>
+                <p className="mt-3 text-lg font-semibold text-foreground">{lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : "Syncing..."}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{organization?.status || submission?.status || "DRAFT"}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
