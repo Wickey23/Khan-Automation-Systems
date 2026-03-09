@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Lock } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { BarChart3, Lock, MessageSquareText, PhoneCall, Settings2, Users2, Wallet, LayoutDashboard, ClipboardCheck, CalendarClock, UserRoundSearch } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus, getMe } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -17,20 +18,21 @@ type OrgFeatureState = Record<FeatureKey, boolean>;
 const navItems: Array<{
   href: string;
   label: string;
+  icon: LucideIcon;
   requiredPlan?: Exclude<PlanTier, null>;
   requiredRoles?: ClientRole[];
   requiredFeature?: FeatureKey;
 }> = [
-  { href: "/app", label: "Overview" },
-  { href: "/app/onboarding", label: "Onboarding" },
-  { href: "/app/calls", label: "Conversations" },
-  { href: "/app/leads", label: "Leads" },
-  { href: "/app/appointments", label: "Appointments", requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
-  { href: "/app/messages", label: "Messages" },
-  { href: "/app/analytics", label: "Analytics", requiredPlan: "STARTER" },
-  { href: "/app/settings", label: "Assistant Settings", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
-  { href: "/app/billing", label: "Billing", requiredRoles: ["CLIENT_ADMIN"] },
-  { href: "/app/team", label: "Team & Routing", requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
+  { href: "/app", label: "Overview", icon: LayoutDashboard },
+  { href: "/app/onboarding", label: "Onboarding", icon: ClipboardCheck },
+  { href: "/app/calls", label: "Conversations", icon: PhoneCall },
+  { href: "/app/leads", label: "Leads", icon: UserRoundSearch },
+  { href: "/app/appointments", label: "Appointments", icon: CalendarClock, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
+  { href: "/app/messages", label: "Messages", icon: MessageSquareText },
+  { href: "/app/analytics", label: "Analytics", icon: BarChart3, requiredPlan: "STARTER" },
+  { href: "/app/settings", label: "Assistant Settings", icon: Settings2, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/billing", label: "Billing", icon: Wallet, requiredRoles: ["CLIENT_ADMIN"] },
+  { href: "/app/team", label: "Team & Routing", icon: Users2, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
 const primaryNavHrefs = new Set(["/app", "/app/onboarding", "/app/calls", "/app/leads", "/app/appointments", "/app/messages", "/app/analytics"]);
 
@@ -159,6 +161,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
+    const Icon = item.icon;
+
     if (
       !hasRequiredPlan(currentPlan, item.requiredPlan) ||
       !hasRequiredRole(currentRole, item.requiredRoles) ||
@@ -176,7 +180,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
           className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-muted-foreground/85"
         >
-          <span>{item.label}</span>
+          <span className="flex items-center gap-3">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-background text-muted-foreground/75">
+              <Icon className="h-4 w-4" />
+            </span>
+            <span>{item.label}</span>
+          </span>
           <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide">
             <Lock className="h-3 w-3" />
             {!hasRequiredPlan(currentPlan, item.requiredPlan)
@@ -194,13 +203,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
           pathname === item.href
             ? "bg-primary text-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(31,58,138,0.12)]"
             : "text-foreground/88 hover:bg-muted/90 hover:text-foreground"
         )}
       >
-        {item.label}
+        <span
+          className={cn(
+            "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
+            pathname === item.href
+              ? "border-white/20 bg-white/12 text-primary-foreground"
+              : "border-border/80 bg-background text-muted-foreground"
+          )}
+        >
+          <Icon className={cn("h-4 w-4", pathname === item.href && item.href === "/app/messages" ? "scale-110" : "")} />
+        </span>
+        <span className="truncate">{item.label}</span>
       </Link>
     );
   };
