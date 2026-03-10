@@ -40,6 +40,7 @@ type SocketState = {
   pendingMediaOverflowLogged?: boolean;
   mediaAggregate?: {
     firstPacketPersisted: boolean;
+    firstPacketPersisting?: boolean;
     mediaEventCount: number;
     inboundChunkCount: number;
     outboundChunkCount: number;
@@ -85,6 +86,7 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
       pendingMedia: [],
       mediaAggregate: {
         firstPacketPersisted: false,
+        firstPacketPersisting: false,
         mediaEventCount: 0,
         inboundChunkCount: 0,
         outboundChunkCount: 0,
@@ -456,6 +458,7 @@ async function processMediaEvent(input: {
     const eventAt = new Date();
     const aggregate = input.state.mediaAggregate || {
       firstPacketPersisted: false,
+      firstPacketPersisting: false,
       mediaEventCount: 0,
       inboundChunkCount: 0,
       outboundChunkCount: 0,
@@ -475,22 +478,30 @@ async function processMediaEvent(input: {
     let session:
       | Awaited<ReturnType<typeof recordVoiceMediaStreamMediaEvent>>
       | null = null;
-    const isFirstPacket = aggregate.firstPacketPersisted === false;
-    if (isFirstPacket) {
-      session = await recordVoiceMediaStreamMediaEvent({
-        prisma: input.prisma,
-        streamSid: input.streamSid,
-        track: input.track,
-        eventAt,
-        sequenceNumber: input.sequenceNumber
-      });
-      aggregate.firstPacketPersisted = true;
+    const shouldPersistFirstPacket =
+      aggregate.firstPacketPersisted === false && aggregate.firstPacketPersisting !== true;
+    if (shouldPersistFirstPacket) {
+      aggregate.firstPacketPersisting = true;
+      input.state.mediaAggregate = aggregate;
+      input.socketState.set(input.ws, input.state);
+      try {
+        session = await recordVoiceMediaStreamMediaEvent({
+          prisma: input.prisma,
+          streamSid: input.streamSid,
+          track: input.track,
+          eventAt,
+          sequenceNumber: input.sequenceNumber
+        });
+        aggregate.firstPacketPersisted = true;
+      } finally {
+        aggregate.firstPacketPersisting = false;
+      }
     }
 
     input.state.mediaAggregate = aggregate;
     input.socketState.set(input.ws, input.state);
 
-    if (isFirstPacket) {
+    if (shouldPersistFirstPacket && session) {
       logVoiceMediaStreamEvent({
         endpoint: `ws:${getStreamPath()}`,
         eventType: "MEDIA_STREAM_MEDIA_FIRST_PACKET",
