@@ -363,8 +363,12 @@ export async function startTranscriptionForMediaStream(input: { streamSessionId:
   if (!streamSession?.callLog) return null;
 
   const settings = streamSession.organization.businessSettings;
+  const supportsTranscriptionRoutingMode =
+    settings?.voiceRoutingMode === "PASSIVE_FORWARDING" ||
+    settings?.voiceRoutingMode === "HUMAN_FIRST_AI_FALLBACK";
+
   if (
-    settings?.voiceRoutingMode !== "PASSIVE_FORWARDING" ||
+    !supportsTranscriptionRoutingMode ||
     settings.voiceMediaStreamingEnabled !== true ||
     settings.voiceTranscriptionEnabled !== true
   ) {
