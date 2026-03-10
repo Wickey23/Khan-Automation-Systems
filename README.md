@@ -153,6 +153,10 @@ See `backend/.env.example`. Critical vars:
 - `API_BASE_URL`
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
+- `TWILIO_WEBHOOK_BASE_URL`
+- `TWILIO_STATUS_CALLBACK_URL`
+- `TWILIO_VALIDATE_SIGNATURES`
+- `DEFAULT_VOICE_RING_TIMEOUT_SECONDS`
 - `VAPI_TOOL_SECRET`
 - `VAPI_API_KEY` (or `VAPI_PRIVATE_KEY`)
 
@@ -163,3 +167,6 @@ See `backend/.env.example`. Critical vars:
 ```bash
 npx prisma db push --schema backend/prisma/schema.prisma
 ```
+
+## Passive Twilio Forwarding
+- Phase 1 passive forwarding docs live at [docs/passive-twilio-forwarding.md](docs/passive-twilio-forwarding.md).

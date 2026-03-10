@@ -131,7 +131,9 @@ export default function AdminCallsPage() {
                 <th className="p-3">Organization</th>
                 <th className="p-3">From</th>
                 <th className="p-3">To</th>
+                <th className="p-3">Forwarded To</th>
                 <th className="p-3">Outcome</th>
+                <th className="p-3">Status</th>
                 <th className="p-3">Duration</th>
                 <th className="p-3">Recording</th>
                 <th className="p-3">Details</th>
@@ -145,7 +147,12 @@ export default function AdminCallsPage() {
                   <td className="p-3">{call.organization?.name || "-"}</td>
                   <td className="p-3 font-mono text-xs">{call.fromNumber}</td>
                   <td className="p-3 font-mono text-xs">{call.toNumber}</td>
+                  <td className="p-3 font-mono text-xs">{call.forwardedToNumber || "-"}</td>
                   <td className="p-3">{call.outcome.replaceAll("_", " ")}</td>
+                  <td className="p-3">
+                    {(call.dialCallStatus || call.callStatus || "-").replaceAll("_", " ")}
+                    {call.missedReason ? <div className="text-xs text-muted-foreground">{call.missedReason.replaceAll("_", " ")}</div> : null}
+                  </td>
                   <td className="p-3">{formatDuration(call.durationSec)}</td>
                   <td className="p-3">
                     {call.recordingUrl ? (
@@ -170,7 +177,7 @@ export default function AdminCallsPage() {
               ))}
               {!calls.length && !loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={9}>
+                  <td className="p-3 text-muted-foreground" colSpan={11}>
                     No calls found.
                   </td>
                 </tr>
@@ -193,7 +200,13 @@ export default function AdminCallsPage() {
               <div><span className="text-muted-foreground">Ended:</span> {selectedCall.endedAt ? new Date(selectedCall.endedAt).toLocaleString() : "-"}</div>
               <div><span className="text-muted-foreground">From:</span> {selectedCall.fromNumber}</div>
               <div><span className="text-muted-foreground">To:</span> {selectedCall.toNumber}</div>
+              <div><span className="text-muted-foreground">Forwarded to:</span> {selectedCall.forwardedToNumber || "-"}</div>
               <div><span className="text-muted-foreground">Outcome:</span> {selectedCall.outcome.replaceAll("_", " ")}</div>
+              <div><span className="text-muted-foreground">Call status:</span> {(selectedCall.callStatus || "-").replaceAll("_", " ")}</div>
+              <div><span className="text-muted-foreground">Dial leg status:</span> {(selectedCall.dialCallStatus || "-").replaceAll("_", " ")}</div>
+              <div><span className="text-muted-foreground">Answered at:</span> {selectedCall.answeredAt ? new Date(selectedCall.answeredAt).toLocaleString() : "-"}</div>
+              <div><span className="text-muted-foreground">Answered by:</span> {selectedCall.answeredBy || "-"}</div>
+              <div><span className="text-muted-foreground">Missed reason:</span> {selectedCall.missedReason ? selectedCall.missedReason.replaceAll("_", " ") : "-"}</div>
               <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Call SID:</span> <span className="font-mono text-xs">{selectedCall.providerCallId || "-"}</span></div>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">

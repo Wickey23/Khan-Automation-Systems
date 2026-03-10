@@ -482,14 +482,20 @@ model CallLog {
   orgId          String
   organization   Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   providerCallId String?
+  parentCallSid  String?
+  accountSid     String?
   fromNumber     String
   toNumber       String
+  forwardedToNumber String?
+  direction      String         @default("inbound")
   aiProvider     AiProvider?
   aiSummary      String?
   appointmentRequested Boolean   @default(false)
   leadId         String?
   lead           Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  initialWebhookAt DateTime?
   startedAt      DateTime       @default(now())
+  answeredAt     DateTime?
   endedAt        DateTime?
   durationSec    Int?
   recordingUrl   String?
@@ -502,7 +508,13 @@ model CallLog {
   recoverySmsSentAt DateTime?
   recoverySmsResponse String?
   recoverySmsThreadId String?
+  callStatus     String?
+  dialCallStatus String?
+  answeredBy     String?
+  missedReason   String?
   rawJson        Json?
+  rawStatusPayload Json?
+  source         String         @default("twilio")
   state          CallState?
   ringingAt      DateTime?
   connectedAt    DateTime?
@@ -522,6 +534,10 @@ model CallLog {
   classificationLogs CallClassificationLog[]
 
   @@unique([orgId, providerCallId])
+  @@index([orgId])
+  @@index([providerCallId])
+  @@index([fromNumber])
+  @@index([createdAt])
 }
 
 model CallerProfile {
@@ -735,6 +751,12 @@ model BusinessSettings {
   organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   hoursJson               String   @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
   afterHoursMode          String   @default("TAKE_MESSAGE")
+  voiceRoutingMode        String   @default("AI_FIRST")
+  voiceForwardingEnabled  Boolean  @default(false)
+  voiceForwardingNumber   String   @default("")
+  voiceRingTimeoutSeconds Int      @default(20)
+  afterHoursVoiceFallbackEnabled Boolean @default(false)
+  voiceCallRecordingEnabled Boolean @default(false)
   transferNumbersJson     String   @default("[]")
   notificationEmailsJson  String   @default("[]")
   notificationPhonesJson  String   @default("[]")

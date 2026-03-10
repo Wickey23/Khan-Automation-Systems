@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { voiceRoutingModes } from "../voice/voice-routing-mode";
 
 export const onboardingAnswersSchema = z.object({
   businessProfile: z
@@ -101,6 +102,12 @@ export const updateOrgProfileSchema = z.object({
 export const updateBusinessSettingsSchema = z.object({
   hoursJson: z.string().optional(),
   afterHoursMode: z.enum(["TAKE_MESSAGE", "TRANSFER", "VOICEMAIL"]).optional(),
+  voiceRoutingMode: z.enum(voiceRoutingModes).optional(),
+  voiceForwardingEnabled: z.boolean().optional(),
+  voiceForwardingNumber: z.string().optional(),
+  voiceRingTimeoutSeconds: z.number().int().min(5).max(60).optional(),
+  afterHoursVoiceFallbackEnabled: z.boolean().optional(),
+  voiceCallRecordingEnabled: z.boolean().optional(),
   transferNumbersJson: z.string().optional(),
   notificationEmailsJson: z.string().optional(),
   notificationPhonesJson: z.string().optional(),

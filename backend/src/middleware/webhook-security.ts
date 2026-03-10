@@ -59,7 +59,8 @@ export function verifyVapiToolSecret(req: Request, res: Response, next: NextFunc
 }
 
 export function verifyTwilioRequest(req: Request, res: Response, next: NextFunction) {
-  const strict = env.WEBHOOK_STRICT_MODE === "true" || env.SECURITY_MODE === "production";
+  const twilioValidationEnabled = env.TWILIO_VALIDATE_SIGNATURES !== "false";
+  const strict = (env.WEBHOOK_STRICT_MODE === "true" || env.SECURITY_MODE === "production") && twilioValidationEnabled;
   if (!strict && !env.TWILIO_AUTH_TOKEN) return next();
   if (!env.TWILIO_AUTH_TOKEN) {
     logRejectedWebhook(req, 401, "missing_twilio_auth_token");

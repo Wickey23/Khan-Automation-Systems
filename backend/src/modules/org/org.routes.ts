@@ -426,6 +426,7 @@ orgRouter.get("/settings", requireOrgWriteAccess, async (req: AuthenticatedReque
   });
   const hydrated = {
     ...settings,
+    voiceForwardingNumber: decryptField(settings.voiceForwardingNumber),
     transferNumbersJson: decryptField(settings.transferNumbersJson),
     notificationEmailsJson: decryptField(settings.notificationEmailsJson),
     notificationPhonesJson: decryptField(settings.notificationPhonesJson)
@@ -442,6 +443,9 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
     where: { orgId: req.auth.orgId },
     update: {
       ...parsed.data,
+      ...(parsed.data.voiceForwardingNumber !== undefined
+        ? { voiceForwardingNumber: encryptField(parsed.data.voiceForwardingNumber) }
+        : {}),
       ...(parsed.data.transferNumbersJson ? { transferNumbersJson: encryptField(parsed.data.transferNumbersJson) } : {}),
       ...(parsed.data.notificationEmailsJson ? { notificationEmailsJson: encryptField(parsed.data.notificationEmailsJson) } : {}),
       ...(parsed.data.notificationPhonesJson ? { notificationPhonesJson: encryptField(parsed.data.notificationPhonesJson) } : {})
@@ -449,6 +453,9 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
     create: {
       orgId: req.auth.orgId,
       ...parsed.data,
+      ...(parsed.data.voiceForwardingNumber !== undefined
+        ? { voiceForwardingNumber: encryptField(parsed.data.voiceForwardingNumber) }
+        : {}),
       ...(parsed.data.transferNumbersJson ? { transferNumbersJson: encryptField(parsed.data.transferNumbersJson) } : {}),
       ...(parsed.data.notificationEmailsJson ? { notificationEmailsJson: encryptField(parsed.data.notificationEmailsJson) } : {}),
       ...(parsed.data.notificationPhonesJson ? { notificationPhonesJson: encryptField(parsed.data.notificationPhonesJson) } : {})
@@ -470,6 +477,7 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
 
   const hydrated = {
     ...settings,
+    voiceForwardingNumber: decryptField(settings.voiceForwardingNumber),
     transferNumbersJson: decryptField(settings.transferNumbersJson),
     notificationEmailsJson: decryptField(settings.notificationEmailsJson),
     notificationPhonesJson: decryptField(settings.notificationPhonesJson)

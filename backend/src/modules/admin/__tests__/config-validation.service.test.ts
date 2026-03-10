@@ -14,6 +14,12 @@ function baseSettings(): BusinessSettings {
       }
     }),
     afterHoursMode: "TAKE_MESSAGE",
+    voiceRoutingMode: "AI_FIRST",
+    voiceForwardingEnabled: false,
+    voiceForwardingNumber: "",
+    voiceRingTimeoutSeconds: 20,
+    afterHoursVoiceFallbackEnabled: false,
+    voiceCallRecordingEnabled: false,
     transferNumbersJson: JSON.stringify(["+15165551234"]),
     notificationEmailsJson: "[]",
     notificationPhonesJson: "[]",

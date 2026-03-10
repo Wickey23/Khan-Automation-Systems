@@ -1,6 +1,5 @@
 import { AiProvider, type Prisma } from "@prisma/client";
-import { Router } from "express";
-import { z } from "zod";
+import { Router, type Request, type Response } from "express";
 import { twiml as Twiml } from "twilio";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
@@ -10,31 +9,21 @@ import { upsertDemoOverCapLead } from "../billing/demo-lead-fallback.service";
 import { sendThrottledUpgradeSms } from "../billing/demo-upgrade-sms.service";
 import { registerWebhookReplay } from "../ops/webhook-replay.service";
 import { transitionCallState } from "./call-state.service";
-import { upsertCallerProfileOnInbound } from "./caller-profile.service";
+import { normalizePhoneE164, upsertCallerProfileOnInbound } from "./caller-profile.service";
 import { buildRoutingDecisionJson, computeRoutingDecision, type RoutingResultType } from "./routing.service";
+import { resolveBusinessVoiceRouting } from "./business-voice-routing.service";
+import { createInboundTwilioCall, markCallMissedReason, updateTwilioCallStatus } from "./call-log.service";
+import { normalizePhoneForLookup } from "./phone-number-normalizer";
+import { parseTwilioDuration, twilioInboundVoiceSchema, twilioVoiceStatusSchema } from "./twilio-voice-parser";
+import {
+  buildMissingForwardingFallbackTwiml,
+  buildPassiveForwardDialTwiml,
+  buildSystemErrorFallbackTwiml,
+  buildUnresolvedNumberFallbackTwiml
+} from "./twilio-voice-twiml-builder";
+import { isVoiceRoutingMode } from "./voice-routing-mode";
 
 export const voiceRouter = Router();
-const twilioVoiceSchema = z.object({
-  CallSid: z.string().min(1),
-  From: z.string().optional(),
-  To: z.string().optional()
-});
-
-function parseDuration(value: unknown): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function normalizePhoneE164(value: string) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
-  if (raw.startsWith("+")) return `+${digits}`;
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return `+${digits}`;
-}
 
 function safeParseStringArray(value: string | null | undefined): string[] {
   if (!value) return [];
@@ -59,13 +48,38 @@ async function writeDemoAudit(orgId: string, action: string, metadata: Record<st
   });
 }
 
+function getVoiceBaseUrl() {
+  return String(env.TWILIO_WEBHOOK_BASE_URL || env.API_BASE_URL).replace(/\/$/, "");
+}
+
+function getVoiceStatusCallbackUrl() {
+  return String(env.TWILIO_STATUS_CALLBACK_URL || `${getVoiceBaseUrl()}/api/twilio/voice/status`).trim();
+}
+
+async function logUnresolvedInboundVoiceEvent(payload: Record<string, unknown>) {
+  await prisma.auditLog.create({
+    data: {
+      actorUserId: "twilio-voice",
+      actorRole: "SYSTEM",
+      action: "PASSIVE_VOICE_UNRESOLVED_NUMBER",
+      metadataJson: JSON.stringify({
+        callSid: String(payload.CallSid || "").trim() || null,
+        accountSid: String(payload.AccountSid || "").trim() || null,
+        fromNumber: String(payload.From || "").trim() || null,
+        toNumber: String(payload.To || "").trim() || null,
+        payload
+      })
+    }
+  });
+}
+
 async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, orgId?: string) {
   const callSid = String(payload.CallSid || "").trim();
   if (!callSid) return;
 
   const recordingUrl = String(payload.RecordingUrl || "").trim() || null;
   const transcript = String(payload.TranscriptionText || "").trim() || null;
-  const durationSec = parseDuration(payload.CallDuration ?? payload.RecordingDuration);
+  const durationSec = parseTwilioDuration(payload.CallDuration ?? payload.RecordingDuration);
   const callStatus = String(payload.CallStatus || "").toLowerCase();
   const endedAt = callStatus === "completed" || durationSec !== null ? new Date() : undefined;
 
@@ -113,10 +127,10 @@ async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, o
   });
 }
 
-voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
+async function handleAiFirstInboundVoice(req: Request, res: Response) {
   const response = new Twiml.VoiceResponse();
   try {
-    const parsedPayload = twilioVoiceSchema.safeParse(req.body || {});
+    const parsedPayload = twilioInboundVoiceSchema.safeParse(req.body || {});
     if (!parsedPayload.success) {
       await prisma.auditLog.create({
         data: {
@@ -441,6 +455,118 @@ voiceRouter.post("/", verifyTwilioRequest, async (req, res) => {
     response.say("Sorry, we are having technical difficulties. Please try again shortly.");
     response.hangup();
     return res.type("text/xml").send(response.toString());
+  }
+}
+
+voiceRouter.post("/", verifyTwilioRequest, async (req, res) => handleAiFirstInboundVoice(req, res));
+
+voiceRouter.post("/incoming", verifyTwilioRequest, async (req, res) => {
+  const parsedPayload = twilioInboundVoiceSchema.safeParse(req.body || {});
+  if (!parsedPayload.success) {
+    const fallback = buildSystemErrorFallbackTwiml();
+    return res.type("text/xml").send(fallback.toString());
+  }
+
+  const callSid = String(parsedPayload.data.CallSid || "").trim();
+  if (callSid) {
+    const replay = await registerWebhookReplay(prisma, {
+      provider: "TWILIO",
+      eventKey: `voice:${callSid}:incoming`,
+      outcome: "INCOMING"
+    });
+    if (replay.duplicate) {
+      const duplicateResponse = new Twiml.VoiceResponse();
+      return res.type("text/xml").send(duplicateResponse.toString());
+    }
+  }
+
+  try {
+    const fromNumber = String(parsedPayload.data.From || "unknown");
+    const toNumber = String(parsedPayload.data.To || "unknown");
+    const resolved = await resolveBusinessVoiceRouting({
+      prisma,
+      calledNumber: toNumber,
+      defaultRingTimeoutSeconds: Number(env.DEFAULT_VOICE_RING_TIMEOUT_SECONDS || "20")
+    });
+
+    if (!resolved) {
+      await logUnresolvedInboundVoiceEvent(req.body as Record<string, unknown>);
+      const fallback = buildUnresolvedNumberFallbackTwiml();
+      return res.type("text/xml").send(fallback.toString());
+    }
+
+    const mode = isVoiceRoutingMode(resolved.voiceRoutingMode) ? resolved.voiceRoutingMode : "AI_FIRST";
+    if (mode === "AI_FIRST") {
+      return handleAiFirstInboundVoice(req, res);
+    }
+
+    const callLog = await createInboundTwilioCall({
+      prisma,
+      orgId: resolved.orgId,
+      callSid,
+      parentCallSid: parsedPayload.data.ParentCallSid || null,
+      accountSid: parsedPayload.data.AccountSid || null,
+      fromNumber,
+      toNumber,
+      callStatus: parsedPayload.data.CallStatus || "initiated",
+      direction: parsedPayload.data.Direction || "inbound",
+      forwardedToNumber: resolved.forwardingNumber || null,
+      source: "twilio",
+      rawPayload: req.body as Record<string, unknown>
+    });
+
+    if (!resolved.passiveForwardingValid) {
+      await markCallMissedReason({
+        prisma,
+        callLogId: callLog.id,
+        missedReason: "NO_FORWARDING_NUMBER"
+      });
+      const fallback = buildMissingForwardingFallbackTwiml();
+      return res.type("text/xml").send(fallback.toString());
+    }
+
+    await prisma.callLog.update({
+      where: { id: callLog.id },
+      data: {
+        transferredAt: new Date(),
+        transferTarget: resolved.forwardingNumber
+      }
+    });
+
+    const twiml = buildPassiveForwardDialTwiml({
+      forwardingNumber: normalizePhoneForLookup(resolved.forwardingNumber).normalized || resolved.forwardingNumber,
+      statusCallbackUrl: getVoiceStatusCallbackUrl(),
+      timeoutSeconds: resolved.ringTimeoutSeconds
+    });
+    return res.type("text/xml").send(twiml.toString());
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[twilio-voice] passive incoming handler failed", {
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
+    const fallback = buildSystemErrorFallbackTwiml();
+    return res.type("text/xml").send(fallback.toString());
+  }
+});
+
+voiceRouter.post("/status", verifyTwilioRequest, async (req, res) => {
+  const parsed = twilioVoiceStatusSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.json({ ok: true, ignored: true });
+  try {
+    const updated = await updateTwilioCallStatus({
+      prisma,
+      callSid: String(parsed.data.CallSid || "").trim(),
+      parentCallSid: String(parsed.data.ParentCallSid || "").trim() || null,
+      payload: req.body as Record<string, unknown>
+    });
+    return res.json({ ok: true, updated: Boolean(updated) });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[twilio-voice] status handler failed", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      callSid: String((req.body as Record<string, unknown>).CallSid || "")
+    });
+    return res.status(500).json({ ok: false, message: "Failed to process voice status callback." });
   }
 });
 

@@ -240,6 +240,8 @@ adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
       { providerCallId: { contains: parsed.data.search, mode: "insensitive" } },
       { fromNumber: { contains: parsed.data.search, mode: "insensitive" } },
       { toNumber: { contains: parsed.data.search, mode: "insensitive" } },
+      { forwardedToNumber: { contains: parsed.data.search, mode: "insensitive" } },
+      { missedReason: { contains: parsed.data.search, mode: "insensitive" } },
       { transcript: { contains: parsed.data.search, mode: "insensitive" } },
       { aiSummary: { contains: parsed.data.search, mode: "insensitive" } },
       { organization: { name: { contains: parsed.data.search, mode: "insensitive" } } }

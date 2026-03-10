@@ -36,6 +36,12 @@ type HoursRow = { open: string; close: string; closed: boolean };
 type FormState = {
   timezone: string;
   afterHoursMode: "TAKE_MESSAGE" | "TRANSFER" | "VOICEMAIL";
+  voiceRoutingMode: "AI_FIRST" | "PASSIVE_FORWARDING";
+  voiceForwardingEnabled: boolean;
+  voiceForwardingNumber: string;
+  voiceRingTimeoutSeconds: number;
+  afterHoursVoiceFallbackEnabled: boolean;
+  voiceCallRecordingEnabled: boolean;
   transferNumbers: string;
   notificationEmails: string;
   notificationPhones: string;
@@ -45,6 +51,9 @@ type FormState = {
   cancellationPolicy: string;
   diagnosticsPolicy: string;
   smsWelcomeMessage: string;
+  smsMissedCallRecoveryTemplate: string;
+  smsNewLeadAcknowledgementTemplate: string;
+  smsAppointmentConfirmationTemplate: string;
   smsMarketingEnabled: boolean;
   smsMarketingBlurb: string;
   smsConsentText: string;
@@ -87,6 +96,12 @@ const defaultHours = () =>
 const defaults: FormState = {
   timezone: "America/New_York",
   afterHoursMode: "TAKE_MESSAGE",
+  voiceRoutingMode: "AI_FIRST",
+  voiceForwardingEnabled: false,
+  voiceForwardingNumber: "",
+  voiceRingTimeoutSeconds: 20,
+  afterHoursVoiceFallbackEnabled: false,
+  voiceCallRecordingEnabled: false,
   transferNumbers: "",
   notificationEmails: "",
   notificationPhones: "",
@@ -96,6 +111,9 @@ const defaults: FormState = {
   cancellationPolicy: "",
   diagnosticsPolicy: "",
   smsWelcomeMessage: "",
+  smsMissedCallRecoveryTemplate: "",
+  smsNewLeadAcknowledgementTemplate: "",
+  smsAppointmentConfirmationTemplate: "",
   smsMarketingEnabled: false,
   smsMarketingBlurb: "",
   smsConsentText: "",
@@ -241,6 +259,12 @@ export default function AppSettingsPage() {
         setState({
           timezone: settings.timezone || "America/New_York",
           afterHoursMode: settings.afterHoursMode,
+          voiceRoutingMode: settings.voiceRoutingMode || "AI_FIRST",
+          voiceForwardingEnabled: settings.voiceForwardingEnabled === true,
+          voiceForwardingNumber: settings.voiceForwardingNumber || "",
+          voiceRingTimeoutSeconds: settings.voiceRingTimeoutSeconds || 20,
+          afterHoursVoiceFallbackEnabled: settings.afterHoursVoiceFallbackEnabled === true,
+          voiceCallRecordingEnabled: settings.voiceCallRecordingEnabled === true,
           transferNumbers: toLines(fromJsonArray(settings.transferNumbersJson)),
           notificationEmails: toLines(fromJsonArray(settings.notificationEmailsJson)),
           notificationPhones: toLines(fromJsonArray(settings.notificationPhonesJson)),
@@ -250,6 +274,9 @@ export default function AppSettingsPage() {
           cancellationPolicy: String(policies.cancellationPolicy || ""),
           diagnosticsPolicy: String(policies.diagnosticsPolicy || ""),
           smsWelcomeMessage: String(policies.smsWelcomeMessage || ""),
+          smsMissedCallRecoveryTemplate: String(policies.smsMissedCallRecoveryTemplate || ""),
+          smsNewLeadAcknowledgementTemplate: String(policies.smsNewLeadAcknowledgementTemplate || ""),
+          smsAppointmentConfirmationTemplate: String(policies.smsAppointmentConfirmationTemplate || ""),
           smsMarketingEnabled: Boolean(policies.smsMarketingEnabled),
           smsMarketingBlurb: String(policies.smsMarketingBlurb || ""),
           smsConsentText: settings.smsConsentText,
@@ -458,6 +485,14 @@ export default function AppSettingsPage() {
       });
       return;
     }
+    if (state.voiceRoutingMode === "PASSIVE_FORWARDING" && (!state.voiceForwardingEnabled || !state.voiceForwardingNumber.trim())) {
+      showToast({
+        title: "Forwarding number required",
+        description: "Enable passive forwarding only when a live forwarding number is configured.",
+        variant: "error"
+      });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -468,6 +503,12 @@ export default function AppSettingsPage() {
       await updateOrgSettings({
         timezone: state.timezone.trim() || "America/New_York",
         afterHoursMode: state.afterHoursMode,
+        voiceRoutingMode: state.voiceRoutingMode,
+        voiceForwardingEnabled: state.voiceForwardingEnabled,
+        voiceForwardingNumber: state.voiceForwardingNumber.trim(),
+        voiceRingTimeoutSeconds: state.voiceRingTimeoutSeconds,
+        afterHoursVoiceFallbackEnabled: state.afterHoursVoiceFallbackEnabled,
+        voiceCallRecordingEnabled: state.voiceCallRecordingEnabled,
         hoursJson: JSON.stringify({
           timezone: state.timezone.trim() || "America/New_York",
           schedule
@@ -483,6 +524,9 @@ export default function AppSettingsPage() {
           cancellationPolicy: state.cancellationPolicy.trim(),
           diagnosticsPolicy: state.diagnosticsPolicy.trim(),
           smsWelcomeMessage: state.smsWelcomeMessage.trim(),
+          smsMissedCallRecoveryTemplate: state.smsMissedCallRecoveryTemplate.trim(),
+          smsNewLeadAcknowledgementTemplate: state.smsNewLeadAcknowledgementTemplate.trim(),
+          smsAppointmentConfirmationTemplate: state.smsAppointmentConfirmationTemplate.trim(),
           smsMarketingEnabled: state.smsMarketingEnabled,
           smsMarketingBlurb: state.smsMarketingBlurb.trim()
         }),
@@ -551,7 +595,7 @@ export default function AppSettingsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Review the main routing, booking, and alerting setup before you move into the detailed sections.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-xl border bg-slate-50 p-4">
               <p className="page-eyebrow">Timezone</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{state.timezone}</p>
@@ -571,6 +615,19 @@ export default function AppSettingsPage() {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {primaryCalendarConnection ? primaryCalendarConnection.accountEmail : "No active calendar connection"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Inbound mode</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">
+                {state.voiceRoutingMode === "PASSIVE_FORWARDING" ? "Passive forwarding" : "AI first"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {state.voiceRoutingMode === "PASSIVE_FORWARDING"
+                  ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
+                    ? "Forwarding path ready"
+                    : "Needs forwarding number"
+                  : "Current AI-first flow preserved"}
               </p>
             </div>
             <div className="rounded-xl border bg-slate-50 p-4">
@@ -640,7 +697,7 @@ export default function AppSettingsPage() {
             Set your timezone and choose what the receptionist should do after hours.
           </p>
         </div>
-        <div className="sm:col-span-2 grid gap-3 sm:grid-cols-3">
+        <div className="sm:col-span-2 grid gap-3 sm:grid-cols-4">
           <div className="rounded-xl border bg-slate-50 p-4">
             <p className="page-eyebrow">Office coverage</p>
             <p className="mt-2 text-sm font-medium text-slate-950">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"}</p>
@@ -653,6 +710,17 @@ export default function AppSettingsPage() {
             <p className="page-eyebrow">Transfer coverage</p>
             <p className="mt-2 text-sm font-medium text-slate-950">
               {transferNumberCount > 0 ? `${transferNumberCount} number${transferNumberCount === 1 ? "" : "s"}` : "Not configured"}
+            </p>
+          </div>
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <p className="page-eyebrow">Passive forwarding</p>
+            <p className="mt-2 text-sm font-medium text-slate-950">
+              {state.voiceRoutingMode === "PASSIVE_FORWARDING" ? "Enabled" : "Off"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
+                ? `${state.voiceForwardingNumber.trim()} • ${state.voiceRingTimeoutSeconds}s ring`
+                : "Uses existing AI-first flow"}
             </p>
           </div>
         </div>
@@ -672,6 +740,90 @@ export default function AppSettingsPage() {
             <option value="VOICEMAIL">Voicemail</option>
           </select>
         </div>
+        <div>
+          <Label>Inbound voice mode</Label>
+          <select
+            className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+            value={state.voiceRoutingMode}
+            onChange={(e) =>
+              setState((p) => ({
+                ...p,
+                voiceRoutingMode: e.target.value as FormState["voiceRoutingMode"]
+              }))
+            }
+          >
+            <option value="AI_FIRST">AI first</option>
+            <option value="PASSIVE_FORWARDING">Passive forwarding</option>
+          </select>
+        </div>
+        <div>
+          <Label>Forwarding ring timeout (seconds)</Label>
+          <Input
+            type="number"
+            min={5}
+            max={60}
+            value={state.voiceRingTimeoutSeconds}
+            onChange={(e) =>
+              setState((p) => ({
+                ...p,
+                voiceRingTimeoutSeconds: Math.max(5, Math.min(60, Number(e.target.value || 20) || 20))
+              }))
+            }
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <Label>Passive forwarding destination</Label>
+          <Input
+            placeholder="+15165550123"
+            value={state.voiceForwardingNumber}
+            onChange={(e) => setState((p) => ({ ...p, voiceForwardingNumber: e.target.value }))}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Used only when inbound mode is set to passive forwarding. This forwards the live call to your real office line.
+          </p>
+        </div>
+        <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={state.voiceForwardingEnabled}
+            onChange={(e) => setState((p) => ({ ...p, voiceForwardingEnabled: e.target.checked }))}
+          />
+          <span>
+            <span className="font-medium text-slate-950">Enable passive forwarding</span>
+            <span className="mt-1 block text-muted-foreground">
+              Twilio will answer first and immediately bridge the call to your forwarding number without an AI greeting.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={state.afterHoursVoiceFallbackEnabled}
+            onChange={(e) => setState((p) => ({ ...p, afterHoursVoiceFallbackEnabled: e.target.checked }))}
+          />
+          <span>
+            <span className="font-medium text-slate-950">Reserve after-hours fallback</span>
+            <span className="mt-1 block text-muted-foreground">
+              Saved now for later phases. It does not change live routing yet.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={state.voiceCallRecordingEnabled}
+            onChange={(e) => setState((p) => ({ ...p, voiceCallRecordingEnabled: e.target.checked }))}
+          />
+          <span>
+            <span className="font-medium text-slate-950">Reserve call recording</span>
+            <span className="mt-1 block text-muted-foreground">
+              Stores your preference now. Recording stays disabled in this passive-forwarding phase.
+            </span>
+          </span>
+        </label>
       </section>
 
       <AccordionItem value="calendar" className="rounded-2xl border bg-white px-5 shadow-sm">
@@ -1234,6 +1386,9 @@ export default function AppSettingsPage() {
       <section className="rounded-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">SMS follow-up behavior</p>
         <h2 className="text-lg font-semibold">SMS Follow-Up</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Customize the core post-call texts your customers receive. `Reply STOP to unsubscribe.` is added automatically.
+        </p>
         <Label className="mt-3">SMS First Message (sent on first inbound text)</Label>
         <Textarea
           placeholder="Thanks for texting {{businessName}}. Our team will ask a few quick questions to help you faster."
@@ -1242,6 +1397,35 @@ export default function AppSettingsPage() {
         />
         <p className="mt-1 text-xs text-muted-foreground">
           Use <code>{"{{businessName}}"}</code> to insert your business name.
+        </p>
+        <div className="mt-4 grid gap-4">
+          <div>
+            <Label>Missed-call recovery template</Label>
+            <Textarea
+              placeholder="Sorry we missed your call. Tell us what you need and we'll get back shortly."
+              value={state.smsMissedCallRecoveryTemplate}
+              onChange={(e) => setState((p) => ({ ...p, smsMissedCallRecoveryTemplate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <Label>New lead acknowledgement template</Label>
+            <Textarea
+              placeholder="Thanks {{customerName}} — {{businessName}} received your service request. A technician will follow up shortly."
+              value={state.smsNewLeadAcknowledgementTemplate}
+              onChange={(e) => setState((p) => ({ ...p, smsNewLeadAcknowledgementTemplate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <Label>Appointment confirmation template</Label>
+            <Textarea
+              placeholder="Hi {{customerName}} — your service appointment is scheduled for {{appointmentTime}} with {{businessName}}."
+              value={state.smsAppointmentConfirmationTemplate}
+              onChange={(e) => setState((p) => ({ ...p, smsAppointmentConfirmationTemplate: e.target.value }))}
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Available placeholders: <code>{"{{businessName}}"}</code>, <code>{"{{customerName}}"}</code>, <code>{"{{serviceAddress}}"}</code>, <code>{"{{appointmentTime}}"}</code>.
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input
