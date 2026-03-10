@@ -86,6 +86,28 @@ const DAYS: Array<{ key: DayKey; label: string }> = [
   { key: "sunday", label: "Sunday" }
 ];
 
+const voiceForwardingDialCodeOptions = [
+  { value: "+1", label: "US/Canada (+1)" },
+  { value: "+44", label: "UK (+44)" },
+  { value: "+61", label: "Australia (+61)" },
+  { value: "+91", label: "India (+91)" }
+] as const;
+
+const timezoneOptions = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "Europe/London",
+  "Europe/Berlin",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Australia/Sydney"
+] as const;
+
 const defaultHours = () =>
   DAYS.reduce<Record<DayKey, HoursRow>>((acc, day) => {
     acc[day.key] = {
@@ -198,6 +220,30 @@ function getNotificationBody(item: OrgNotification) {
   return item.body;
 }
 
+function detectVoiceForwardingDialCode(value: string) {
+  const normalized = value.trim();
+  if (!normalized.startsWith("+")) return "+1";
+  const match = [...voiceForwardingDialCodeOptions]
+    .sort((a, b) => b.value.length - a.value.length)
+    .find((option) => normalized.startsWith(option.value));
+  return match?.value ?? "+1";
+}
+
+function getVoiceForwardingLocalNumber(value: string, dialCode: string) {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  if (normalized.startsWith(dialCode)) {
+    return normalized.slice(dialCode.length).replace(/[^\d]/g, "");
+  }
+  return normalized.replace(/^\+/, "").replace(/[^\d]/g, "");
+}
+
+function buildVoiceForwardingNumber(dialCode: string, localNumber: string) {
+  const digits = localNumber.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return `${dialCode}${digits}`;
+}
+
 export default function AppSettingsPage() {
   const { showToast } = useToast();
   const [state, setState] = useState<FormState>(defaults);
@@ -221,6 +267,14 @@ export default function AppSettingsPage() {
     classificationEnabled: false
   });
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.readAt).length, [notifications]);
+  const voiceForwardingDialCode = useMemo(
+    () => detectVoiceForwardingDialCode(state.voiceForwardingNumber),
+    [state.voiceForwardingNumber]
+  );
+  const voiceForwardingLocalNumber = useMemo(
+    () => getVoiceForwardingLocalNumber(state.voiceForwardingNumber, voiceForwardingDialCode),
+    [state.voiceForwardingNumber, voiceForwardingDialCode]
+  );
 
   useEffect(() => {
     void Promise.all([
@@ -738,7 +792,17 @@ export default function AppSettingsPage() {
         </div>
         <div>
           <Label>Timezone</Label>
-          <Input value={state.timezone} onChange={(e) => setState((p) => ({ ...p, timezone: e.target.value }))} />
+          <select
+            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
+            value={state.timezone}
+            onChange={(e) => setState((p) => ({ ...p, timezone: e.target.value }))}
+          >
+            {timezoneOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <Label>After-hours Mode</Label>
@@ -785,13 +849,39 @@ export default function AppSettingsPage() {
         </div>
         <div className="sm:col-span-2">
           <Label>Passive forwarding destination</Label>
-          <Input
-            placeholder="+15165550123"
-            value={state.voiceForwardingNumber}
-            onChange={(e) => setState((p) => ({ ...p, voiceForwardingNumber: e.target.value }))}
-          />
+          <div className="flex gap-3">
+            <select
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
+              value={voiceForwardingDialCode}
+              onChange={(e) =>
+                setState((p) => ({
+                  ...p,
+                  voiceForwardingNumber: buildVoiceForwardingNumber(e.target.value, voiceForwardingLocalNumber)
+                }))
+              }
+            >
+              {voiceForwardingDialCodeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <Input
+              className="flex-1"
+              inputMode="tel"
+              placeholder="5165550123"
+              value={voiceForwardingLocalNumber}
+              onChange={(e) =>
+                setState((p) => ({
+                  ...p,
+                  voiceForwardingNumber: buildVoiceForwardingNumber(voiceForwardingDialCode, e.target.value)
+                }))
+              }
+            />
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Used only when inbound mode is set to passive forwarding. This forwards the live call to your real office line.
+            Used only when inbound mode is set to passive forwarding. This forwards the live call to your real office
+            line and saves the full number in international format.
           </p>
         </div>
         <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm sm:col-span-2">
