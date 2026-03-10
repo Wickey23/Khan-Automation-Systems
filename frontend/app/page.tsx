@@ -190,6 +190,7 @@ export default function HomePage() {
               sourceSection="hero"
               ctaVariant="primary"
               title="See how this works with your phone setup"
+              compact
             />
           </MotionInView>
         </div>

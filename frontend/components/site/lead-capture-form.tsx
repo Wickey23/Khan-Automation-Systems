@@ -170,7 +170,11 @@ export function LeadCaptureForm({
           <p className="max-w-md text-sm leading-6 text-muted-foreground">
             Share your business details and rollout timing. We will use this to prepare a practical walkthrough of your call flow, intake process, and follow-up needs.
           </p>
-        ) : null}
+        ) : (
+          <p className="max-w-md text-sm leading-6 text-muted-foreground">
+            Share a few details and we&apos;ll walk through how missed calls would be handled for your business.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         {submitted ? (
@@ -197,12 +201,12 @@ export function LeadCaptureForm({
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className={compact ? "grid gap-3.5" : "grid gap-4"} noValidate>
           <input type="hidden" {...register("sourcePage")} />
           <input type="hidden" {...register("sourceSection")} />
           <input type="hidden" {...register("ctaVariant")} />
           {!compact ? <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Business details</p> : null}
-          <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor={`${sourcePage}-name`}>Name</Label>
               <Input id={`${sourcePage}-name`} {...register("name")} />
@@ -228,23 +232,30 @@ export function LeadCaptureForm({
             </div>
           </div>
 
-          {!compact ? <p className="pt-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Portal access</p> : null}
-          <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${sourcePage}-accountPassword`}>Create account password</Label>
-              <Input id={`${sourcePage}-accountPassword`} type="password" {...register("accountPassword")} />
-              <p className="text-xs text-muted-foreground">You will use this password to log in at /auth/login.</p>
-              {errors.accountPassword ? <p className="text-xs text-red-600">{errors.accountPassword.message}</p> : null}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${sourcePage}-confirmPassword`}>Confirm password</Label>
-              <Input id={`${sourcePage}-confirmPassword`} type="password" {...register("confirmPassword")} />
-              {errors.confirmPassword ? <p className="text-xs text-red-600">{errors.confirmPassword.message}</p> : null}
+          <div className={compact ? "rounded-2xl border bg-muted/30 p-4" : ""}>
+            {!compact ? <p className="pt-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Portal access</p> : null}
+            {compact ? (
+              <p className="mb-3 text-xs font-medium text-muted-foreground">
+                Create a login so you can review your setup after the walkthrough.
+              </p>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor={`${sourcePage}-accountPassword`}>{compact ? "Password" : "Create account password"}</Label>
+                <Input id={`${sourcePage}-accountPassword`} type="password" {...register("accountPassword")} />
+                {!compact ? <p className="text-xs text-muted-foreground">You will use this password to log in at /auth/login.</p> : null}
+                {errors.accountPassword ? <p className="text-xs text-red-600">{errors.accountPassword.message}</p> : null}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${sourcePage}-confirmPassword`}>{compact ? "Confirm" : "Confirm password"}</Label>
+                <Input id={`${sourcePage}-confirmPassword`} type="password" {...register("confirmPassword")} />
+                {errors.confirmPassword ? <p className="text-xs text-red-600">{errors.confirmPassword.message}</p> : null}
+              </div>
             </div>
           </div>
 
           {!compact ? <p className="pt-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Fit and timing</p> : null}
-          <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-3"}>
+          <div className={compact ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-3"}>
             <div className="space-y-1.5">
               <Label>Industry</Label>
               <Select onValueChange={(value) => setValue("industry", value)}>
@@ -261,7 +272,7 @@ export function LeadCaptureForm({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Preferred contact</Label>
+              <Label>{compact ? "Best way to reach you" : "Preferred contact"}</Label>
               <Select onValueChange={(value) => setValue("preferredContact", value as LeadFormInput["preferredContact"])}>
                 <SelectTrigger>
                   <SelectValue placeholder="Call" />
@@ -293,12 +304,12 @@ export function LeadCaptureForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor={`${sourcePage}-message`}>Message (optional)</Label>
-            <Textarea id={`${sourcePage}-message`} {...register("message")} />
+            <Label htmlFor={`${sourcePage}-message`}>{compact ? "Anything we should know? (optional)" : "Message (optional)"}</Label>
+            <Textarea id={`${sourcePage}-message`} className={compact ? "min-h-[96px]" : undefined} {...register("message")} />
           </div>
 
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Create Account & Submit Lead"}
+            {isSubmitting ? "Submitting..." : compact ? "See My Setup Options" : "Create Account & Submit Lead"}
           </Button>
           {!compact ? (
             <p className="text-xs leading-5 text-muted-foreground">
