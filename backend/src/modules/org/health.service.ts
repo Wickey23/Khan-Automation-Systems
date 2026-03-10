@@ -57,6 +57,7 @@ export async function computeOrgHealth(input: {
   const qualityValues = calls
     .map((row) => (typeof row.callQualityScore === "number" ? Number(row.callQualityScore) : null))
     .filter((value): value is number => value !== null);
+  const hasCallQualityScores = qualityValues.length > 0;
   const avgCallQuality = qualityValues.length
     ? qualityValues.reduce((sum, value) => sum + value, 0) / qualityValues.length
     : 0;
@@ -82,8 +83,10 @@ export async function computeOrgHealth(input: {
       fixHint: "/app"
     },
     callQualityAverage: {
-      ok: avgCallQuality >= qualityThreshold,
-      reason: `Average call quality is ${avgCallQuality.toFixed(1)} (threshold ${qualityThreshold})`,
+      ok: !hasCallQualityScores || avgCallQuality >= qualityThreshold,
+      reason: hasCallQualityScores
+        ? `Average call quality is ${avgCallQuality.toFixed(1)} (threshold ${qualityThreshold})`
+        : "Call quality scoring has not produced enough data yet",
       fixHint: "/app/calls"
     },
     slaDegradation: {

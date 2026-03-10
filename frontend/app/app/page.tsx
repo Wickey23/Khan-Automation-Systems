@@ -80,6 +80,35 @@ function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function healthCheckLabel(key: string) {
+  switch (key) {
+    case "callSuccessScore":
+      return "Call outcomes need review";
+    case "recentActivity":
+      return "Recent activity looks low";
+    case "callQualityAverage":
+      return "Call quality needs review";
+    case "slaDegradation":
+      return "Response-time monitoring issue";
+    default:
+      return key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+  }
+}
+
+function healthFixPathLabel(path: string | undefined) {
+  if (!path) return "Open the related workspace";
+  switch (path) {
+    case "/app/calls":
+      return "Review recent calls";
+    case "/app":
+      return "Review the dashboard";
+    case "/admin/events":
+      return "Review system events";
+    default:
+      return `Open ${path}`;
+  }
+}
+
 function notificationDetail(notification: OrgNotification) {
   const metadata =
     notification.metadataJson && typeof notification.metadataJson === "object" ? notification.metadataJson : null;
@@ -724,9 +753,9 @@ export default function AppOverviewPage() {
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {failingHealthChecks.slice(0, 6).map(([key, check]) => (
                     <div key={key} className="rounded-lg border border-rose-200 bg-white px-3 py-3">
-                      <p className="text-sm font-semibold text-rose-950">{key}</p>
+                      <p className="text-sm font-semibold text-rose-950">{healthCheckLabel(key)}</p>
                       <p className="mt-1 text-sm text-rose-900">{check.reason}</p>
-                      <p className="mt-1 text-xs text-rose-700">Fix path: {check.fixHint}</p>
+                      <p className="mt-1 text-xs text-rose-700">{healthFixPathLabel(check.fixHint)}</p>
                     </div>
                   ))}
                 </div>
