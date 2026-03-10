@@ -21,6 +21,10 @@ Phase 1 passive forwarding keeps the caller experience normal:
 - `TWILIO_MEDIA_STREAM_STATUS_CALLBACK_URL` (optional override)
 - `TWILIO_MEDIA_STREAM_PATH` (default `/ws/twilio/voice-media`)
 - `TWILIO_MEDIA_STREAM_TOKEN_SECRET` (required when media streaming is enabled)
+- `DEEPGRAM_API_KEY` (required only when transcription is enabled)
+- `TRANSCRIPTION_PROVIDER` (default `deepgram`)
+- `TRANSCRIPTION_ENABLED_DEFAULT` (default `false`)
+- `CALL_SUMMARY_MODEL` (default `gpt-4o-mini`)
 
 ## Twilio setup
 
@@ -52,6 +56,7 @@ Forwarding still remains the primary caller experience. Stream setup must never 
    - `voiceForwardingEnabled = true`
    - `voiceForwardingNumber` populated
    - optional `voiceMediaStreamingEnabled = true` for Phase 2 stream testing
+   - optional `voiceTranscriptionEnabled = true` for Phase 3 transcript testing
 
 ## Test checklist
 
@@ -86,6 +91,7 @@ Use the existing Assistant Settings surface and set:
 - Passive forwarding destination: a live office phone number
 - Forwarding ring timeout: desired ring window
 - Enable real-time media streaming: optional per-org toggle
+- Enable real-time transcription: optional per-org toggle layered on top of media streaming
 
 ## Verification notes
 
@@ -141,3 +147,36 @@ Phase 2 does not:
 {"eventType":"MEDIA_STREAM_MEDIA_FIRST_PACKET","provider":"TWILIO","status":"OK"}
 {"eventType":"MEDIA_STREAM_STOPPED","provider":"TWILIO","status":"OK"}
 ```
+
+## Phase 3 transcription and call intelligence
+
+When both `voiceMediaStreamingEnabled` and `voiceTranscriptionEnabled` are enabled for a passive-forwarding org:
+
+1. Media frames continue through the Phase 2 stream pipeline
+2. Khan forwards the decoded audio to Deepgram in real time
+3. Stable transcript segments are persisted to `CallTranscriptSegment`
+4. Final transcript text is assembled back onto `CallLog.transcript`
+5. Post-call summary is written to `CallLog.aiSummary`
+6. Existing lead records may be updated or created when the transcript contains enough useful business signal
+
+Phase 3 still does not:
+
+- change forwarding behavior
+- store raw audio payloads
+- add AI answering
+
+## Local transcription test checklist
+
+1. Set:
+   - `DEEPGRAM_API_KEY`
+   - `TRANSCRIPTION_PROVIDER=deepgram`
+   - `TRANSCRIPTION_ENABLED_DEFAULT=false`
+   - `CALL_SUMMARY_MODEL=gpt-4o-mini`
+2. Enable both real-time media streaming and real-time transcription for a passive-forwarding org.
+3. Place a live call through the Twilio number.
+4. Verify:
+   - transcript sessions are created for the call
+   - stable transcript segments appear in admin call detail
+   - `CallLog.transcript` is assembled after the call ends
+   - `CallLog.aiSummary` is generated after the call ends
+   - routing and forwarding behavior remain unchanged if Deepgram is unavailable

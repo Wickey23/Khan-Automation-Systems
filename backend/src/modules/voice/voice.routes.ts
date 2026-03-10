@@ -25,6 +25,7 @@ import {
   reconcileOpenVoiceMediaStreamsForCall,
   updateVoiceMediaStreamStatusFromCallback
 } from "./media-stream/voice-media-stream-session.service";
+import { scheduleTranscriptFinalizeForCall } from "./transcription/transcription-session.service";
 import {
   buildMissingForwardingFallbackTwiml,
   buildPassiveForwardDialTwiml,
@@ -650,6 +651,7 @@ voiceRouter.post("/status", verifyTwilioRequest, async (req, res) => {
         callLogId: updated.id,
         stopReason: `call_${finalStatus}`
       });
+      scheduleTranscriptFinalizeForCall(updated.id, `call_${finalStatus}`);
     }
     return res.json({ ok: true, updated: Boolean(updated) });
   } catch (error) {

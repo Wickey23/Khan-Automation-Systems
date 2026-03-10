@@ -5,6 +5,7 @@ import type {
   AdminMessageThread,
   AdminUserRecord,
   AuditEvent,
+  AdminCallDetail,
   AdminCallRecord,
   AuthUser,
   BusinessSettings,
@@ -290,6 +291,10 @@ export async function fetchLeads(query: string) {
 
 export async function fetchAdminCalls(query: string) {
   return request<{ calls: AdminCallRecord[]; total: number }>(`/api/admin/calls${query}`);
+}
+
+export async function fetchAdminCallDetail(id: string) {
+  return request<{ call: AdminCallDetail }>(`/api/admin/calls/${id}`);
 }
 
 export async function fetchAdminMessages(query = "") {

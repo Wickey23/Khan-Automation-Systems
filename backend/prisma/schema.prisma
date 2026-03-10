@@ -298,6 +298,8 @@ model Organization {
   aiAgentConfigs       AiAgentConfig[]
   callLogs             CallLog[]
   callMediaStreamSessions CallMediaStreamSession[]
+  callTranscriptSessions CallTranscriptSession[]
+  callTranscriptSegments CallTranscriptSegment[]
   leads                Lead[]
   prospects            Prospect[]
   provisioningChecklist ProvisioningChecklist?
@@ -327,6 +329,7 @@ model Organization {
   calendarConnections  CalendarConnection[]
   orgNotifications     OrgNotification[]
   callClassificationLogs CallClassificationLog[]
+  serviceRequests      ServiceRequest[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -518,6 +521,9 @@ model CallLog {
   source         String         @default("twilio")
   hasMediaStream Boolean        @default(false)
   latestStreamStatus String?
+  transcriptStatus String?
+  transcriptGeneratedAt DateTime?
+  aiSummaryGeneratedAt DateTime?
   state          CallState?
   ringingAt      DateTime?
   connectedAt    DateTime?
@@ -536,6 +542,9 @@ model CallLog {
   appointmentRequest AppointmentRequest?
   classificationLogs CallClassificationLog[]
   mediaStreamSessions CallMediaStreamSession[]
+  transcriptSessions CallTranscriptSession[]
+  transcriptSegments CallTranscriptSegment[]
+  serviceRequest    ServiceRequest?
 
   @@unique([orgId, providerCallId])
   @@index([orgId])
@@ -572,12 +581,61 @@ model CallMediaStreamSession {
   outboundChunkCount   Int          @default(0)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
+  transcriptSessions   CallTranscriptSession[]
 
   @@index([callLogId])
   @@index([orgId, createdAt])
   @@index([streamSid])
   @@index([callSid])
   @@index([streamStatus, createdAt])
+}
+
+model CallTranscriptSession {
+  id                   String                 @id @default(cuid())
+  callLogId            String
+  callLog              CallLog                @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  streamSessionId      String
+  streamSession        CallMediaStreamSession @relation(fields: [streamSessionId], references: [id], onDelete: Cascade)
+  orgId                String
+  organization         Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider             String
+  sessionStatus        String
+  startedAt            DateTime
+  endedAt              DateTime?
+  providerMetadataJson Json?
+  errorText            String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  segments             CallTranscriptSegment[]
+
+  @@index([callLogId])
+  @@index([streamSessionId])
+  @@index([orgId, createdAt])
+}
+
+model CallTranscriptSegment {
+  id                  String                @id @default(cuid())
+  transcriptSessionId String
+  transcriptSession   CallTranscriptSession @relation(fields: [transcriptSessionId], references: [id], onDelete: Cascade)
+  callLogId           String
+  callLog             CallLog               @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  orgId               String
+  organization        Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  streamSid           String?
+  speaker             String
+  text                String
+  confidence          Float?
+  startTimeMs         Int
+  endTimeMs           Int
+  sequence            Int
+  isFinal             Boolean
+  providerSegmentId   String?
+  createdAt           DateTime              @default(now())
+
+  @@index([transcriptSessionId, sequence])
+  @@index([callLogId, sequence])
+  @@index([orgId, createdAt])
+  @@unique([transcriptSessionId, sequence])
 }
 
 model CallerProfile {
@@ -701,6 +759,7 @@ model Lead {
   pipelineStage    LeadPipelineStage @default(NEW_LEAD)
   serviceRequested String?
   serviceAddress   String?
+  appointmentRequested Boolean @default(false)
   sourceCallLogId  String?
   sourceCallLog    CallLog?          @relation("LeadSourceCall", fields: [sourceCallLogId], references: [id], onDelete: SetNull)
   qualified        Boolean           @default(true)
@@ -716,8 +775,38 @@ model Lead {
   messages         Message[]
   appointments     Appointment[]
   appointmentRequests AppointmentRequest[]
+  serviceRequests  ServiceRequest[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+}
+
+model ServiceRequest {
+  id                   String       @id @default(cuid())
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callLogId            String       @unique
+  callLog              CallLog      @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  leadId               String?
+  lead                 Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customerName         String?
+  phone                String
+  serviceType          String?
+  urgency              String?
+  serviceAddress       String?
+  appointmentRequested Boolean      @default(false)
+  status               String
+  notes                String?
+  requestedAt          DateTime
+  assignedTo           String?
+  followUpSentAt       DateTime?
+  automationMetadataJson Json?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([callLogId])
+  @@index([leadId])
+  @@index([status, createdAt])
 }
 
 model MessageThread {
@@ -799,6 +888,10 @@ model BusinessSettings {
   voiceCallRecordingEnabled Boolean @default(false)
   voiceMediaStreamingEnabled Boolean @default(false)
   voiceMediaTrackStrategy   String   @default("BOTH_TRACKS")
+  voiceTranscriptionEnabled Boolean  @default(false)
+  serviceRequestAutomationEnabled Boolean @default(false)
+  serviceRequestFollowupSmsEnabled Boolean @default(false)
+  serviceRequestInternalAlertsEnabled Boolean @default(false)
   transferNumbersJson     String   @default("[]")
   notificationEmailsJson  String   @default("[]")
   notificationPhonesJson  String   @default("[]")

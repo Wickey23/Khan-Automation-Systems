@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
-import { deleteAdminCall, fetchAdminCalls } from "@/lib/api";
-import type { AdminCallRecord } from "@/lib/types";
+import { deleteAdminCall, fetchAdminCallDetail, fetchAdminCalls } from "@/lib/api";
+import type { AdminCallDetail, AdminCallRecord } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/site/toast-provider";
@@ -20,12 +20,13 @@ function formatDuration(seconds: number | null) {
 export default function AdminCallsPage() {
   const { showToast } = useToast();
   const [calls, setCalls] = useState<AdminCallRecord[]>([]);
-  const [selectedCall, setSelectedCall] = useState<AdminCallRecord | null>(null);
+  const [selectedCall, setSelectedCall] = useState<AdminCallDetail | null>(null);
   const [search, setSearch] = useState("");
   const [outcome, setOutcome] = useState("ALL");
   const [deletePassword, setDeletePassword] = useState("123");
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -83,6 +84,22 @@ export default function AdminCallsPage() {
     }
   }
 
+  async function onView(call: AdminCallRecord) {
+    setDetailLoadingId(call.id);
+    try {
+      const data = await fetchAdminCallDetail(call.id);
+      setSelectedCall(data.call);
+    } catch (error) {
+      showToast({
+        title: "Failed to load call details",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setDetailLoadingId(null);
+    }
+  }
+
   return (
     <AdminGuard>
       <div className="container py-10">
@@ -134,6 +151,7 @@ export default function AdminCallsPage() {
                 <th className="p-3">Forwarded To</th>
                 <th className="p-3">Outcome</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Service Request</th>
                 <th className="p-3">Media Stream</th>
                 <th className="p-3">Duration</th>
                 <th className="p-3">Recording</th>
@@ -153,6 +171,18 @@ export default function AdminCallsPage() {
                   <td className="p-3">
                     {(call.dialCallStatus || call.callStatus || "-").replaceAll("_", " ")}
                     {call.missedReason ? <div className="text-xs text-muted-foreground">{call.missedReason.replaceAll("_", " ")}</div> : null}
+                  </td>
+                  <td className="p-3">
+                    {call.serviceRequest ? (
+                      <>
+                        <div>{call.serviceRequest.status.replaceAll("_", " ")}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {call.serviceRequest.appointmentRequested ? "Appointment requested" : call.serviceRequest.serviceType || "General request"}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </td>
                   <td className="p-3">
                     {call.hasMediaStream ? (
@@ -177,8 +207,8 @@ export default function AdminCallsPage() {
                     )}
                   </td>
                   <td className="p-3">
-                    <Button size="sm" variant="outline" onClick={() => setSelectedCall(call)}>
-                      View
+                    <Button size="sm" variant="outline" disabled={detailLoadingId === call.id} onClick={() => void onView(call)}>
+                      {detailLoadingId === call.id ? "Loading..." : "View"}
                     </Button>
                   </td>
                   <td className="p-3">
@@ -190,7 +220,7 @@ export default function AdminCallsPage() {
               ))}
               {!calls.length && !loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={12}>
+                  <td className="p-3 text-muted-foreground" colSpan={13}>
                     No calls found.
                   </td>
                 </tr>
@@ -222,12 +252,16 @@ export default function AdminCallsPage() {
               <div><span className="text-muted-foreground">Missed reason:</span> {selectedCall.missedReason ? selectedCall.missedReason.replaceAll("_", " ") : "-"}</div>
               <div><span className="text-muted-foreground">Has media stream:</span> {selectedCall.hasMediaStream ? "Yes" : "No"}</div>
               <div><span className="text-muted-foreground">Latest stream status:</span> {(selectedCall.latestStreamStatus || "-").replaceAll("_", " ")}</div>
+              <div><span className="text-muted-foreground">Transcript status:</span> {(selectedCall.transcriptStatus || "-").replaceAll("_", " ")}</div>
               <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Call SID:</span> <span className="font-mono text-xs">{selectedCall.providerCallId || "-"}</span></div>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="rounded border p-3">
                 <p className="text-sm font-medium">Summary</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{selectedCall.aiSummary || selectedCall.summary || "-"}</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Generated: {selectedCall.aiSummaryGeneratedAt ? new Date(selectedCall.aiSummaryGeneratedAt).toLocaleString() : "Not yet"}
+                </p>
               </div>
               <div className="rounded border p-3">
                 <p className="text-sm font-medium">Recording</p>
@@ -242,6 +276,40 @@ export default function AdminCallsPage() {
                 </div>
               </div>
             </div>
+            {selectedCall.lead ? (
+              <div className="mt-4 rounded border p-3">
+                <p className="text-sm font-medium">Extracted lead data</p>
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                  <div><span className="text-muted-foreground">Lead:</span> {selectedCall.lead.name || "-"}</div>
+                  <div><span className="text-muted-foreground">Phone:</span> {selectedCall.lead.phone || "-"}</div>
+                  <div><span className="text-muted-foreground">Service requested:</span> {selectedCall.lead.serviceRequested || "-"}</div>
+                  <div><span className="text-muted-foreground">Urgency:</span> {selectedCall.lead.urgency || "-"}</div>
+                  <div><span className="text-muted-foreground">Appointment requested:</span> {selectedCall.lead.appointmentRequested ? "Yes" : "No"}</div>
+                  <div><span className="text-muted-foreground">Updated:</span> {selectedCall.lead.updatedAt ? new Date(selectedCall.lead.updatedAt).toLocaleString() : "-"}</div>
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <span className="text-muted-foreground">Notes:</span> {selectedCall.lead.notes || "-"}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {selectedCall.serviceRequest ? (
+              <div className="mt-4 rounded border p-3">
+                <p className="text-sm font-medium">Service request</p>
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                  <div><span className="text-muted-foreground">Status:</span> {selectedCall.serviceRequest.status.replaceAll("_", " ")}</div>
+                  <div><span className="text-muted-foreground">Requested:</span> {new Date(selectedCall.serviceRequest.requestedAt).toLocaleString()}</div>
+                  <div><span className="text-muted-foreground">Follow-up sent:</span> {selectedCall.serviceRequest.followUpSentAt ? new Date(selectedCall.serviceRequest.followUpSentAt).toLocaleString() : "-"}</div>
+                  <div><span className="text-muted-foreground">Customer:</span> {selectedCall.serviceRequest.customerName || "-"}</div>
+                  <div><span className="text-muted-foreground">Phone:</span> {selectedCall.serviceRequest.phone}</div>
+                  <div><span className="text-muted-foreground">Linked lead:</span> {selectedCall.serviceRequest.leadId || "-"}</div>
+                  <div><span className="text-muted-foreground">Service type:</span> {selectedCall.serviceRequest.serviceType || "-"}</div>
+                  <div><span className="text-muted-foreground">Urgency:</span> {selectedCall.serviceRequest.urgency || "-"}</div>
+                  <div><span className="text-muted-foreground">Appointment requested:</span> {selectedCall.serviceRequest.appointmentRequested ? "Yes" : "No"}</div>
+                  <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Service address:</span> {selectedCall.serviceRequest.serviceAddress || "-"}</div>
+                  <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Notes:</span> {selectedCall.serviceRequest.notes || "-"}</div>
+                </div>
+              </div>
+            ) : null}
             {selectedCall.latestMediaStream ? (
               <div className="mt-4 rounded border p-3">
                 <p className="text-sm font-medium">Media stream</p>
@@ -260,10 +328,59 @@ export default function AdminCallsPage() {
               </div>
             ) : null}
             <div className="mt-4 rounded border p-3">
-              <p className="text-sm font-medium">Transcript</p>
-              <p className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground">
-                {selectedCall.transcript || "-"}
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Transcript</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Generated: {selectedCall.transcriptGeneratedAt ? new Date(selectedCall.transcriptGeneratedAt).toLocaleString() : "Not yet"}
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Sessions: {selectedCall.transcriptSessions?.length || 0}
+                </div>
+              </div>
+              {selectedCall.transcriptSessions?.length ? (
+                <div className="mt-3 space-y-4">
+                  {selectedCall.transcriptSessions.map((session) => (
+                    <div key={session.id} className="rounded border border-dashed p-3">
+                      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                        <div>Provider: {session.provider}</div>
+                        <div>Status: {session.sessionStatus.replaceAll("_", " ")}</div>
+                        <div>Started: {new Date(session.startedAt).toLocaleString()}</div>
+                        <div>Ended: {session.endedAt ? new Date(session.endedAt).toLocaleString() : "-"}</div>
+                      </div>
+                      {session.errorText ? <p className="mt-2 text-xs text-red-600">Error: {session.errorText}</p> : null}
+                      <div className="mt-3 space-y-2">
+                        {session.segments.length ? (
+                          session.segments.map((segment) => (
+                            <div key={segment.id} className="rounded bg-slate-50 px-3 py-2 text-sm">
+                              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                                <span className="font-medium text-slate-700">{segment.speaker}</span>
+                                <span>
+                                  {Math.round(segment.startTimeMs / 100) / 10}s - {Math.round(segment.endTimeMs / 100) / 10}s
+                                  {segment.confidence != null ? ` • ${Math.round(segment.confidence * 100)}%` : ""}
+                                  {segment.isFinal ? " • final" : ""}
+                                </span>
+                              </div>
+                              <p className="mt-1 whitespace-pre-wrap text-slate-900">{segment.text}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No persisted transcript segments yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">No transcript sessions recorded yet.</p>
+              )}
+              <div className="mt-4 rounded bg-slate-50 p-3">
+                <p className="text-sm font-medium">Assembled transcript</p>
+                <p className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground">
+                  {selectedCall.transcript || "-"}
+                </p>
+              </div>
             </div>
           </section>
         ) : null}

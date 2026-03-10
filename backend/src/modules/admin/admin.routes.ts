@@ -255,6 +255,35 @@ adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
         organization: {
           select: { id: true, name: true }
         },
+        lead: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            serviceRequested: true,
+            urgency: true,
+            appointmentRequested: true,
+            notes: true
+          }
+        },
+        serviceRequest: {
+          select: {
+            id: true,
+            callLogId: true,
+            leadId: true,
+            customerName: true,
+            phone: true,
+            serviceType: true,
+            urgency: true,
+            serviceAddress: true,
+            appointmentRequested: true,
+            status: true,
+            notes: true,
+            requestedAt: true,
+            followUpSentAt: true,
+            updatedAt: true
+          }
+        },
         mediaStreamSessions: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -288,6 +317,88 @@ adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
         latestMediaStream: call.mediaStreamSessions[0] || null
       })),
       total
+    }
+  });
+});
+
+adminRouter.get("/calls/:id", async (req: AuthenticatedRequest, res: Response) => {
+  const call = await prisma.callLog.findFirst({
+    where: { id: req.params.id },
+    include: {
+      organization: {
+        select: { id: true, name: true }
+      },
+      lead: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          serviceRequested: true,
+          urgency: true,
+          appointmentRequested: true,
+          notes: true,
+          updatedAt: true
+        }
+      },
+      serviceRequest: {
+        select: {
+          id: true,
+          orgId: true,
+          callLogId: true,
+          leadId: true,
+          customerName: true,
+          phone: true,
+          serviceType: true,
+          urgency: true,
+          serviceAddress: true,
+          appointmentRequested: true,
+          status: true,
+          notes: true,
+          assignedTo: true,
+          followUpSentAt: true,
+          requestedAt: true,
+          automationMetadataJson: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      },
+      mediaStreamSessions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          streamSid: true,
+          trackStrategy: true,
+          streamStatus: true,
+          websocketConnectedAt: true,
+          mediaStartedAt: true,
+          mediaEndedAt: true,
+          mediaEventCount: true,
+          inboundChunkCount: true,
+          outboundChunkCount: true,
+          stopReason: true
+        }
+      },
+      transcriptSessions: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          segments: {
+            orderBy: [{ sequence: "asc" }, { createdAt: "asc" }]
+          }
+        }
+      }
+    }
+  });
+
+  if (!call) return res.status(404).json({ ok: false, message: "Call not found." });
+
+  return res.json({
+    ok: true,
+    data: {
+      call: {
+        ...call,
+        latestMediaStream: call.mediaStreamSessions[0] || null
+      }
     }
   });
 });

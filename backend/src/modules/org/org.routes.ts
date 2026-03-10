@@ -450,9 +450,14 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
     "AI_FIRST";
   const nextMediaStreamingEnabled =
     nextVoiceRoutingMode === "PASSIVE_FORWARDING" ? parsed.data.voiceMediaStreamingEnabled : false;
+  const nextTranscriptionEnabled =
+    nextVoiceRoutingMode === "PASSIVE_FORWARDING" && nextMediaStreamingEnabled === true
+      ? parsed.data.voiceTranscriptionEnabled
+      : false;
   const settingsPayload = {
     ...parsed.data,
     voiceMediaStreamingEnabled: nextMediaStreamingEnabled,
+    voiceTranscriptionEnabled: nextTranscriptionEnabled,
     ...(parsed.data.voiceMediaTrackStrategy ? { voiceMediaTrackStrategy: parsed.data.voiceMediaTrackStrategy } : {})
   };
 

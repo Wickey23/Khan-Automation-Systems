@@ -28,6 +28,7 @@ export type Lead = {
   notes: string | null;
   serviceRequested?: string | null;
   serviceAddress?: string | null;
+  appointmentRequested?: boolean;
   qualified?: boolean;
   qualificationReason?: string | null;
   classification?: LeadClassification | null;
@@ -332,6 +333,76 @@ export type AdminCallRecord = OrgCallRecord & {
     id: string;
     name: string;
   } | null;
+  lead?: {
+    id: string;
+    name: string;
+    phone: string;
+    serviceRequested?: string | null;
+    urgency?: string | null;
+    appointmentRequested?: boolean;
+    notes?: string | null;
+    updatedAt?: string;
+  } | null;
+  serviceRequest?: ServiceRequest | null;
+};
+
+export type AdminCallTranscriptSegment = {
+  id: string;
+  streamSid?: string | null;
+  speaker: "CALLER" | "AGENT" | "UNKNOWN";
+  text: string;
+  confidence?: number | null;
+  startTimeMs: number;
+  endTimeMs: number;
+  sequence: number;
+  isFinal: boolean;
+  createdAt: string;
+};
+
+export type AdminCallTranscriptSession = {
+  id: string;
+  provider: string;
+  sessionStatus: "STARTED" | "ACTIVE" | "ENDED" | "ERROR";
+  startedAt: string;
+  endedAt?: string | null;
+  errorText?: string | null;
+  segments: AdminCallTranscriptSegment[];
+};
+
+export type AdminCallDetail = AdminCallRecord & {
+  transcriptStatus?: "STARTED" | "GENERATED" | "ERROR" | null;
+  transcriptGeneratedAt?: string | null;
+  aiSummaryGeneratedAt?: string | null;
+  transcriptSessions?: AdminCallTranscriptSession[];
+};
+
+export type ServiceRequestStatus =
+  | "NEW"
+  | "NEEDS_REVIEW"
+  | "NEEDS_SCHEDULING"
+  | "FOLLOW_UP_SENT"
+  | "RESOLVED"
+  | "DISMISSED";
+
+export type ServiceRequest = {
+  id: string;
+  orgId: string;
+  callLogId: string;
+  leadId?: string | null;
+  customerName?: string | null;
+  phone: string;
+  serviceType?: string | null;
+  urgency?: string | null;
+  serviceAddress?: string | null;
+  appointmentRequested: boolean;
+  status: ServiceRequestStatus;
+  notes?: string | null;
+  assignedTo?: string | null;
+  followUpSentAt?: string | null;
+  requestedAt: string;
+  automationMetadataJson?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type OrgMessage = {
@@ -461,6 +532,10 @@ export type BusinessSettings = {
   voiceCallRecordingEnabled?: boolean;
   voiceMediaStreamingEnabled?: boolean;
   voiceMediaTrackStrategy?: "BOTH_TRACKS";
+  voiceTranscriptionEnabled?: boolean;
+  serviceRequestAutomationEnabled?: boolean;
+  serviceRequestFollowupSmsEnabled?: boolean;
+  serviceRequestInternalAlertsEnabled?: boolean;
   transferNumbersJson: string;
   notificationEmailsJson: string;
   notificationPhonesJson: string;

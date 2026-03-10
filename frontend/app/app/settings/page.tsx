@@ -43,6 +43,8 @@ type FormState = {
   afterHoursVoiceFallbackEnabled: boolean;
   voiceCallRecordingEnabled: boolean;
   voiceMediaStreamingEnabled: boolean;
+  voiceTranscriptionEnabled: boolean;
+  serviceRequestAutomationEnabled: boolean;
   transferNumbers: string;
   notificationEmails: string;
   notificationPhones: string;
@@ -104,6 +106,8 @@ const defaults: FormState = {
   afterHoursVoiceFallbackEnabled: false,
   voiceCallRecordingEnabled: false,
   voiceMediaStreamingEnabled: false,
+  voiceTranscriptionEnabled: false,
+  serviceRequestAutomationEnabled: false,
   transferNumbers: "",
   notificationEmails: "",
   notificationPhones: "",
@@ -268,6 +272,8 @@ export default function AppSettingsPage() {
           afterHoursVoiceFallbackEnabled: settings.afterHoursVoiceFallbackEnabled === true,
           voiceCallRecordingEnabled: settings.voiceCallRecordingEnabled === true,
           voiceMediaStreamingEnabled: settings.voiceMediaStreamingEnabled === true,
+          voiceTranscriptionEnabled: settings.voiceTranscriptionEnabled === true,
+          serviceRequestAutomationEnabled: settings.serviceRequestAutomationEnabled === true,
           transferNumbers: toLines(fromJsonArray(settings.transferNumbersJson)),
           notificationEmails: toLines(fromJsonArray(settings.notificationEmailsJson)),
           notificationPhones: toLines(fromJsonArray(settings.notificationPhonesJson)),
@@ -513,6 +519,8 @@ export default function AppSettingsPage() {
         afterHoursVoiceFallbackEnabled: state.afterHoursVoiceFallbackEnabled,
         voiceCallRecordingEnabled: state.voiceCallRecordingEnabled,
         voiceMediaStreamingEnabled: state.voiceMediaStreamingEnabled,
+        voiceTranscriptionEnabled: state.voiceTranscriptionEnabled,
+        serviceRequestAutomationEnabled: state.serviceRequestAutomationEnabled,
         hoursJson: JSON.stringify({
           timezone: state.timezone.trim() || "America/New_York",
           schedule
@@ -812,6 +820,36 @@ export default function AppSettingsPage() {
             <span className="font-medium text-slate-950">Enable real-time media streaming</span>
             <span className="mt-1 block text-muted-foreground">
               Forks the live call audio to Khan Automation while the call still forwards normally. No caller-facing AI is added in this mode.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={state.voiceTranscriptionEnabled}
+            onChange={(e) => setState((p) => ({ ...p, voiceTranscriptionEnabled: e.target.checked }))}
+            disabled={state.voiceRoutingMode !== "PASSIVE_FORWARDING" || !state.voiceForwardingEnabled || !state.voiceMediaStreamingEnabled}
+          />
+          <span>
+            <span className="font-medium text-slate-950">Enable real-time transcription</span>
+            <span className="mt-1 block text-muted-foreground">
+              Adds live speech-to-text on top of the media stream for internal call intelligence. It never changes the caller
+              experience or blocks forwarding.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={state.serviceRequestAutomationEnabled}
+            onChange={(e) => setState((p) => ({ ...p, serviceRequestAutomationEnabled: e.target.checked }))}
+          />
+          <span>
+            <span className="font-medium text-slate-950">Enable service-request automation</span>
+            <span className="mt-1 block text-muted-foreground">
+              Create an internal request record after call transcript finalization. This does not change live call handling.
             </span>
           </span>
         </label>

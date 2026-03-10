@@ -16,6 +16,11 @@ import {
 } from "./voice-media-stream-session.service";
 import { logVoiceMediaStreamEvent } from "./voice-media-stream-logger";
 import { verifyVoiceMediaStreamToken, validateTwilioMediaStreamUpgradeSignature } from "./voice-media-stream-security";
+import {
+  forwardMediaFrameToTranscription,
+  startTranscriptionForMediaStream,
+  stopTranscriptionForStream
+} from "../transcription/transcription-session.service";
 
 type SocketState = {
   socketId: string;
@@ -82,7 +87,9 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
           stopAt: new Date(),
           stopReason: reason,
           streamStatus: "DISCONNECTED"
-        }).catch(() => null);
+        })
+          .then(() => stopTranscriptionForStream({ streamSid: current.streamSid as string, reason }))
+          .catch(() => null);
       }
       logVoiceMediaStreamEvent({
         endpoint: `ws:${getStreamPath()}`,
@@ -105,7 +112,9 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
           stopAt: new Date(),
           stopReason: error.message,
           streamStatus: "ERROR"
-        }).catch(() => null);
+        })
+          .then(() => stopTranscriptionForStream({ streamSid: current.streamSid as string, reason: error.message, errored: true }))
+          .catch(() => null);
       }
       logVoiceMediaStreamEvent({
         endpoint: `ws:${getStreamPath()}`,
@@ -262,6 +271,8 @@ async function handleStreamMessage(input: {
     state.streamSid = session.streamSid;
     input.socketState.set(input.ws, state);
 
+    void startTranscriptionForMediaStream({ streamSessionId: session.id }).catch(() => null);
+
     logVoiceMediaStreamEvent({
       endpoint: `ws:${getStreamPath()}`,
       eventType: "MEDIA_STREAM_STARTED",
@@ -301,6 +312,13 @@ async function handleStreamMessage(input: {
         payloadSize: Buffer.byteLength(parsed.data.media.payload, "utf8")
       });
       }
+      void forwardMediaFrameToTranscription({
+        streamSid: parsed.data.streamSid,
+        track: parsed.data.media.track.includes("outbound") ? "outbound_track" : "inbound_track",
+        payloadBase64: parsed.data.media.payload,
+        sequenceNumber: parseOptionalSequenceNumber(parsed.data.sequenceNumber),
+        timestampMs: parseOptionalSequenceNumber(parsed.data.media.timestamp)
+      }).catch(() => null);
       const stateRef = input.socketState.get(input.ws);
       if (stateRef) {
         stateRef.orgId = session.orgId;
@@ -354,6 +372,10 @@ async function handleStreamMessage(input: {
       trackStrategy: session?.trackStrategy || null,
       streamStatus: session?.streamStatus || "STOPPED"
     });
+    void stopTranscriptionForStream({
+      streamSid,
+      reason: parsed.data.stop.reason || "twilio_stop"
+    }).catch(() => null);
     return;
   }
 }
