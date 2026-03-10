@@ -146,6 +146,34 @@ function fromLines(value: string) {
     .filter(Boolean);
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Not yet";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Not yet";
+  return parsed.toLocaleString();
+}
+
+function formatAfterHoursMode(value: FormState["afterHoursMode"]) {
+  switch (value) {
+    case "TRANSFER":
+      return "Transfer to office";
+    case "VOICEMAIL":
+      return "Send to voicemail";
+    default:
+      return "Take a message";
+  }
+}
+
+function getNotificationBody(item: OrgNotification) {
+  const metadata = item.metadataJson && typeof item.metadataJson === "object" ? item.metadataJson : null;
+  const calendarFallbackDetail =
+    metadata && typeof metadata.calendarFallbackDetail === "string" ? metadata.calendarFallbackDetail : "";
+  if (item.title === "Calendar booking fallback" && calendarFallbackDetail.trim()) {
+    return calendarFallbackDetail.trim();
+  }
+  return item.body;
+}
+
 export default function AppSettingsPage() {
   const { showToast } = useToast();
   const [state, setState] = useState<FormState>(defaults);
@@ -402,6 +430,13 @@ export default function AppSettingsPage() {
       hasHours
     };
   }, [state.transferNumbers, state.notificationEmails, state.notificationPhones, state.hours]);
+  const transferNumberCount = readinessHints.transfer.length;
+  const openDaysCount = DAYS.filter((day) => !state.hours[day.key].closed).length;
+  const primaryCalendarConnection =
+    activeCalendarProviders.find((provider) => provider.id === selectedPrimaryConnectionId) ||
+    activeCalendarProviders.find((provider) => provider.isPrimary) ||
+    activeCalendarProviders[0] ||
+    null;
 
   async function onSave() {
     const transfer = readinessHints.transfer;
@@ -491,6 +526,9 @@ export default function AppSettingsPage() {
       <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Readiness</p>
         <h2 className="text-lg font-semibold">Go-Live Readiness</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          These are the essentials the receptionist needs before call routing, booking, and alerts can run cleanly.
+        </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {[
             ["Transfer numbers", readinessHints.transfer.length > 0 ? "Configured" : "Missing"],
@@ -506,46 +544,94 @@ export default function AppSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
-        <h2 className="text-lg font-semibold">Security & Verification</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Verify your login email can receive codes and confirm whether 2FA is enforced for your role.
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded border px-2 py-1 text-sm">
-            Email: <span className="font-medium">{security?.email || "Unknown"}</span>
-          </div>
-          <div className="rounded border px-2 py-1 text-sm">
-            2FA required: <span className="font-medium">{security?.twoFactorEnabledForAccount ? "Yes" : "No"}</span>
-          </div>
-          <div className="rounded border px-2 py-1 text-sm">
-            Provider: <span className="font-medium">{security?.emailProviderConfigured ? "Configured" : "Missing"}</span>
-          </div>
-          <div className="rounded border px-2 py-1 text-sm">
-            Last OTP sent:{" "}
-            <span className="font-medium">
-              {security?.lastOtpEmailSentAt ? new Date(security.lastOtpEmailSentAt).toLocaleString() : "-"}
-            </span>
-          </div>
-          <div className="rounded border px-2 py-1 text-sm">
-            Last OTP verified:{" "}
-            <span className="font-medium">
-              {security?.lastOtpVerifiedAt ? new Date(security.lastOtpVerifiedAt).toLocaleString() : "-"}
-            </span>
-          </div>
-          <div className="rounded border px-2 py-1 text-sm">
-            Last failure: <span className="font-medium">{security?.lastOtpFailureReason || "-"}</span>
+      <section className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace controls</p>
+          <h2 className="text-lg font-semibold">Assistant Control Center</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review the main routing, booking, and alerting setup before you move into the detailed sections.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Timezone</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">{state.timezone}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"} configured</p>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">After hours</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">{formatAfterHoursMode(state.afterHoursMode)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {transferNumberCount > 0 ? `${transferNumberCount} transfer number${transferNumberCount === 1 ? "" : "s"} ready` : "No transfer number configured"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Calendar booking</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">
+                {primaryCalendarConnection ? `${primaryCalendarConnection.provider} connected` : "Manual scheduling"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {primaryCalendarConnection ? primaryCalendarConnection.accountEmail : "No active calendar connection"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Alert routing</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">
+                {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Live contacts set" : "Needs notification contact"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {readinessHints.emails.length} email / {readinessHints.phones.length} phone recipient{readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
+              </p>
+            </div>
           </div>
         </div>
-        <div className="mt-3">
-          <Button variant="outline" onClick={() => void onSendTestVerificationEmail()} disabled={sendingTestEmail}>
-            {sendingTestEmail ? "Sending..." : "Send test verification email"}
-          </Button>
-        </div>
+
+        <section className="rounded-2xl border bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
+          <h2 className="text-lg font-semibold">Security & Verification</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Confirm this login can receive verification emails and see whether 2FA is currently enforced.
+          </p>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Account email</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">{security?.email || "Unknown"}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border bg-slate-50 p-4">
+                <p className="page-eyebrow">2FA policy</p>
+                <p className="mt-2 text-sm font-medium text-slate-950">{security?.twoFactorEnabledForAccount ? "Required for this account" : "Not required"}</p>
+              </div>
+              <div className="rounded-xl border bg-slate-50 p-4">
+                <p className="page-eyebrow">Email provider</p>
+                <p className="mt-2 text-sm font-medium text-slate-950">{security?.emailProviderConfigured ? "Configured" : "Missing"}</p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border bg-slate-50 p-4">
+                <p className="page-eyebrow">Last code sent</p>
+                <p className="mt-2 text-sm font-medium text-slate-950">{formatDateTime(security?.lastOtpEmailSentAt)}</p>
+              </div>
+              <div className="rounded-xl border bg-slate-50 p-4">
+                <p className="page-eyebrow">Last code verified</p>
+                <p className="mt-2 text-sm font-medium text-slate-950">{formatDateTime(security?.lastOtpVerifiedAt)}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Recent verification issue</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">
+                {security?.lastOtpFailureReason ? security.lastOtpFailureReason.replace(/_/g, " ") : "No recent failure recorded"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => void onSendTestVerificationEmail()} disabled={sendingTestEmail}>
+              {sendingTestEmail ? "Sending..." : "Send test verification email"}
+            </Button>
+          </div>
+        </section>
       </section>
 
-      <Accordion type="multiple" defaultValue={["call-handling", "business-hours"]} className="space-y-4">
+      <Accordion type="multiple" defaultValue={["calendar", "services"]} className="space-y-4">
       <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
@@ -553,6 +639,22 @@ export default function AppSettingsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Set your timezone and choose what the receptionist should do after hours.
           </p>
+        </div>
+        <div className="sm:col-span-2 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <p className="page-eyebrow">Office coverage</p>
+            <p className="mt-2 text-sm font-medium text-slate-950">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"}</p>
+          </div>
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <p className="page-eyebrow">After-hours action</p>
+            <p className="mt-2 text-sm font-medium text-slate-950">{formatAfterHoursMode(state.afterHoursMode)}</p>
+          </div>
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <p className="page-eyebrow">Transfer coverage</p>
+            <p className="mt-2 text-sm font-medium text-slate-950">
+              {transferNumberCount > 0 ? `${transferNumberCount} number${transferNumberCount === 1 ? "" : "s"}` : "Not configured"}
+            </p>
+          </div>
         </div>
         <div>
           <Label>Timezone</Label>
@@ -922,7 +1024,7 @@ export default function AppSettingsPage() {
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-2 text-sm">
                 <div>
                   <p className="font-medium">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.body}</p>
+                  <p className="text-xs text-muted-foreground">{getNotificationBody(item)}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {item.severity} · {new Date(item.createdAt).toLocaleString()} · {item.readAt ? "Read" : "Unread"}
                   </p>

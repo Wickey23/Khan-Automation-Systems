@@ -80,6 +80,17 @@ function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function notificationDetail(notification: OrgNotification) {
+  const metadata =
+    notification.metadataJson && typeof notification.metadataJson === "object" ? notification.metadataJson : null;
+  const calendarFallbackDetail =
+    metadata && typeof metadata.calendarFallbackDetail === "string" ? metadata.calendarFallbackDetail : "";
+  if (notification.title === "Calendar booking fallback" && calendarFallbackDetail.trim()) {
+    return calendarFallbackDetail.trim();
+  }
+  return notification.body;
+}
+
 function requestStatusLabel(status: AppointmentRequest["status"]) {
   switch (status) {
     case "SCHEDULED":
@@ -357,13 +368,14 @@ export default function AppOverviewPage() {
     }
 
     for (const notification of state.notifications.filter((item) => !item.readAt)) {
+      const isCalendarFallback = notification.title === "Calendar booking fallback";
       items.push({
         id: `notification-${notification.id}`,
         type: notification.severity === "URGENT" ? "NEEDS_FIX" : "NEEDS_FOLLOW_UP",
         severity: notification.severity === "URGENT" ? "critical" : notification.severity === "ACTION_REQUIRED" ? "warning" : "info",
         label: notification.title,
-        detail: notification.body,
-        href: "/app/calls",
+        detail: notificationDetail(notification),
+        href: isCalendarFallback ? "/app/settings" : "/app/calls",
         timestamp: notification.createdAt,
         sourceModule: notification.type === "NEW_LEAD_CAPTURED" ? "leads" : notification.type === "APPOINTMENT_BOOKED" ? "appointments" : "system"
       });

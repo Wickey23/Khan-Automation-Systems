@@ -54,6 +54,60 @@ type SuccessfulBookingResult = {
 
 type BookingResult = FailedBookingResult | SuccessfulBookingResult;
 
+type CalendarFallbackStage = "BUSY_CHECK" | "EVENT_CREATE";
+type CalendarFallbackMeta = {
+  stage: CalendarFallbackStage;
+  detail: string;
+  rawMessage: string | null;
+};
+
+function formatCalendarFallbackReason(stage: CalendarFallbackStage, rawMessage: string) {
+  const normalized = rawMessage.toLowerCase();
+  if (!normalized) {
+    return stage === "BUSY_CHECK"
+      ? "Could not read calendar availability. Manual scheduling is required."
+      : "Could not create the calendar event. Manual scheduling is required.";
+  }
+
+  if (normalized.includes("calendar_connection_not_found")) {
+    return "No active calendar connection was found. Reconnect the calendar and run a sync test.";
+  }
+  if (
+    normalized.includes("token_refresh_hard_auth_failed") ||
+    normalized.includes("invalid_grant") ||
+    normalized.includes("revoked")
+  ) {
+    return "Calendar access expired or was revoked. Reconnect the calendar.";
+  }
+  if (normalized.includes("calendar_request_timeout")) {
+    return stage === "BUSY_CHECK"
+      ? "The calendar provider timed out while checking availability. Try the sync test again."
+      : "The calendar provider timed out while creating the event. Try the sync test again.";
+  }
+  if (normalized.includes("insufficientpermissions") || normalized.includes("insufficient authentication scopes")) {
+    return "Calendar write permission is missing. Reconnect and grant calendar write access.";
+  }
+  if (normalized.includes("accessnotconfigured") || normalized.includes("api has not been used")) {
+    return "Google Calendar API is not enabled for the connected project. Enable it, then reconnect.";
+  }
+  if (normalized.includes("notfound") || normalized.includes("calendar not found")) {
+    return "The selected calendar ID is invalid or inaccessible. Verify the calendar target and run sync test.";
+  }
+  if (normalized.includes("google_event_auth_failed") || normalized.includes("outlook_event_auth_failed")) {
+    return "The calendar provider denied write access. Reconnect the calendar and verify permissions.";
+  }
+  if (normalized.includes("google_event_list_failed") || normalized.includes("outlook_event_list_failed")) {
+    return "The calendar provider could not return busy times. Reconnect the calendar or try again shortly.";
+  }
+  if (normalized.includes("google_event_create_failed") || normalized.includes("outlook_event_create_failed")) {
+    return "The calendar provider rejected event creation. Verify calendar permissions and selected calendar ID.";
+  }
+
+  return stage === "BUSY_CHECK"
+    ? "Could not read calendar availability. Manual scheduling is required."
+    : "Could not create the calendar event. Manual scheduling is required.";
+}
+
 async function readInternalBusy(input: {
   prisma: Pick<PrismaClient, "appointment">;
   orgId: string;
@@ -257,6 +311,16 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
   const precheckFrom = new Date(input.startAt.getTime() - bufferMinutes * 60 * 1000);
   const precheckTo = new Date(input.endAt.getTime() + bufferMinutes * 60 * 1000);
   let calendarFallback = false;
+  const calendarFallbackMeta: { current: CalendarFallbackMeta | null } = { current: null };
+  const recordCalendarFallback = (stage: CalendarFallbackStage, error: unknown) => {
+    calendarFallback = true;
+    const rawMessage = String((error as Error | null)?.message || "").trim() || null;
+    calendarFallbackMeta.current = {
+      stage,
+      detail: formatCalendarFallbackReason(stage, rawMessage || ""),
+      rawMessage
+    };
+  };
   const initialInternalBusy = await readInternalBusy({
     prisma: input.prisma,
     orgId: input.orgId,
@@ -267,8 +331,8 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
   if (input.fetchExternalBusyBlocks) {
     try {
       initialExternalBusy = await input.fetchExternalBusyBlocks({ fromUtc: precheckFrom, toUtc: precheckTo });
-    } catch {
-      calendarFallback = true;
+    } catch (error) {
+      recordCalendarFallback("BUSY_CHECK", error);
       initialExternalBusy = [];
     }
   }
@@ -303,8 +367,8 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
         if (input.fetchExternalBusyBlocks) {
           try {
             commitExternalBusy = await input.fetchExternalBusyBlocks({ fromUtc: precheckFrom, toUtc: precheckTo });
-          } catch {
-            calendarFallback = true;
+          } catch (error) {
+            recordCalendarFallback("BUSY_CHECK", error);
             commitExternalBusy = [];
           }
         }
@@ -341,11 +405,11 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
             provider = "INTERNAL";
             status = "PENDING";
           }
-        } catch {
+        } catch (error) {
           provider = "INTERNAL";
           status = "PENDING";
           externalCalendarEventId = null;
-          calendarFallback = true;
+          recordCalendarFallback("EVENT_CREATE", error);
         }
 
         try {
@@ -421,6 +485,9 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
       nextSlots = [];
     }
   }
+  const calendarFallbackDetail = calendarFallbackMeta.current ? calendarFallbackMeta.current.detail : null;
+  const calendarFallbackStage = calendarFallbackMeta.current ? calendarFallbackMeta.current.stage : null;
+  const calendarFallbackRawMessage = calendarFallbackMeta.current ? calendarFallbackMeta.current.rawMessage : null;
 
   try {
     await emitOrgNotification({
@@ -430,9 +497,16 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
       severity: calendarFallback ? "ACTION_REQUIRED" : "INFO",
       title: calendarFallback ? "Calendar booking fallback" : "Appointment booked",
       body: calendarFallback
-        ? `Calendar create failed for ${appointment.customerName}; manual scheduling required.`
+        ? `Calendar create failed for ${appointment.customerName}; ${calendarFallbackDetail || "manual scheduling required."}`
         : `Appointment confirmed for ${appointment.customerName} at ${appointment.startAt.toISOString()}.`,
-      metadata: { appointmentId: appointment.id, calendarProvider: appointment.calendarProvider, status: appointment.status }
+      metadata: {
+        appointmentId: appointment.id,
+        calendarProvider: appointment.calendarProvider,
+        status: appointment.status,
+        calendarFallbackStage,
+        calendarFallbackDetail,
+        calendarFallbackRawMessage
+      }
     });
   } catch {
     // Non-fatal by lock.
