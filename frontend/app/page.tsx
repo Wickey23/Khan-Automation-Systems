@@ -58,7 +58,7 @@ const howItWorksSteps: Array<{ title: string; icon: LucideIcon; copy: string }> 
 ];
 
 const heroMetrics = [
-  { value: "24/7", label: "Answers calls when your office cannot" },
+  { value: "24/7", label: "Answers when your office can't" },
   { value: "5-10 min", label: "Typical forwarding setup" },
   { value: "Always human", label: "Callers can ask for a person anytime" }
 ];
@@ -160,6 +160,19 @@ export default function HomePage() {
                 </Button>
               </div>
 
+              <div className="space-y-2">
+                <Link
+                  href="#demo"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
+                >
+                  <span className="text-base leading-none">▶</span>
+                  Hear how the AI answers a service call
+                </Link>
+                <p className="text-sm text-muted-foreground">
+                  Built for HVAC, electrical, plumbing, repair shops, and other busy service offices.
+                </p>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-3">
                 {heroMetrics.map((item) => (
                   <div key={item.label} className="rounded-2xl border bg-white/90 px-4 py-4 shadow-sm">
@@ -172,7 +185,12 @@ export default function HomePage() {
           </MotionInView>
 
           <MotionInView delay={0.08}>
-            <LeadCaptureForm sourcePage="/" sourceSection="hero" ctaVariant="primary" />
+            <LeadCaptureForm
+              sourcePage="/"
+              sourceSection="hero"
+              ctaVariant="primary"
+              title="See how this works with your phone setup"
+            />
           </MotionInView>
         </div>
       </section>
