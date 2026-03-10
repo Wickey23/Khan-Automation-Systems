@@ -29,6 +29,15 @@ type SocketState = {
   callLogId?: string | null;
   providerCallId?: string | null;
   streamSid?: string | null;
+  startInFlight?: boolean;
+  pendingMedia?: Array<{
+    streamSid: string;
+    track: string;
+    payload: string;
+    sequenceNumber: number | null;
+    timestampMs: number | null;
+  }>;
+  pendingMediaOverflowLogged?: boolean;
 };
 
 function getStreamPath() {
@@ -63,7 +72,9 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const state: SocketState = {
       socketId: crypto.randomUUID(),
-      connectedAt: new Date()
+      connectedAt: new Date(),
+      startInFlight: false,
+      pendingMedia: []
     };
     socketState.set(ws, state);
 
@@ -186,6 +197,8 @@ async function handleStreamMessage(input: {
   }
 
   if (parsed.data.event === "start") {
+    state.startInFlight = true;
+    input.socketState.set(input.ws, state);
     const customParameters = normalizeCustomParameters(parsed.data.start.customParameters);
     const tokenPayload = verifyVoiceMediaStreamToken(customParameters.token || null);
     if (!tokenPayload) {
@@ -269,9 +282,28 @@ async function handleStreamMessage(input: {
     state.callLogId = callLog.id;
     state.providerCallId = callLog.providerCallId;
     state.streamSid = session.streamSid;
+    state.startInFlight = false;
     input.socketState.set(input.ws, state);
 
-    void startTranscriptionForMediaStream({ streamSessionId: session.id }).catch(() => null);
+    await startTranscriptionForMediaStream({ streamSessionId: session.id }).catch(() => null);
+
+    const pendingMedia = (state.pendingMedia || []).filter((entry) => entry.streamSid === session.streamSid);
+    state.pendingMedia = (state.pendingMedia || []).filter((entry) => entry.streamSid !== session.streamSid);
+    input.socketState.set(input.ws, state);
+    for (const mediaEntry of pendingMedia) {
+      await processMediaEvent({
+        prisma: input.prisma,
+        socketState: input.socketState,
+        ws: input.ws,
+        state,
+        streamSid: mediaEntry.streamSid,
+        track: mediaEntry.track,
+        payload: mediaEntry.payload,
+        sequenceNumber: mediaEntry.sequenceNumber,
+        timestampMs: mediaEntry.timestampMs,
+        suppressUnknownStreamLog: false
+      });
+    }
 
     logVoiceMediaStreamEvent({
       endpoint: `ws:${getStreamPath()}`,
@@ -288,54 +320,51 @@ async function handleStreamMessage(input: {
   }
 
   if (parsed.data.event === "media") {
-    try {
-      const session = await recordVoiceMediaStreamMediaEvent({
-        prisma: input.prisma,
-        streamSid: parsed.data.streamSid,
-        track: parsed.data.media.track,
-        eventAt: new Date(),
-        sequenceNumber: parseOptionalSequenceNumber(parsed.data.sequenceNumber)
-      });
-      const isFirstPacket = session.mediaEventCount === 1;
-      if (isFirstPacket) {
+    const sequenceNumber = parseOptionalSequenceNumber(parsed.data.sequenceNumber);
+    const timestampMs = parseOptionalSequenceNumber(parsed.data.media.timestamp);
+    const shouldBufferEarlyMedia =
+      state.startInFlight === true ||
+      (!!parsed.data.streamSid && !state.streamSid) ||
+      (!!parsed.data.streamSid && state.streamSid === parsed.data.streamSid && (state.pendingMedia?.length || 0) > 0);
+
+    if (shouldBufferEarlyMedia) {
+      const pendingMedia = state.pendingMedia || [];
+      if (pendingMedia.length < 200) {
+        pendingMedia.push({
+          streamSid: parsed.data.streamSid,
+          track: parsed.data.media.track,
+          payload: parsed.data.media.payload,
+          sequenceNumber,
+          timestampMs
+        });
+        state.pendingMedia = pendingMedia;
+        input.socketState.set(input.ws, state);
+      } else if (!state.pendingMediaOverflowLogged) {
+        state.pendingMediaOverflowLogged = true;
+        input.socketState.set(input.ws, state);
         logVoiceMediaStreamEvent({
           endpoint: `ws:${getStreamPath()}`,
-          eventType: "MEDIA_STREAM_MEDIA_FIRST_PACKET",
-          status: "OK",
-          orgId: session.orgId,
-          callLogId: session.callLogId,
-          providerCallId: session.callSid,
-          streamSid: session.streamSid,
-          streamStatus: session.streamStatus,
-          trackStrategy: session.trackStrategy,
-        track: parsed.data.media.track,
-        payloadSize: Buffer.byteLength(parsed.data.media.payload, "utf8")
-      });
+          eventType: "MEDIA_STREAM_SOCKET_ERROR",
+          status: "WARN",
+          reason: "pending_media_buffer_overflow",
+          streamSid: parsed.data.streamSid
+        });
       }
-      void forwardMediaFrameToTranscription({
-        streamSid: parsed.data.streamSid,
-        track: parsed.data.media.track.includes("outbound") ? "outbound_track" : "inbound_track",
-        payloadBase64: parsed.data.media.payload,
-        sequenceNumber: parseOptionalSequenceNumber(parsed.data.sequenceNumber),
-        timestampMs: parseOptionalSequenceNumber(parsed.data.media.timestamp)
-      }).catch(() => null);
-      const stateRef = input.socketState.get(input.ws);
-      if (stateRef) {
-        stateRef.orgId = session.orgId;
-        stateRef.callLogId = session.callLogId;
-        stateRef.providerCallId = session.callSid;
-        stateRef.streamSid = session.streamSid;
-        input.socketState.set(input.ws, stateRef);
-      }
-    } catch {
-      logVoiceMediaStreamEvent({
-        endpoint: `ws:${getStreamPath()}`,
-        eventType: "MEDIA_STREAM_SOCKET_ERROR",
-        status: "WARN",
-        reason: "media_before_start_or_unknown_stream",
-        streamSid: parsed.data.streamSid
-      });
+      return;
     }
+
+    await processMediaEvent({
+      prisma: input.prisma,
+      socketState: input.socketState,
+      ws: input.ws,
+      state,
+      streamSid: parsed.data.streamSid,
+      track: parsed.data.media.track,
+      payload: parsed.data.media.payload,
+      sequenceNumber,
+      timestampMs,
+      suppressUnknownStreamLog: false
+    });
     return;
   }
 
@@ -377,5 +406,66 @@ async function handleStreamMessage(input: {
       reason: parsed.data.stop.reason || "twilio_stop"
     }).catch(() => null);
     return;
+  }
+}
+
+async function processMediaEvent(input: {
+  prisma: PrismaClient;
+  socketState: WeakMap<WebSocket, SocketState>;
+  ws: WebSocket;
+  state: SocketState;
+  streamSid: string;
+  track: string;
+  payload: string;
+  sequenceNumber: number | null;
+  timestampMs: number | null;
+  suppressUnknownStreamLog: boolean;
+}) {
+  try {
+    const session = await recordVoiceMediaStreamMediaEvent({
+      prisma: input.prisma,
+      streamSid: input.streamSid,
+      track: input.track,
+      eventAt: new Date(),
+      sequenceNumber: input.sequenceNumber
+    });
+    const isFirstPacket = session.mediaEventCount === 1;
+    if (isFirstPacket) {
+      logVoiceMediaStreamEvent({
+        endpoint: `ws:${getStreamPath()}`,
+        eventType: "MEDIA_STREAM_MEDIA_FIRST_PACKET",
+        status: "OK",
+        orgId: session.orgId,
+        callLogId: session.callLogId,
+        providerCallId: session.callSid,
+        streamSid: session.streamSid,
+        streamStatus: session.streamStatus,
+        trackStrategy: session.trackStrategy,
+        track: input.track,
+        payloadSize: Buffer.byteLength(input.payload, "utf8")
+      });
+    }
+    void forwardMediaFrameToTranscription({
+      streamSid: input.streamSid,
+      track: input.track.includes("outbound") ? "outbound_track" : "inbound_track",
+      payloadBase64: input.payload,
+      sequenceNumber: input.sequenceNumber,
+      timestampMs: input.timestampMs
+    }).catch(() => null);
+    input.state.orgId = session.orgId;
+    input.state.callLogId = session.callLogId;
+    input.state.providerCallId = session.callSid;
+    input.state.streamSid = session.streamSid;
+    input.socketState.set(input.ws, input.state);
+  } catch {
+    if (!input.suppressUnknownStreamLog) {
+      logVoiceMediaStreamEvent({
+        endpoint: `ws:${getStreamPath()}`,
+        eventType: "MEDIA_STREAM_SOCKET_ERROR",
+        status: "WARN",
+        reason: "media_before_start_or_unknown_stream",
+        streamSid: input.streamSid
+      });
+    }
   }
 }
