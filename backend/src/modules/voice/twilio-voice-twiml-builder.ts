@@ -4,6 +4,7 @@ export function buildPassiveForwardDialTwiml(input: {
   forwardingNumber: string;
   statusCallbackUrl: string;
   timeoutSeconds: number;
+  actionUrl?: string | null;
   stream?: {
     url: string;
     name?: string;
@@ -35,7 +36,8 @@ export function buildPassiveForwardDialTwiml(input: {
   }
   const dial = response.dial({
     answerOnBridge: true,
-    timeout: input.timeoutSeconds
+    timeout: input.timeoutSeconds,
+    ...(input.actionUrl ? { action: input.actionUrl, method: "POST" } : {})
   });
   dial.number(
     {

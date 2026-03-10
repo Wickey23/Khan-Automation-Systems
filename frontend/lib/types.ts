@@ -524,7 +524,7 @@ export type BusinessSettings = {
   orgId: string;
   hoursJson: string;
   afterHoursMode: "TAKE_MESSAGE" | "TRANSFER" | "VOICEMAIL";
-  voiceRoutingMode?: "AI_FIRST" | "PASSIVE_FORWARDING";
+  voiceRoutingMode?: "AI_FIRST" | "PASSIVE_FORWARDING" | "HUMAN_FIRST_AI_FALLBACK";
   voiceForwardingEnabled?: boolean;
   voiceForwardingNumber?: string;
   voiceRingTimeoutSeconds?: number;

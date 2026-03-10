@@ -36,7 +36,7 @@ type HoursRow = { open: string; close: string; closed: boolean };
 type FormState = {
   timezone: string;
   afterHoursMode: "TAKE_MESSAGE" | "TRANSFER" | "VOICEMAIL";
-  voiceRoutingMode: "AI_FIRST" | "PASSIVE_FORWARDING";
+  voiceRoutingMode: "AI_FIRST" | "PASSIVE_FORWARDING" | "HUMAN_FIRST_AI_FALLBACK";
   voiceForwardingEnabled: boolean;
   voiceForwardingNumber: string;
   voiceRingTimeoutSeconds: number;
@@ -160,6 +160,23 @@ const defaults: FormState = {
   notifyEmergencyEmail: true,
   hours: defaultHours()
 };
+
+function supportsHumanForwardingMode(
+  mode: FormState["voiceRoutingMode"]
+) {
+  return mode === "PASSIVE_FORWARDING" || mode === "HUMAN_FIRST_AI_FALLBACK";
+}
+
+function formatVoiceRoutingMode(mode: FormState["voiceRoutingMode"]) {
+  switch (mode) {
+    case "HUMAN_FIRST_AI_FALLBACK":
+      return "Human first, AI fallback";
+    case "PASSIVE_FORWARDING":
+      return "Passive forwarding";
+    default:
+      return "AI first";
+  }
+}
 
 function fromJsonArray(value: string | null | undefined) {
   if (!value) return [];
@@ -548,10 +565,10 @@ export default function AppSettingsPage() {
       });
       return;
     }
-    if (state.voiceRoutingMode === "PASSIVE_FORWARDING" && (!state.voiceForwardingEnabled || !state.voiceForwardingNumber.trim())) {
+    if (supportsHumanForwardingMode(state.voiceRoutingMode) && (!state.voiceForwardingEnabled || !state.voiceForwardingNumber.trim())) {
       showToast({
         title: "Forwarding number required",
-        description: "Enable passive forwarding only when a live forwarding number is configured.",
+        description: "Human-first routing requires a live forwarding number.",
         variant: "error"
       });
       return;
@@ -686,10 +703,10 @@ export default function AppSettingsPage() {
             <div className="rounded-xl border bg-slate-50 p-4">
               <p className="page-eyebrow">Inbound mode</p>
               <p className="mt-2 text-sm font-medium text-slate-950">
-                {state.voiceRoutingMode === "PASSIVE_FORWARDING" ? "Passive forwarding" : "AI first"}
+                {formatVoiceRoutingMode(state.voiceRoutingMode)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {state.voiceRoutingMode === "PASSIVE_FORWARDING"
+                {supportsHumanForwardingMode(state.voiceRoutingMode)
                   ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
                     ? "Forwarding path ready"
                     : "Needs forwarding number"
@@ -779,9 +796,9 @@ export default function AppSettingsPage() {
             </p>
           </div>
           <div className="rounded-xl border bg-slate-50 p-4">
-            <p className="page-eyebrow">Passive forwarding</p>
+            <p className="page-eyebrow">Human-first routing</p>
             <p className="mt-2 text-sm font-medium text-slate-950">
-              {state.voiceRoutingMode === "PASSIVE_FORWARDING" ? "Enabled" : "Off"}
+              {supportsHumanForwardingMode(state.voiceRoutingMode) ? "Enabled" : "Off"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
@@ -830,6 +847,7 @@ export default function AppSettingsPage() {
           >
             <option value="AI_FIRST">AI first</option>
             <option value="PASSIVE_FORWARDING">Passive forwarding</option>
+            <option value="HUMAN_FIRST_AI_FALLBACK">Human first, AI fallback</option>
           </select>
         </div>
         <div>
@@ -848,7 +866,7 @@ export default function AppSettingsPage() {
           />
         </div>
         <div className="sm:col-span-2">
-          <Label>Passive forwarding destination</Label>
+          <Label>Human-first forwarding destination</Label>
           <div className="flex gap-3">
             <select
               className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
@@ -880,7 +898,7 @@ export default function AppSettingsPage() {
             />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Used only when inbound mode is set to passive forwarding. This forwards the live call to your real office
+            Used only when inbound mode is set to a human-first mode. This forwards the live call to your real office
             line and saves the full number in international format.
           </p>
         </div>
@@ -892,9 +910,9 @@ export default function AppSettingsPage() {
             onChange={(e) => setState((p) => ({ ...p, voiceForwardingEnabled: e.target.checked }))}
           />
           <span>
-            <span className="font-medium text-slate-950">Enable passive forwarding</span>
+            <span className="font-medium text-slate-950">Enable human-first forwarding</span>
             <span className="mt-1 block text-muted-foreground">
-              Twilio will answer first and immediately bridge the call to your forwarding number without an AI greeting.
+              Twilio will answer first and bridge the call to your forwarding number before any fallback logic runs.
             </span>
           </span>
         </label>
@@ -904,7 +922,7 @@ export default function AppSettingsPage() {
             className="mt-1"
             checked={state.voiceMediaStreamingEnabled}
             onChange={(e) => setState((p) => ({ ...p, voiceMediaStreamingEnabled: e.target.checked }))}
-            disabled={state.voiceRoutingMode !== "PASSIVE_FORWARDING" || !state.voiceForwardingEnabled}
+            disabled={!supportsHumanForwardingMode(state.voiceRoutingMode) || !state.voiceForwardingEnabled}
           />
           <span>
             <span className="font-medium text-slate-950">Enable real-time media streaming</span>
@@ -919,7 +937,7 @@ export default function AppSettingsPage() {
             className="mt-1"
             checked={state.voiceTranscriptionEnabled}
             onChange={(e) => setState((p) => ({ ...p, voiceTranscriptionEnabled: e.target.checked }))}
-            disabled={state.voiceRoutingMode !== "PASSIVE_FORWARDING" || !state.voiceForwardingEnabled || !state.voiceMediaStreamingEnabled}
+            disabled={!supportsHumanForwardingMode(state.voiceRoutingMode) || !state.voiceForwardingEnabled || !state.voiceMediaStreamingEnabled}
           />
           <span>
             <span className="font-medium text-slate-950">Enable real-time transcription</span>

@@ -521,6 +521,10 @@ model CallLog {
   source         String         @default("twilio")
   hasMediaStream Boolean        @default(false)
   latestStreamStatus String?
+  voiceRoutingMode String?
+  aiFallbackInvoked Boolean     @default(false)
+  aiFallbackInvokedAt DateTime?
+  humanAttemptDialStatus String?
   transcriptStatus String?
   transcriptGeneratedAt DateTime?
   aiSummaryGeneratedAt DateTime?

@@ -448,10 +448,11 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
       })
     )?.voiceRoutingMode ||
     "AI_FIRST";
-  const nextMediaStreamingEnabled =
-    nextVoiceRoutingMode === "PASSIVE_FORWARDING" ? parsed.data.voiceMediaStreamingEnabled : false;
+  const supportsHumanForwardingMode =
+    nextVoiceRoutingMode === "PASSIVE_FORWARDING" || nextVoiceRoutingMode === "HUMAN_FIRST_AI_FALLBACK";
+  const nextMediaStreamingEnabled = supportsHumanForwardingMode ? parsed.data.voiceMediaStreamingEnabled : false;
   const nextTranscriptionEnabled =
-    nextVoiceRoutingMode === "PASSIVE_FORWARDING" && nextMediaStreamingEnabled === true
+    supportsHumanForwardingMode && nextMediaStreamingEnabled === true
       ? parsed.data.voiceTranscriptionEnabled
       : false;
   const settingsPayload = {

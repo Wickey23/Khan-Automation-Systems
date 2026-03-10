@@ -17,6 +17,7 @@ export async function createInboundTwilioCall(input: {
   callStatus?: string | null;
   direction?: string | null;
   forwardedToNumber?: string | null;
+  voiceRoutingMode?: string | null;
   source?: string;
   rawPayload?: Record<string, unknown>;
 }) {
@@ -35,6 +36,7 @@ export async function createInboundTwilioCall(input: {
       fromNumber: from.normalized || from.raw || "unknown",
       toNumber: to.normalized || to.raw || "unknown",
       forwardedToNumber: input.forwardedToNumber || undefined,
+      voiceRoutingMode: input.voiceRoutingMode || undefined,
       direction: input.direction || "inbound",
       initialWebhookAt: new Date(),
       callStatus: input.callStatus || undefined,
@@ -48,6 +50,7 @@ export async function createInboundTwilioCall(input: {
       fromNumber: from.normalized || from.raw || "unknown",
       toNumber: to.normalized || to.raw || "unknown",
       forwardedToNumber: input.forwardedToNumber || null,
+      voiceRoutingMode: input.voiceRoutingMode || null,
       direction: input.direction || "inbound",
       initialWebhookAt: new Date(),
       startedAt: new Date(),
@@ -98,6 +101,9 @@ export async function updateTwilioCallStatus(input: {
     finalStatus === "completed" ||
     callStatus === "in-progress";
 
+  const shouldPreserveOverallOutcome =
+    match.voiceRoutingMode === "HUMAN_FIRST_AI_FALLBACK" && ["busy", "no-answer", "failed"].includes(finalStatus) && !match.aiFallbackInvoked;
+
   return input.prisma.callLog.update({
     where: { id: match.id },
     data: {
@@ -120,7 +126,8 @@ export async function updateTwilioCallStatus(input: {
       unansweredTransfer:
         ["busy", "no-answer", "failed"].includes(finalStatus) ? Boolean(match.transferredAt || match.forwardedToNumber) : match.unansweredTransfer,
       outcome:
-        missedReason === "BUSY" || missedReason === "NO_ANSWER" || missedReason === "FAILED"
+        !shouldPreserveOverallOutcome &&
+        (missedReason === "BUSY" || missedReason === "NO_ANSWER" || missedReason === "FAILED")
           ? "ABANDONED"
           : match.outcome
     }

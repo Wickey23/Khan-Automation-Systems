@@ -32,7 +32,7 @@ import {
   buildSystemErrorFallbackTwiml,
   buildUnresolvedNumberFallbackTwiml
 } from "./twilio-voice-twiml-builder";
-import { isVoiceRoutingMode } from "./voice-routing-mode";
+import { isVoiceRoutingMode, type VoiceRoutingMode } from "./voice-routing-mode";
 
 export const voiceRouter = Router();
 
@@ -67,6 +67,10 @@ function getVoiceStatusCallbackUrl() {
   return String(env.TWILIO_STATUS_CALLBACK_URL || `${getVoiceBaseUrl()}/api/twilio/voice/status`).trim();
 }
 
+function getHumanFirstFallbackActionUrl() {
+  return `${getVoiceBaseUrl()}/api/twilio/voice/human-first-fallback`;
+}
+
 function getVoiceStreamStatusCallbackUrl() {
   return String(
     env.TWILIO_MEDIA_STREAM_STATUS_CALLBACK_URL || `${getVoiceBaseUrl()}/api/twilio/voice/stream-status`
@@ -98,10 +102,47 @@ async function logUnresolvedInboundVoiceEvent(payload: Record<string, unknown>) 
   });
 }
 
+function buildSafeTerminalVoiceTwiml(message = "We're unable to connect your call right now. Please try again shortly.") {
+  const response = new Twiml.VoiceResponse();
+  response.say(message);
+  response.hangup();
+  return response;
+}
+
+function logHumanFirstAiFallbackEvent(input: {
+  eventType: "HUMAN_FIRST_AI_FALLBACK_SELECTED" | "HUMAN_FIRST_AI_FALLBACK_TRIGGERED" | "HUMAN_FIRST_AI_FALLBACK_SKIPPED" | "HUMAN_FIRST_AI_FALLBACK_COMPLETED";
+  orgId?: string | null;
+  callLogId?: string | null;
+  providerCallId?: string | null;
+  humanAttemptDialStatus?: string | null;
+  aiFallbackInvoked?: boolean | null;
+  voiceRoutingMode?: string | null;
+  status: "OK" | "WARN" | "ERROR";
+  message?: string | null;
+}) {
+  // eslint-disable-next-line no-console
+  console.info(
+    JSON.stringify({
+      orgId: input.orgId || "-",
+      provider: "TWILIO",
+      endpoint: "voice/human-first-fallback",
+      eventType: input.eventType,
+      providerCallId: input.providerCallId || "-",
+      callLogId: input.callLogId || null,
+      humanAttemptDialStatus: input.humanAttemptDialStatus || null,
+      aiFallbackInvoked: input.aiFallbackInvoked ?? null,
+      voiceRoutingMode: input.voiceRoutingMode || null,
+      message: input.message || null,
+      status: input.status
+    })
+  );
+}
+
 function maybeBuildPassiveMediaStreamConfig(input: {
   orgId: string;
   callLogId: string;
   providerCallId: string;
+  routingMode: VoiceRoutingMode;
   voiceMediaStreamingEnabled: boolean;
   voiceMediaTrackStrategy?: string | null;
 }): {
@@ -144,11 +185,134 @@ function maybeBuildPassiveMediaStreamConfig(input: {
           providerCallId: input.providerCallId
         })
       },
-      { name: "routingMode", value: "PASSIVE_FORWARDING" },
+      { name: "routingMode", value: input.routingMode },
       { name: "version", value: "1" },
       { name: "streamName", value: `call-${input.providerCallId}` }
     ]
   };
+}
+
+async function tryHandleAiFirstVoiceCore(input: {
+  response: InstanceType<typeof Twiml.VoiceResponse>;
+  orgPhone: {
+    orgId: string;
+    organization: NonNullable<Awaited<ReturnType<typeof resolveBusinessVoiceRouting>>>["organization"];
+  };
+  ai: {
+    provider?: string | null;
+    vapiPhoneNumberId?: string | null;
+  } | null;
+  fromNumber: string;
+  toNumber: string;
+  callSid: string;
+  callLogId: string | null;
+  routingEnabled: boolean;
+}) {
+  const { response, orgPhone, ai, fromNumber, toNumber, callSid, callLogId, routingEnabled } = input;
+  const org = orgPhone.organization;
+  const canUseVapiNow =
+    ai?.provider === "VAPI" &&
+    Boolean(ai?.vapiPhoneNumberId) &&
+    (org.status === "LIVE" || org.status === "TESTING" || org.live);
+
+  if (!canUseVapiNow) return false;
+
+  const guidedDemoEnabled = isGuidedDemoEnabled();
+  const paidActive = isPaidSubscriptionActive(org.subscriptionStatus);
+  if (guidedDemoEnabled && !paidActive) {
+    if (!callSid) {
+      await writeDemoAudit(orgPhone.orgId, "DEMO_PROVIDER_CALL_ID_MISSING", {
+        reason: "provider_call_id_missing",
+        fromNumber,
+        toNumber
+      });
+      response.say(`Thanks for calling ${org.name}. We could not process this demo call. Please try again shortly.`);
+      response.hangup();
+      return true;
+    }
+
+    const beforeReserve = await getDemoState({
+      prisma,
+      orgId: orgPhone.orgId,
+      subscriptionStatus: org.subscriptionStatus,
+      allowStart: false
+    });
+
+    const reserve = await reserveDemoAttemptOrReject({
+      prisma,
+      orgId: orgPhone.orgId,
+      providerCallId: callSid,
+      callerPhone: fromNumber
+    });
+    if (!reserve.allowed) {
+      const lead = await upsertDemoOverCapLead({
+        prismaClient: prisma,
+        orgId: orgPhone.orgId,
+        callerPhone: fromNumber,
+        businessName: org.name
+      });
+      if (lead && callLogId) {
+        await prisma.callLog.update({
+          where: { id: callLogId },
+          data: { leadId: lead.id }
+        });
+      }
+
+      await writeDemoAudit(orgPhone.orgId, "DEMO_CALL_CAP_REACHED", {
+        reason: reserve.reason,
+        fromNumber,
+        toNumber,
+        demoState: reserve.demo.state,
+        callsUsed: reserve.demo.callsUsed,
+        callCap: reserve.demo.callCap
+      });
+
+      await sendThrottledUpgradeSms({
+        prismaClient: prisma,
+        orgId: orgPhone.orgId,
+        callerPhone: fromNumber,
+        businessName: org.name
+      });
+
+      const summary =
+        reserve.reason === "EXPIRED"
+          ? `Your guided demo has ended for ${org.name}. Upgrade in Billing to continue AI call handling.`
+          : `You've reached the guided demo call limit for ${org.name}. Upgrade in Billing to continue AI call handling.`;
+      response.say(summary);
+      response.hangup();
+      return true;
+    }
+
+    if (beforeReserve.state === "ACTIVE" && beforeReserve.windowEndsAt === null) {
+      await writeDemoAudit(orgPhone.orgId, "DEMO_WINDOW_STARTED", {
+        providerCallId: callSid,
+        fromNumber,
+        toNumber,
+        windowEndsAt: reserve.demo.windowEndsAt
+      });
+    }
+  }
+
+  if (!ai?.vapiPhoneNumberId) return false;
+
+  if (routingEnabled && callLogId) {
+    await transitionCallState({
+      prisma,
+      callLogId,
+      toState: "CONNECTED",
+      metadata: { source: "twilio-bridge-vapi" }
+    });
+    await transitionCallState({
+      prisma,
+      callLogId,
+      toState: "AI_ACTIVE",
+      metadata: { source: "twilio-bridge-vapi" }
+    });
+  }
+
+  const dial = response.dial({ answerOnBridge: true });
+  dial.number(ai.vapiPhoneNumberId);
+  return true;
 }
 
 async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, orgId?: string) {
@@ -300,7 +464,8 @@ async function handleAiFirstInboundVoice(req: Request, res: Response) {
         update: {
           fromNumber,
           toNumber,
-          aiProvider: orgPhone.organization.live ? AiProvider.VAPI : undefined
+          aiProvider: orgPhone.organization.live ? AiProvider.VAPI : undefined,
+          voiceRoutingMode: "AI_FIRST"
         },
         create: {
           orgId: orgPhone.orgId,
@@ -308,6 +473,7 @@ async function handleAiFirstInboundVoice(req: Request, res: Response) {
           fromNumber,
           toNumber,
           aiProvider: orgPhone.organization.live ? AiProvider.VAPI : undefined,
+          voiceRoutingMode: "AI_FIRST",
           outcome: "MESSAGE_TAKEN"
         }
       });
@@ -320,6 +486,7 @@ async function handleAiFirstInboundVoice(req: Request, res: Response) {
           fromNumber,
           toNumber,
           aiProvider: orgPhone.organization.live ? AiProvider.VAPI : undefined,
+          voiceRoutingMode: "AI_FIRST",
           outcome: "MESSAGE_TAKEN"
         }
       });
@@ -372,108 +539,26 @@ async function handleAiFirstInboundVoice(req: Request, res: Response) {
       }
     }
 
-    const canUseVapiNow =
-      ai?.provider === "VAPI" &&
-      Boolean(ai?.vapiPhoneNumberId) &&
-      (org.status === "LIVE" || org.status === "TESTING" || org.live);
-    if (canUseVapiNow && (forcedRoute === null || forcedRoute === "ROUTE_TO_VAPI")) {
-      const guidedDemoEnabled = isGuidedDemoEnabled();
-      const paidActive = isPaidSubscriptionActive(org.subscriptionStatus);
-      if (guidedDemoEnabled && !paidActive) {
-        if (!callSid) {
-          await writeDemoAudit(orgPhone.orgId, "DEMO_PROVIDER_CALL_ID_MISSING", {
-            reason: "provider_call_id_missing",
-            fromNumber,
-            toNumber
-          });
-          response.say(`Thanks for calling ${org.name}. We could not process this demo call. Please try again shortly.`);
-          response.hangup();
-          return res.type("text/xml").send(response.toString());
-        }
-
-        const beforeReserve = await getDemoState({
-          prisma,
+    if (forcedRoute === null || forcedRoute === "ROUTE_TO_VAPI") {
+      const aiHandled = await tryHandleAiFirstVoiceCore({
+        response,
+        orgPhone: {
           orgId: orgPhone.orgId,
-          subscriptionStatus: org.subscriptionStatus,
-          allowStart: false
-        });
-
-        const reserve = await reserveDemoAttemptOrReject({
-          prisma,
-          orgId: orgPhone.orgId,
-          providerCallId: callSid,
-          callerPhone: fromNumber
-        });
-        if (!reserve.allowed) {
-          const lead = await upsertDemoOverCapLead({
-            prismaClient: prisma,
-            orgId: orgPhone.orgId,
-            callerPhone: fromNumber,
-            businessName: org.name
-          });
-          if (lead && callLogId) {
-            await prisma.callLog.update({
-              where: { id: callLogId },
-              data: { leadId: lead.id }
-            });
-          }
-
-          await writeDemoAudit(orgPhone.orgId, "DEMO_CALL_CAP_REACHED", {
-            reason: reserve.reason,
-            fromNumber,
-            toNumber,
-            demoState: reserve.demo.state,
-            callsUsed: reserve.demo.callsUsed,
-            callCap: reserve.demo.callCap
-          });
-
-          await sendThrottledUpgradeSms({
-            prismaClient: prisma,
-            orgId: orgPhone.orgId,
-            callerPhone: fromNumber,
-            businessName: org.name
-          });
-
-          const summary =
-            reserve.reason === "EXPIRED"
-              ? `Your guided demo has ended for ${org.name}. Upgrade in Billing to continue AI call handling.`
-              : `You've reached the guided demo call limit for ${org.name}. Upgrade in Billing to continue AI call handling.`;
-          response.say(summary);
-          response.hangup();
-          return res.type("text/xml").send(response.toString());
-        }
-
-        if (beforeReserve.state === "ACTIVE" && beforeReserve.windowEndsAt === null) {
-          await writeDemoAudit(orgPhone.orgId, "DEMO_WINDOW_STARTED", {
-            providerCallId: callSid,
-            fromNumber,
-            toNumber,
-            windowEndsAt: reserve.demo.windowEndsAt
-          });
-        }
-      }
-
-      if (ai.vapiPhoneNumberId) {
-        if (routingEnabled && callLogId) {
-          await transitionCallState({
-            prisma,
-            callLogId,
-            toState: "CONNECTED",
-            metadata: { source: "twilio-bridge-vapi" }
-          });
-          await transitionCallState({
-            prisma,
-            callLogId,
-            toState: "AI_ACTIVE",
-            metadata: { source: "twilio-bridge-vapi" }
-          });
-        }
-        const dial = response.dial({ answerOnBridge: true });
-        dial.number(ai.vapiPhoneNumberId);
+          organization: orgPhone.organization
+        },
+        ai,
+        fromNumber,
+        toNumber,
+        callSid,
+        callLogId,
+        routingEnabled
+      });
+      if (aiHandled) {
         return res.type("text/xml").send(response.toString());
       }
-
-      response.say("AI assistant is configured but no Vapi phone bridge is set. Taking a message instead.");
+      if (ai?.provider === "VAPI") {
+        response.say("AI assistant is configured but no Vapi phone bridge is set. Taking a message instead.");
+      }
     }
 
     const mode = org.businessSettings?.afterHoursMode || "TAKE_MESSAGE";
@@ -589,6 +674,7 @@ voiceRouter.post("/incoming", verifyTwilioRequest, async (req, res) => {
       callStatus: parsedPayload.data.CallStatus || "initiated",
       direction: parsedPayload.data.Direction || "inbound",
       forwardedToNumber: resolved.forwardingNumber || null,
+      voiceRoutingMode: mode,
       source: "twilio",
       rawPayload: req.body as Record<string, unknown>
     });
@@ -615,10 +701,12 @@ voiceRouter.post("/incoming", verifyTwilioRequest, async (req, res) => {
       forwardingNumber: normalizePhoneForLookup(resolved.forwardingNumber).normalized || resolved.forwardingNumber,
       statusCallbackUrl: getVoiceStatusCallbackUrl(),
       timeoutSeconds: resolved.ringTimeoutSeconds,
+      actionUrl: mode === "HUMAN_FIRST_AI_FALLBACK" ? getHumanFirstFallbackActionUrl() : null,
       stream: maybeBuildPassiveMediaStreamConfig({
         orgId: resolved.orgId,
         callLogId: callLog.id,
         providerCallId: callSid,
+        routingMode: mode,
         voiceMediaStreamingEnabled: Boolean(resolved.businessSettings?.voiceMediaStreamingEnabled),
         voiceMediaTrackStrategy: resolved.businessSettings?.voiceMediaTrackStrategy || "BOTH_TRACKS"
       })
@@ -634,6 +722,174 @@ voiceRouter.post("/incoming", verifyTwilioRequest, async (req, res) => {
   }
 });
 
+voiceRouter.post("/human-first-fallback", verifyTwilioRequest, async (req, res) => {
+  const parsed = twilioVoiceStatusSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+  }
+
+  const callSid = String(parsed.data.CallSid || "").trim();
+  const dialCallStatus = String((req.body as Record<string, unknown>).DialCallStatus || "").toLowerCase();
+
+  try {
+    const callLog = await prisma.callLog.findFirst({
+      where: { providerCallId: callSid },
+      include: {
+        organization: {
+          include: {
+            aiAgentConfigs: { orderBy: { updatedAt: "desc" }, take: 1 },
+            businessSettings: true
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (!callLog) {
+      logHumanFirstAiFallbackEvent({
+        eventType: "HUMAN_FIRST_AI_FALLBACK_SKIPPED",
+        providerCallId: callSid,
+        humanAttemptDialStatus: dialCallStatus || null,
+        voiceRoutingMode: "HUMAN_FIRST_AI_FALLBACK",
+        status: "ERROR",
+        message: "canonical_call_not_found"
+      });
+      return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+    }
+
+    if (callLog.aiFallbackInvoked) {
+      logHumanFirstAiFallbackEvent({
+        eventType: "HUMAN_FIRST_AI_FALLBACK_SKIPPED",
+        orgId: callLog.orgId,
+        callLogId: callLog.id,
+        providerCallId: callSid,
+        humanAttemptDialStatus: dialCallStatus || null,
+        aiFallbackInvoked: true,
+        voiceRoutingMode: callLog.voiceRoutingMode,
+        status: "WARN",
+        message: "fallback_already_invoked"
+      });
+      return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+    }
+
+    await prisma.callLog.update({
+      where: { id: callLog.id },
+      data: {
+        humanAttemptDialStatus: dialCallStatus || callLog.humanAttemptDialStatus
+      }
+    });
+
+    if (dialCallStatus === "completed" || dialCallStatus === "answered") {
+      logHumanFirstAiFallbackEvent({
+        eventType: "HUMAN_FIRST_AI_FALLBACK_COMPLETED",
+        orgId: callLog.orgId,
+        callLogId: callLog.id,
+        providerCallId: callSid,
+        humanAttemptDialStatus: dialCallStatus,
+        aiFallbackInvoked: false,
+        voiceRoutingMode: callLog.voiceRoutingMode,
+        status: "OK"
+      });
+      return res.type("text/xml").send(new Twiml.VoiceResponse().toString());
+    }
+
+    if (!["no-answer", "busy", "failed"].includes(dialCallStatus)) {
+      logHumanFirstAiFallbackEvent({
+        eventType: "HUMAN_FIRST_AI_FALLBACK_SKIPPED",
+        orgId: callLog.orgId,
+        callLogId: callLog.id,
+        providerCallId: callSid,
+        humanAttemptDialStatus: dialCallStatus || null,
+        aiFallbackInvoked: false,
+        voiceRoutingMode: callLog.voiceRoutingMode,
+        status: "WARN",
+        message: "dial_status_not_eligible"
+      });
+      return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+    }
+
+    const resolved = await resolveBusinessVoiceRouting({
+      prisma,
+      calledNumber: callLog.toNumber,
+      defaultRingTimeoutSeconds: Number(env.DEFAULT_VOICE_RING_TIMEOUT_SECONDS || "20")
+    });
+
+    if (!resolved || resolved.orgId !== callLog.orgId) {
+      logHumanFirstAiFallbackEvent({
+        eventType: "HUMAN_FIRST_AI_FALLBACK_SKIPPED",
+        orgId: callLog.orgId,
+        callLogId: callLog.id,
+        providerCallId: callSid,
+        humanAttemptDialStatus: dialCallStatus,
+        aiFallbackInvoked: false,
+        voiceRoutingMode: callLog.voiceRoutingMode,
+        status: "ERROR",
+        message: "canonical_call_unbound"
+      });
+      return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+    }
+
+    await prisma.callLog.update({
+      where: { id: callLog.id },
+      data: {
+        aiFallbackInvoked: true,
+        aiFallbackInvokedAt: new Date(),
+        humanAttemptDialStatus: dialCallStatus
+      }
+    });
+
+    logHumanFirstAiFallbackEvent({
+      eventType: "HUMAN_FIRST_AI_FALLBACK_TRIGGERED",
+      orgId: callLog.orgId,
+      callLogId: callLog.id,
+      providerCallId: callSid,
+      humanAttemptDialStatus: dialCallStatus,
+      aiFallbackInvoked: true,
+      voiceRoutingMode: callLog.voiceRoutingMode,
+      status: "OK"
+    });
+
+    const response = new Twiml.VoiceResponse();
+    const aiHandled = await tryHandleAiFirstVoiceCore({
+      response,
+      orgPhone: resolved,
+      ai: resolved.organization.aiAgentConfigs?.[0] || null,
+      fromNumber: callLog.fromNumber,
+      toNumber: callLog.toNumber,
+      callSid,
+      callLogId: callLog.id,
+      routingEnabled: env.ROUTING_ENGINE_ENABLED === "true"
+    });
+
+    if (!aiHandled) {
+      logHumanFirstAiFallbackEvent({
+        eventType: "HUMAN_FIRST_AI_FALLBACK_SKIPPED",
+        orgId: callLog.orgId,
+        callLogId: callLog.id,
+        providerCallId: callSid,
+        humanAttemptDialStatus: dialCallStatus,
+        aiFallbackInvoked: true,
+        voiceRoutingMode: callLog.voiceRoutingMode,
+        status: "ERROR",
+        message: "ai_flow_unavailable"
+      });
+      return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+    }
+
+    return res.type("text/xml").send(response.toString());
+  } catch (error) {
+    logHumanFirstAiFallbackEvent({
+      eventType: "HUMAN_FIRST_AI_FALLBACK_SKIPPED",
+      providerCallId: callSid,
+      humanAttemptDialStatus: dialCallStatus || null,
+      voiceRoutingMode: "HUMAN_FIRST_AI_FALLBACK",
+      status: "ERROR",
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
+    return res.type("text/xml").send(buildSafeTerminalVoiceTwiml().toString());
+  }
+});
+
 voiceRouter.post("/status", verifyTwilioRequest, async (req, res) => {
   const parsed = twilioVoiceStatusSchema.safeParse(req.body || {});
   if (!parsed.success) return res.json({ ok: true, ignored: true });
@@ -645,6 +901,13 @@ voiceRouter.post("/status", verifyTwilioRequest, async (req, res) => {
       payload: req.body as Record<string, unknown>
     });
     const finalStatus = String(parsed.data.DialCallStatus || parsed.data.CallStatus || "").toLowerCase();
+    if (
+      updated &&
+      updated.voiceRoutingMode === "HUMAN_FIRST_AI_FALLBACK" &&
+      ["busy", "no-answer", "failed"].includes(finalStatus)
+    ) {
+      return res.json({ ok: true, updated: true, deferred: true });
+    }
     if (updated && ["completed", "busy", "no-answer", "failed", "canceled"].includes(finalStatus)) {
       await reconcileOpenVoiceMediaStreamsForCall({
         prisma,

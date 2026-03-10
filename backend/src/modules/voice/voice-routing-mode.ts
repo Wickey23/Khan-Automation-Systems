@@ -1,4 +1,4 @@
-export const voiceRoutingModes = ["AI_FIRST", "PASSIVE_FORWARDING"] as const;
+export const voiceRoutingModes = ["AI_FIRST", "PASSIVE_FORWARDING", "HUMAN_FIRST_AI_FALLBACK"] as const;
 
 export type VoiceRoutingMode = (typeof voiceRoutingModes)[number];
 
