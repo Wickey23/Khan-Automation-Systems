@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, BadgeCheck, BarChart3, CalendarClock, LayoutDashboard, MessageSquareText, PhoneCall, Plug, ShieldCheck } from "lucide-react";
+import { BadgeCheck, BarChart3, CalendarClock, LayoutDashboard, MessageSquareText, PhoneCall, Plug, ShieldCheck } from "lucide-react";
 import { MotionInView } from "@/components/site/motion-in-view";
 import { LeadCaptureForm } from "@/components/site/lead-capture-form";
 import { PricingCards } from "@/components/site/pricing-cards";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/page";
 import { siteConfig } from "@/lib/config";
-import { caseStudies } from "@/lib/case-studies";
 
 const setupSteps: Array<{ step: string; title: string; icon: LucideIcon; copy: string }> = [
   {
@@ -411,36 +410,6 @@ export default function HomePage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </section>
-
-      <section id="case-studies" className="surface-muted scroll-mt-24">
-        <div className="page-shell section-shell">
-          <SectionHeading
-            eyebrow="Proof"
-            title="Case studies"
-            description="Examples of how cleaner intake and follow-up can improve service-operations throughput."
-            actions={
-              <Button asChild variant="outline">
-                <Link href="/case-studies">View all case studies</Link>
-              </Button>
-            }
-          />
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            {caseStudies.slice(0, 2).map((item) => (
-              <Card key={item.slug}>
-                <CardContent className="space-y-3 p-6">
-                  <p className="page-eyebrow text-primary">{item.industry}</p>
-                  <p className="text-lg font-semibold">{item.title}</p>
-                  <p className="text-sm leading-6 text-muted-foreground">{item.summary}</p>
-                  <Link href="/case-studies" className="inline-flex items-center gap-1 text-sm font-medium text-primary">
-                    View all case studies
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         </div>
       </section>
 
