@@ -297,6 +297,7 @@ model Organization {
   phoneNumbers         PhoneNumber[]
   aiAgentConfigs       AiAgentConfig[]
   callLogs             CallLog[]
+  callMediaStreamSessions CallMediaStreamSession[]
   leads                Lead[]
   prospects            Prospect[]
   provisioningChecklist ProvisioningChecklist?
@@ -515,6 +516,8 @@ model CallLog {
   rawJson        Json?
   rawStatusPayload Json?
   source         String         @default("twilio")
+  hasMediaStream Boolean        @default(false)
+  latestStreamStatus String?
   state          CallState?
   ringingAt      DateTime?
   connectedAt    DateTime?
@@ -532,12 +535,49 @@ model CallLog {
   appointments   Appointment[]
   appointmentRequest AppointmentRequest?
   classificationLogs CallClassificationLog[]
+  mediaStreamSessions CallMediaStreamSession[]
 
   @@unique([orgId, providerCallId])
   @@index([orgId])
   @@index([providerCallId])
   @@index([fromNumber])
   @@index([createdAt])
+}
+
+model CallMediaStreamSession {
+  id                   String       @id @default(cuid())
+  callLogId            String
+  callLog              CallLog      @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider             String       @default("twilio")
+  streamSid            String?      @unique
+  callSid              String
+  parentCallSid        String?
+  streamName           String?
+  trackStrategy        String
+  streamStatus         String
+  websocketConnectedAt DateTime?
+  mediaStartedAt       DateTime?
+  mediaEndedAt         DateTime?
+  lastMediaAt          DateTime?
+  stopReason           String?
+  streamMetadata       Json?
+  customParametersJson Json?
+  startPayloadJson     Json?
+  stopPayloadJson      Json?
+  lastSequenceNumber   Int?
+  mediaEventCount      Int          @default(0)
+  inboundChunkCount    Int          @default(0)
+  outboundChunkCount   Int          @default(0)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@index([callLogId])
+  @@index([orgId, createdAt])
+  @@index([streamSid])
+  @@index([callSid])
+  @@index([streamStatus, createdAt])
 }
 
 model CallerProfile {
@@ -757,6 +797,8 @@ model BusinessSettings {
   voiceRingTimeoutSeconds Int      @default(20)
   afterHoursVoiceFallbackEnabled Boolean @default(false)
   voiceCallRecordingEnabled Boolean @default(false)
+  voiceMediaStreamingEnabled Boolean @default(false)
+  voiceMediaTrackStrategy   String   @default("BOTH_TRACKS")
   transferNumbersJson     String   @default("[]")
   notificationEmailsJson  String   @default("[]")
   notificationPhonesJson  String   @default("[]")

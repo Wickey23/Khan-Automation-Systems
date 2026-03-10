@@ -15,6 +15,16 @@ import { resolveBusinessVoiceRouting } from "./business-voice-routing.service";
 import { createInboundTwilioCall, markCallMissedReason, updateTwilioCallStatus } from "./call-log.service";
 import { normalizePhoneForLookup } from "./phone-number-normalizer";
 import { parseTwilioDuration, twilioInboundVoiceSchema, twilioVoiceStatusSchema } from "./twilio-voice-parser";
+import { twilioMediaStatusCallbackSchema } from "./media-stream/voice-media-stream-parser";
+import { mapTrackStrategyToTwilioTrack } from "./media-stream/voice-media-stream-constants";
+import { logVoiceMediaStreamEvent } from "./media-stream/voice-media-stream-logger";
+import {
+  createVoiceMediaStreamToken
+} from "./media-stream/voice-media-stream-security";
+import {
+  reconcileOpenVoiceMediaStreamsForCall,
+  updateVoiceMediaStreamStatusFromCallback
+} from "./media-stream/voice-media-stream-session.service";
 import {
   buildMissingForwardingFallbackTwiml,
   buildPassiveForwardDialTwiml,
@@ -56,6 +66,20 @@ function getVoiceStatusCallbackUrl() {
   return String(env.TWILIO_STATUS_CALLBACK_URL || `${getVoiceBaseUrl()}/api/twilio/voice/status`).trim();
 }
 
+function getVoiceStreamStatusCallbackUrl() {
+  return String(
+    env.TWILIO_MEDIA_STREAM_STATUS_CALLBACK_URL || `${getVoiceBaseUrl()}/api/twilio/voice/stream-status`
+  ).trim();
+}
+
+function getVoiceMediaStreamUrl() {
+  const base = String(env.TWILIO_MEDIA_STREAM_BASE_URL || "").trim().replace(/\/$/, "");
+  const path = String(env.TWILIO_MEDIA_STREAM_PATH || "/ws/twilio/voice-media").trim();
+  if (!base) return null;
+  if (!base.startsWith("wss://")) return null;
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 async function logUnresolvedInboundVoiceEvent(payload: Record<string, unknown>) {
   await prisma.auditLog.create({
     data: {
@@ -71,6 +95,59 @@ async function logUnresolvedInboundVoiceEvent(payload: Record<string, unknown>) 
       })
     }
   });
+}
+
+function maybeBuildPassiveMediaStreamConfig(input: {
+  orgId: string;
+  callLogId: string;
+  providerCallId: string;
+  voiceMediaStreamingEnabled: boolean;
+  voiceMediaTrackStrategy?: string | null;
+}): {
+  url: string;
+  name: string;
+  track: "both_tracks";
+  statusCallbackUrl: string;
+  customParameters: Array<{ name: string; value: string }>;
+} | null {
+  if (!input.voiceMediaStreamingEnabled) return null;
+  const streamUrl = getVoiceMediaStreamUrl();
+  if (!streamUrl || !env.TWILIO_MEDIA_STREAM_TOKEN_SECRET) {
+    logVoiceMediaStreamEvent({
+      endpoint: "/api/twilio/voice/incoming",
+      eventType: "MEDIA_STREAM_TWIML_OMITTED",
+      status: "WARN",
+      orgId: input.orgId,
+      callLogId: input.callLogId,
+      providerCallId: input.providerCallId,
+      reason: !streamUrl ? "missing_stream_url" : "missing_stream_token_secret"
+    });
+    return null;
+  }
+
+  const trackStrategy = input.voiceMediaTrackStrategy === "BOTH_TRACKS" ? "BOTH_TRACKS" : "BOTH_TRACKS";
+  return {
+    url: streamUrl,
+    name: `call-${input.providerCallId}`,
+    track: mapTrackStrategyToTwilioTrack(trackStrategy) as "both_tracks",
+    statusCallbackUrl: getVoiceStreamStatusCallbackUrl(),
+    customParameters: [
+      { name: "callSid", value: input.providerCallId },
+      { name: "orgId", value: input.orgId },
+      { name: "callLogId", value: input.callLogId },
+      {
+        name: "token",
+        value: createVoiceMediaStreamToken({
+          orgId: input.orgId,
+          callLogId: input.callLogId,
+          providerCallId: input.providerCallId
+        })
+      },
+      { name: "routingMode", value: "PASSIVE_FORWARDING" },
+      { name: "version", value: "1" },
+      { name: "streamName", value: `call-${input.providerCallId}` }
+    ]
+  };
 }
 
 async function updateCallLogFromVoicePayload(payload: Record<string, unknown>, orgId?: string) {
@@ -536,7 +613,14 @@ voiceRouter.post("/incoming", verifyTwilioRequest, async (req, res) => {
     const twiml = buildPassiveForwardDialTwiml({
       forwardingNumber: normalizePhoneForLookup(resolved.forwardingNumber).normalized || resolved.forwardingNumber,
       statusCallbackUrl: getVoiceStatusCallbackUrl(),
-      timeoutSeconds: resolved.ringTimeoutSeconds
+      timeoutSeconds: resolved.ringTimeoutSeconds,
+      stream: maybeBuildPassiveMediaStreamConfig({
+        orgId: resolved.orgId,
+        callLogId: callLog.id,
+        providerCallId: callSid,
+        voiceMediaStreamingEnabled: Boolean(resolved.businessSettings?.voiceMediaStreamingEnabled),
+        voiceMediaTrackStrategy: resolved.businessSettings?.voiceMediaTrackStrategy || "BOTH_TRACKS"
+      })
     });
     return res.type("text/xml").send(twiml.toString());
   } catch (error) {
@@ -559,6 +643,14 @@ voiceRouter.post("/status", verifyTwilioRequest, async (req, res) => {
       parentCallSid: String(parsed.data.ParentCallSid || "").trim() || null,
       payload: req.body as Record<string, unknown>
     });
+    const finalStatus = String(parsed.data.DialCallStatus || parsed.data.CallStatus || "").toLowerCase();
+    if (updated && ["completed", "busy", "no-answer", "failed", "canceled"].includes(finalStatus)) {
+      await reconcileOpenVoiceMediaStreamsForCall({
+        prisma,
+        callLogId: updated.id,
+        stopReason: `call_${finalStatus}`
+      });
+    }
     return res.json({ ok: true, updated: Boolean(updated) });
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -567,6 +659,82 @@ voiceRouter.post("/status", verifyTwilioRequest, async (req, res) => {
       callSid: String((req.body as Record<string, unknown>).CallSid || "")
     });
     return res.status(500).json({ ok: false, message: "Failed to process voice status callback." });
+  }
+});
+
+voiceRouter.post("/stream-status", verifyTwilioRequest, async (req, res) => {
+  const parsed = twilioMediaStatusCallbackSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.json({ ok: true, ignored: true });
+
+  try {
+    let updated = await updateVoiceMediaStreamStatusFromCallback({
+      prisma,
+      streamSid: parsed.data.StreamSid,
+      callbackPayload: req.body as Prisma.JsonObject,
+      streamEvent: parsed.data.StreamEvent,
+      stopReason: parsed.data.StreamError || null
+    });
+
+    if (!updated) {
+      const call = await prisma.callLog.findFirst({
+        where: { providerCallId: String(parsed.data.CallSid || "").trim() },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, orgId: true, providerCallId: true }
+      });
+
+      if (call) {
+        updated = await prisma.callMediaStreamSession.create({
+          data: {
+            callLogId: call.id,
+            orgId: call.orgId,
+            provider: "twilio",
+            streamSid: parsed.data.StreamSid,
+            callSid: call.providerCallId || parsed.data.CallSid,
+            streamName: parsed.data.StreamName || null,
+            trackStrategy: "BOTH_TRACKS",
+            streamStatus:
+              parsed.data.StreamEvent === "stream-started"
+                ? "STARTED"
+                : parsed.data.StreamEvent === "stream-stopped"
+                  ? "STOPPED"
+                  : "ERROR",
+            streamMetadata: req.body as Prisma.JsonObject,
+            stopReason: parsed.data.StreamError || null,
+            mediaEndedAt:
+              parsed.data.StreamEvent === "stream-stopped" || parsed.data.StreamEvent === "stream-error"
+                ? new Date()
+                : null
+          }
+        });
+        await prisma.callLog.update({
+          where: { id: call.id },
+          data: { hasMediaStream: true, latestStreamStatus: updated.streamStatus }
+        });
+      }
+    }
+
+    logVoiceMediaStreamEvent({
+      endpoint: "/api/twilio/voice/stream-status",
+      eventType: "MEDIA_STREAM_STATUS_CALLBACK",
+      status: "OK",
+      orgId: updated?.orgId || null,
+      callLogId: updated?.callLogId || null,
+      providerCallId: parsed.data.CallSid,
+      streamSid: parsed.data.StreamSid,
+      streamStatus: updated?.streamStatus || null
+    });
+
+    return res.json({ ok: true, updated: Boolean(updated) });
+  } catch (error) {
+    logVoiceMediaStreamEvent({
+      endpoint: "/api/twilio/voice/stream-status",
+      eventType: "MEDIA_STREAM_STATUS_CALLBACK",
+      status: "ERROR",
+      providerCallId: String(req.body?.CallSid || "").trim() || null,
+      streamSid: String(req.body?.StreamSid || "").trim() || null,
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
+    return res.status(500).json({ ok: false, message: "Failed to process stream status callback." });
   }
 });
 

@@ -42,6 +42,7 @@ type FormState = {
   voiceRingTimeoutSeconds: number;
   afterHoursVoiceFallbackEnabled: boolean;
   voiceCallRecordingEnabled: boolean;
+  voiceMediaStreamingEnabled: boolean;
   transferNumbers: string;
   notificationEmails: string;
   notificationPhones: string;
@@ -102,6 +103,7 @@ const defaults: FormState = {
   voiceRingTimeoutSeconds: 20,
   afterHoursVoiceFallbackEnabled: false,
   voiceCallRecordingEnabled: false,
+  voiceMediaStreamingEnabled: false,
   transferNumbers: "",
   notificationEmails: "",
   notificationPhones: "",
@@ -265,6 +267,7 @@ export default function AppSettingsPage() {
           voiceRingTimeoutSeconds: settings.voiceRingTimeoutSeconds || 20,
           afterHoursVoiceFallbackEnabled: settings.afterHoursVoiceFallbackEnabled === true,
           voiceCallRecordingEnabled: settings.voiceCallRecordingEnabled === true,
+          voiceMediaStreamingEnabled: settings.voiceMediaStreamingEnabled === true,
           transferNumbers: toLines(fromJsonArray(settings.transferNumbersJson)),
           notificationEmails: toLines(fromJsonArray(settings.notificationEmailsJson)),
           notificationPhones: toLines(fromJsonArray(settings.notificationPhonesJson)),
@@ -509,6 +512,7 @@ export default function AppSettingsPage() {
         voiceRingTimeoutSeconds: state.voiceRingTimeoutSeconds,
         afterHoursVoiceFallbackEnabled: state.afterHoursVoiceFallbackEnabled,
         voiceCallRecordingEnabled: state.voiceCallRecordingEnabled,
+        voiceMediaStreamingEnabled: state.voiceMediaStreamingEnabled,
         hoursJson: JSON.stringify({
           timezone: state.timezone.trim() || "America/New_York",
           schedule
@@ -793,6 +797,21 @@ export default function AppSettingsPage() {
             <span className="font-medium text-slate-950">Enable passive forwarding</span>
             <span className="mt-1 block text-muted-foreground">
               Twilio will answer first and immediately bridge the call to your forwarding number without an AI greeting.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border bg-slate-50 px-4 py-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={state.voiceMediaStreamingEnabled}
+            onChange={(e) => setState((p) => ({ ...p, voiceMediaStreamingEnabled: e.target.checked }))}
+            disabled={state.voiceRoutingMode !== "PASSIVE_FORWARDING" || !state.voiceForwardingEnabled}
+          />
+          <span>
+            <span className="font-medium text-slate-950">Enable real-time media streaming</span>
+            <span className="mt-1 block text-muted-foreground">
+              Forks the live call audio to Khan Automation while the call still forwards normally. No caller-facing AI is added in this mode.
             </span>
           </span>
         </label>

@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import bcrypt from "bcryptjs";
+import { createServer } from "http";
 import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -35,8 +36,10 @@ import { backfillMissedVapiCalls } from "./modules/admin/backfill.service";
 import { runSlaMonitorTick } from "./modules/ops/sla-monitor.service";
 import { runDataIntegrityGuardTick } from "./modules/ops/data-integrity-guard.service";
 import { runFinalizeBookingWorkerTick } from "./modules/voice/vapi/vapi-booking-finalizer.service";
+import { attachVoiceMediaStreamServer } from "./modules/voice/media-stream/voice-media-stream-server";
 
 const app = express();
+const server = createServer(app);
 app.set("trust proxy", 1);
 const allowedOrigins = new Set(
   [
@@ -164,6 +167,7 @@ let dataIntegrityGuardTimer: NodeJS.Timeout | null = null;
 let webhookRetentionTimer: NodeJS.Timeout | null = null;
 let finalizeBookingTimer: NodeJS.Timeout | null = null;
 let securityRetentionTimer: NodeJS.Timeout | null = null;
+const voiceMediaStreamServer = attachVoiceMediaStreamServer({ server, prisma });
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
@@ -470,7 +474,7 @@ void (async () => {
   startWebhookPayloadRetentionWorker();
   startSecuritySignalRetentionWorker();
   startFinalizeBookingWorker();
-  app.listen(Number(PORT), "0.0.0.0", () => {
+  server.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
   });
@@ -483,6 +487,8 @@ const shutdown = async () => {
   if (finalizeBookingTimer) clearInterval(finalizeBookingTimer);
   if (webhookRetentionTimer) clearInterval(webhookRetentionTimer);
   if (securityRetentionTimer) clearInterval(securityRetentionTimer);
+  voiceMediaStreamServer.close();
+  server.close();
   await prisma.$disconnect();
   process.exit(0);
 };

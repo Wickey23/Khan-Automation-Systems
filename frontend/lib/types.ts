@@ -308,6 +308,21 @@ export type OrgCallRecord = {
   answeredBy?: string | null;
   missedReason?: string | null;
   source?: string | null;
+  hasMediaStream?: boolean;
+  latestStreamStatus?: string | null;
+  latestMediaStream?: {
+    id: string;
+    streamSid: string | null;
+    trackStrategy: string;
+    streamStatus: string;
+    websocketConnectedAt: string | null;
+    mediaStartedAt: string | null;
+    mediaEndedAt: string | null;
+    mediaEventCount: number;
+    inboundChunkCount: number;
+    outboundChunkCount: number;
+    stopReason: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -444,6 +459,8 @@ export type BusinessSettings = {
   voiceRingTimeoutSeconds?: number;
   afterHoursVoiceFallbackEnabled?: boolean;
   voiceCallRecordingEnabled?: boolean;
+  voiceMediaStreamingEnabled?: boolean;
+  voiceMediaTrackStrategy?: "BOTH_TRACKS";
   transferNumbersJson: string;
   notificationEmailsJson: string;
   notificationPhonesJson: string;

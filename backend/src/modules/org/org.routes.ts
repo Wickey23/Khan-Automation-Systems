@@ -439,10 +439,27 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
   const parsed = updateBusinessSettingsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid settings payload.", errors: parsed.error.flatten() });
 
+  const nextVoiceRoutingMode =
+    parsed.data.voiceRoutingMode ||
+    (
+      await prisma.businessSettings.findUnique({
+        where: { orgId: req.auth.orgId },
+        select: { voiceRoutingMode: true }
+      })
+    )?.voiceRoutingMode ||
+    "AI_FIRST";
+  const nextMediaStreamingEnabled =
+    nextVoiceRoutingMode === "PASSIVE_FORWARDING" ? parsed.data.voiceMediaStreamingEnabled : false;
+  const settingsPayload = {
+    ...parsed.data,
+    voiceMediaStreamingEnabled: nextMediaStreamingEnabled,
+    ...(parsed.data.voiceMediaTrackStrategy ? { voiceMediaTrackStrategy: parsed.data.voiceMediaTrackStrategy } : {})
+  };
+
   const settings = await prisma.businessSettings.upsert({
     where: { orgId: req.auth.orgId },
     update: {
-      ...parsed.data,
+      ...settingsPayload,
       ...(parsed.data.voiceForwardingNumber !== undefined
         ? { voiceForwardingNumber: encryptField(parsed.data.voiceForwardingNumber) }
         : {}),
@@ -452,7 +469,7 @@ orgRouter.patch("/settings", requireOrgWriteAccess, async (req: AuthenticatedReq
     },
     create: {
       orgId: req.auth.orgId,
-      ...parsed.data,
+      ...settingsPayload,
       ...(parsed.data.voiceForwardingNumber !== undefined
         ? { voiceForwardingNumber: encryptField(parsed.data.voiceForwardingNumber) }
         : {}),

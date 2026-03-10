@@ -134,6 +134,7 @@ export default function AdminCallsPage() {
                 <th className="p-3">Forwarded To</th>
                 <th className="p-3">Outcome</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Media Stream</th>
                 <th className="p-3">Duration</th>
                 <th className="p-3">Recording</th>
                 <th className="p-3">Details</th>
@@ -152,6 +153,18 @@ export default function AdminCallsPage() {
                   <td className="p-3">
                     {(call.dialCallStatus || call.callStatus || "-").replaceAll("_", " ")}
                     {call.missedReason ? <div className="text-xs text-muted-foreground">{call.missedReason.replaceAll("_", " ")}</div> : null}
+                  </td>
+                  <td className="p-3">
+                    {call.hasMediaStream ? (
+                      <>
+                        <div>{(call.latestStreamStatus || "CONNECTED").replaceAll("_", " ")}</div>
+                        {call.latestMediaStream?.streamSid ? (
+                          <div className="font-mono text-xs text-muted-foreground">{call.latestMediaStream.streamSid}</div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </td>
                   <td className="p-3">{formatDuration(call.durationSec)}</td>
                   <td className="p-3">
@@ -177,7 +190,7 @@ export default function AdminCallsPage() {
               ))}
               {!calls.length && !loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={11}>
+                  <td className="p-3 text-muted-foreground" colSpan={12}>
                     No calls found.
                   </td>
                 </tr>
@@ -207,6 +220,8 @@ export default function AdminCallsPage() {
               <div><span className="text-muted-foreground">Answered at:</span> {selectedCall.answeredAt ? new Date(selectedCall.answeredAt).toLocaleString() : "-"}</div>
               <div><span className="text-muted-foreground">Answered by:</span> {selectedCall.answeredBy || "-"}</div>
               <div><span className="text-muted-foreground">Missed reason:</span> {selectedCall.missedReason ? selectedCall.missedReason.replaceAll("_", " ") : "-"}</div>
+              <div><span className="text-muted-foreground">Has media stream:</span> {selectedCall.hasMediaStream ? "Yes" : "No"}</div>
+              <div><span className="text-muted-foreground">Latest stream status:</span> {(selectedCall.latestStreamStatus || "-").replaceAll("_", " ")}</div>
               <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Call SID:</span> <span className="font-mono text-xs">{selectedCall.providerCallId || "-"}</span></div>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -227,6 +242,23 @@ export default function AdminCallsPage() {
                 </div>
               </div>
             </div>
+            {selectedCall.latestMediaStream ? (
+              <div className="mt-4 rounded border p-3">
+                <p className="text-sm font-medium">Media stream</p>
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                  <div><span className="text-muted-foreground">Stream SID:</span> <span className="font-mono text-xs">{selectedCall.latestMediaStream.streamSid || "-"}</span></div>
+                  <div><span className="text-muted-foreground">Track strategy:</span> {selectedCall.latestMediaStream.trackStrategy.replaceAll("_", " ")}</div>
+                  <div><span className="text-muted-foreground">Status:</span> {selectedCall.latestMediaStream.streamStatus.replaceAll("_", " ")}</div>
+                  <div><span className="text-muted-foreground">Socket connected:</span> {selectedCall.latestMediaStream.websocketConnectedAt ? new Date(selectedCall.latestMediaStream.websocketConnectedAt).toLocaleString() : "-"}</div>
+                  <div><span className="text-muted-foreground">Media started:</span> {selectedCall.latestMediaStream.mediaStartedAt ? new Date(selectedCall.latestMediaStream.mediaStartedAt).toLocaleString() : "-"}</div>
+                  <div><span className="text-muted-foreground">Media ended:</span> {selectedCall.latestMediaStream.mediaEndedAt ? new Date(selectedCall.latestMediaStream.mediaEndedAt).toLocaleString() : "-"}</div>
+                  <div><span className="text-muted-foreground">Packets:</span> {selectedCall.latestMediaStream.mediaEventCount}</div>
+                  <div><span className="text-muted-foreground">Inbound chunks:</span> {selectedCall.latestMediaStream.inboundChunkCount}</div>
+                  <div><span className="text-muted-foreground">Outbound chunks:</span> {selectedCall.latestMediaStream.outboundChunkCount}</div>
+                  <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Stop reason:</span> {selectedCall.latestMediaStream.stopReason || "-"}</div>
+                </div>
+              </div>
+            ) : null}
             <div className="mt-4 rounded border p-3">
               <p className="text-sm font-medium">Transcript</p>
               <p className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground">

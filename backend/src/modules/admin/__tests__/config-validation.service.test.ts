@@ -20,6 +20,8 @@ function baseSettings(): BusinessSettings {
     voiceRingTimeoutSeconds: 20,
     afterHoursVoiceFallbackEnabled: false,
     voiceCallRecordingEnabled: false,
+    voiceMediaStreamingEnabled: false,
+    voiceMediaTrackStrategy: "BOTH_TRACKS",
     transferNumbersJson: JSON.stringify(["+15165551234"]),
     notificationEmailsJson: "[]",
     notificationPhonesJson: "[]",

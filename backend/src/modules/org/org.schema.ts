@@ -108,6 +108,8 @@ export const updateBusinessSettingsSchema = z.object({
   voiceRingTimeoutSeconds: z.number().int().min(5).max(60).optional(),
   afterHoursVoiceFallbackEnabled: z.boolean().optional(),
   voiceCallRecordingEnabled: z.boolean().optional(),
+  voiceMediaStreamingEnabled: z.boolean().optional(),
+  voiceMediaTrackStrategy: z.enum(["BOTH_TRACKS"]).optional(),
   transferNumbersJson: z.string().optional(),
   notificationEmailsJson: z.string().optional(),
   notificationPhonesJson: z.string().optional(),

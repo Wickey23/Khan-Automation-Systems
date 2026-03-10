@@ -4,10 +4,35 @@ export function buildPassiveForwardDialTwiml(input: {
   forwardingNumber: string;
   statusCallbackUrl: string;
   timeoutSeconds: number;
+  stream?: {
+    url: string;
+    name?: string;
+    track: "both_tracks";
+    statusCallbackUrl?: string;
+    customParameters?: Array<{ name: string; value: string }>;
+  } | null;
   preDialInstructions?: ((response: InstanceType<typeof Twiml.VoiceResponse>) => void) | null;
 }) {
   const response = new Twiml.VoiceResponse();
   input.preDialInstructions?.(response);
+  if (input.stream) {
+    const start = response.start();
+    const stream = start.stream({
+      url: input.stream.url,
+      ...(input.stream.name ? { name: input.stream.name } : {}),
+      track: input.stream.track,
+      ...(input.stream.statusCallbackUrl
+        ? {
+            statusCallback: input.stream.statusCallbackUrl,
+            statusCallbackMethod: "POST"
+          }
+        : {})
+    });
+    for (const parameter of input.stream.customParameters || []) {
+      if (!parameter.name || !parameter.value) continue;
+      stream.parameter({ name: parameter.name, value: parameter.value });
+    }
+  }
   const dial = response.dial({
     answerOnBridge: true,
     timeout: input.timeoutSeconds

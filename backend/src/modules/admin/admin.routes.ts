@@ -254,6 +254,23 @@ adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
       include: {
         organization: {
           select: { id: true, name: true }
+        },
+        mediaStreamSessions: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            streamSid: true,
+            trackStrategy: true,
+            streamStatus: true,
+            websocketConnectedAt: true,
+            mediaStartedAt: true,
+            mediaEndedAt: true,
+            mediaEventCount: true,
+            inboundChunkCount: true,
+            outboundChunkCount: true,
+            stopReason: true
+          }
         }
       },
       orderBy: { startedAt: "desc" },
@@ -263,7 +280,16 @@ adminRouter.get("/calls", async (req: AuthenticatedRequest, res: Response) => {
     prisma.callLog.count({ where })
   ]);
 
-  return res.json({ ok: true, data: { calls, total } });
+  return res.json({
+    ok: true,
+    data: {
+      calls: calls.map((call) => ({
+        ...call,
+        latestMediaStream: call.mediaStreamSessions[0] || null
+      })),
+      total
+    }
+  });
 });
 
 adminRouter.get("/messages", async (req: AuthenticatedRequest, res: Response) => {
