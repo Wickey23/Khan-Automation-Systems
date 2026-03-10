@@ -198,8 +198,83 @@ function inferCustomerName(transcript: string) {
 }
 
 function inferAppointmentRequested(transcript: string) {
-  const text = transcript.toLowerCase();
-  return ["appointment", "schedule", "tomorrow", "book", "availability"].some((token) => text.includes(token));
+  const text = transcript.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!text) return false;
+
+  const hasExplicitAppointmentSignal = [
+    /\bappointment\b/,
+    /\bschedule\b/,
+    /\bbook\b/,
+    /\bset up an appointment\b/,
+    /\bset up a visit\b/,
+    /\bcan someone come out\b/,
+    /\bwhen can you come\b/,
+    /\bcome (today|tomorrow)\b/,
+    /\b(this|next) week\b/,
+    /\bsend someone\b/,
+    /\bcan you come\b/,
+    /\btechnician\b/,
+    /\bservice call\b/,
+  ].some((pattern) => pattern.test(text));
+
+  const hasVisitContext = [
+    /\brepair\b/,
+    /\bfix\b/,
+    /\bfurnace\b/,
+    /\bac\b/,
+    /\bair conditioner\b/,
+    /\bheating\b/,
+    /\bplumbing\b/,
+    /\belectrical\b/,
+    /\bunit\b/,
+    /\bissue\b/,
+    /\bproblem\b/,
+  ].some((pattern) => pattern.test(text));
+
+  const hasWeakInformationalOnlySignal =
+    [/\bjust a question\b/, /\bquick question\b/, /\bhours\b/, /\bpricing\b/, /\bprice\b/, /\bquote\b/, /\bestimate\b/].some(
+      (pattern) => pattern.test(text)
+    ) && !hasVisitContext;
+
+  if (hasWeakInformationalOnlySignal) return false;
+
+  if (hasExplicitAppointmentSignal) return true;
+
+  const hasTimeWindow = [/\btoday\b/, /\btomorrow\b/, /\bthis week\b/, /\bnext week\b/, /\bthis afternoon\b/, /\bthis morning\b/].some(
+    (pattern) => pattern.test(text)
+  );
+
+  return hasTimeWindow && [/\bcome\b/, /\bsend someone\b/, /\bvisit\b/, /\btechnician\b/, /\brepair\b/, /\bfix\b/].some((pattern) =>
+    pattern.test(text)
+  );
+}
+
+function normalizeTranscriptLine(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function assembleFinalTranscript(
+  segments: Array<{
+    speaker: string;
+    text: string;
+  }>
+) {
+  const lines: string[] = [];
+  let lastNormalizedLine = "";
+
+  for (const segment of segments) {
+    const normalizedText = normalizeTranscriptLine(segment.text);
+    if (!normalizedText) continue;
+
+    const line = `${segment.speaker}: ${normalizedText}`;
+    const normalizedLine = normalizeTranscriptLine(line).toLowerCase();
+    if (normalizedLine === lastNormalizedLine) continue;
+
+    lines.push(line);
+    lastNormalizedLine = normalizedLine;
+  }
+
+  return lines.join("\n");
 }
 
 async function generateSummary(input: {
@@ -556,7 +631,7 @@ export async function finalizeTranscriptionForCall(callLogId: string, reason: st
       .flatMap((session) => session.segments)
       .sort((left, right) => left.sequence - right.sequence || left.createdAt.getTime() - right.createdAt.getTime());
 
-    const transcript = segments.map((segment) => `${segment.speaker}: ${segment.text}`).join("\n");
+  const transcript = assembleFinalTranscript(segments);
 
     const updates: Prisma.CallLogUpdateInput = {};
     if (transcript.trim()) {

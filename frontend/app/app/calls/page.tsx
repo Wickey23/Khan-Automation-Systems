@@ -104,6 +104,12 @@ function formatTransferReason(value: string | null | undefined) {
   return value.replaceAll("_", " ").toLowerCase();
 }
 
+function formatAnsweredByLabel(value?: "HUMAN" | "AI" | "UNKNOWN") {
+  if (value === "HUMAN") return "Human";
+  if (value === "AI") return "AI";
+  return "Unknown";
+}
+
 function extractCallerName(call: OrgCallRecord) {
   if (String(call.displayName || "").trim()) return String(call.displayName || "").trim();
   return call.fromNumber;
@@ -470,13 +476,14 @@ export default function AppCallsPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      ["Started", new Date(selectedCall.startedAt).toLocaleString()],
-                      ["Duration", formatDuration(selectedCall.durationSec || 0)],
-                      ["Success score", formatPercent(getCallSuccessRating(selectedCall))],
-                      ["Next step", getNextAction(selectedCall)]
-                    ].map(([label, value]) => (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Started", new Date(selectedCall.startedAt).toLocaleString()],
+                        ["Duration", formatDuration(selectedCall.durationSec || 0)],
+                        ["Answered by", formatAnsweredByLabel(selectedCall.answeredByLabel)],
+                        ["Success score", formatPercent(getCallSuccessRating(selectedCall))],
+                        ["Next step", getNextAction(selectedCall)]
+                      ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border bg-slate-50 p-4">
                         <p className="page-eyebrow">{label}</p>
                         <p className="mt-2 text-sm font-medium text-foreground">{value}</p>

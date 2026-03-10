@@ -307,6 +307,7 @@ export type OrgCallRecord = {
   callStatus?: string | null;
   dialCallStatus?: string | null;
   answeredBy?: string | null;
+  answeredByLabel?: "HUMAN" | "AI" | "UNKNOWN";
   missedReason?: string | null;
   source?: string | null;
   hasMediaStream?: boolean;

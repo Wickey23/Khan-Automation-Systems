@@ -100,6 +100,41 @@ function requireCalendarManageAccess(req: AuthenticatedRequest, res: Response, n
   return res.status(403).json({ ok: false, message: "Forbidden" });
 }
 
+function deriveCallAnsweredByLabel(call: {
+  answeredBy?: string | null;
+  voiceRoutingMode?: string | null;
+  aiFallbackInvoked?: boolean | null;
+  humanAttemptDialStatus?: string | null;
+  dialCallStatus?: string | null;
+  callStatus?: string | null;
+}): "HUMAN" | "AI" | "UNKNOWN" {
+  const explicit = String(call.answeredBy || "").toUpperCase();
+  if (explicit === "HUMAN" || explicit === "AI") {
+    return explicit;
+  }
+
+  if (call.aiFallbackInvoked) {
+    return "AI";
+  }
+
+  if (call.voiceRoutingMode === "AI_FIRST") {
+    return "AI";
+  }
+
+  if (String(call.humanAttemptDialStatus || "").toLowerCase() === "completed") {
+    return "HUMAN";
+  }
+
+  if (
+    call.voiceRoutingMode === "PASSIVE_FORWARDING" &&
+    ["completed", "answered"].includes(String(call.dialCallStatus || call.callStatus || "").toLowerCase())
+  ) {
+    return "HUMAN";
+  }
+
+  return "UNKNOWN";
+}
+
 async function backfillInternalAppointmentsToCalendar(input: {
   orgId: string;
   connectionId: string;
@@ -962,6 +997,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
     data: {
       calls: pagedCalls.map((call) => ({
         ...call,
+        answeredByLabel: deriveCallAnsweredByLabel(call),
         appointmentRequestId: appointmentRequestByCallId.get(call.id) || null
       })),
       page: safePage,
