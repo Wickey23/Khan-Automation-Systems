@@ -11,6 +11,7 @@ export type ResolvedVoiceRouting = {
     name: string;
     live: boolean;
     status: string;
+    subscriptionStatus: string | null;
     businessSettings: BusinessSettings | null;
     aiAgentConfigs?: Array<{
       id: string;

@@ -3,6 +3,7 @@ import { env } from "../../config/env";
 import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { emitOrgNotification } from "../notifications/notification.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
+import { getSmsTemplatesFromPolicies, renderOperationalSmsTemplate } from "../sms/template.service";
 import { buildExpandedBusyIntervals, type BusyWindow, validateSlotWithinBusinessHours } from "./slotting.service";
 import { overlapsLocked } from "./overlap.service";
 
@@ -154,7 +155,10 @@ async function trySendCustomerConfirmationSms(input: {
     const [org, activePhone, request] = await Promise.all([
       input.prisma.organization.findUnique({
         where: { id: input.orgId },
-        select: { name: true }
+        select: {
+          name: true,
+          businessSettings: { select: { policiesJson: true } }
+        }
       }),
       input.prisma.phoneNumber.findFirst({
         where: { orgId: input.orgId, provider: "TWILIO", status: "ACTIVE" },
@@ -204,7 +208,18 @@ async function trySendCustomerConfirmationSms(input: {
     });
     const businessName = org?.name || "Khan Systems";
     const addressLine = input.serviceAddress ? ` Address: ${input.serviceAddress}.` : "";
-    const body = `Hi ${input.customerName}, your appointment is scheduled for ${localTime} with ${businessName}.${addressLine}`;
+    const templates = getSmsTemplatesFromPolicies(org?.businessSettings?.policiesJson);
+    const body = renderOperationalSmsTemplate({
+      template: templates.appointmentConfirmation,
+      fallback: `Hi {{customerName}} - your service appointment is scheduled for {{appointmentTime}} with {{businessName}}.{{serviceAddressLine}}`,
+      values: {
+        customerName: input.customerName,
+        appointmentTime: localTime,
+        businessName,
+        serviceAddress: input.serviceAddress || "",
+        serviceAddressLine: addressLine
+      }
+    });
     const statusCallbackUrl = `${env.API_BASE_URL}/api/twilio/sms/status?orgId=${encodeURIComponent(input.orgId)}`;
     const quota = await assertOrgSmsQuota({
       prisma: input.prisma,

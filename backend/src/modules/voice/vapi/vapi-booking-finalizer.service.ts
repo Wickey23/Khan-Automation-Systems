@@ -12,6 +12,7 @@ import { createCalendarEventFromConnection } from "../../appointments/calendar-o
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
 import { generateAvailabilitySlots } from "../../appointments/slotting.service";
 import { assertOrgSmsQuota } from "../../sms/sms-governance.service";
+import { getSmsTemplatesFromPolicies, renderOperationalSmsTemplate } from "../../sms/template.service";
 import { sendSmsMessage } from "../../twilio/twilio.service";
 import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
 import { evaluateBookingState } from "./booking-state-machine";
@@ -75,7 +76,10 @@ async function sendPostCallCustomerSms(input: {
     const [org, activePhone] = await Promise.all([
       input.prisma.organization.findUnique({
         where: { id: input.orgId },
-        select: { name: true }
+        select: {
+          name: true,
+          businessSettings: { select: { policiesJson: true } }
+        }
       }),
       input.prisma.phoneNumber.findFirst({
         where: { orgId: input.orgId, provider: "TWILIO", status: "ACTIVE" },
@@ -85,14 +89,24 @@ async function sendPostCallCustomerSms(input: {
     if (!activePhone?.e164Number) return { sent: false as const, reason: "no_sender" as const };
 
     const businessName = org?.name || "Khan Systems";
+    const templates = getSmsTemplatesFromPolicies(org?.businessSettings?.policiesJson);
     const safeName = input.customerName || "there";
     const hasAddress = Boolean((input.serviceAddress || "").trim());
-    const body =
+    const fallback =
       input.state === "NEEDS_SCHEDULING"
         ? hasAddress
-          ? `Thanks ${safeName} - ${businessName} received your service request at ${input.serviceAddress}. Our team will contact you shortly to confirm scheduling.`
-          : `Thanks ${safeName} - ${businessName} received your service request. Please reply with your full street address so we can finalize scheduling.`
-        : `Thanks ${safeName} - ${businessName} received your service request. Our team will follow up shortly with scheduling options.`;
+          ? "Thanks {{customerName}} — {{businessName}} received your service request at {{serviceAddress}}. A technician will follow up shortly."
+          : "Thanks {{customerName}} — {{businessName}} received your service request. Please reply with your full street address so we can finalize scheduling."
+        : "Thanks {{customerName}} — {{businessName}} received your service request. A technician will follow up shortly.";
+    const body = renderOperationalSmsTemplate({
+      template: templates.newLeadAcknowledgement,
+      fallback,
+      values: {
+        customerName: safeName,
+        businessName,
+        serviceAddress: input.serviceAddress || ""
+      }
+    });
     const quota = await assertOrgSmsQuota({
       prisma: input.prisma,
       orgId: input.orgId,
@@ -184,7 +198,10 @@ async function sendAvailabilityOptionsSms(input: {
     const [org, activePhone] = await Promise.all([
       input.prisma.organization.findUnique({
         where: { id: input.orgId },
-        select: { name: true }
+        select: {
+          name: true,
+          businessSettings: { select: { policiesJson: true } }
+        }
       }),
       input.prisma.phoneNumber.findFirst({
         where: { orgId: input.orgId, provider: "TWILIO", status: "ACTIVE" },
@@ -193,8 +210,17 @@ async function sendAvailabilityOptionsSms(input: {
     ]);
     if (!activePhone?.e164Number) return { sent: false as const, reason: "no_sender" as const };
     const businessName = org?.name || "Khan Systems";
+    const templates = getSmsTemplatesFromPolicies(org?.businessSettings?.policiesJson);
     const slotLines = input.slots.map((slot, index) => `${index + 1}. ${slot.label}`).join("\n");
-    const body = `Hi ${input.customerName || "there"}, here are the next available times from ${businessName}:\n${slotLines}\nReply with the option you want and our team will finalize scheduling.`;
+    const body = renderOperationalSmsTemplate({
+      template: null,
+      fallback: "Hi {{customerName}}, here are the next available times from {{businessName}}:\n{{slotLines}}\nReply with the option you want and our team will finalize scheduling.",
+      values: {
+        customerName: input.customerName || "there",
+        businessName,
+        slotLines
+      }
+    });
     const quota = await assertOrgSmsQuota({
       prisma: input.prisma,
       orgId: input.orgId,
