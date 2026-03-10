@@ -38,6 +38,14 @@ type SocketState = {
     timestampMs: number | null;
   }>;
   pendingMediaOverflowLogged?: boolean;
+  mediaAggregate?: {
+    firstPacketPersisted: boolean;
+    mediaEventCount: number;
+    inboundChunkCount: number;
+    outboundChunkCount: number;
+    mediaStartedAt: Date | null;
+    lastMediaAt: Date | null;
+  };
 };
 
 function getStreamPath() {
@@ -74,7 +82,15 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
       socketId: crypto.randomUUID(),
       connectedAt: new Date(),
       startInFlight: false,
-      pendingMedia: []
+      pendingMedia: [],
+      mediaAggregate: {
+        firstPacketPersisted: false,
+        mediaEventCount: 0,
+        inboundChunkCount: 0,
+        outboundChunkCount: 0,
+        mediaStartedAt: null,
+        lastMediaAt: null
+      }
     };
     socketState.set(ws, state);
 
@@ -97,7 +113,12 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
           streamSid: current.streamSid,
           stopAt: new Date(),
           stopReason: reason,
-          streamStatus: "DISCONNECTED"
+          streamStatus: "DISCONNECTED",
+          mediaEventCount: current.mediaAggregate?.mediaEventCount ?? undefined,
+          inboundChunkCount: current.mediaAggregate?.inboundChunkCount ?? undefined,
+          outboundChunkCount: current.mediaAggregate?.outboundChunkCount ?? undefined,
+          mediaStartedAt: current.mediaAggregate?.mediaStartedAt ?? undefined,
+          lastMediaAt: current.mediaAggregate?.lastMediaAt ?? undefined
         })
           .then(() => stopTranscriptionForStream({ streamSid: current.streamSid as string, reason }))
           .catch(() => null);
@@ -122,7 +143,12 @@ export function attachVoiceMediaStreamServer(input: { server: Server; prisma: Pr
           streamSid: current.streamSid,
           stopAt: new Date(),
           stopReason: error.message,
-          streamStatus: "ERROR"
+          streamStatus: "ERROR",
+          mediaEventCount: current.mediaAggregate?.mediaEventCount ?? undefined,
+          inboundChunkCount: current.mediaAggregate?.inboundChunkCount ?? undefined,
+          outboundChunkCount: current.mediaAggregate?.outboundChunkCount ?? undefined,
+          mediaStartedAt: current.mediaAggregate?.mediaStartedAt ?? undefined,
+          lastMediaAt: current.mediaAggregate?.lastMediaAt ?? undefined
         })
           .then(() => stopTranscriptionForStream({ streamSid: current.streamSid as string, reason: error.message, errored: true }))
           .catch(() => null);
@@ -388,7 +414,12 @@ async function handleStreamMessage(input: {
       stopReason: parsed.data.stop.reason || "twilio_stop",
       stopPayloadJson: parsedJson as Prisma.JsonObject,
       streamStatus: "STOPPED",
-      sequenceNumber: parseOptionalSequenceNumber(parsed.data.sequenceNumber)
+      sequenceNumber: parseOptionalSequenceNumber(parsed.data.sequenceNumber),
+      mediaEventCount: state.mediaAggregate?.mediaEventCount ?? undefined,
+      inboundChunkCount: state.mediaAggregate?.inboundChunkCount ?? undefined,
+      outboundChunkCount: state.mediaAggregate?.outboundChunkCount ?? undefined,
+      mediaStartedAt: state.mediaAggregate?.mediaStartedAt ?? undefined,
+      lastMediaAt: state.mediaAggregate?.lastMediaAt ?? undefined
     }).catch(() => null);
     logVoiceMediaStreamEvent({
       endpoint: `ws:${getStreamPath()}`,
@@ -422,25 +453,54 @@ async function processMediaEvent(input: {
   suppressUnknownStreamLog: boolean;
 }) {
   try {
-    const session = await recordVoiceMediaStreamMediaEvent({
-      prisma: input.prisma,
-      streamSid: input.streamSid,
-      track: input.track,
-      eventAt: new Date(),
-      sequenceNumber: input.sequenceNumber
-    });
-    const isFirstPacket = session.mediaEventCount === 1;
+    const eventAt = new Date();
+    const aggregate = input.state.mediaAggregate || {
+      firstPacketPersisted: false,
+      mediaEventCount: 0,
+      inboundChunkCount: 0,
+      outboundChunkCount: 0,
+      mediaStartedAt: null,
+      lastMediaAt: null
+    };
+    const normalizedTrack = String(input.track || "").toLowerCase();
+    const isInbound = normalizedTrack.includes("inbound");
+    const isOutbound = normalizedTrack.includes("outbound");
+
+    aggregate.mediaEventCount += 1;
+    if (isInbound) aggregate.inboundChunkCount += 1;
+    if (isOutbound) aggregate.outboundChunkCount += 1;
+    aggregate.mediaStartedAt = aggregate.mediaStartedAt || eventAt;
+    aggregate.lastMediaAt = eventAt;
+
+    let session:
+      | Awaited<ReturnType<typeof recordVoiceMediaStreamMediaEvent>>
+      | null = null;
+    const isFirstPacket = aggregate.firstPacketPersisted === false;
+    if (isFirstPacket) {
+      session = await recordVoiceMediaStreamMediaEvent({
+        prisma: input.prisma,
+        streamSid: input.streamSid,
+        track: input.track,
+        eventAt,
+        sequenceNumber: input.sequenceNumber
+      });
+      aggregate.firstPacketPersisted = true;
+    }
+
+    input.state.mediaAggregate = aggregate;
+    input.socketState.set(input.ws, input.state);
+
     if (isFirstPacket) {
       logVoiceMediaStreamEvent({
         endpoint: `ws:${getStreamPath()}`,
         eventType: "MEDIA_STREAM_MEDIA_FIRST_PACKET",
         status: "OK",
-        orgId: session.orgId,
-        callLogId: session.callLogId,
-        providerCallId: session.callSid,
-        streamSid: session.streamSid,
-        streamStatus: session.streamStatus,
-        trackStrategy: session.trackStrategy,
+        orgId: session?.orgId || input.state.orgId || null,
+        callLogId: session?.callLogId || input.state.callLogId || null,
+        providerCallId: session?.callSid || input.state.providerCallId || null,
+        streamSid: session?.streamSid || input.streamSid,
+        streamStatus: session?.streamStatus || "ACTIVE",
+        trackStrategy: session?.trackStrategy || null,
         track: input.track,
         payloadSize: Buffer.byteLength(input.payload, "utf8")
       });
@@ -452,11 +512,13 @@ async function processMediaEvent(input: {
       sequenceNumber: input.sequenceNumber,
       timestampMs: input.timestampMs
     }).catch(() => null);
-    input.state.orgId = session.orgId;
-    input.state.callLogId = session.callLogId;
-    input.state.providerCallId = session.callSid;
-    input.state.streamSid = session.streamSid;
-    input.socketState.set(input.ws, input.state);
+    if (session) {
+      input.state.orgId = session.orgId;
+      input.state.callLogId = session.callLogId;
+      input.state.providerCallId = session.callSid;
+      input.state.streamSid = session.streamSid;
+      input.socketState.set(input.ws, input.state);
+    }
   } catch {
     if (!input.suppressUnknownStreamLog) {
       logVoiceMediaStreamEvent({

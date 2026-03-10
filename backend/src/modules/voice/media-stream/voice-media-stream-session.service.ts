@@ -109,6 +109,11 @@ export async function recordVoiceMediaStreamStop(input: {
   stopPayloadJson?: Prisma.InputJsonValue | null;
   streamStatus?: VoiceMediaStreamStatus;
   sequenceNumber?: number | null;
+  mediaEventCount?: number | null;
+  inboundChunkCount?: number | null;
+  outboundChunkCount?: number | null;
+  mediaStartedAt?: Date | null;
+  lastMediaAt?: Date | null;
 }) {
   const nextStatus = input.streamStatus || "STOPPED";
   const session = await input.prisma.callMediaStreamSession.update({
@@ -116,6 +121,11 @@ export async function recordVoiceMediaStreamStop(input: {
     data: {
       streamStatus: nextStatus,
       mediaEndedAt: input.stopAt,
+      mediaStartedAt: input.mediaStartedAt || undefined,
+      lastMediaAt: input.lastMediaAt || undefined,
+      mediaEventCount: input.mediaEventCount ?? undefined,
+      inboundChunkCount: input.inboundChunkCount ?? undefined,
+      outboundChunkCount: input.outboundChunkCount ?? undefined,
       stopReason: input.stopReason || undefined,
       stopPayloadJson: input.stopPayloadJson || undefined,
       ...sequenceUpdate(input.sequenceNumber ?? null)
