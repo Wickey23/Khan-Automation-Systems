@@ -77,7 +77,7 @@ export function Header() {
         { href: "/admin/calls", label: "Calls" },
         { href: "/admin/messages", label: "Messages" },
         { href: "/admin/leads", label: "Leads" },
-        { href: "/admin/prospects", label: "Prospects" }
+        { href: "/admin/outreach", label: "Outreach" }
       ];
     }
     return [

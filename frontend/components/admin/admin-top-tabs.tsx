@@ -31,7 +31,6 @@ const adminTabGroups: AdminTabGroup[] = [
     tabs: [
       { label: "Revenue", href: "/admin/revenue", matches: ["/admin/revenue"], description: "MRR, Stripe paid totals, and plan mix." },
       { label: "Leads", href: "/admin/leads", matches: ["/admin/leads"], description: "Captured demand and pipeline hygiene." },
-      { label: "Prospects", href: "/admin/prospects", matches: ["/admin/prospects"], description: "Outbound pipeline and sourcing." },
       { label: "Outreach", href: "/admin/outreach", matches: ["/admin/outreach"], description: "Internal outbound email outreach." }
     ]
   },
