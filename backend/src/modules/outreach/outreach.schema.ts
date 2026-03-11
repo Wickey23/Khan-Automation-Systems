@@ -7,7 +7,7 @@ const optionalTrimmed = z
   .optional();
 
 export const outreachLeadCreateSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   companyName: optionalTrimmed,
   contactName: optionalTrimmed,
   email: z.string().trim().email(),
@@ -34,7 +34,7 @@ export const outreachLeadUpdateSchema = z.object({
 });
 
 export const outreachBulkImportSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   text: z.string().min(1)
 });
 
@@ -55,7 +55,7 @@ export const outreachSequenceStepInputSchema = z.object({
 });
 
 export const outreachSequenceCreateSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   name: z.string().trim().min(1),
   description: optionalTrimmed,
   isActive: z.boolean().optional(),
@@ -73,20 +73,20 @@ export const outreachSequenceReplaceStepsSchema = z.object({
 });
 
 export const outreachEnrollmentCreateSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   leadId: z.string().min(1),
   sequenceId: z.string().min(1),
   startAt: z.string().datetime().optional()
 });
 
 export const outreachLeadSuppressSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   reason: z.string().trim().min(1).default("MANUAL"),
   source: z.string().trim().min(1).default("ADMIN")
 });
 
 export const outreachMarkRepliedSchema = z.object({
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   note: z.string().trim().optional()
 });
 

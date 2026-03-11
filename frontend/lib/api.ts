@@ -332,7 +332,7 @@ export async function fetchAdminOutreachLeads(query = "") {
 }
 
 export async function createAdminOutreachLead(payload: {
-  orgId: string;
+  orgId?: string;
   companyName?: string;
   contactName?: string;
   email: string;
@@ -356,27 +356,27 @@ export async function updateAdminOutreachLead(id: string, payload: Partial<Outre
   });
 }
 
-export async function importAdminOutreachLeads(payload: { orgId: string; text: string }) {
+export async function importAdminOutreachLeads(payload: { orgId?: string; text: string }) {
   return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export async function suppressAdminOutreachLead(id: string, payload: { orgId: string; reason?: string; source?: string }) {
+export async function suppressAdminOutreachLead(id: string, payload: { orgId?: string; reason?: string; source?: string }) {
   return request<{ suppressed: boolean }>(`/api/admin/outreach/leads/${id}/suppress`, {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export async function unsuppressAdminOutreachLead(id: string, orgId: string) {
-  return request<{ suppressed: boolean }>(`/api/admin/outreach/leads/${id}/suppress?orgId=${encodeURIComponent(orgId)}`, {
+export async function unsuppressAdminOutreachLead(id: string) {
+  return request<{ suppressed: boolean }>(`/api/admin/outreach/leads/${id}/suppress`, {
     method: "DELETE"
   });
 }
 
-export async function markAdminOutreachLeadReplied(id: string, payload: { orgId: string; note?: string }) {
+export async function markAdminOutreachLeadReplied(id: string, payload: { orgId?: string; note?: string }) {
   return request<{ lead: OutreachLead }>(`/api/admin/outreach/leads/${id}/mark-replied`, {
     method: "POST",
     body: JSON.stringify(payload)
@@ -393,7 +393,7 @@ export async function fetchAdminOutreachSequence(id: string) {
 }
 
 export async function createAdminOutreachSequence(payload: {
-  orgId: string;
+  orgId?: string;
   name: string;
   description?: string;
   isActive?: boolean;
@@ -429,7 +429,7 @@ export async function fetchAdminOutreachEnrollments(query = "") {
   return request<{ enrollments: OutreachEnrollment[] }>(`/api/admin/outreach/enrollments${query}`);
 }
 
-export async function createAdminOutreachEnrollment(payload: { orgId: string; leadId: string; sequenceId: string; startAt?: string }) {
+export async function createAdminOutreachEnrollment(payload: { orgId?: string; leadId: string; sequenceId: string; startAt?: string }) {
   return request<{ enrollment: OutreachEnrollment }>("/api/admin/outreach/enrollments", {
     method: "POST",
     body: JSON.stringify(payload)

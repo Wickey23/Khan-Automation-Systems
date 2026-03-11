@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
-import { fetchAdminOrgs, fetchAdminOutreachEvents } from "@/lib/api";
+import { fetchAdminOutreachEvents } from "@/lib/api";
 import type { OutreachEmailEvent } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,25 +13,21 @@ import { PageHeader } from "@/components/ui/page";
 
 export default function AdminOutreachEventsPage() {
   const { showToast } = useToast();
-  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
-  const [orgId, setOrgId] = useState("");
   const [eventType, setEventType] = useState("ALL");
   const [search, setSearch] = useState("");
   const [events, setEvents] = useState<OutreachEmailEvent[]>([]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
-    if (orgId) params.set("orgId", orgId);
     if (eventType !== "ALL") params.set("eventType", eventType);
     if (search.trim()) params.set("search", search.trim());
     return `?${params.toString()}`;
-  }, [eventType, orgId, search]);
+  }, [eventType, search]);
 
   useEffect(() => {
     async function load() {
       try {
-        const [orgData, eventData] = await Promise.all([fetchAdminOrgs(), fetchAdminOutreachEvents(query)]);
-        setOrgs((orgData.orgs || []).map((org) => ({ id: org.id, name: org.name })));
+        const eventData = await fetchAdminOutreachEvents(query);
         setEvents(eventData.events || []);
       } catch (error) {
         showToast({
@@ -56,19 +52,7 @@ export default function AdminOutreachEventsPage() {
         <OutreachSubnav />
 
         <Card>
-          <CardContent className="grid gap-3 p-5 md:grid-cols-3">
-            <select
-              value={orgId}
-              onChange={(event) => setOrgId(event.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              <option value="">All organizations</option>
-              {orgs.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
+          <CardContent className="grid gap-3 p-5 md:grid-cols-2">
             <select
               value={eventType}
               onChange={(event) => setEventType(event.target.value)}
@@ -96,7 +80,7 @@ export default function AdminOutreachEventsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{event.subject || "No subject"}</div>
-                      <div className="text-sm text-muted-foreground">{event.organization?.name || event.orgId} · {event.toEmail}</div>
+                      <div className="text-sm text-muted-foreground">{event.toEmail}</div>
                     </div>
                     <div className="text-sm">{event.eventType}</div>
                   </div>

@@ -7,7 +7,6 @@ import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
   createAdminOutreachEnrollment,
   createAdminOutreachLead,
-  fetchAdminOrgs,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
   importAdminOutreachLeads,
@@ -28,8 +27,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function AdminOutreachLeadsPage() {
   const { showToast } = useToast();
-  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
-  const [orgId, setOrgId] = useState("");
   const [status, setStatus] = useState("ALL");
   const [search, setSearch] = useState("");
   const [leads, setLeads] = useState<OutreachLead[]>([]);
@@ -51,20 +48,17 @@ export default function AdminOutreachLeadsPage() {
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
-    if (orgId) params.set("orgId", orgId);
     if (status !== "ALL") params.set("status", status);
     if (search.trim()) params.set("search", search.trim());
     return `?${params.toString()}`;
-  }, [orgId, search, status]);
+  }, [search, status]);
 
-  async function load(nextOrgId = orgId) {
+  async function load() {
     try {
-      const [orgData, leadData, sequenceData] = await Promise.all([
-        fetchAdminOrgs(),
-        fetchAdminOutreachLeads(nextOrgId || search || status !== "ALL" ? query : ""),
-        fetchAdminOutreachSequences(nextOrgId || undefined)
+      const [leadData, sequenceData] = await Promise.all([
+        fetchAdminOutreachLeads(search || status !== "ALL" ? query : ""),
+        fetchAdminOutreachSequences()
       ]);
-      setOrgs((orgData.orgs || []).map((org) => ({ id: org.id, name: org.name })));
       setLeads(leadData.leads || []);
       setSequences(sequenceData.sequences || []);
     } catch (error) {
@@ -78,16 +72,11 @@ export default function AdminOutreachLeadsPage() {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   async function onCreateLead() {
-    if (!orgId) {
-      showToast({ title: "Select an organization first", variant: "error" });
-      return;
-    }
     try {
-      await createAdminOutreachLead({ orgId, ...form });
+      await createAdminOutreachLead(form);
       setForm({ companyName: "", contactName: "", email: "", phone: "", city: "", state: "", industry: "", website: "", notes: "" });
       await load();
       showToast({ title: "Lead created" });
@@ -101,12 +90,8 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onBulkImport() {
-    if (!orgId) {
-      showToast({ title: "Select an organization first", variant: "error" });
-      return;
-    }
     try {
-      const data = await importAdminOutreachLeads({ orgId, text: bulkText });
+      const data = await importAdminOutreachLeads({ text: bulkText });
       setBulkResults(data.rows || []);
       await load();
     } catch (error) {
@@ -120,12 +105,12 @@ export default function AdminOutreachLeadsPage() {
 
   async function onEnroll(lead: OutreachLead) {
     const sequenceId = selectedSequenceByLead[lead.id];
-    if (!orgId || !sequenceId) {
-      showToast({ title: "Choose an organization and sequence", variant: "error" });
+    if (!sequenceId) {
+      showToast({ title: "Choose a sequence first", variant: "error" });
       return;
     }
     try {
-      await createAdminOutreachEnrollment({ orgId, leadId: lead.id, sequenceId });
+      await createAdminOutreachEnrollment({ leadId: lead.id, sequenceId });
       await load();
       showToast({ title: "Lead enrolled" });
     } catch (error) {
@@ -140,9 +125,9 @@ export default function AdminOutreachLeadsPage() {
   async function onSuppress(lead: OutreachLead) {
     try {
       if (lead.status === "UNSUBSCRIBED" || lead.status === "PAUSED") {
-        await unsuppressAdminOutreachLead(lead.id, lead.orgId);
+        await unsuppressAdminOutreachLead(lead.id);
       } else {
-        await suppressAdminOutreachLead(lead.id, { orgId: lead.orgId, reason: "MANUAL_SUPPRESSION", source: "ADMIN_UI" });
+        await suppressAdminOutreachLead(lead.id, { reason: "MANUAL_SUPPRESSION", source: "ADMIN_UI" });
       }
       await load();
       showToast({ title: "Lead status updated" });
@@ -157,7 +142,7 @@ export default function AdminOutreachLeadsPage() {
 
   async function onMarkReplied(lead: OutreachLead) {
     try {
-      await markAdminOutreachLeadReplied(lead.id, { orgId: lead.orgId });
+      await markAdminOutreachLeadReplied(lead.id, {});
       await load();
       showToast({ title: "Lead marked replied" });
     } catch (error) {
@@ -204,21 +189,9 @@ export default function AdminOutreachLeadsPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach Leads"
-          description="Create leads, import strict pipe-delimited rows, enroll contacts into sequences, and stop sends when needed."
+          description="Create prospects, import strict pipe-delimited rows, enroll contacts into sequences, and stop sends when needed."
           actions={
             <div className="flex gap-2">
-              <select
-                value={orgId}
-                onChange={(event) => setOrgId(event.target.value)}
-                className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-              >
-                <option value="">Select organization</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
               <Input placeholder="Search leads" value={search} onChange={(event) => setSearch(event.target.value)} />
               <select
                 value={status}
@@ -291,7 +264,6 @@ export default function AdminOutreachLeadsPage() {
                     <div>
                       <div className="font-semibold">{lead.companyName || lead.contactName || lead.email}</div>
                       <div className="text-sm text-muted-foreground">{lead.contactName || "-"} · {lead.email}</div>
-                      <div className="text-sm text-muted-foreground">{lead.organization?.name || lead.orgId}</div>
                     </div>
                     <div className="text-sm">{lead.status}</div>
                   </div>

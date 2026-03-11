@@ -15,7 +15,7 @@ import {
   outreachSequenceUpdateSchema,
   validateOrderedSteps
 } from "./outreach.schema";
-import { buildBulkImportPreview, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
+import { buildBulkImportPreview, resolveOutreachOrgContext, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
 
@@ -113,9 +113,10 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
   const parsed = outreachLeadCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid lead payload.", errors: parsed.error.flatten() });
 
+  const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
   const email = normalizeEmail(parsed.data.email);
   const duplicate = await db.outreachLead.findFirst({
-    where: { orgId: parsed.data.orgId, email },
+    where: { orgId: org.id, email },
     select: { id: true }
   });
   if (duplicate) return res.status(409).json({ ok: false, message: "Lead already exists for this org." });
@@ -123,6 +124,7 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
   const lead = await db.outreachLead.create({
     data: {
       ...parsed.data,
+      orgId: org.id,
       email,
       status: parsed.data.status || "NEW"
     },
@@ -153,9 +155,10 @@ outreachAdminRouter.patch("/leads/:id", async (req: Request, res: Response) => {
 outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Response) => {
   const parsed = outreachBulkImportSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
+  const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
   const rows = await buildBulkImportPreview({
     prisma,
-    orgId: parsed.data.orgId,
+    orgId: org.id,
     text: parsed.data.text
   });
   return res.json({ ok: true, data: { rows } });
@@ -166,22 +169,23 @@ outreachAdminRouter.post("/leads/:id/suppress", async (req: Request, res: Respon
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid suppression payload.", errors: parsed.error.flatten() });
 
   const lead = await db.outreachLead.findUnique({ where: { id: req.params.id } });
-  if (!lead || lead.orgId !== parsed.data.orgId) return res.status(404).json({ ok: false, message: "Lead not found." });
+  const orgId = parsed.data.orgId || lead?.orgId;
+  if (!lead || !orgId || lead.orgId !== orgId) return res.status(404).json({ ok: false, message: "Lead not found." });
 
   const email = normalizeEmail(lead.email);
   await prisma.$transaction(async (tx) => {
     const txDb = tx as any;
     await txDb.outreachSuppression.upsert({
-      where: { orgId_email: { orgId: parsed.data.orgId, email } },
+      where: { orgId_email: { orgId, email } },
       update: { reason: parsed.data.reason, source: parsed.data.source },
-      create: { orgId: parsed.data.orgId, email, reason: parsed.data.reason, source: parsed.data.source }
+      create: { orgId, email, reason: parsed.data.reason, source: parsed.data.source }
     });
     await txDb.outreachLead.update({
       where: { id: lead.id },
       data: { status: "PAUSED" }
     });
     await txDb.outreachEnrollment.updateMany({
-      where: { orgId: parsed.data.orgId, leadId: lead.id, status: { in: ["ACTIVE", "PAUSED"] } },
+      where: { orgId, leadId: lead.id, status: { in: ["ACTIVE", "PAUSED"] } },
       data: { status: "STOPPED", stopReason: "SUPPRESSED", nextSendAt: null, processingStartedAt: null }
     });
   });
@@ -190,14 +194,12 @@ outreachAdminRouter.post("/leads/:id/suppress", async (req: Request, res: Respon
 });
 
 outreachAdminRouter.delete("/leads/:id/suppress", async (req: Request, res: Response) => {
-  const orgId = String(req.query.orgId || "").trim();
-  if (!orgId) return res.status(400).json({ ok: false, message: "orgId is required." });
   const lead = await db.outreachLead.findUnique({ where: { id: req.params.id } });
-  if (!lead || lead.orgId !== orgId) return res.status(404).json({ ok: false, message: "Lead not found." });
+  if (!lead) return res.status(404).json({ ok: false, message: "Lead not found." });
 
   await db.outreachSuppression.deleteMany({
     where: {
-      orgId,
+      orgId: lead.orgId,
       email: normalizeEmail(lead.email)
     }
   });
@@ -212,11 +214,12 @@ outreachAdminRouter.post("/leads/:id/mark-replied", async (req: Request, res: Re
   const parsed = outreachMarkRepliedSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid replied payload.", errors: parsed.error.flatten() });
   const lead = await db.outreachLead.findUnique({ where: { id: req.params.id } });
-  if (!lead || lead.orgId !== parsed.data.orgId) return res.status(404).json({ ok: false, message: "Lead not found." });
+  const orgId = parsed.data.orgId || lead?.orgId;
+  if (!lead || !orgId || lead.orgId !== orgId) return res.status(404).json({ ok: false, message: "Lead not found." });
 
   const updated = await markLeadReplied({
     prisma,
-    orgId: parsed.data.orgId,
+    orgId,
     leadId: req.params.id,
     note: parsed.data.note
   });
@@ -255,9 +258,10 @@ outreachAdminRouter.post("/sequences", async (req: Request, res: Response) => {
   const parsed = outreachSequenceCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid sequence payload.", errors: parsed.error.flatten() });
   const steps = validateOrderedSteps(parsed.data.steps);
+  const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
   const sequence = await db.outreachSequence.create({
     data: {
-      orgId: parsed.data.orgId,
+      orgId: org.id,
       name: parsed.data.name,
       description: parsed.data.description,
       isActive: parsed.data.isActive ?? true,
@@ -352,7 +356,8 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
   ]);
 
   if (!lead || !sequence) return res.status(404).json({ ok: false, message: "Lead or sequence not found." });
-  if (lead.orgId !== parsed.data.orgId || sequence.orgId !== parsed.data.orgId) {
+  const orgId = parsed.data.orgId || lead.orgId;
+  if (lead.orgId !== sequence.orgId || lead.orgId !== orgId) {
     return res.status(400).json({ ok: false, message: "Lead and sequence must belong to the same org." });
   }
   if (suppression || ["UNSUBSCRIBED", "REPLIED", "BOUNCED", "COMPLETED"].includes(lead.status)) {
@@ -361,7 +366,7 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
 
   const existing = await db.outreachEnrollment.findFirst({
     where: {
-      orgId: parsed.data.orgId,
+      orgId,
       leadId: parsed.data.leadId,
       sequenceId: parsed.data.sequenceId,
       status: { in: ["ACTIVE", "PAUSED"] }
@@ -371,7 +376,7 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
 
   const enrollment = await db.outreachEnrollment.create({
     data: {
-      orgId: parsed.data.orgId,
+      orgId,
       leadId: parsed.data.leadId,
       sequenceId: parsed.data.sequenceId,
       status: "ACTIVE",

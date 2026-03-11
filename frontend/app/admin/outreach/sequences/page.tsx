@@ -7,7 +7,6 @@ import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
   createAdminOutreachSequence,
   deleteAdminOutreachSequence,
-  fetchAdminOrgs,
   replaceAdminOutreachSequenceSteps,
   fetchAdminOutreachSequences,
   updateAdminOutreachSequence
@@ -45,8 +44,6 @@ const TEMPLATE_VARIABLES = [
 
 export default function AdminOutreachSequencesPage() {
   const { showToast } = useToast();
-  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
-  const [orgId, setOrgId] = useState("");
   const [sequences, setSequences] = useState<OutreachSequence[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -56,13 +53,9 @@ export default function AdminOutreachSequencesPage() {
     steps: defaultSteps()
   });
 
-  async function load(nextOrgId = orgId) {
+  async function load() {
     try {
-      const [orgData, sequenceData] = await Promise.all([
-        fetchAdminOrgs(),
-        fetchAdminOutreachSequences(nextOrgId || undefined)
-      ]);
-      setOrgs((orgData.orgs || []).map((org) => ({ id: org.id, name: org.name })));
+      const sequenceData = await fetchAdminOutreachSequences();
       setSequences(sequenceData.sequences || []);
     } catch (error) {
       showToast({
@@ -75,17 +68,11 @@ export default function AdminOutreachSequencesPage() {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
+  }, []);
 
   async function onCreate() {
-    if (!orgId) {
-      showToast({ title: "Select an organization first", variant: "error" });
-      return;
-    }
     try {
       await createAdminOutreachSequence({
-        orgId,
         name: form.name,
         description: form.description,
         isActive: form.isActive,
@@ -124,10 +111,6 @@ export default function AdminOutreachSequencesPage() {
   }
 
   async function onSave() {
-    if (!orgId) {
-      showToast({ title: "Select an organization first", variant: "error" });
-      return;
-    }
     if (!editingId) {
       await onCreate();
       return;
@@ -175,21 +158,7 @@ export default function AdminOutreachSequencesPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach Sequences"
-          description="Create reusable email sequences and preview the timing cadence before enrolling leads."
-          actions={
-            <select
-              value={orgId}
-              onChange={(event) => setOrgId(event.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              <option value="">Select organization</option>
-              {orgs.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          }
+          description="Create reusable email sequences and preview the timing cadence before enrolling prospects."
         />
         <OutreachSubnav />
 
@@ -255,7 +224,6 @@ export default function AdminOutreachSequencesPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{sequence.name}</div>
-                      <div className="text-sm text-muted-foreground">{sequence.organization?.name || sequence.orgId}</div>
                       <div className="text-sm text-muted-foreground">{sequence.description || "No description."}</div>
                     </div>
                     <div className="flex gap-2">

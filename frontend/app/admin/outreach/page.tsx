@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
-import { fetchAdminOrgs, fetchAdminOutreachOverview, runAdminOutreachTick } from "@/lib/api";
+import { fetchAdminOutreachOverview, runAdminOutreachTick } from "@/lib/api";
 import type { OutreachOverview } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,17 +13,11 @@ import { useToast } from "@/components/site/toast-provider";
 
 export default function AdminOutreachOverviewPage() {
   const { showToast } = useToast();
-  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
-  const [orgId, setOrgId] = useState("");
   const [data, setData] = useState<OutreachOverview | null>(null);
 
-  async function load(nextOrgId = orgId) {
+  async function load() {
     try {
-      const [orgData, overview] = await Promise.all([
-        fetchAdminOrgs(),
-        fetchAdminOutreachOverview(nextOrgId || undefined)
-      ]);
-      setOrgs((orgData.orgs || []).map((org) => ({ id: org.id, name: org.name })));
+      const overview = await fetchAdminOutreachOverview();
       setData(overview);
     } catch (error) {
       showToast({
@@ -36,7 +30,6 @@ export default function AdminOutreachOverviewPage() {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runTick() {
@@ -63,24 +56,9 @@ export default function AdminOutreachOverviewPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach"
-          description="Manage internal outbound email outreach across organizations without exposing this feature in tenant-facing areas."
+          description="Manage internal outbound cold email for Khan Automation and track the full prospecting pipeline."
           actions={
             <div className="flex gap-2">
-              <select
-                value={orgId}
-                onChange={(event) => {
-                  setOrgId(event.target.value);
-                  void load(event.target.value);
-                }}
-                className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-              >
-                <option value="">All organizations</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
               <Button variant="outline" onClick={() => void load()}>
                 Refresh
               </Button>
@@ -121,9 +99,7 @@ export default function AdminOutreachOverviewPage() {
                     </div>
                     <div className="text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</div>
                   </div>
-                  <div className="mt-1 text-muted-foreground">
-                    {event.organization?.name || "Unknown org"} · {event.toEmail}
-                  </div>
+                  <div className="mt-1 text-muted-foreground">{event.toEmail}</div>
                   {event.errorMessage ? <div className="mt-1 text-red-700">{event.errorMessage}</div> : null}
                 </div>
               ))

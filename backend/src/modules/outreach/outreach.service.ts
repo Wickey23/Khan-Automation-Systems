@@ -142,6 +142,28 @@ export async function assertOutreachOrgExists(prisma: PrismaClient, orgId: strin
   return org;
 }
 
+export async function resolveOutreachOrgContext(prisma: PrismaClient, orgId?: string | null) {
+  if (orgId) {
+    return assertOutreachOrgExists(prisma, orgId);
+  }
+
+  const preferredOrg = await (prisma as any).organization.findFirst({
+    where: {
+      name: { contains: "khan", mode: "insensitive" }
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true }
+  });
+  if (preferredOrg) return preferredOrg;
+
+  const fallbackOrg = await (prisma as any).organization.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true }
+  });
+  if (!fallbackOrg) throw new Error("No organization available for outreach.");
+  return fallbackOrg;
+}
+
 export async function buildBulkImportPreview(input: {
   prisma: PrismaClient;
   orgId: string;
