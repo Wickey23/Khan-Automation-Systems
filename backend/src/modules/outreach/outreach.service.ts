@@ -8,6 +8,20 @@ export type BulkImportRowResult =
   | { lineNumber: number; status: "duplicate"; email: string; reason: string }
   | { lineNumber: number; status: "invalid"; reason: string; raw: string };
 
+export const OUTREACH_TEMPLATE_VARIABLES = [
+  "contactName",
+  "firstName",
+  "companyName",
+  "email",
+  "phone",
+  "city",
+  "state",
+  "industry",
+  "website",
+  "notes",
+  "orgName"
+] as const;
+
 export function htmlToText(input: string) {
   return input.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").trim();
 }
@@ -28,6 +42,94 @@ export function withUnsubscribeFooter(input: { html?: string | null; text?: stri
   return {
     html: [htmlBase || textToHtml(textBase), footerHtml].filter(Boolean).join(""),
     text: [textBase || htmlToText(htmlBase), footerText].filter(Boolean).join("\n\n")
+  };
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function firstNameFromContactName(contactName: string) {
+  return contactName.trim().split(/\s+/).filter(Boolean)[0] || "";
+}
+
+function buildTemplateContext(input: {
+  lead: {
+    contactName?: string | null;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    city?: string | null;
+    state?: string | null;
+    industry?: string | null;
+    website?: string | null;
+    notes?: string | null;
+  };
+  orgName?: string | null;
+}) {
+  const contactName = String(input.lead.contactName || "").trim();
+  return {
+    contactName,
+    firstName: firstNameFromContactName(contactName),
+    companyName: String(input.lead.companyName || "").trim(),
+    email: normalizeEmail(input.lead.email || ""),
+    phone: String(input.lead.phone || "").trim(),
+    city: String(input.lead.city || "").trim(),
+    state: String(input.lead.state || "").trim(),
+    industry: String(input.lead.industry || "").trim(),
+    website: String(input.lead.website || "").trim(),
+    notes: String(input.lead.notes || "").trim(),
+    orgName: String(input.orgName || "").trim()
+  };
+}
+
+function renderTemplateString(template: string | null | undefined, context: Record<string, string>, mode: "text" | "html") {
+  const source = String(template || "");
+  return source.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, rawKey: string) => {
+    const key = rawKey in context ? rawKey : "";
+    if (!key) return "";
+    const value = context[key] || "";
+    return mode === "html" ? escapeHtml(value) : value;
+  });
+}
+
+function renderSequenceStep(input: {
+  step: {
+    subject: string;
+    bodyHtml?: string | null;
+    bodyText?: string | null;
+  };
+  lead: {
+    contactName?: string | null;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    city?: string | null;
+    state?: string | null;
+    industry?: string | null;
+    website?: string | null;
+    notes?: string | null;
+  };
+  orgName?: string | null;
+}) {
+  const context = buildTemplateContext({
+    lead: input.lead,
+    orgName: input.orgName
+  });
+  const renderedSubject = renderTemplateString(input.step.subject, context, "text").trim();
+  const renderedText = renderTemplateString(input.step.bodyText, context, "text").trim();
+  const renderedHtml = renderTemplateString(input.step.bodyHtml, context, "html").trim();
+
+  return {
+    subject: renderedSubject,
+    bodyText: renderedText,
+    bodyHtml: renderedHtml,
+    context
   };
 }
 
@@ -191,6 +293,9 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
       lead: true,
       sequence: {
         include: {
+          organization: {
+            select: { name: true }
+          },
           steps: {
             orderBy: { stepNumber: "asc" }
           }
@@ -237,9 +342,14 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
     leadId: enrollment.leadId,
     email: leadEmail
   });
+  const renderedStep = renderSequenceStep({
+    step,
+    lead: enrollment.lead,
+    orgName: enrollment.sequence.organization?.name
+  });
   const bodies = withUnsubscribeFooter({
-    html: step.bodyHtml,
-    text: step.bodyText,
+    html: renderedStep.bodyHtml,
+    text: renderedStep.bodyText,
     unsubscribeUrl
   });
 
@@ -252,11 +362,14 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
       stepNumber: step.stepNumber,
       provider: "resend",
       eventType: "QUEUED",
-      subject: step.subject,
+      subject: renderedStep.subject,
       toEmail: leadEmail,
       fromEmail: buildOutreachFromEmail(),
       metadata: {
-        sequenceName: enrollment.sequence.name
+        sequenceName: enrollment.sequence.name,
+        templateContext: renderedStep.context,
+        renderedBodyHtml: bodies.html,
+        renderedBodyText: bodies.text
       }
     }
   });
@@ -264,7 +377,7 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
   try {
     const sent = await sendOutreachEmail({
       to: leadEmail,
-      subject: step.subject,
+      subject: renderedStep.subject,
       html: bodies.html,
       text: bodies.text
     });

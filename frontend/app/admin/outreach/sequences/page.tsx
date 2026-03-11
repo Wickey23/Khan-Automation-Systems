@@ -29,6 +29,20 @@ function defaultSteps(): OutreachSequenceStep[] {
   ];
 }
 
+const TEMPLATE_VARIABLES = [
+  "{{contactName}}",
+  "{{firstName}}",
+  "{{companyName}}",
+  "{{email}}",
+  "{{phone}}",
+  "{{city}}",
+  "{{state}}",
+  "{{industry}}",
+  "{{website}}",
+  "{{notes}}",
+  "{{orgName}}"
+];
+
 export default function AdminOutreachSequencesPage() {
   const { showToast } = useToast();
   const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
@@ -184,6 +198,19 @@ export default function AdminOutreachSequencesPage() {
             <CardTitle>Create sequence</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+              <div className="font-medium">Personalization variables</div>
+              <div className="mt-2 text-muted-foreground">
+                Sequence subjects and bodies support lead-based placeholders that render at send time.
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {TEMPLATE_VARIABLES.map((variable) => (
+                  <code key={variable} className="rounded bg-background px-2 py-1 text-xs">
+                    {variable}
+                  </code>
+                ))}
+              </div>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div><Label>Name</Label><Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></div>
               <div><Label>Description</Label><Input value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></div>
