@@ -8,6 +8,25 @@ export type OutreachSendResult = {
   raw: Record<string, unknown> | null;
 };
 
+export class OutreachSendError extends Error {
+  statusCode: number | null;
+  retryAfterSeconds: number | null;
+  isRetryable: boolean;
+
+  constructor(input: {
+    message: string;
+    statusCode?: number | null;
+    retryAfterSeconds?: number | null;
+    isRetryable?: boolean;
+  }) {
+    super(input.message);
+    this.name = "OutreachSendError";
+    this.statusCode = input.statusCode ?? null;
+    this.retryAfterSeconds = input.retryAfterSeconds ?? null;
+    this.isRetryable = input.isRetryable ?? false;
+  }
+}
+
 export function buildOutreachFromEmail() {
   return env.EMAIL_FROM_OUTREACH;
 }
@@ -44,7 +63,14 @@ export async function sendOutreachEmail(input: {
     const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     if (!response.ok) {
       const message = typeof payload?.message === "string" ? payload.message : `resend_send_failed_${response.status}`;
-      throw new Error(message);
+      const retryAfterHeader = response.headers.get("retry-after");
+      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : null;
+      throw new OutreachSendError({
+        message,
+        statusCode: response.status,
+        retryAfterSeconds: Number.isFinite(retryAfterSeconds as number) ? retryAfterSeconds : null,
+        isRetryable: response.status === 429 || response.status >= 500
+      });
     }
 
     const providerMessageId =

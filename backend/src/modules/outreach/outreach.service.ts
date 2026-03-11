@@ -1,7 +1,11 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { buildOutreachFromEmail, sendOutreachEmail } from "./outreach-email.service";
+import { buildOutreachFromEmail, OutreachSendError, sendOutreachEmail } from "./outreach-email.service";
 import { normalizeEmail, stopEnrollmentsForLead } from "./outreach-stop.service";
 import { buildOutreachUnsubscribeUrl } from "./outreach-unsubscribe.service";
+
+const RESEND_MIN_INTERVAL_MS = 600;
+const DEFAULT_RETRY_DELAY_MS = 15_000;
+const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 
 export type BulkImportRowResult =
   | { lineNumber: number; status: "created"; leadId: string; email: string; enrollmentId?: string }
@@ -378,6 +382,48 @@ async function failEnrollment(input: { prisma: PrismaClient; enrollmentId: strin
   });
 }
 
+async function retryEnrollment(input: {
+  prisma: PrismaClient;
+  enrollmentId: string;
+  errorMessage: string;
+  retryAt: Date;
+  eventId?: string;
+}) {
+  if (input.eventId) {
+    await (input.prisma as any).outreachEmailEvent.update({
+      where: { id: input.eventId },
+      data: {
+        eventType: "FAILED",
+        errorMessage: input.errorMessage,
+        metadata: {
+          retryScheduledAt: input.retryAt.toISOString()
+        }
+      }
+    });
+  }
+
+  await (input.prisma as any).outreachEnrollment.update({
+    where: { id: input.enrollmentId },
+    data: {
+      status: "ACTIVE",
+      stopReason: null,
+      nextSendAt: input.retryAt,
+      processingStartedAt: null
+    }
+  });
+}
+
+function computeRetryDelayMs(error: OutreachSendError) {
+  if (error.retryAfterSeconds && error.retryAfterSeconds > 0) {
+    return Math.min(error.retryAfterSeconds * 1000, MAX_RETRY_DELAY_MS);
+  }
+  return DEFAULT_RETRY_DELAY_MS;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrollmentId: string; processingTimeoutMs: number }) {
   const db = input.prisma as any;
   const staleBefore = new Date(Date.now() - input.processingTimeoutMs);
@@ -519,6 +565,17 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
     return { ok: true as const, eventId: event.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown outreach send failure.";
+    if (error instanceof OutreachSendError && error.isRetryable) {
+      const retryAt = new Date(Date.now() + computeRetryDelayMs(error));
+      await retryEnrollment({
+        prisma: input.prisma,
+        enrollmentId: enrollment.id,
+        errorMessage: message,
+        retryAt,
+        eventId: event.id
+      });
+      return { ok: false as const, reason: message };
+    }
     await failEnrollment({
       prisma: input.prisma,
       enrollmentId: enrollment.id,
@@ -542,7 +599,10 @@ export async function runOutreachTick(input: { prisma: PrismaClient; processingT
   let processed = 0;
   let sent = 0;
   let failed = 0;
-  for (const enrollment of due) {
+  for (const [index, enrollment] of due.entries()) {
+    if (index > 0) {
+      await sleep(RESEND_MIN_INTERVAL_MS);
+    }
     processed += 1;
     const result = await sendEnrollmentStepNow({
       prisma: input.prisma,

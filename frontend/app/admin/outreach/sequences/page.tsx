@@ -46,82 +46,85 @@ const TEMPLATE_VARIABLES = [
   "{{orgName}}"
 ];
 
+const SIGNATURE_SHORT = "Sameer Khan\nFounder, Khan Systems";
+const SIGNATURE_WITH_SITE = "Sameer Khan\nFounder, Khan Systems\nhttps://khansystems.com";
+
 const PREMADE_TEMPLATES: SequenceTemplate[] = [
   {
     id: "local-service-intro",
     name: "Local Service Intro",
-    description: "A direct cold outreach sequence for local operators like plumbers, HVAC, electrical, and other service businesses.",
-    fit: "Best for owner-led local service businesses.",
+    description: "A stronger cold outreach sequence for local operators that focuses on booked jobs, speed-to-lead, and follow-up quality.",
+    fit: "Best for owner-led local service businesses that rely on calls, forms, and manual follow-up.",
     steps: [
       {
         delayHours: 0,
-        subject: "{{companyName}}: quick idea to capture more calls",
+        subject: "{{companyName}}: quick idea to book more jobs",
         bodyText:
-          "Hi {{firstName}},\n\nI came across {{companyName}} and noticed businesses like yours often lose good jobs when calls, texts, and follow-up happen manually.\n\nKhan Automation helps service companies respond faster, qualify leads, and keep more booked work without adding admin overhead.\n\nIf useful, I can send a short breakdown of how this could work for {{companyName}}.\n\nSameer"
+          `Hi {{firstName}},\n\nI came across {{companyName}} and wanted to reach out because a lot of service businesses lose good jobs when inbound calls and follow-up are handled manually.\n\nKhan Systems helps teams respond faster, qualify leads better, and keep more booked work without adding more admin overhead.\n\nIf that is even slightly relevant at {{companyName}}, I can send a short breakdown of what I mean.\n\n${SIGNATURE_SHORT}`
       },
       {
         delayHours: 48,
         subject: "Following up on {{companyName}}",
         bodyText:
-          "Hi {{firstName}},\n\nWanted to follow up in case my last note got buried.\n\nWe built Khan Automation for businesses that want fewer missed opportunities, better follow-up, and less manual work around inbound leads.\n\nIf you're open to it, I can send a few concrete ideas tailored to {{companyName}}.\n\nSameer"
+          `Hi {{firstName}},\n\nWanted to follow up in case my last note got buried.\n\nThe core problem we solve is simple: too many good leads go cold because response time, intake, and follow-up are still manual.\n\nThat is where Khan Systems usually creates the fastest operational lift.\n\nIf you want a quick look first, the site is below.\n\n${SIGNATURE_WITH_SITE}`
       },
       {
         delayHours: 96,
         subject: "Close the loop?",
         bodyText:
-          "Hi {{firstName}},\n\nI'll keep this short.\n\nIf improving lead response and follow-up is a priority at {{companyName}}, I think Khan Automation could be worth a look.\n\nIf now isn't the right time, no problem and I won't keep nudging.\n\nSameer"
+          `Hi {{firstName}},\n\nI will keep this short.\n\nIf improving lead response and follow-up is a priority at {{companyName}}, Khan Systems could be worth a look.\n\nIf now is not the right time, no problem and I will leave it there.\n\n${SIGNATURE_WITH_SITE}`
       }
     ]
   },
   {
     id: "missed-call-angle",
     name: "Missed Call Recovery",
-    description: "Frames the product around lost revenue from unanswered calls and inconsistent follow-up.",
+    description: "Frames the product around lost revenue from missed calls, slow callbacks, and after-hours leakage.",
     fit: "Best when the pain is missed calls, after-hours lead loss, or manual callback workflows.",
     steps: [
       {
         delayHours: 0,
         subject: "{{companyName}} may be losing jobs after missed calls",
         bodyText:
-          "Hi {{firstName}},\n\nQuick observation: service businesses often lose real revenue when missed calls do not get an immediate follow-up.\n\nKhan Automation helps capture those opportunities with faster response, better intake, and cleaner handoff for the team.\n\nIf you'd like, I can show what that could look like for {{companyName}}.\n\nSameer"
+          `Hi {{firstName}},\n\nQuick observation: service businesses often lose real revenue when missed calls do not get a fast follow-up.\n\nKhan Systems helps capture those opportunities with better first response, cleaner intake, and less manual callback work for the team.\n\nIf useful, I can show what that could look like for {{companyName}}.\n\n${SIGNATURE_SHORT}`
       },
       {
         delayHours: 72,
         subject: "Worth a look for {{companyName}}?",
         bodyText:
-          "Hi {{firstName}},\n\nFollowing up on my note about missed call recovery.\n\nIf {{companyName}} is handling callbacks manually, there is usually a quick operational win in automating the first response and lead capture flow.\n\nHappy to send over a short example.\n\nSameer"
+          `Hi {{firstName}},\n\nFollowing up on my note about missed call recovery.\n\nIf {{companyName}} is still handling callbacks manually, there is usually a fast operational win in improving first response and lead capture.\n\nIf you want the quick overview first, the site is below.\n\n${SIGNATURE_WITH_SITE}`
       },
       {
         delayHours: 144,
         subject: "Last follow-up from me",
         bodyText:
-          "Hi {{firstName}},\n\nLast note from me here.\n\nIf missed calls, follow-up speed, or lead capture are active issues for {{companyName}}, I can outline how Khan Automation would approach it.\n\nIf not, all good.\n\nSameer"
+          `Hi {{firstName}},\n\nLast note from me here.\n\nIf missed calls, follow-up speed, or lead capture are active issues for {{companyName}}, I can outline how Khan Systems would approach it.\n\nIf not, all good.\n\n${SIGNATURE_WITH_SITE}`
       }
     ]
   },
   {
     id: "website-conversion-angle",
     name: "Lead Response + Conversion",
-    description: "A broader outbound sequence for businesses with inquiry volume but weak response systems.",
+    description: "A broader outbound sequence for businesses that generate interest but leak leads through slow response and weak follow-up.",
     fit: "Best for businesses getting form leads, calls, and messages that need better conversion.",
     steps: [
       {
         delayHours: 0,
         subject: "Idea for improving response time at {{companyName}}",
         bodyText:
-          "Hi {{firstName}},\n\nI work on automation systems for businesses that want to convert more inbound demand without hiring more admin overhead.\n\nFor teams like {{companyName}}, the usual gains come from faster lead response, cleaner qualification, and fewer dropped follow-ups.\n\nIf you're curious, I can send a quick overview of how Khan Automation handles that.\n\nSameer"
+          `Hi {{firstName}},\n\nI work on automation systems for businesses that want to convert more inbound demand without hiring more admin overhead.\n\nFor teams like {{companyName}}, the usual gains come from faster lead response, cleaner qualification, and fewer dropped follow-ups.\n\nIf you are open to it, I can send a quick overview of how Khan Systems handles that.\n\n${SIGNATURE_SHORT}`
       },
       {
         delayHours: 48,
         subject: "Re: response time at {{companyName}}",
         bodyText:
-          "Hi {{firstName}},\n\nCircling back on this.\n\nIf lead response and follow-up are still mostly manual at {{companyName}}, there is usually low-hanging value in tightening that workflow.\n\nHappy to send a short walkthrough.\n\nSameer"
+          `Hi {{firstName}},\n\nCircling back on this.\n\nIf lead response and follow-up are still mostly manual at {{companyName}}, there is usually low-hanging value in tightening that workflow.\n\nIf you want the short version first, the site is below.\n\n${SIGNATURE_WITH_SITE}`
       },
       {
         delayHours: 120,
         subject: "Should I close this out?",
         bodyText:
-          "Hi {{firstName}},\n\nShould I close this out for now?\n\nIf improving lead handling is relevant for {{companyName}}, I can send over a tailored summary. If not, I’ll leave it there.\n\nSameer"
+          `Hi {{firstName}},\n\nShould I close this out for now?\n\nIf improving lead handling is relevant for {{companyName}}, I can send over a tailored summary. If not, I will leave it there.\n\n${SIGNATURE_WITH_SITE}`
       }
     ]
   }
@@ -543,6 +546,7 @@ export default function AdminOutreachSequencesPage() {
                 <div>Keep step 1 short and specific to the business problem you solve.</div>
                 <div>Use steps 2 and 3 to follow up, not to rewrite the same message louder.</div>
                 <div>Personalization variables are strongest in the subject line and first sentence.</div>
+                <div>Use the site link in follow-ups as proof and context; do not overload the first email with links.</div>
               </CardContent>
             </Card>
           </div>
