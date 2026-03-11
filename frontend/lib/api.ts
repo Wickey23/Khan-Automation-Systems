@@ -64,6 +64,7 @@ type ApiResponse<T> = {
 };
 
 const REQUEST_TIMEOUT_MS = 20_000;
+let refreshInFlight: Promise<boolean> | null = null;
 
 function redirectToLoginIfUnauthorized() {
   if (typeof window === "undefined") return;
@@ -87,11 +88,7 @@ function isMutatingMethod(method: string | undefined) {
   return normalized === "POST" || normalized === "PATCH" || normalized === "PUT" || normalized === "DELETE";
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!siteConfig.apiBase) {
-    throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
-  }
-
+async function ensureCsrfToken(path: string, init?: RequestInit) {
   let csrfToken = "";
   if (isMutatingMethod(init?.method) && path !== "/api/auth/csrf-token") {
     csrfToken = readCookie("kas_csrf_token");
@@ -111,6 +108,44 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       }
     }
   }
+  return csrfToken;
+}
+
+async function attemptSessionRefresh() {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    if (!siteConfig.apiBase) return false;
+    const csrfToken = await ensureCsrfToken("/api/auth/refresh", { method: "POST" });
+    try {
+      const response = await fetch(`${siteConfig.apiBase}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {})
+        },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) return false;
+      const payload = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+      return payload?.ok === true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function request<T>(path: string, init?: RequestInit, options?: { allowRefresh?: boolean }): Promise<T> {
+  if (!siteConfig.apiBase) {
+    throw new Error("API base URL is not configured. Set NEXT_PUBLIC_API_BASE in your frontend environment.");
+  }
+
+  const allowRefresh = options?.allowRefresh !== false;
+  const csrfToken = await ensureCsrfToken(path, init);
 
   let response: Response;
   const controller = new AbortController();
@@ -156,6 +191,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok || !payload?.ok) {
     if (response.status === 401) {
+      const canRefresh =
+        allowRefresh &&
+        path !== "/api/auth/refresh" &&
+        path !== "/api/auth/login" &&
+        path !== "/api/auth/login/verify-otp" &&
+        path !== "/api/auth/login/resend-otp" &&
+        path !== "/api/auth/signup" &&
+        path !== "/api/auth/forgot-password" &&
+        path !== "/api/auth/reset-password";
+      if (canRefresh) {
+        const refreshed = await attemptSessionRefresh();
+        if (refreshed) {
+          return request<T>(path, init, { allowRefresh: false });
+        }
+      }
       redirectToLoginIfUnauthorized();
       throw new Error("Session expired. Please log in again.");
     }
