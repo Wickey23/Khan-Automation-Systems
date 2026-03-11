@@ -369,6 +369,27 @@ export async function importAdminOutreachLeads(payload: { orgId?: string; sequen
   });
 }
 
+export async function previewAdminOutreachLeadsImport(payload: { orgId?: string; sequenceId?: string; text: string }) {
+  return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, dryRun: true })
+  });
+}
+
+export async function confirmAdminOutreachLeadsImport(payload: { orgId?: string; sequenceId?: string; text: string }) {
+  return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, confirmed: true })
+  });
+}
+
+export async function deleteAllAdminOutreachData() {
+  return request<{ deleted: boolean }>("/api/admin/outreach/leads", {
+    method: "DELETE",
+    body: JSON.stringify({ confirmed: true })
+  });
+}
+
 export async function suppressAdminOutreachLead(id: string, payload: { orgId?: string; reason?: string; source?: string }) {
   return request<{ suppressed: boolean }>(`/api/admin/outreach/leads/${id}/suppress`, {
     method: "POST",

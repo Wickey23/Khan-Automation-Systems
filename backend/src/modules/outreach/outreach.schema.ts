@@ -36,7 +36,13 @@ export const outreachLeadUpdateSchema = z.object({
 export const outreachBulkImportSchema = z.object({
   orgId: z.string().min(1).optional(),
   sequenceId: z.string().min(1).optional(),
-  text: z.string().min(1)
+  text: z.string().min(1),
+  dryRun: z.boolean().optional().default(false),
+  confirmed: z.boolean().optional().default(false)
+});
+
+export const outreachBulkDeleteSchema = z.object({
+  confirmed: z.boolean()
 });
 
 export const outreachSequenceStepInputSchema = z.object({

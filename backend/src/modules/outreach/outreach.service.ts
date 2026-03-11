@@ -173,19 +173,45 @@ export async function buildBulkImportPreview(input: {
   orgId: string;
   sequenceId?: string;
   text: string;
+  dryRun?: boolean;
 }) {
   const db = input.prisma as any;
   const results: BulkImportRowResult[] = [];
-  const rows = parseCsvRows(input.text);
+  const parsed = parseCsvRows(input.text);
+  if (parsed.error) {
+    return [{ lineNumber: 1, status: "invalid", reason: parsed.error, raw: input.text.slice(0, 120) }];
+  }
+  const rows = parsed.rows;
 
   if (!rows.length) {
     return [{ lineNumber: 1, status: "invalid", reason: "CSV must include a header row and at least one data row.", raw: input.text.slice(0, 120) }];
   }
 
+  const seenEmails = new Set<string>();
   for (const row of rows) {
     const email = normalizeEmail(row.values.email || "");
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Valid email required.", raw: row.raw });
+      continue;
+    }
+    if (seenEmails.has(email)) {
+      results.push({ lineNumber: row.lineNumber, status: "duplicate", email, reason: "Email is duplicated within this CSV import." });
+      continue;
+    }
+    seenEmails.add(email);
+    const website = String(row.values.website || "").trim();
+    if (website) {
+      try {
+        const normalizedWebsite = website.startsWith("http://") || website.startsWith("https://") ? website : `https://${website}`;
+        new URL(normalizedWebsite);
+      } catch {
+        results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Website must be a valid URL or domain.", raw: row.raw });
+        continue;
+      }
+    }
+    const syntheticReason = detectSyntheticLeadRow(row.values);
+    if (syntheticReason) {
+      results.push({ lineNumber: row.lineNumber, status: "invalid", reason: syntheticReason, raw: row.raw });
       continue;
     }
 
@@ -211,6 +237,11 @@ export async function buildBulkImportPreview(input: {
       website: row.values.website || undefined,
       notes: row.values.notes || undefined
     };
+
+    if (input.dryRun) {
+      results.push({ lineNumber: row.lineNumber, status: "created", leadId: `preview-${row.lineNumber}`, email });
+      continue;
+    }
 
     const created = await db.outreachLead.create({
       data: {
@@ -242,34 +273,6 @@ export async function buildBulkImportPreview(input: {
   return results;
 }
 
-function parseCsvLine(line: string) {
-  const cells: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const next = line[index + 1];
-    if (char === "\"") {
-      if (inQuotes && next === "\"") {
-        current += "\"";
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      cells.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-  cells.push(current.trim());
-  return cells;
-}
-
 function normalizeHeader(header: string) {
   const value = header.trim().toLowerCase();
   if (["company", "companyname", "business"].includes(value)) return "companyName";
@@ -284,16 +287,115 @@ function normalizeHeader(header: string) {
   return null;
 }
 
-function parseCsvRows(text: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length < 2) return [] as Array<{ lineNumber: number; raw: string; values: Record<string, string> }>;
+function parseCsvDocument(text: string) {
+  const rows: string[][] = [];
+  let currentCell = "";
+  let currentRow: string[] = [];
+  let inQuotes = false;
 
-  const headers = parseCsvLine(lines[0]).map(normalizeHeader);
-  return lines.slice(1).map((raw, index) => {
-    const cells = parseCsvLine(raw);
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        currentCell += "\"";
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      currentRow.push(currentCell.trim());
+      currentCell = "";
+      if (currentRow.some((cell) => cell.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      continue;
+    }
+
+    currentCell += char;
+  }
+
+  if (inQuotes) {
+    return { rows: [], error: "CSV contains an unclosed quoted field." };
+  }
+
+  currentRow.push(currentCell.trim());
+  if (currentRow.some((cell) => cell.length > 0)) {
+    rows.push(currentRow);
+  }
+
+  return { rows, error: null as string | null };
+}
+
+function extractNumericSuffix(value: string) {
+  const match = value.trim().match(/(\d+)$/);
+  return match ? match[1] : "";
+}
+
+function extractDomainLabel(value: string) {
+  if (!value) return "";
+  try {
+    const normalized = value.startsWith("http://") || value.startsWith("https://") ? value : `https://${value}`;
+    const hostname = new URL(normalized).hostname.replace(/^www\./, "");
+    return hostname.split(".")[0] || "";
+  } catch {
+    return "";
+  }
+}
+
+function detectSyntheticLeadRow(values: Record<string, string>) {
+  const notes = String(values.notes || "").trim().toLowerCase();
+  if (notes === "bulk outreach lead") {
+    return "Row looks like generated test data, not a real lead.";
+  }
+
+  const companySuffix = extractNumericSuffix(String(values.companyName || ""));
+  const emailDomainSuffix = extractNumericSuffix(
+    normalizeEmail(values.email || "").split("@")[1]?.split(".")[0] || ""
+  );
+  const websiteSuffix = extractNumericSuffix(extractDomainLabel(String(values.website || "")));
+
+  if (
+    companySuffix &&
+    companySuffix === emailDomainSuffix &&
+    companySuffix === websiteSuffix
+  ) {
+    return "Row looks like generated test data, not a real lead.";
+  }
+
+  return "";
+}
+
+function parseCsvRows(text: string) {
+  const parsed = parseCsvDocument(text);
+  if (parsed.error) {
+    return { rows: [], error: parsed.error };
+  }
+  if (parsed.rows.length < 2) {
+    return { rows: [] as Array<{ lineNumber: number; raw: string; values: Record<string, string> }>, error: null };
+  }
+
+  const rawHeaders = parsed.rows[0];
+  const headers = rawHeaders.map(normalizeHeader);
+  if (!headers.includes("email")) {
+    return { rows: [], error: "CSV must include an email column in the header row." };
+  }
+
+  const rows = parsed.rows.slice(1).map((cells, index) => {
     const values: Record<string, string> = {};
     headers.forEach((header, headerIndex) => {
       if (!header) return;
@@ -301,10 +403,12 @@ function parseCsvRows(text: string) {
     });
     return {
       lineNumber: index + 2,
-      raw,
+      raw: cells.join(","),
       values
     };
   });
+
+  return { rows, error: null as string | null };
 }
 
 export async function pauseEnrollment(prisma: PrismaClient, enrollmentId: string) {

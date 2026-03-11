@@ -5,19 +5,21 @@ import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
+  confirmAdminOutreachLeadsImport,
   createAdminOutreachEnrollment,
   createAdminOutreachLead,
   deleteAdminOutreachLead,
+  deleteAllAdminOutreachData,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
-  importAdminOutreachLeads,
   markAdminOutreachLeadReplied,
   pauseAdminOutreachEnrollment,
+  previewAdminOutreachLeadsImport,
   sendNowAdminOutreachEnrollment,
   suppressAdminOutreachLead,
   unsuppressAdminOutreachLead
 } from "@/lib/api";
-import type { OutreachLead, OutreachSequence } from "@/lib/types";
+import type { OutreachBulkImportRowResult, OutreachLead, OutreachSequence } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +41,9 @@ export default function AdminOutreachLeadsPage() {
   const [selectedSequenceByLead, setSelectedSequenceByLead] = useState<Record<string, string>>({});
   const [bulkText, setBulkText] = useState(CSV_TEMPLATE);
   const [bulkSequenceId, setBulkSequenceId] = useState("");
-  const [bulkResults, setBulkResults] = useState<Array<{ lineNumber: number; status: string; reason?: string; email?: string; enrollmentId?: string }>>([]);
+  const [bulkResults, setBulkResults] = useState<OutreachBulkImportRowResult[]>([]);
+  const [bulkPreviewReady, setBulkPreviewReady] = useState(false);
+  const [bulkImportLoading, setBulkImportLoading] = useState(false);
   const [form, setForm] = useState({
     companyName: "",
     contactName: "",
@@ -83,7 +87,17 @@ export default function AdminOutreachLeadsPage() {
   async function onCreateLead() {
     try {
       await createAdminOutreachLead(form);
-      setForm({ companyName: "", contactName: "", email: "", phone: "", city: "", state: "", industry: "", website: "", notes: "" });
+      setForm({
+        companyName: "",
+        contactName: "",
+        email: "",
+        phone: "",
+        city: "",
+        state: "",
+        industry: "",
+        website: "",
+        notes: ""
+      });
       await load();
       showToast({ title: "Lead created" });
     } catch (error) {
@@ -95,18 +109,61 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
-  async function onBulkImport() {
+  async function onPreviewImport() {
     if (!bulkSequenceId) {
       showToast({
         title: "Choose a sequence",
-        description: "CSV imports now require a sequence so outreach can start automatically.",
+        description: "Pick the sequence that would be used if you start outreach.",
         variant: "error"
       });
       return;
     }
     try {
-      const data = await importAdminOutreachLeads({ text: bulkText, sequenceId: bulkSequenceId });
+      const data = await previewAdminOutreachLeadsImport({ text: bulkText, sequenceId: bulkSequenceId });
       setBulkResults(data.rows || []);
+      setBulkPreviewReady(true);
+      const validRows = (data.rows || []).filter((row) => row.status === "created").length;
+      showToast({
+        title: "Preview ready",
+        description: `${validRows} valid rows are ready to import.`
+      });
+    } catch (error) {
+      setBulkPreviewReady(false);
+      showToast({
+        title: "Could not preview CSV",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
+
+  async function onBulkImport() {
+    if (!bulkSequenceId) {
+      showToast({
+        title: "Choose a sequence",
+        description: "CSV imports require a sequence so outreach can start automatically.",
+        variant: "error"
+      });
+      return;
+    }
+    if (!bulkPreviewReady) {
+      showToast({
+        title: "Preview required",
+        description: "Preview the CSV before starting outreach.",
+        variant: "error"
+      });
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Start outreach for the valid rows in this CSV preview?");
+      if (!confirmed) return;
+    }
+
+    try {
+      setBulkImportLoading(true);
+      const data = await confirmAdminOutreachLeadsImport({ text: bulkText, sequenceId: bulkSequenceId });
+      setBulkResults(data.rows || []);
+      setBulkPreviewReady(false);
       await load();
       const started = (data.rows || []).filter((row) => row.status === "created" && row.enrollmentId).length;
       showToast({
@@ -119,6 +176,8 @@ export default function AdminOutreachLeadsPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+    } finally {
+      setBulkImportLoading(false);
     }
   }
 
@@ -127,7 +186,9 @@ export default function AdminOutreachLeadsPage() {
     try {
       const text = await file.text();
       setBulkText(text);
-      showToast({ title: "CSV loaded", description: `${file.name} is ready to import.` });
+      setBulkPreviewReady(false);
+      setBulkResults([]);
+      showToast({ title: "CSV loaded", description: `${file.name} is ready to preview.` });
     } catch {
       showToast({ title: "Could not read CSV file", variant: "error" });
     }
@@ -204,6 +265,27 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
+  async function onDeleteAllOutreachData() {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Delete all outreach leads, sequences, enrollments, suppressions, and events?");
+      if (!confirmed) return;
+    }
+
+    try {
+      await deleteAllAdminOutreachData();
+      setBulkResults([]);
+      setBulkPreviewReady(false);
+      await load();
+      showToast({ title: "Outreach data cleared" });
+    } catch (error) {
+      showToast({
+        title: "Could not clear outreach data",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
+
   async function onPauseEnrollment(enrollmentId: string) {
     try {
       await pauseAdminOutreachEnrollment(enrollmentId);
@@ -234,12 +316,12 @@ export default function AdminOutreachLeadsPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <div className="container py-10 space-y-6">
+      <div className="container space-y-6 py-10">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach Leads"
-          description="Import CSV contact lists, enroll them into a sequence, and start outbound emailing without the discovery step."
+          description="Preview CSV contact lists before import, then explicitly confirm before any outreach enrollments begin."
           actions={
             <div className="flex gap-2">
               <Input placeholder="Search leads" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -287,13 +369,16 @@ export default function AdminOutreachLeadsPage() {
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Upload or paste a CSV with headers like `companyName, contactName, email, phone, city, state, industry, website, notes`.
-                Imported rows are enrolled into the selected sequence immediately.
+                Preview rows first, then explicitly confirm before outreach starts.
               </p>
               <div>
                 <Label>Sequence to start</Label>
                 <select
                   value={bulkSequenceId}
-                  onChange={(event) => setBulkSequenceId(event.target.value)}
+                  onChange={(event) => {
+                    setBulkSequenceId(event.target.value);
+                    setBulkPreviewReady(false);
+                  }}
                   className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
                 >
                   <option value="">Choose sequence</option>
@@ -310,19 +395,36 @@ export default function AdminOutreachLeadsPage() {
               </div>
               <div>
                 <Label>CSV contents</Label>
-                <Textarea rows={10} value={bulkText} onChange={(event) => setBulkText(event.target.value)} />
+                <Textarea
+                  rows={10}
+                  value={bulkText}
+                  onChange={(event) => {
+                    setBulkText(event.target.value);
+                    setBulkPreviewReady(false);
+                  }}
+                />
               </div>
-              <Button onClick={() => void onBulkImport()}>Import CSV and start outreach</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => void onPreviewImport()}>
+                  Preview import
+                </Button>
+                <Button disabled={!bulkPreviewReady || bulkImportLoading} onClick={() => void onBulkImport()}>
+                  {bulkImportLoading ? "Starting outreach..." : "Confirm import and start outreach"}
+                </Button>
+                <Button variant="outline" onClick={() => void onDeleteAllOutreachData()}>
+                  Clear all outreach data
+                </Button>
+              </div>
               {bulkResults.length ? (
                 <div className="space-y-2 rounded-lg border p-3 text-sm">
                   {bulkResults.map((row) => (
-                    <div key={`${row.lineNumber}-${row.status}-${row.email || row.reason || ""}`} className="flex flex-wrap justify-between gap-2">
+                    <div key={`${row.lineNumber}-${row.status}-${"email" in row ? row.email : row.raw}`} className="flex flex-wrap justify-between gap-2">
                       <span>Line {row.lineNumber}</span>
                       <span>
                         {row.status}
-                        {row.email ? ` · ${row.email}` : ""}
-                        {row.enrollmentId ? " · enrolled" : ""}
-                        {row.reason ? ` · ${row.reason}` : ""}
+                        {"email" in row ? ` • ${row.email}` : ""}
+                        {"enrollmentId" in row && row.enrollmentId ? " • enrolled" : ""}
+                        {"reason" in row ? ` • ${row.reason}` : ""}
                       </span>
                     </div>
                   ))}
@@ -343,14 +445,14 @@ export default function AdminOutreachLeadsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{lead.companyName || lead.contactName || lead.email}</div>
-                      <div className="text-sm text-muted-foreground">{lead.contactName || "-"} · {lead.email}</div>
+                      <div className="text-sm text-muted-foreground">{lead.contactName || "-"} • {lead.email}</div>
                     </div>
                     <div className="text-sm">{lead.status}</div>
                   </div>
                   <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
                     <div className="text-sm text-muted-foreground">
                       {(lead.city || lead.state) ? `${lead.city || ""}${lead.city && lead.state ? ", " : ""}${lead.state || ""}` : "Location not set"}
-                      {lead.industry ? ` · ${lead.industry}` : ""}
+                      {lead.industry ? ` • ${lead.industry}` : ""}
                     </div>
                     <select
                       value={selectedSequenceByLead[lead.id] || ""}
@@ -378,8 +480,8 @@ export default function AdminOutreachLeadsPage() {
                       {lead.enrollments.map((enrollment) => (
                         <div key={enrollment.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
                           <span>
-                            {enrollment.sequence?.name || "Sequence"} · {enrollment.status} · step {enrollment.currentStepNumber}
-                            {enrollment.nextSendAt ? ` · next ${new Date(enrollment.nextSendAt).toLocaleString()}` : ""}
+                            {enrollment.sequence?.name || "Sequence"} • {enrollment.status} • step {enrollment.currentStepNumber}
+                            {enrollment.nextSendAt ? ` • next ${new Date(enrollment.nextSendAt).toLocaleString()}` : ""}
                           </span>
                           {enrollment.status === "ACTIVE" ? (
                             <div className="flex gap-2">

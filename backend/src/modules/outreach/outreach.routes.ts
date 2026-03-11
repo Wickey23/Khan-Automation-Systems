@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import type { AuthenticatedRequest } from "../../middleware/require-auth";
 import {
   outreachBulkImportSchema,
+  outreachBulkDeleteSchema,
   outreachEnrollmentCreateSchema,
   outreachLeadCreateSchema,
   outreachLeadSuppressSchema,
@@ -202,13 +203,36 @@ outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Respons
       return res.status(400).json({ ok: false, message: "Selected sequence was not found or is inactive." });
     }
   }
+  if (!parsed.data.dryRun && parsed.data.sequenceId && !parsed.data.confirmed) {
+    return res.status(400).json({ ok: false, message: "CSV import must be explicitly confirmed before auto-enrollment starts." });
+  }
   const rows = await buildBulkImportPreview({
     prisma,
     orgId: org.id,
     sequenceId: parsed.data.sequenceId,
-    text: parsed.data.text
+    text: parsed.data.text,
+    dryRun: parsed.data.dryRun
   });
   return res.json({ ok: true, data: { rows } });
+});
+
+outreachAdminRouter.delete("/leads", async (req: Request, res: Response) => {
+  const parsed = outreachBulkDeleteSchema.safeParse(req.body);
+  if (!parsed.success || !parsed.data.confirmed) {
+    return res.status(400).json({ ok: false, message: "Bulk delete must be explicitly confirmed." });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const txDb = tx as any;
+    await txDb.outreachEmailEvent.deleteMany({});
+    await txDb.outreachEnrollment.deleteMany({});
+    await txDb.outreachSuppression.deleteMany({});
+    await txDb.outreachSequenceStep.deleteMany({});
+    await txDb.outreachSequence.deleteMany({});
+    await txDb.outreachLead.deleteMany({});
+  });
+
+  return res.json({ ok: true, data: { deleted: true } });
 });
 
 outreachAdminRouter.post("/leads/:id/suppress", async (req: Request, res: Response) => {
