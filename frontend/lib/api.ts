@@ -356,6 +356,12 @@ export async function updateAdminOutreachLead(id: string, payload: Partial<Outre
   });
 }
 
+export async function deleteAdminOutreachLead(id: string) {
+  return request<{ deleted: boolean; id: string }>(`/api/admin/outreach/leads/${id}`, {
+    method: "DELETE"
+  });
+}
+
 export async function importAdminOutreachLeads(payload: { orgId?: string; sequenceId?: string; text: string }) {
   return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
     method: "POST",

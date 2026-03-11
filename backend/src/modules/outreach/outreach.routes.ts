@@ -152,6 +152,39 @@ outreachAdminRouter.patch("/leads/:id", async (req: Request, res: Response) => {
   }
 });
 
+outreachAdminRouter.delete("/leads/:id", async (req: Request, res: Response) => {
+  const lead = await db.outreachLead.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, orgId: true, email: true }
+  });
+  if (!lead) {
+    return res.status(404).json({ ok: false, message: "Lead not found." });
+  }
+
+  const email = normalizeEmail(lead.email);
+
+  await prisma.$transaction(async (tx) => {
+    const txDb = tx as any;
+    await txDb.outreachEmailEvent.deleteMany({
+      where: {
+        orgId: lead.orgId,
+        leadId: lead.id
+      }
+    });
+    await txDb.outreachSuppression.deleteMany({
+      where: {
+        orgId: lead.orgId,
+        email
+      }
+    });
+    await txDb.outreachLead.delete({
+      where: { id: lead.id }
+    });
+  });
+
+  return res.json({ ok: true, data: { deleted: true, id: lead.id } });
+});
+
 outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Response) => {
   const parsed = outreachBulkImportSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });

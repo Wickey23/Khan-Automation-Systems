@@ -7,6 +7,7 @@ import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
   createAdminOutreachEnrollment,
   createAdminOutreachLead,
+  deleteAdminOutreachLead,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
   importAdminOutreachLeads,
@@ -183,6 +184,26 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
+  async function onDeleteLead(lead: OutreachLead) {
+    const label = lead.companyName || lead.contactName || lead.email;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(`Delete ${label} from outreach? This will remove its enrollments and outreach history.`);
+      if (!confirmed) return;
+    }
+
+    try {
+      await deleteAdminOutreachLead(lead.id);
+      await load();
+      showToast({ title: "Lead deleted" });
+    } catch (error) {
+      showToast({
+        title: "Could not delete lead",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
+
   async function onPauseEnrollment(enrollmentId: string) {
     try {
       await pauseAdminOutreachEnrollment(enrollmentId);
@@ -349,6 +370,7 @@ export default function AdminOutreachLeadsPage() {
                         {lead.status === "PAUSED" || lead.status === "UNSUBSCRIBED" ? "Unsuppress" : "Suppress"}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => void onMarkReplied(lead)}>Mark replied</Button>
+                      <Button size="sm" variant="outline" onClick={() => void onDeleteLead(lead)}>Delete</Button>
                     </div>
                   </div>
                   {lead.enrollments?.length ? (
