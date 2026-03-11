@@ -650,35 +650,43 @@ export default function AppSettingsPage() {
         }
       />
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Readiness</p>
-        <h2 className="text-lg font-semibold">Go-Live Readiness</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          These are the essentials the receptionist needs before call routing, booking, and alerts can run cleanly.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Transfer numbers", readinessHints.transfer.length > 0 ? "Configured" : "Missing"],
-            ["Notification emails", readinessHints.emails.length > 0 ? "Configured" : "Missing"],
-            ["Notification phones", readinessHints.phones.length > 0 ? "Configured" : "Missing"],
-            ["Business hours", readinessHints.hasHours ? "Configured" : "Missing"]
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border bg-muted/20 p-4">
-              <p className="page-eyebrow">{label}</p>
-              <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+      <section className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Workspace controls</p>
-          <h2 className="text-lg font-semibold">Assistant Control Center</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Operations overview</p>
+          <h2 className="text-lg font-semibold">Assistant at a glance</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review the main routing, booking, and alerting setup before you move into the detailed sections.
+            Review the routing and booking setup that affects live calls before you move into the detailed sections.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Inbound mode</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">{formatVoiceRoutingMode(state.voiceRoutingMode)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {supportsHumanForwardingMode(state.voiceRoutingMode)
+                  ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
+                    ? `${state.voiceRingTimeoutSeconds}s ring before handoff`
+                    : "Needs forwarding number"
+                  : "AI answers first"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Calendar booking</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">
+                {primaryCalendarConnection ? `${primaryCalendarConnection.provider} connected` : "Manual scheduling"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {primaryCalendarConnection ? primaryCalendarConnection.accountEmail : "No active calendar connection"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="page-eyebrow">Alert routing</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">
+                {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Live contacts set" : "Needs notification contact"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {readinessHints.emails.length} email / {readinessHints.phones.length} phone recipient{readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
+              </p>
+            </div>
             <div className="rounded-xl border bg-slate-50 p-4">
               <p className="page-eyebrow">Timezone</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{state.timezone}</p>
@@ -692,61 +700,92 @@ export default function AppSettingsPage() {
               </p>
             </div>
             <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="page-eyebrow">Calendar booking</p>
+              <p className="page-eyebrow">Coverage</p>
               <p className="mt-2 text-sm font-medium text-slate-950">
-                {primaryCalendarConnection ? `${primaryCalendarConnection.provider} connected` : "Manual scheduling"}
+                {state.voiceMediaStreamingEnabled ? "Media streaming on" : "Standard call path"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {primaryCalendarConnection ? primaryCalendarConnection.accountEmail : "No active calendar connection"}
-              </p>
-            </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="page-eyebrow">Inbound mode</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">
-                {formatVoiceRoutingMode(state.voiceRoutingMode)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {supportsHumanForwardingMode(state.voiceRoutingMode)
-                  ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
-                    ? "Forwarding path ready"
-                    : "Needs forwarding number"
-                  : "Current AI-first flow preserved"}
-              </p>
-            </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="page-eyebrow">Alert routing</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">
-                {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Live contacts set" : "Needs notification contact"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {readinessHints.emails.length} email / {readinessHints.phones.length} phone recipient{readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
+                {state.voiceTranscriptionEnabled ? "Live transcription enabled" : "Transcription off"}
               </p>
             </div>
           </div>
         </div>
 
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Advanced</p>
-          <h2 className="text-lg font-semibold">Security & Verification</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Go-live checks</p>
+          <h2 className="text-lg font-semibold">Readiness snapshot</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Confirm this login can receive verification emails and see whether 2FA is currently enforced.
+            These are the setup items that most often block routing, booking, and alerts from working cleanly.
           </p>
           <div className="mt-4 space-y-3">
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="page-eyebrow">Account email</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">{security?.email || "Unknown"}</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <p className="page-eyebrow">2FA policy</p>
-                <p className="mt-2 text-sm font-medium text-slate-950">{security?.twoFactorEnabledForAccount ? "Required for this account" : "Not required"}</p>
+            {[
+              [
+                "Transfer numbers",
+                readinessHints.transfer.length > 0 ? "Configured" : "Missing",
+                readinessHints.transfer.length > 0 ? `${readinessHints.transfer.length} number${readinessHints.transfer.length === 1 ? "" : "s"} available` : "Add a transfer number for escalations"
+              ],
+              [
+                "Notification emails",
+                readinessHints.emails.length > 0 ? "Configured" : "Missing",
+                readinessHints.emails.length > 0 ? `${readinessHints.emails.length} email recipient${readinessHints.emails.length === 1 ? "" : "s"}` : "Add at least one email recipient"
+              ],
+              [
+                "Notification phones",
+                readinessHints.phones.length > 0 ? "Configured" : "Missing",
+                readinessHints.phones.length > 0 ? `${readinessHints.phones.length} phone recipient${readinessHints.phones.length === 1 ? "" : "s"}` : "Add a mobile number for SMS alerts"
+              ],
+              [
+                "Business hours",
+                readinessHints.hasHours ? "Configured" : "Missing",
+                readinessHints.hasHours ? `${openDaysCount} open day${openDaysCount === 1 ? "" : "s"} set` : "Set your open days and hours"
+              ]
+            ].map(([label, value, detail]) => (
+              <div key={label} className="rounded-xl border bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="page-eyebrow">{label}</p>
+                    <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${value === "Configured" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                    {value}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
               </div>
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <p className="page-eyebrow">Email provider</p>
-                <p className="mt-2 text-sm font-medium text-slate-950">{security?.emailProviderConfigured ? "Configured" : "Missing"}</p>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <Accordion type="multiple" defaultValue={["calendar", "services"]} className="space-y-4">
+      <AccordionItem value="security" className="rounded-2xl border bg-white px-5 shadow-sm">
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Security & Verification
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                This area is only for account verification and delivery diagnostics. It does not affect day-to-day assistant behavior.
+              </p>
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border bg-slate-50 p-4">
+                  <p className="page-eyebrow">Account email</p>
+                  <p className="mt-2 text-sm font-medium text-slate-950">{security?.email || "Unknown"}</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border bg-slate-50 p-4">
+                    <p className="page-eyebrow">2FA policy</p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">{security?.twoFactorEnabledForAccount ? "Required for this account" : "Not required"}</p>
+                  </div>
+                  <div className="rounded-xl border bg-slate-50 p-4">
+                    <p className="page-eyebrow">Email provider</p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">{security?.emailProviderConfigured ? "Configured" : "Missing"}</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
               <div className="rounded-xl border bg-slate-50 p-4">
                 <p className="page-eyebrow">Last code sent</p>
                 <p className="mt-2 text-sm font-medium text-slate-950">{formatDateTime(security?.lastOtpEmailSentAt)}</p>
@@ -755,23 +794,19 @@ export default function AppSettingsPage() {
                 <p className="page-eyebrow">Last code verified</p>
                 <p className="mt-2 text-sm font-medium text-slate-950">{formatDateTime(security?.lastOtpVerifiedAt)}</p>
               </div>
-            </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="page-eyebrow">Recent verification issue</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">
-                {security?.lastOtpFailureReason ? security.lastOtpFailureReason.replace(/_/g, " ") : "No recent failure recorded"}
-              </p>
+              <div className="rounded-xl border bg-slate-50 p-4">
+                <p className="page-eyebrow">Recent verification issue</p>
+                <p className="mt-2 text-sm font-medium text-slate-950">
+                  {security?.lastOtpFailureReason ? security.lastOtpFailureReason.replace(/_/g, " ") : "No recent failure recorded"}
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => void onSendTestVerificationEmail()} disabled={sendingTestEmail}>
+                {sendingTestEmail ? "Sending..." : "Send test verification email"}
+              </Button>
             </div>
           </div>
-          <div className="mt-4">
-            <Button variant="outline" onClick={() => void onSendTestVerificationEmail()} disabled={sendingTestEmail}>
-              {sendingTestEmail ? "Sending..." : "Send test verification email"}
-            </Button>
-          </div>
-        </section>
-      </section>
-
-      <Accordion type="multiple" defaultValue={["calendar", "services"]} className="space-y-4">
+        </AccordionContent>
+      </AccordionItem>
       <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
