@@ -1,5 +1,7 @@
+import { UserRole } from "@prisma/client";
 import { Router, type Request, type Response } from "express";
 import { prisma } from "../../lib/prisma";
+import type { AuthenticatedRequest } from "../../middleware/require-auth";
 import {
   outreachBulkImportSchema,
   outreachEnrollmentCreateSchema,
@@ -20,6 +22,14 @@ import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
 export const outreachAdminRouter = Router();
 export const outreachPublicRouter = Router();
 const db = prisma as any;
+
+outreachAdminRouter.use((req: Request, res: Response, next) => {
+  const auth = (req as AuthenticatedRequest).auth;
+  if (!auth || auth.role !== UserRole.SUPER_ADMIN) {
+    return res.status(403).json({ ok: false, message: "Super admin access required." });
+  }
+  return next();
+});
 
 function pagination(query: { page?: number; limit?: number }) {
   const page = Math.max(query.page || 1, 1);

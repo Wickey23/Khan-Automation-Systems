@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getMe } from "@/lib/api";
 
-export function AdminGuard({ children }: { children: React.ReactNode }) {
+export function AdminGuard({
+  children,
+  requireSuperAdmin = false
+}: {
+  children: React.ReactNode;
+  requireSuperAdmin?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [status, setStatus] = useState<"checking" | "allowed" | "redirecting">("checking");
@@ -37,7 +43,8 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
         setErrorMessage(null);
         if (!active) return;
         const isAdmin = data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN";
-        if (isAdmin) {
+        const isAllowed = requireSuperAdmin ? data.user.role === "SUPER_ADMIN" : isAdmin;
+        if (isAllowed) {
           setStatus("allowed");
           return;
         }
@@ -54,7 +61,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       active = false;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [pathname, router]);
+  }, [pathname, requireSuperAdmin, router]);
 
   if (status !== "allowed") {
     return (

@@ -169,7 +169,7 @@ export default function AdminOutreachSequencesPage() {
   }
 
   return (
-    <AdminGuard>
+    <AdminGuard requireSuperAdmin>
       <div className="container py-10 space-y-6">
         <AdminTopTabs />
         <PageHeader

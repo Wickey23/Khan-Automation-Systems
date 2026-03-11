@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { ArrowLeft, ClipboardList, MessageSquare, Settings, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fetchAdminOrgs } from "@/lib/api";
+import { fetchAdminOrgs, getMe } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type AdminTab = {
@@ -68,6 +68,24 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
   const pathname = usePathname();
   const router = useRouter();
   const [banner, setBanner] = useState<{ text: string; ctaLabel: string; ctaHref: string } | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void getMe()
+      .then((data) => {
+        if (!active) return;
+        setIsSuperAdmin(data.user.role === "SUPER_ADMIN");
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsSuperAdmin(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (hideSystemBanner) {
@@ -144,7 +162,11 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
     return matches.some((match) => pathname === match || pathname.startsWith(`${match}/`));
   }
 
-  const allTabs = adminTabGroups.flatMap((group) => group.tabs);
+  const visibleGroups = adminTabGroups.map((group) => ({
+    ...group,
+    tabs: group.tabs.filter((tab) => (tab.href === "/admin/outreach" ? isSuperAdmin : true))
+  }));
+  const allTabs = visibleGroups.flatMap((group) => group.tabs);
   const activeTab = allTabs.find((tab) => isActive(tab)) || null;
 
   function handleBack() {
@@ -191,7 +213,8 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
         ) : null}
 
         <div className="grid gap-3 md:grid-cols-3">
-          {adminTabGroups.map((group) => {
+          {visibleGroups.map((group) => {
+            if (!group.tabs.length) return null;
             const Icon = group.icon;
             return (
               <div key={group.label} className={cn("rounded-xl border bg-gradient-to-b p-2.5", group.tone)}>
