@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { Router, type Request, type Response } from "express";
 import { prisma } from "../../lib/prisma";
 import type { AuthenticatedRequest } from "../../middleware/require-auth";
@@ -306,25 +306,38 @@ outreachAdminRouter.post("/sequences", async (req: Request, res: Response) => {
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid sequence payload.", errors: parsed.error.flatten() });
   const steps = validateOrderedSteps(parsed.data.steps);
   const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
-  const sequence = await db.outreachSequence.create({
-    data: {
-      orgId: org.id,
-      name: parsed.data.name,
-      description: parsed.data.description,
-      isActive: parsed.data.isActive ?? true,
-      steps: {
-        create: steps.map((step) => ({
-          stepNumber: step.stepNumber,
-          delayHours: step.delayHours,
-          subject: step.subject,
-          bodyHtml: step.bodyHtml || null,
-          bodyText: step.bodyText || null
-        }))
-      }
-    },
-    include: { steps: { orderBy: { stepNumber: "asc" } } }
-  });
-  return res.status(201).json({ ok: true, data: { sequence } });
+  try {
+    const sequence = await db.outreachSequence.create({
+      data: {
+        orgId: org.id,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        isActive: parsed.data.isActive ?? true,
+        steps: {
+          create: steps.map((step) => ({
+            stepNumber: step.stepNumber,
+            delayHours: step.delayHours,
+            subject: step.subject,
+            bodyHtml: step.bodyHtml || null,
+            bodyText: step.bodyText || null
+          }))
+        }
+      },
+      include: { steps: { orderBy: { stepNumber: "asc" } } }
+    });
+    return res.status(201).json({ ok: true, data: { sequence } });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return res.status(409).json({
+        ok: false,
+        message: "A sequence with this name already exists."
+      });
+    }
+    throw error;
+  }
 });
 
 outreachAdminRouter.patch("/sequences/:id", async (req: Request, res: Response) => {
