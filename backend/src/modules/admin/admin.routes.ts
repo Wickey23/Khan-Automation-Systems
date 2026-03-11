@@ -12,6 +12,7 @@ import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } fr
 import { provisionNumber } from "../twilio/twilio.service";
 import { buildConfigPackage, generateConfigPackage } from "../org/config-package";
 import {
+  adminReportRecipientPayloadSchema,
   assignNumberSchema,
   callFilterSchema,
   clearAllDataSchema,
@@ -34,6 +35,13 @@ import {
   relinkCallSchema,
   mergeLeadsSchema
 } from "./admin.schema";
+import {
+  createAdminReportRecipient,
+  deleteAdminReportRecipient,
+  listAdminReportRecipients,
+  sendAdminReportTest,
+  updateAdminReportRecipient
+} from "./admin-reporting.service";
 import { backfillMissedVapiCalls } from "./backfill.service";
 import { getDefaultChecklistSteps, upsertChecklistStep, writeAuditLog } from "./provisioning.service";
 import { computeReadinessReport } from "./readiness.service";
@@ -1271,6 +1279,77 @@ adminRouter.get("/revenue", async (_req: AuthenticatedRequest, res) => {
 adminRouter.get("/system/dashboard", requirePermission("ADMIN_SYSTEM_VIEW"), async (_req: AuthenticatedRequest, res) => {
   const dashboard = await computeOperatorDashboard(prisma);
   return res.json({ ok: true, data: dashboard });
+});
+
+adminRouter.get("/reports/recipients", async (req: AuthenticatedRequest, res: Response) => {
+  if (!requireSuperAdmin(req, res)) return;
+  const recipients = await listAdminReportRecipients(prisma);
+  return res.json({ ok: true, data: { recipients } });
+});
+
+adminRouter.post("/reports/recipients", requireStepUp, async (req: AuthenticatedRequest, res: Response) => {
+  if (!requireSuperAdmin(req, res)) return;
+  const parsed = adminReportRecipientPayloadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid report recipient payload.", errors: parsed.error.flatten() });
+  }
+
+  try {
+    const recipient = await createAdminReportRecipient(
+      prisma,
+      {
+        ...parsed.data,
+        isActive: parsed.data.isActive ?? true,
+        dailyEnabled: parsed.data.dailyEnabled ?? true,
+        weeklyEnabled: parsed.data.weeklyEnabled ?? false,
+        includeSystemDashboard: parsed.data.includeSystemDashboard ?? true,
+        includeSystemReadiness: parsed.data.includeSystemReadiness ?? true,
+        includeScaleGate: parsed.data.includeScaleGate ?? true,
+        includeOutreachOverview: parsed.data.includeOutreachOverview ?? true,
+        includeBillingDiagnostics: parsed.data.includeBillingDiagnostics ?? true,
+        notes: parsed.data.notes ?? null
+      },
+      req.auth?.userId || null
+    );
+    return res.json({ ok: true, data: { recipient } });
+  } catch (error) {
+    return res.status(409).json({ ok: false, message: error instanceof Error ? error.message : "Could not create report recipient." });
+  }
+});
+
+adminRouter.patch("/reports/recipients/:id", requireStepUp, async (req: AuthenticatedRequest, res: Response) => {
+  if (!requireSuperAdmin(req, res)) return;
+  const parsed = adminReportRecipientPayloadSchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid report recipient payload.", errors: parsed.error.flatten() });
+  }
+
+  try {
+    const recipient = await updateAdminReportRecipient(prisma, req.params.id, parsed.data, req.auth?.userId || null);
+    return res.json({ ok: true, data: { recipient } });
+  } catch (error) {
+    return res.status(404).json({ ok: false, message: error instanceof Error ? error.message : "Could not update report recipient." });
+  }
+});
+
+adminRouter.delete("/reports/recipients/:id", requireStepUp, async (req: AuthenticatedRequest, res: Response) => {
+  if (!requireSuperAdmin(req, res)) return;
+  try {
+    await deleteAdminReportRecipient(prisma, req.params.id, req.auth?.userId || null);
+    return res.json({ ok: true, data: { deleted: true } });
+  } catch (error) {
+    return res.status(404).json({ ok: false, message: error instanceof Error ? error.message : "Could not delete report recipient." });
+  }
+});
+
+adminRouter.post("/reports/recipients/:id/send-test", requireStepUp, async (req: AuthenticatedRequest, res: Response) => {
+  if (!requireSuperAdmin(req, res)) return;
+  try {
+    await sendAdminReportTest(prisma, req.params.id);
+    return res.json({ ok: true, data: { sent: true } });
+  } catch (error) {
+    return res.status(404).json({ ok: false, message: error instanceof Error ? error.message : "Could not send test report." });
+  }
 });
 
 adminRouter.get("/system/readiness", requirePermission("ADMIN_SYSTEM_VIEW"), async (_req: AuthenticatedRequest, res) => {

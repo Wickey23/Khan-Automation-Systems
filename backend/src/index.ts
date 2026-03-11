@@ -38,6 +38,7 @@ import { runDataIntegrityGuardTick } from "./modules/ops/data-integrity-guard.se
 import { runFinalizeBookingWorkerTick } from "./modules/voice/vapi/vapi-booking-finalizer.service";
 import { attachVoiceMediaStreamServer } from "./modules/voice/media-stream/voice-media-stream-server";
 import { runOutreachRunnerTick } from "./modules/outreach/outreach-runner.service";
+import { runAdminReportsTick } from "./modules/admin/admin-reporting.service";
 
 const app = express();
 const server = createServer(app);
@@ -169,6 +170,7 @@ let webhookRetentionTimer: NodeJS.Timeout | null = null;
 let finalizeBookingTimer: NodeJS.Timeout | null = null;
 let securityRetentionTimer: NodeJS.Timeout | null = null;
 let outreachRunnerTimer: NodeJS.Timeout | null = null;
+let adminReportsTimer: NodeJS.Timeout | null = null;
 const voiceMediaStreamServer = attachVoiceMediaStreamServer({ server, prisma });
 async function ensureAdminUser() {
   try {
@@ -473,6 +475,30 @@ function startOutreachRunnerWorker() {
   }, interval);
 }
 
+function startAdminReportsWorker() {
+  if (env.ADMIN_REPORTS_ENABLED !== "true") return;
+  const interval = Number.parseInt(env.ADMIN_REPORTS_RUNNER_INTERVAL_MS, 10);
+  if (!Number.isFinite(interval) || interval < 60_000) return;
+  adminReportsTimer = setInterval(() => {
+    void runAdminReportsTick(prisma).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error(
+        JSON.stringify({
+          orgId: "-",
+          provider: "SYSTEM",
+          endpoint: "worker:admin-reports",
+          eventType: "ADMIN_REPORTS_TICK",
+          requestId: "-",
+          providerCallId: "-",
+          latencyMs: null,
+          status: "ERROR",
+          message: error instanceof Error ? error.message : "unknown_error"
+        })
+      );
+    });
+  }, interval);
+}
+
 function enforceProductionSecurity() {
   if (env.SECURITY_MODE !== "production") return;
   const required: Array<[string, string | undefined]> = [
@@ -501,6 +527,7 @@ void (async () => {
   startSecuritySignalRetentionWorker();
   startFinalizeBookingWorker();
   startOutreachRunnerWorker();
+  startAdminReportsWorker();
   server.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -513,6 +540,7 @@ const shutdown = async () => {
   if (dataIntegrityGuardTimer) clearInterval(dataIntegrityGuardTimer);
   if (finalizeBookingTimer) clearInterval(finalizeBookingTimer);
   if (outreachRunnerTimer) clearInterval(outreachRunnerTimer);
+  if (adminReportsTimer) clearInterval(adminReportsTimer);
   if (webhookRetentionTimer) clearInterval(webhookRetentionTimer);
   if (securityRetentionTimer) clearInterval(securityRetentionTimer);
   voiceMediaStreamServer.close();

@@ -52,6 +52,7 @@ const adminTabGroups: AdminTabGroup[] = [
       { label: "Organizations", href: "/admin/orgs", matches: ["/admin/orgs", "/admin/clients"], description: "Tenant readiness and lifecycle." },
       { label: "Users", href: "/admin/users", matches: ["/admin/users"], description: "Account access and login activity." },
       { label: "System", href: "/admin/system", matches: ["/admin/system"], description: "Global reliability and scale gate." },
+      { label: "Reports", href: "/admin/reports", matches: ["/admin/reports"], description: "Scheduled internal diagnostics emails." },
       { label: "Events", href: "/admin/events", matches: ["/admin/events"], description: "Audit timeline and mutations." }
     ]
   }
@@ -163,7 +164,7 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
 
   const visibleGroups = adminTabGroups.map((group) => ({
     ...group,
-    tabs: group.tabs.filter((tab) => (tab.href === "/admin/outreach" ? isSuperAdmin : true))
+    tabs: group.tabs.filter((tab) => ((tab.href === "/admin/outreach" || tab.href === "/admin/reports") ? isSuperAdmin : true))
   }));
   const allTabs = visibleGroups.flatMap((group) => group.tabs);
   const activeTab = allTabs.find((tab) => isActive(tab)) || null;

@@ -146,3 +146,16 @@ export const mergeLeadsSchema = z.object({
   primaryLeadId: z.string().min(1),
   duplicateLeadIds: z.array(z.string().min(1)).min(1).max(50)
 });
+
+export const adminReportRecipientPayloadSchema = z.object({
+  email: z.string().email(),
+  isActive: z.boolean().optional(),
+  dailyEnabled: z.boolean().optional(),
+  weeklyEnabled: z.boolean().optional(),
+  includeSystemDashboard: z.boolean().optional(),
+  includeSystemReadiness: z.boolean().optional(),
+  includeScaleGate: z.boolean().optional(),
+  includeOutreachOverview: z.boolean().optional(),
+  includeBillingDiagnostics: z.boolean().optional(),
+  notes: z.string().max(500).optional().nullable()
+});

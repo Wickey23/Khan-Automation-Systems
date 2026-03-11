@@ -1095,6 +1095,24 @@ export type AdminScaleGate = {
   };
 };
 
+export type AdminReportRecipient = {
+  id: string;
+  email: string;
+  isActive: boolean;
+  dailyEnabled: boolean;
+  weeklyEnabled: boolean;
+  includeSystemDashboard: boolean;
+  includeSystemReadiness: boolean;
+  includeScaleGate: boolean;
+  includeOutreachOverview: boolean;
+  includeBillingDiagnostics: boolean;
+  notes: string | null;
+  lastDailySentAt: string | null;
+  lastWeeklySentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type OrgHealth = {
   level: "GREEN" | "YELLOW" | "RED";
   score: number;

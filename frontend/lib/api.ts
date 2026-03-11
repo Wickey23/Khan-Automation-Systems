@@ -37,6 +37,7 @@ import type {
   AdminSystemDashboard,
   AdminSystemReadiness,
   AdminRevenueSummary,
+  AdminReportRecipient,
   AuthSecurityStatus,
   PhoneLine,
   Setting,
@@ -1202,6 +1203,63 @@ export async function fetchAdminSystemReadiness() {
 
 export async function fetchAdminSystemScaleGate() {
   return request<AdminScaleGate>("/api/admin/system/scale-gate");
+}
+
+export async function fetchAdminReportRecipients() {
+  return request<{ recipients: AdminReportRecipient[] }>("/api/admin/reports/recipients");
+}
+
+export async function createAdminReportRecipient(payload: {
+  email: string;
+  isActive?: boolean;
+  dailyEnabled?: boolean;
+  weeklyEnabled?: boolean;
+  includeSystemDashboard?: boolean;
+  includeSystemReadiness?: boolean;
+  includeScaleGate?: boolean;
+  includeOutreachOverview?: boolean;
+  includeBillingDiagnostics?: boolean;
+  notes?: string | null;
+}) {
+  return request<{ recipient: AdminReportRecipient }>("/api/admin/reports/recipients", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAdminReportRecipient(
+  id: string,
+  payload: Partial<{
+    email: string;
+    isActive: boolean;
+    dailyEnabled: boolean;
+    weeklyEnabled: boolean;
+    includeSystemDashboard: boolean;
+    includeSystemReadiness: boolean;
+    includeScaleGate: boolean;
+    includeOutreachOverview: boolean;
+    includeBillingDiagnostics: boolean;
+    notes: string | null;
+  }>
+) {
+  return request<{ recipient: AdminReportRecipient }>(`/api/admin/reports/recipients/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteAdminReportRecipient(id: string) {
+  return request<{ deleted: boolean }>(`/api/admin/reports/recipients/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({})
+  });
+}
+
+export async function sendAdminReportTest(id: string) {
+  return request<{ sent: boolean }>(`/api/admin/reports/recipients/${id}/send-test`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
 }
 
 export async function fetchProspects(query: string) {
