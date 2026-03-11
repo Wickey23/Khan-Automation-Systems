@@ -4,7 +4,7 @@ import { normalizeEmail, stopEnrollmentsForLead } from "./outreach-stop.service"
 import { buildOutreachUnsubscribeUrl } from "./outreach-unsubscribe.service";
 
 export type BulkImportRowResult =
-  | { lineNumber: number; status: "created"; leadId: string; email: string }
+  | { lineNumber: number; status: "created"; leadId: string; email: string; enrollmentId?: string }
   | { lineNumber: number; status: "duplicate"; email: string; reason: string }
   | { lineNumber: number; status: "invalid"; reason: string; raw: string };
 
@@ -167,19 +167,21 @@ export async function resolveOutreachOrgContext(prisma: PrismaClient, orgId?: st
 export async function buildBulkImportPreview(input: {
   prisma: PrismaClient;
   orgId: string;
+  sequenceId?: string;
   text: string;
 }) {
   const db = input.prisma as any;
-  const lines = input.text.split(/\r?\n/);
   const results: BulkImportRowResult[] = [];
+  const rows = parseCsvRows(input.text);
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const raw = lines[index].trim();
-    if (!raw) continue;
-    const parts = raw.split("|").map((value) => value.trim());
-    const email = normalizeEmail(parts.length === 1 ? parts[0] : parts[2] || "");
+  if (!rows.length) {
+    return [{ lineNumber: 1, status: "invalid", reason: "CSV must include a header row and at least one data row.", raw: input.text.slice(0, 120) }];
+  }
+
+  for (const row of rows) {
+    const email = normalizeEmail(row.values.email || "");
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      results.push({ lineNumber: index + 1, status: "invalid", reason: "Valid email required.", raw });
+      results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Valid email required.", raw: row.raw });
       continue;
     }
 
@@ -191,37 +193,114 @@ export async function buildBulkImportPreview(input: {
       select: { id: true }
     });
     if (existing) {
-      results.push({ lineNumber: index + 1, status: "duplicate", email, reason: "Lead already exists for this org." });
+      results.push({ lineNumber: row.lineNumber, status: "duplicate", email, reason: "Lead already exists for this org." });
       continue;
     }
 
-    const data =
-      parts.length === 1
-        ? {}
-        : {
-            companyName: parts[0] || undefined,
-            contactName: parts[1] || undefined,
-            phone: parts[3] || undefined,
-            city: parts[4] || undefined,
-            state: parts[5] || undefined,
-            industry: parts[6] || undefined,
-            website: parts[7] || undefined,
-            notes: parts[8] || undefined
-          };
+    const data = {
+      companyName: row.values.companyName || undefined,
+      contactName: row.values.contactName || undefined,
+      phone: row.values.phone || undefined,
+      city: row.values.city || undefined,
+      state: row.values.state || undefined,
+      industry: row.values.industry || undefined,
+      website: row.values.website || undefined,
+      notes: row.values.notes || undefined
+    };
 
     const created = await db.outreachLead.create({
       data: {
         orgId: input.orgId,
         email,
-        status: "NEW",
+        status: input.sequenceId ? "ACTIVE" : "NEW",
         ...data
       },
       select: { id: true, email: true }
     });
-    results.push({ lineNumber: index + 1, status: "created", leadId: created.id, email: created.email });
+    let enrollmentId: string | undefined;
+    if (input.sequenceId) {
+      const enrollment = await db.outreachEnrollment.create({
+        data: {
+          orgId: input.orgId,
+          leadId: created.id,
+          sequenceId: input.sequenceId,
+          status: "ACTIVE",
+          currentStepNumber: 1,
+          nextSendAt: new Date()
+        },
+        select: { id: true }
+      });
+      enrollmentId = enrollment.id;
+    }
+    results.push({ lineNumber: row.lineNumber, status: "created", leadId: created.id, email: created.email, enrollmentId });
   }
 
   return results;
+}
+
+function parseCsvLine(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        current += "\"";
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (char === "," && !inQuotes) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function normalizeHeader(header: string) {
+  const value = header.trim().toLowerCase();
+  if (["company", "companyname", "business"].includes(value)) return "companyName";
+  if (["contact", "contactname", "name"].includes(value)) return "contactName";
+  if (["email", "emailaddress"].includes(value)) return "email";
+  if (["phone", "phonenumber", "mobile"].includes(value)) return "phone";
+  if (value === "city") return "city";
+  if (["state", "province", "region"].includes(value)) return "state";
+  if (["industry", "category"].includes(value)) return "industry";
+  if (["website", "url", "domain"].includes(value)) return "website";
+  if (["notes", "note"].includes(value)) return "notes";
+  return null;
+}
+
+function parseCsvRows(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return [] as Array<{ lineNumber: number; raw: string; values: Record<string, string> }>;
+
+  const headers = parseCsvLine(lines[0]).map(normalizeHeader);
+  return lines.slice(1).map((raw, index) => {
+    const cells = parseCsvLine(raw);
+    const values: Record<string, string> = {};
+    headers.forEach((header, headerIndex) => {
+      if (!header) return;
+      values[header] = String(cells[headerIndex] || "").trim();
+    });
+    return {
+      lineNumber: index + 2,
+      raw,
+      values
+    };
+  });
 }
 
 export async function pauseEnrollment(prisma: PrismaClient, enrollmentId: string) {

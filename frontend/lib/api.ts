@@ -356,7 +356,7 @@ export async function updateAdminOutreachLead(id: string, payload: Partial<Outre
   });
 }
 
-export async function importAdminOutreachLeads(payload: { orgId?: string; text: string }) {
+export async function importAdminOutreachLeads(payload: { orgId?: string; sequenceId?: string; text: string }) {
   return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
     method: "POST",
     body: JSON.stringify(payload)

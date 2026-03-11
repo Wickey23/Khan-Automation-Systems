@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
@@ -8,7 +7,6 @@ import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
   createAdminOutreachEnrollment,
   createAdminOutreachLead,
-  discoverProspects,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
   importAdminOutreachLeads,
@@ -27,6 +25,10 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
+const CSV_TEMPLATE = `companyName,contactName,email,phone,city,state,industry,website,notes
+Acme Truck Repair,Sam Rivera,sam@acmetruckrepair.com,555-111-2222,Dallas,TX,Truck Repair,https://acmetruckrepair.com,Imported from list
+Metro HVAC,Jamie Cole,jamie@metrohvac.com,555-333-4444,Austin,TX,HVAC,https://metrohvac.com,Priority batch`;
+
 export default function AdminOutreachLeadsPage() {
   const { showToast } = useToast();
   const [status, setStatus] = useState("ALL");
@@ -34,15 +36,9 @@ export default function AdminOutreachLeadsPage() {
   const [leads, setLeads] = useState<OutreachLead[]>([]);
   const [sequences, setSequences] = useState<OutreachSequence[]>([]);
   const [selectedSequenceByLead, setSelectedSequenceByLead] = useState<Record<string, string>>({});
-  const [bulkText, setBulkText] = useState("");
-  const [bulkResults, setBulkResults] = useState<Array<{ lineNumber: number; status: string; reason?: string; email?: string }>>([]);
-  const [discoverLocation, setDiscoverLocation] = useState("");
-  const [discoverKeywords, setDiscoverKeywords] = useState(
-    "truck repair shop,auto repair shop,hvac contractor,equipment repair service,manufacturing service"
-  );
-  const [discoverLimit, setDiscoverLimit] = useState(30);
-  const [discovering, setDiscovering] = useState(false);
-  const [discoverSummary, setDiscoverSummary] = useState<string>("");
+  const [bulkText, setBulkText] = useState(CSV_TEMPLATE);
+  const [bulkSequenceId, setBulkSequenceId] = useState("");
+  const [bulkResults, setBulkResults] = useState<Array<{ lineNumber: number; status: string; reason?: string; email?: string; enrollmentId?: string }>>([]);
   const [form, setForm] = useState({
     companyName: "",
     contactName: "",
@@ -99,45 +95,40 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onBulkImport() {
+    if (!bulkSequenceId) {
+      showToast({
+        title: "Choose a sequence",
+        description: "CSV imports now require a sequence so outreach can start automatically.",
+        variant: "error"
+      });
+      return;
+    }
     try {
-      const data = await importAdminOutreachLeads({ text: bulkText });
+      const data = await importAdminOutreachLeads({ text: bulkText, sequenceId: bulkSequenceId });
       setBulkResults(data.rows || []);
       await load();
+      const started = (data.rows || []).filter((row) => row.status === "created" && row.enrollmentId).length;
+      showToast({
+        title: "CSV imported",
+        description: started ? `${started} contacts were enrolled and queued to start emailing.` : "Import completed."
+      });
     } catch (error) {
       showToast({
-        title: "Bulk import failed",
+        title: "CSV import failed",
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
     }
   }
 
-  async function onDiscover() {
-    setDiscovering(true);
+  async function onCsvFileSelected(file: File | null) {
+    if (!file) return;
     try {
-      const keywords = discoverKeywords
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const result = await discoverProspects({
-        location: discoverLocation.trim(),
-        keywords: keywords.length ? keywords : undefined,
-        limit: discoverLimit
-      });
-      const summary = `Imported ${result.createdCount} map-discovered prospects into the prospecting queue.`;
-      setDiscoverSummary(summary);
-      showToast({
-        title: "Maps search completed",
-        description: summary
-      });
-    } catch (error) {
-      showToast({
-        title: "Maps search failed",
-        description: error instanceof Error ? error.message : "Try again.",
-        variant: "error"
-      });
-    } finally {
-      setDiscovering(false);
+      const text = await file.text();
+      setBulkText(text);
+      showToast({ title: "CSV loaded", description: `${file.name} is ready to import.` });
+    } catch {
+      showToast({ title: "Could not read CSV file", variant: "error" });
     }
   }
 
@@ -227,7 +218,7 @@ export default function AdminOutreachLeadsPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach Leads"
-          description="Create prospects, import strict pipe-delimited rows, enroll contacts into sequences, and stop sends when needed."
+          description="Import CSV contact lists, enroll them into a sequence, and start outbound emailing without the discovery step."
           actions={
             <div className="flex gap-2">
               <Input placeholder="Search leads" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -249,7 +240,7 @@ export default function AdminOutreachLeadsPage() {
         />
         <OutreachSubnav />
 
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Add lead</CardTitle>
@@ -270,72 +261,52 @@ export default function AdminOutreachLeadsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Bulk import</CardTitle>
+              <CardTitle>CSV import</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">One lead per line. Format: `company | contact | email | phone | city | state | industry | website | notes`</p>
-              <Textarea rows={8} value={bulkText} onChange={(event) => setBulkText(event.target.value)} />
-              <Button onClick={() => void onBulkImport()}>Import rows</Button>
+              <p className="text-sm text-muted-foreground">
+                Upload or paste a CSV with headers like `companyName, contactName, email, phone, city, state, industry, website, notes`.
+                Imported rows are enrolled into the selected sequence immediately.
+              </p>
+              <div>
+                <Label>Sequence to start</Label>
+                <select
+                  value={bulkSequenceId}
+                  onChange={(event) => setBulkSequenceId(event.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                >
+                  <option value="">Choose sequence</option>
+                  {sequences.map((sequence) => (
+                    <option key={sequence.id} value={sequence.id}>
+                      {sequence.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>CSV file</Label>
+                <Input type="file" accept=".csv,text/csv" onChange={(event) => void onCsvFileSelected(event.target.files?.[0] || null)} />
+              </div>
+              <div>
+                <Label>CSV contents</Label>
+                <Textarea rows={10} value={bulkText} onChange={(event) => setBulkText(event.target.value)} />
+              </div>
+              <Button onClick={() => void onBulkImport()}>Import CSV and start outreach</Button>
               {bulkResults.length ? (
                 <div className="space-y-2 rounded-lg border p-3 text-sm">
                   {bulkResults.map((row) => (
-                    <div key={`${row.lineNumber}-${row.status}`} className="flex flex-wrap justify-between gap-2">
+                    <div key={`${row.lineNumber}-${row.status}-${row.email || row.reason || ""}`} className="flex flex-wrap justify-between gap-2">
                       <span>Line {row.lineNumber}</span>
-                      <span>{row.status}{row.email ? ` · ${row.email}` : ""}{row.reason ? ` · ${row.reason}` : ""}</span>
+                      <span>
+                        {row.status}
+                        {row.email ? ` · ${row.email}` : ""}
+                        {row.enrollmentId ? " · enrolled" : ""}
+                        {row.reason ? ` · ${row.reason}` : ""}
+                      </span>
                     </div>
                   ))}
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Maps Search</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Search map-style local service businesses by location and keyword. Results are imported into
-                <Link href="/admin/prospects" className="ml-1 underline underline-offset-2">
-                  Prospects
-                </Link>
-                {" "}for qualification before outreach enrollment.
-              </p>
-              <div>
-                <Label>Location</Label>
-                <Input
-                  placeholder="Dallas, TX"
-                  value={discoverLocation}
-                  onChange={(event) => setDiscoverLocation(event.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Business types</Label>
-                <Textarea
-                  rows={4}
-                  value={discoverKeywords}
-                  onChange={(event) => setDiscoverKeywords(event.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Result limit</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={String(discoverLimit)}
-                  onChange={(event) => setDiscoverLimit(Number(event.target.value) || 30)}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={() => void onDiscover()} disabled={discovering}>
-                  {discovering ? "Searching..." : "Search map leads"}
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/admin/prospects">Open prospects</Link>
-                </Button>
-              </div>
-              {discoverSummary ? <div className="text-sm text-muted-foreground">{discoverSummary}</div> : null}
             </CardContent>
           </Card>
         </div>

@@ -35,6 +35,7 @@ export const outreachLeadUpdateSchema = z.object({
 
 export const outreachBulkImportSchema = z.object({
   orgId: z.string().min(1).optional(),
+  sequenceId: z.string().min(1).optional(),
   text: z.string().min(1)
 });
 

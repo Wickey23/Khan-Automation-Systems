@@ -156,9 +156,23 @@ outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Respons
   const parsed = outreachBulkImportSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
   const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
+  if (parsed.data.sequenceId) {
+    const sequence = await db.outreachSequence.findFirst({
+      where: {
+        id: parsed.data.sequenceId,
+        orgId: org.id,
+        isActive: true
+      },
+      select: { id: true }
+    });
+    if (!sequence) {
+      return res.status(400).json({ ok: false, message: "Selected sequence was not found or is inactive." });
+    }
+  }
   const rows = await buildBulkImportPreview({
     prisma,
     orgId: org.id,
+    sequenceId: parsed.data.sequenceId,
     text: parsed.data.text
   });
   return res.json({ ok: true, data: { rows } });

@@ -634,7 +634,7 @@ export type OutreachOverview = {
 };
 
 export type OutreachBulkImportRowResult =
-  | { lineNumber: number; status: "created"; leadId: string; email: string }
+  | { lineNumber: number; status: "created"; leadId: string; email: string; enrollmentId?: string }
   | { lineNumber: number; status: "duplicate"; email: string; reason: string }
   | { lineNumber: number; status: "invalid"; reason: string; raw: string };
 
