@@ -475,7 +475,8 @@ outreachAdminRouter.post("/enrollments/:id/send-now", async (req: Request, res: 
   const result = await sendEnrollmentStepNow({
     prisma,
     enrollmentId: req.params.id,
-    processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10)
+    processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10),
+    sendJitterMinutes: Number.parseInt(process.env.OUTREACH_SEND_JITTER_MINUTES || "20", 10)
   });
   if (!result.ok) return res.status(400).json({ ok: false, message: result.reason });
   return res.json({ ok: true, data: result });
@@ -484,7 +485,11 @@ outreachAdminRouter.post("/enrollments/:id/send-now", async (req: Request, res: 
 outreachAdminRouter.post("/runner/tick", async (_req: Request, res: Response) => {
   const result = await runOutreachTick({
     prisma,
-    processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10)
+    processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10),
+    dailySendCap: Number.parseInt(process.env.OUTREACH_DAILY_SEND_CAP || "40", 10),
+    sendWindowStartHour: Number.parseInt(process.env.OUTREACH_SEND_WINDOW_START_HOUR || "9", 10),
+    sendWindowEndHour: Number.parseInt(process.env.OUTREACH_SEND_WINDOW_END_HOUR || "17", 10),
+    sendJitterMinutes: Number.parseInt(process.env.OUTREACH_SEND_JITTER_MINUTES || "20", 10)
   });
   return res.json({ ok: true, data: result });
 });

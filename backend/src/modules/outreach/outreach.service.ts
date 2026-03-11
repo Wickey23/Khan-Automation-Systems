@@ -420,11 +420,119 @@ function computeRetryDelayMs(error: OutreachSendError) {
   return DEFAULT_RETRY_DELAY_MS;
 }
 
+function hardFailureShouldSuppress(message: string) {
+  const normalized = message.toLowerCase();
+  return [
+    "invalid",
+    "bounce",
+    "bounced",
+    "recipient",
+    "mailbox",
+    "does not exist",
+    "unknown user",
+    "address rejected"
+  ].some((fragment) => normalized.includes(fragment));
+}
+
+async function suppressBouncedLead(input: {
+  prisma: PrismaClient;
+  orgId: string;
+  leadId: string;
+  email: string;
+  reason: string;
+}) {
+  const db = input.prisma as any;
+  await db.outreachSuppression.upsert({
+    where: {
+      orgId_email: {
+        orgId: input.orgId,
+        email: input.email
+      }
+    },
+    update: {
+      reason: input.reason,
+      source: "PROVIDER_BOUNCE"
+    },
+    create: {
+      orgId: input.orgId,
+      email: input.email,
+      reason: input.reason,
+      source: "PROVIDER_BOUNCE"
+    }
+  });
+  await db.outreachLead.update({
+    where: { id: input.leadId },
+    data: { status: "BOUNCED" }
+  });
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrollmentId: string; processingTimeoutMs: number }) {
+function clampJitterMinutes(value: number) {
+  return Math.max(0, Math.min(value, 120));
+}
+
+function randomJitterMs(jitterMinutes: number) {
+  const minutes = clampJitterMinutes(jitterMinutes);
+  if (minutes <= 0) return 0;
+  return Math.floor(Math.random() * minutes * 60 * 1000);
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function endOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+}
+
+function normalizeSendWindow(startHour: number, endHour: number) {
+  const safeStart = Math.max(0, Math.min(startHour, 23));
+  const safeEnd = Math.max(safeStart + 1, Math.min(endHour, 24));
+  return { startHour: safeStart, endHour: safeEnd };
+}
+
+function isWithinSendWindow(now: Date, startHour: number, endHour: number) {
+  const { startHour: safeStart, endHour: safeEnd } = normalizeSendWindow(startHour, endHour);
+  const hour = now.getHours();
+  return hour >= safeStart && hour < safeEnd;
+}
+
+function computeNextWindowStart(now: Date, startHour: number, endHour: number, jitterMinutes: number) {
+  const { startHour: safeStart, endHour: safeEnd } = normalizeSendWindow(startHour, endHour);
+  const next = new Date(now);
+  if (now.getHours() >= safeEnd) {
+    next.setDate(next.getDate() + 1);
+  }
+  next.setHours(safeStart, 0, 0, 0);
+  next.setTime(next.getTime() + randomJitterMs(jitterMinutes));
+  return next;
+}
+
+async function countSentToday(prisma: PrismaClient, now: Date) {
+  return (prisma as any).outreachEmailEvent.count({
+    where: {
+      eventType: "SENT",
+      createdAt: {
+        gte: startOfDay(now),
+        lte: endOfDay(now)
+      }
+    }
+  });
+}
+
+function nextStepSendAt(baseTime: Date, delayHours: number, jitterMinutes: number) {
+  return new Date(baseTime.getTime() + delayHours * 60 * 60 * 1000 + randomJitterMs(jitterMinutes));
+}
+
+export async function sendEnrollmentStepNow(input: {
+  prisma: PrismaClient;
+  enrollmentId: string;
+  processingTimeoutMs: number;
+  sendJitterMinutes?: number;
+}) {
   const db = input.prisma as any;
   const staleBefore = new Date(Date.now() - input.processingTimeoutMs);
   const claimed = await claimEnrollment({
@@ -552,7 +660,7 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
       enrollmentId: enrollment.id,
       currentStepNumber: step.stepNumber,
       nextStepNumber: nextStep?.stepNumber || null,
-      nextSendAt: nextStep ? new Date(Date.now() + nextStep.delayHours * 60 * 60 * 1000) : null
+      nextSendAt: nextStep ? nextStepSendAt(new Date(), nextStep.delayHours, input.sendJitterMinutes || 20) : null
     });
 
     if (!nextStep) {
@@ -566,7 +674,7 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown outreach send failure.";
     if (error instanceof OutreachSendError && error.isRetryable) {
-      const retryAt = new Date(Date.now() + computeRetryDelayMs(error));
+      const retryAt = new Date(Date.now() + computeRetryDelayMs(error) + randomJitterMs(input.sendJitterMinutes || 20));
       await retryEnrollment({
         prisma: input.prisma,
         enrollmentId: enrollment.id,
@@ -575,6 +683,15 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
         eventId: event.id
       });
       return { ok: false as const, reason: message };
+    }
+    if (hardFailureShouldSuppress(message)) {
+      await suppressBouncedLead({
+        prisma: input.prisma,
+        orgId: enrollment.orgId,
+        leadId: enrollment.leadId,
+        email: leadEmail,
+        reason: message
+      });
     }
     await failEnrollment({
       prisma: input.prisma,
@@ -586,20 +703,68 @@ export async function sendEnrollmentStepNow(input: { prisma: PrismaClient; enrol
   }
 }
 
-export async function runOutreachTick(input: { prisma: PrismaClient; processingTimeoutMs: number; take?: number }) {
+export async function runOutreachTick(input: {
+  prisma: PrismaClient;
+  processingTimeoutMs: number;
+  take?: number;
+  dailySendCap?: number;
+  sendWindowStartHour?: number;
+  sendWindowEndHour?: number;
+  sendJitterMinutes?: number;
+}) {
+  const now = new Date();
+  const dailySendCap = Math.max(1, input.dailySendCap || 40);
+  const sendWindowStartHour = input.sendWindowStartHour ?? 9;
+  const sendWindowEndHour = input.sendWindowEndHour ?? 17;
+  const sendJitterMinutes = clampJitterMinutes(input.sendJitterMinutes || 20);
+
   const due = await (input.prisma as any).outreachEnrollment.findMany({
     where: {
       status: "ACTIVE",
-      nextSendAt: { lte: new Date() }
+      nextSendAt: { lte: now }
     },
     orderBy: { nextSendAt: "asc" },
     take: Math.max(1, Math.min(input.take || 20, 100))
   });
 
+  if (!isWithinSendWindow(now, sendWindowStartHour, sendWindowEndHour)) {
+    const deferredUntil = computeNextWindowStart(now, sendWindowStartHour, sendWindowEndHour, sendJitterMinutes);
+    if (due.length) {
+      await (input.prisma as any).outreachEnrollment.updateMany({
+        where: {
+          id: { in: due.map((item: { id: string }) => item.id) }
+        },
+        data: {
+          nextSendAt: deferredUntil,
+          processingStartedAt: null
+        }
+      });
+    }
+    return { processed: 0, sent: 0, failed: 0 };
+  }
+
+  const sentToday = await countSentToday(input.prisma, now);
+  const remainingDailyCapacity = Math.max(0, dailySendCap - sentToday);
+  if (remainingDailyCapacity <= 0) {
+    const deferredUntil = computeNextWindowStart(new Date(now.getTime() + 24 * 60 * 60 * 1000), sendWindowStartHour, sendWindowEndHour, sendJitterMinutes);
+    if (due.length) {
+      await (input.prisma as any).outreachEnrollment.updateMany({
+        where: {
+          id: { in: due.map((item: { id: string }) => item.id) }
+        },
+        data: {
+          nextSendAt: deferredUntil,
+          processingStartedAt: null
+        }
+      });
+    }
+    return { processed: 0, sent: 0, failed: 0 };
+  }
+
   let processed = 0;
   let sent = 0;
   let failed = 0;
-  for (const [index, enrollment] of due.entries()) {
+  for (const [index, enrollment] of due.slice(0, remainingDailyCapacity).entries()) {
     if (index > 0) {
       await sleep(RESEND_MIN_INTERVAL_MS);
     }
@@ -607,7 +772,8 @@ export async function runOutreachTick(input: { prisma: PrismaClient; processingT
     const result = await sendEnrollmentStepNow({
       prisma: input.prisma,
       enrollmentId: enrollment.id,
-      processingTimeoutMs: input.processingTimeoutMs
+      processingTimeoutMs: input.processingTimeoutMs,
+      sendJitterMinutes
     });
     if (result.ok) sent += 1;
     else failed += 1;
