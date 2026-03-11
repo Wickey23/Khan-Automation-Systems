@@ -26,13 +26,20 @@ export function SignupForm() {
       businessName: "",
       email: "",
       password: "",
-      industry: ""
+      industry: "",
+      agreeToLegal: false
     }
   });
 
   async function onSubmit(values: SignupInput) {
     try {
-      await authSignup(values);
+      await authSignup({
+        name: values.name,
+        businessName: values.businessName,
+        email: values.email,
+        password: values.password,
+        industry: values.industry
+      });
       showToast({ title: "Account created" });
       router.push("/app/onboarding");
     } catch (error) {
@@ -76,6 +83,27 @@ export function SignupForm() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...register("password")} />
             {errors.password ? <p className="text-xs text-red-600">{errors.password.message}</p> : null}
+          </div>
+          <div className="space-y-2 rounded-2xl border border-border/80 bg-muted/25 px-4 py-3">
+            <label className="flex items-start gap-3 text-sm text-foreground/88">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border border-input"
+                {...register("agreeToLegal")}
+              />
+              <span>
+                I agree to the{" "}
+                <Link href="/terms" className="font-medium text-primary underline-offset-4 hover:underline">
+                  Terms of Service
+                </Link>
+                {" "}and{" "}
+                <Link href="/privacy" className="font-medium text-primary underline-offset-4 hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+            {errors.agreeToLegal ? <p className="text-xs text-red-600">{errors.agreeToLegal.message}</p> : null}
           </div>
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Creating account..." : "Create account"}

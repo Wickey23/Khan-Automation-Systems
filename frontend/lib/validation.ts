@@ -41,7 +41,10 @@ export const signupSchema = z.object({
   businessName: z.string().min(2, "Business name is required."),
   email: z.string().email("Enter a valid email."),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  industry: z.string().optional()
+  industry: z.string().optional(),
+  agreeToLegal: z.boolean().refine((value) => value, {
+    message: "You must agree to the Terms of Service and Privacy Policy."
+  })
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
