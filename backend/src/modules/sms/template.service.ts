@@ -34,6 +34,31 @@ export function getSmsTemplatesFromPolicies(policiesJson: string | null | undefi
   };
 }
 
+export function buildMissedCallRecoveryFallback(input: {
+  businessName: string;
+  customerName?: string | null;
+}) {
+  const greetingName = String(input.customerName || "").trim() || "there";
+  return `Hi ${greetingName}, ${input.businessName} missed your call. Reply with what you need help with and the team will follow up shortly.`;
+}
+
+export function buildNewLeadAcknowledgementFallback(input: {
+  businessName: string;
+  customerName?: string | null;
+  serviceAddress?: string | null;
+  needsAddress?: boolean;
+}) {
+  const customerName = String(input.customerName || "").trim() || "there";
+  const serviceAddress = String(input.serviceAddress || "").trim();
+  if (input.needsAddress && !serviceAddress) {
+    return `Thanks ${customerName} - ${input.businessName} received your request. Please reply with the service address so the team can follow up.`;
+  }
+  if (serviceAddress) {
+    return `Thanks ${customerName} - ${input.businessName} received your service request at ${serviceAddress}. Our team will follow up shortly.`;
+  }
+  return `Thanks ${customerName} - ${input.businessName} received your request. Our team will follow up shortly.`;
+}
+
 export function renderOperationalSmsTemplate(input: {
   template?: string | null;
   fallback: string;

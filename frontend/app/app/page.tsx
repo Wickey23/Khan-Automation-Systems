@@ -17,6 +17,7 @@ import {
 import type {
   ActionNeededItem,
   AppointmentRequest,
+  FrontDeskPriority,
   Lead,
   OrgAnalytics,
   OrgCallRecord,
@@ -230,7 +231,38 @@ function bookingPriority(request: AppointmentRequest) {
 }
 
 function summarizeLead(lead: Lead) {
-  return lead.serviceRequested || lead.message || lead.classification?.replaceAll("_", " ").toLowerCase() || "New customer inquiry";
+  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || lead.classification?.replaceAll("_", " ").toLowerCase() || "New customer inquiry";
+}
+
+function frontDeskSeverity(priority: FrontDeskPriority | undefined): ActionNeededItem["severity"] {
+  if (priority === "urgent") return "critical";
+  if (priority === "high") return "warning";
+  return "info";
+}
+
+function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
+  if (priority === "urgent") return 0;
+  if (priority === "high") return 1;
+  if (priority === "normal") return 2;
+  return 3;
+}
+
+function followUpLabel(state: OrgCallRecord["frontDesk"] | Lead["frontDesk"] | undefined) {
+  const value = state ? ("followUpState" in state ? state.followUpState : state.state) : null;
+  switch (value) {
+    case "needs_follow_up":
+      return "Needs follow-up";
+    case "contacted":
+      return "Contacted";
+    case "booked":
+      return "Booked";
+    case "closed":
+      return "Closed";
+    case "spam":
+      return "Spam";
+    default:
+      return "Open";
+  }
 }
 
 export default function AppOverviewPage() {
@@ -328,6 +360,32 @@ export default function AppOverviewPage() {
   const actionItems = useMemo<ActionNeededItem[]>(() => {
     const items: ActionNeededItem[] = [];
 
+    for (const call of state.calls.filter((item) => item.frontDesk?.needsFollowUp)) {
+      items.push({
+        id: `call-${call.id}`,
+        type: "NEEDS_FOLLOW_UP",
+        severity: frontDeskSeverity(call.frontDesk?.frontDeskPriority),
+        label: `${call.frontDesk?.recommendedAction}: ${call.frontDesk?.callerName || call.displayName || call.fromNumber}`,
+        detail: call.frontDesk?.summary || "Customer request still needs office follow-up.",
+        href: "/app/calls",
+        timestamp: call.startedAt,
+        sourceModule: "conversations"
+      });
+    }
+
+    for (const lead of state.leads.filter((item) => item.frontDesk?.needsFollowUp)) {
+      items.push({
+        id: `lead-${lead.id}`,
+        type: "NEEDS_FOLLOW_UP",
+        severity: frontDeskSeverity(lead.frontDesk?.frontDeskPriority),
+        label: `${lead.frontDesk?.recommendedAction}: ${lead.name || lead.phone || "New lead"}`,
+        detail: summarizeLead(lead),
+        href: "/app/leads",
+        timestamp: lead.frontDesk?.lastActivityAt || lead.updatedAt,
+        sourceModule: "leads"
+      });
+    }
+
     for (const request of state.requests
       .filter((item) => item.status === "SLOT_OFFERED")
       .sort((a, b) => new Date(a.lastEventAt).getTime() - new Date(b.lastEventAt).getTime())) {
@@ -344,7 +402,7 @@ export default function AppOverviewPage() {
       });
     }
 
-    for (const call of state.calls.filter((item) => item.outcome === "MISSED" || item.outcome === "ABANDONED" || item.unansweredTransfer)) {
+    for (const call of state.calls.filter((item) => !item.frontDesk && (item.outcome === "MISSED" || item.outcome === "ABANDONED" || item.unansweredTransfer))) {
       items.push({
         id: `missed-${call.id}`,
         type: "NEEDS_FOLLOW_UP",
@@ -418,7 +476,19 @@ export default function AppOverviewPage() {
         return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
       })
       .slice(0, 4);
-  }, [state.calls, state.health, state.messagingReadiness, state.notifications, state.requests]);
+  }, [state.calls, state.health, state.leads, state.messagingReadiness, state.notifications, state.requests]);
+
+  const frontDeskLeadQueue = useMemo(
+    () =>
+      [...state.leads]
+        .filter((lead) => lead.frontDesk?.needsFollowUp)
+        .sort((a, b) => {
+          const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
+          if (priorityDelta !== 0) return priorityDelta;
+          return new Date(b.frontDesk?.lastActivityAt || b.updatedAt).getTime() - new Date(a.frontDesk?.lastActivityAt || a.updatedAt).getTime();
+        }),
+    [state.leads]
+  );
 
   const openRequests = useMemo(
     () => state.requests.filter((request) => ["PENDING_REVIEW", "APPROVED", "SLOT_OFFERED"].includes(request.status)),
@@ -434,7 +504,14 @@ export default function AppOverviewPage() {
   const callsToday = useMemo(() => state.calls.filter((call) => isToday(call.startedAt)).length, [state.calls]);
 
   const recentCalls = useMemo(
-    () => [...state.calls].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, 4),
+    () =>
+      [...state.calls]
+        .sort((a, b) => {
+          const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
+          if (priorityDelta !== 0) return priorityDelta;
+          return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+        })
+        .slice(0, 4),
     [state.calls]
   );
 
@@ -449,21 +526,37 @@ export default function AppOverviewPage() {
       summary: request.issueSummary || "Appointment request waiting for review."
     }));
 
-    const leadItems = [...state.leads]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const leadItems = [...frontDeskLeadQueue]
       .slice(0, Math.max(0, 4 - requestItems.length))
       .map((lead) => ({
       id: `lead-${lead.id}`,
       kind: "lead" as const,
       title: lead.name || lead.business || "New lead",
       meta: lead.phone || formatShortDate(lead.createdAt),
-      badge: "Lead",
-      badgeTone: "neutral" as const,
+      badge: followUpLabel(lead.frontDesk),
+      badgeTone:
+        lead.frontDesk?.frontDeskPriority === "urgent"
+          ? ("critical" as const)
+          : lead.frontDesk?.frontDeskPriority === "high"
+            ? ("warning" as const)
+            : ("neutral" as const),
       summary: summarizeLead(lead)
       }));
 
     return [...requestItems, ...leadItems].slice(0, 4);
-  }, [openRequests, state.leads]);
+  }, [frontDeskLeadQueue, openRequests]);
+
+  const urgentItemsCount = useMemo(
+    () =>
+      state.calls.filter((call) => call.frontDesk?.frontDeskPriority === "urgent" && call.frontDesk?.needsFollowUp).length +
+      state.leads.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent" && lead.frontDesk?.needsFollowUp).length,
+    [state.calls, state.leads]
+  );
+
+  const missedRecoveryCount = useMemo(
+    () => state.calls.filter((call) => (call.outcome === "MISSED" || call.outcome === "ABANDONED" || call.unansweredTransfer) && Boolean(call.recoverySmsSentAt)).length,
+    [state.calls]
+  );
 
   const runtimeHealth = state.health?.runtimeHealth || state.health;
   const readiness = state.health?.readiness || null;
@@ -530,12 +623,12 @@ export default function AppOverviewPage() {
             <p className="mt-2 text-sm text-slate-100">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Follow-up</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Checking follow-up queue..." : `${actionItems.length} items need attention right now`}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Needs attention now</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Checking follow-up queue..." : `${actionItems.length} requests need action right now`}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Requests waiting</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing incoming requests..." : `${openRequests.length} new requests are ready for review`}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Urgent and missed-call items</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing incoming requests..." : `${urgentItemsCount} urgent items, ${missedRecoveryCount} recovered missed calls`}</p>
           </div>
         </div>
       </section>
@@ -617,8 +710,8 @@ export default function AppOverviewPage() {
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
-              <CardTitle>New requests and open leads</CardTitle>
-              <CardDescription>The customers most likely to become {"today's"} next bookings.</CardDescription>
+              <CardTitle>New requests</CardTitle>
+              <CardDescription>The open requests and leads that still need office follow-up.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="shrink-0">
               <Link href="/app/leads">Open leads</Link>
@@ -651,8 +744,8 @@ export default function AppOverviewPage() {
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
-              <CardTitle>Recent customer conversations</CardTitle>
-              <CardDescription>The latest customer calls handled by the front desk workflow.</CardDescription>
+              <CardTitle>Missed calls and recent conversations</CardTitle>
+              <CardDescription>Structured intake first, then the next action your office should take.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="shrink-0">
               <Link href="/app/calls">View all</Link>
@@ -668,14 +761,31 @@ export default function AppOverviewPage() {
                 <div key={call.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <p className="text-sm font-semibold text-foreground">{call.displayName || call.fromNumber}</p>
+                      <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
                     </div>
-                    <Badge className={clientBadgeClass(outcomeTone(call.outcome))}>{outcomeLabel(call.outcome)}</Badge>
+                    <Badge
+                      className={clientBadgeClass(
+                        call.frontDesk?.frontDeskPriority === "urgent"
+                          ? "critical"
+                          : call.frontDesk?.frontDeskPriority === "high"
+                            ? "warning"
+                            : outcomeTone(call.outcome)
+                      )}
+                    >
+                      {followUpLabel(call.frontDesk)}
+                    </Badge>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
-                    {call.aiSummary || call.summary || "Conversation summary will appear here after the call is processed."}
+                    {call.frontDesk?.summary || call.aiSummary || call.summary || "Conversation summary will appear here after the call is processed."}
                   </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{call.frontDesk?.urgency || "Standard priority"}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{call.frontDesk?.recommendedAction || "Review request"}</span>
+                  </div>
                 </div>
               ))
             ) : (
@@ -708,8 +818,8 @@ export default function AppOverviewPage() {
           <Card>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Open Requests</p>
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{openRequests.length}</p>
-              <p className="text-sm text-muted-foreground">{loading ? "Loading requests..." : openRequests.length === 0 ? "Nothing waiting for review" : "Pending follow-up"}</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{actionItems.length}</p>
+              <p className="text-sm text-muted-foreground">{loading ? "Loading requests..." : actionItems.length === 0 ? "Nothing waiting for review" : "Needs attention now"}</p>
             </CardContent>
           </Card>
           <Card>

@@ -9,6 +9,33 @@ export type LeadClassification =
   | "MISSED_CALL_RECOVERY"
   | "GENERAL_INQUIRY";
 
+export type FrontDeskPriority = "urgent" | "high" | "normal" | "low";
+export type FrontDeskFollowUpState = "needs_follow_up" | "contacted" | "booked" | "closed" | "spam";
+
+export type OrgCallFrontDesk = {
+  callerName: string | null;
+  callerPhone: string;
+  serviceRequested: string | null;
+  urgency: string | null;
+  serviceLocation: string | null;
+  appointmentRequested: boolean;
+  summary: string;
+  needsFollowUp: boolean;
+  followUpState: FrontDeskFollowUpState;
+  frontDeskPriority: FrontDeskPriority;
+  recommendedAction: string;
+};
+
+export type LeadFrontDesk = {
+  state: FrontDeskFollowUpState;
+  needsFollowUp: boolean;
+  frontDeskPriority: FrontDeskPriority;
+  recommendedAction: string;
+  lastActivityAt: string | null;
+  lastActivityType: "call" | "message" | "appointment_request" | "appointment" | "lead" | null;
+  summary: string;
+};
+
 export type Lead = {
   id: string;
   name: string;
@@ -35,6 +62,7 @@ export type Lead = {
   classificationConfidence?: number | null;
   source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
   dnc?: boolean;
+  frontDesk?: LeadFrontDesk;
   createdAt: string;
   updatedAt: string;
   ip: string | null;
@@ -308,6 +336,7 @@ export type OrgCallRecord = {
   dialCallStatus?: string | null;
   answeredBy?: string | null;
   answeredByLabel?: "HUMAN" | "AI" | "UNKNOWN";
+  frontDesk?: OrgCallFrontDesk;
   missedReason?: string | null;
   source?: string | null;
   hasMediaStream?: boolean;

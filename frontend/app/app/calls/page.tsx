@@ -2,17 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
-import type { OrgCallRecord } from "@/lib/types";
+import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
-
-function formatPercent(value: number) {
-  return `${Math.round(value)}%`;
-}
 
 function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "-";
@@ -58,20 +54,8 @@ function formatDayHeading(value: string) {
   });
 }
 
-function getCallSuccessRating(call: OrgCallRecord) {
-  let base = 60;
-  if (call.outcome === "APPOINTMENT_REQUEST") base = 95;
-  else if (call.outcome === "TRANSFERRED") base = 90;
-  else if (call.outcome === "MESSAGE_TAKEN") base = 75;
-  else if (call.outcome === "SPAM") base = 40;
-  else if (call.outcome === "ABANDONED") base = 10;
-  else if (call.outcome === "MISSED") base = 20;
-  if (call.transcript) base += 5;
-  if (call.recordingUrl) base += 5;
-  return Math.max(0, Math.min(100, base));
-}
-
 function getNextAction(call: OrgCallRecord) {
+  if (call.frontDesk?.recommendedAction) return call.frontDesk.recommendedAction;
   if (call.outcome === "MISSED" || call.outcome === "ABANDONED") return "Call this customer back.";
   if (call.outcome === "TRANSFERRED" && call.unansweredTransfer) return "Follow up because the transfer was not answered.";
   if (call.outcome === "TRANSFERRED") return "Confirm the transfer solved the issue.";
@@ -81,6 +65,11 @@ function getNextAction(call: OrgCallRecord) {
 }
 
 function getDispositionLabel(call: OrgCallRecord) {
+  if (call.frontDesk?.followUpState === "needs_follow_up") return "Needs follow-up";
+  if (call.frontDesk?.followUpState === "contacted") return "Contacted";
+  if (call.frontDesk?.followUpState === "booked") return "Booked";
+  if (call.frontDesk?.followUpState === "closed") return "Closed";
+  if (call.frontDesk?.followUpState === "spam") return "Spam";
   if (call.outcome === "APPOINTMENT_REQUEST") return "Request captured";
   if (call.outcome === "TRANSFERRED") return "Transferred";
   if (call.outcome === "MESSAGE_TAKEN") return "Follow-up sent";
@@ -91,12 +80,26 @@ function getDispositionLabel(call: OrgCallRecord) {
 }
 
 function getDispositionTone(call: OrgCallRecord): "booking" | "success" | "automated" | "warning" | "neutral" {
+  if (call.frontDesk?.frontDeskPriority === "urgent") return "warning";
+  if (call.frontDesk?.frontDeskPriority === "high") return "warning";
+  if (call.frontDesk?.followUpState === "booked") return "booking";
+  if (call.frontDesk?.followUpState === "contacted") return "automated";
   if (call.outcome === "APPOINTMENT_REQUEST") return "booking";
   if (call.outcome === "TRANSFERRED") return "success";
   if (call.outcome === "MESSAGE_TAKEN") return "automated";
   if (call.outcome === "ABANDONED") return "warning";
   if (call.outcome === "MISSED") return "warning";
   return "neutral";
+}
+
+function outcomeLabel(outcome: OrgCallRecord["outcome"]) {
+  if (outcome === "APPOINTMENT_REQUEST") return "Request captured";
+  if (outcome === "MESSAGE_TAKEN") return "Message taken";
+  if (outcome === "TRANSFERRED") return "Transferred";
+  if (outcome === "ABANDONED") return "Abandoned";
+  if (outcome === "MISSED") return "Missed call";
+  if (outcome === "SPAM") return "Spam";
+  return "Call";
 }
 
 function formatTransferReason(value: string | null | undefined) {
@@ -111,8 +114,23 @@ function formatAnsweredByLabel(value?: "HUMAN" | "AI" | "UNKNOWN") {
 }
 
 function extractCallerName(call: OrgCallRecord) {
+  if (String(call.frontDesk?.callerName || "").trim()) return String(call.frontDesk?.callerName || "").trim();
   if (String(call.displayName || "").trim()) return String(call.displayName || "").trim();
   return call.fromNumber;
+}
+
+function prioritySurface(priority: FrontDeskPriority | undefined, selected: boolean) {
+  if (selected && priority === "urgent") return "border-rose-300 ring-1 ring-rose-300/40 bg-rose-50/50";
+  if (selected && priority === "high") return "border-amber-300 ring-1 ring-amber-300/40 bg-amber-50/50";
+  if (selected) return "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]";
+  if (priority === "urgent") return "border-rose-200 hover:bg-rose-50/40 hover:shadow-[0_10px_22px_rgba(244,63,94,0.08)]";
+  if (priority === "high") return "border-amber-200 hover:bg-amber-50/30 hover:shadow-[0_10px_22px_rgba(245,158,11,0.08)]";
+  return "hover:-translate-y-px hover:bg-muted/20 hover:shadow-[0_10px_22px_rgba(15,23,42,0.06)]";
+}
+
+function formatPriorityLabel(priority: FrontDeskPriority | undefined) {
+  if (!priority) return "normal";
+  return priority;
 }
 
 export default function AppCallsPage() {
@@ -216,14 +234,13 @@ export default function AppCallsPage() {
   const metrics = useMemo(() => {
     const totalVisible = calls.length;
     if (!totalVisible) {
-      return { totalVisible, needsReview: 0, requestCount: 0, answerRate: 0 };
+      return { totalVisible, needsReview: 0, requestCount: 0, urgentCount: 0 };
     }
-    const successful = calls.filter((call) => !["MISSED", "ABANDONED", "SPAM"].includes(call.outcome)).length;
     return {
       totalVisible,
-      needsReview: calls.filter((call) => call.outcome === "MISSED" || call.outcome === "ABANDONED" || Boolean(call.unansweredTransfer)).length,
+      needsReview: calls.filter((call) => call.frontDesk?.needsFollowUp || call.outcome === "MISSED" || call.outcome === "ABANDONED" || Boolean(call.unansweredTransfer)).length,
       requestCount: calls.filter((call) => call.outcome === "APPOINTMENT_REQUEST").length,
-      answerRate: (successful / totalVisible) * 100
+      urgentCount: calls.filter((call) => call.frontDesk?.frontDeskPriority === "urgent").length
     };
   }, [calls]);
 
@@ -286,9 +303,9 @@ export default function AppCallsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Visible calls", value: metrics.totalVisible, meta: `Page ${page} of ${totalPages}` },
-          { label: "Need review", value: metrics.needsReview, meta: "Missed calls on this page" },
+          { label: "Need follow-up", value: metrics.needsReview, meta: "Open requests on this page" },
           { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests on this page" },
-          { label: "Visible answer rate", value: formatPercent(metrics.answerRate), meta: "Answered and non-spam calls on this page" }
+          { label: "Urgent", value: metrics.urgentCount, meta: "Urgent front-desk items on this page" }
         ].map((item) => (
           <Card key={item.label}>
             <CardContent className="p-5">
@@ -362,9 +379,7 @@ export default function AppCallsPage() {
                       shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
                       setSelectedCall(call);
                     }}
-                    className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-all ${
-                      selected ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : "hover:-translate-y-px hover:bg-muted/20 hover:shadow-[0_10px_22px_rgba(15,23,42,0.06)]"
-                    }`}
+                    className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-all ${prioritySurface(call.frontDesk?.frontDeskPriority, selected)}`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
@@ -375,15 +390,22 @@ export default function AppCallsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
                         <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                          {formatPercent(getCallSuccessRating(call))}
+                          {formatPriorityLabel(call.frontDesk?.frontDeskPriority)}
                         </span>
                       </div>
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                      {call.aiSummary || call.summary || "No summary available yet."}
+                      {call.frontDesk?.summary || call.aiSummary || call.summary || "No summary available yet."}
                     </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{call.frontDesk?.urgency || "Standard priority"}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{call.frontDesk?.recommendedAction || getNextAction(call)}</span>
+                    </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span>{getNextAction(call)}</span>
+                      <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{formatDuration(call.durationSec || 0)}</span>
                     </div>
@@ -476,12 +498,12 @@ export default function AppCallsPage() {
                     </div>
                   </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                       {[
                         ["Started", new Date(selectedCall.startedAt).toLocaleString()],
                         ["Duration", formatDuration(selectedCall.durationSec || 0)],
                         ["Answered by", formatAnsweredByLabel(selectedCall.answeredByLabel)],
-                        ["Success score", formatPercent(getCallSuccessRating(selectedCall))],
+                        ["Priority", formatPriorityLabel(selectedCall.frontDesk?.frontDeskPriority)],
                         ["Next step", getNextAction(selectedCall)]
                       ].map(([label, value]) => (
                       <div key={label} className="rounded-xl border bg-slate-50 p-4">
@@ -527,9 +549,27 @@ export default function AppCallsPage() {
                     </div>
                   ) : null}
 
-                  <div className="space-y-2">
-                    <p className="page-eyebrow">Summary</p>
-                    <p className="text-sm leading-6 text-muted-foreground">{selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}</p>
+                  <div className="space-y-3">
+                    <p className="page-eyebrow">Front-desk summary</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Caller", extractCallerName(selectedCall)],
+                        ["Service requested", selectedCall.frontDesk?.serviceRequested || "Not captured"],
+                        ["Urgency", selectedCall.frontDesk?.urgency || "Standard priority"],
+                        ["Service location", selectedCall.frontDesk?.serviceLocation || "Not captured"],
+                        ["Appointment requested", selectedCall.frontDesk?.appointmentRequested ? "Yes" : "No"],
+                        ["Recommended action", selectedCall.frontDesk?.recommendedAction || getNextAction(selectedCall)],
+                        ["Follow-up state", getDispositionLabel(selectedCall)]
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-xl border bg-slate-50 p-4">
+                          <p className="page-eyebrow">{label}</p>
+                          <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
+                    </p>
                   </div>
 
                   <div className="space-y-2">

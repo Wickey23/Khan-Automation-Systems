@@ -5,7 +5,7 @@ import { emitRuntimeEvent } from "../runtime/runtime-events.service";
 import { assertOrgSmsQuota } from "./sms-governance.service";
 import { sendSmsMessage } from "../twilio/twilio.service";
 import { normalizePhoneE164 } from "../voice/caller-profile.service";
-import { getSmsTemplatesFromPolicies, renderOperationalSmsTemplate } from "./template.service";
+import { buildMissedCallRecoveryFallback, getSmsTemplatesFromPolicies, renderOperationalSmsTemplate } from "./template.service";
 
 function parseIntSafe(value: string, fallback: number) {
   const parsed = Number.parseInt(value, 10);
@@ -165,7 +165,10 @@ export async function evaluateAndSendAutoRecovery(input: { prisma: PrismaClient;
   const businessName = String(call.organization.name || "Khan Systems").trim() || "Khan Systems";
   const body = renderOperationalSmsTemplate({
     template: templates.missedCallRecovery,
-    fallback: "Sorry we missed your call. Tell us what you need and we'll get back shortly.",
+    fallback: buildMissedCallRecoveryFallback({
+      businessName,
+      customerName: null
+    }),
     values: {
       businessName,
       customerName: "",

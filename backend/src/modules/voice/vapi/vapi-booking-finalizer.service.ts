@@ -12,7 +12,11 @@ import { createCalendarEventFromConnection } from "../../appointments/calendar-o
 import { getBusyBlocks } from "../../appointments/calendar-busy.service";
 import { generateAvailabilitySlots } from "../../appointments/slotting.service";
 import { assertOrgSmsQuota } from "../../sms/sms-governance.service";
-import { getSmsTemplatesFromPolicies, renderOperationalSmsTemplate } from "../../sms/template.service";
+import {
+  buildNewLeadAcknowledgementFallback,
+  getSmsTemplatesFromPolicies,
+  renderOperationalSmsTemplate
+} from "../../sms/template.service";
 import { sendSmsMessage } from "../../twilio/twilio.service";
 import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
 import { evaluateBookingState } from "./booking-state-machine";
@@ -92,15 +96,14 @@ async function sendPostCallCustomerSms(input: {
     const templates = getSmsTemplatesFromPolicies(org?.businessSettings?.policiesJson);
     const safeName = input.customerName || "there";
     const hasAddress = Boolean((input.serviceAddress || "").trim());
-    const fallback =
-      input.state === "NEEDS_SCHEDULING"
-        ? hasAddress
-          ? "Thanks {{customerName}} — {{businessName}} received your service request at {{serviceAddress}}. A technician will follow up shortly."
-          : "Thanks {{customerName}} — {{businessName}} received your service request. Please reply with your full street address so we can finalize scheduling."
-        : "Thanks {{customerName}} — {{businessName}} received your service request. A technician will follow up shortly.";
     const body = renderOperationalSmsTemplate({
       template: templates.newLeadAcknowledgement,
-      fallback,
+      fallback: buildNewLeadAcknowledgementFallback({
+        businessName,
+        customerName: safeName,
+        serviceAddress: input.serviceAddress || "",
+        needsAddress: input.state === "NEEDS_SCHEDULING" && !hasAddress
+      }),
       values: {
         customerName: safeName,
         businessName,
