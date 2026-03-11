@@ -1305,6 +1305,8 @@ adminRouter.post("/reports/recipients", requireStepUp, async (req: Authenticated
         includeSystemDashboard: parsed.data.includeSystemDashboard ?? true,
         includeSystemReadiness: parsed.data.includeSystemReadiness ?? true,
         includeScaleGate: parsed.data.includeScaleGate ?? true,
+        includeSecuritySummary: parsed.data.includeSecuritySummary ?? true,
+        includeRevenueSummary: parsed.data.includeRevenueSummary ?? true,
         includeOutreachOverview: parsed.data.includeOutreachOverview ?? true,
         includeBillingDiagnostics: parsed.data.includeBillingDiagnostics ?? true,
         notes: parsed.data.notes ?? null

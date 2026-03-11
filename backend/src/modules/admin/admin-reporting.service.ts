@@ -20,6 +20,8 @@ const adminReportRecipientSchema = z.object({
   includeSystemDashboard: z.boolean().default(true),
   includeSystemReadiness: z.boolean().default(true),
   includeScaleGate: z.boolean().default(true),
+  includeSecuritySummary: z.boolean().default(true),
+  includeRevenueSummary: z.boolean().default(true),
   includeOutreachOverview: z.boolean().default(true),
   includeBillingDiagnostics: z.boolean().default(true),
   notes: z.string().nullable().default(null),
@@ -34,6 +36,15 @@ const adminReportRecipientsSchema = z.array(adminReportRecipientSchema);
 export type AdminReportRecipient = z.infer<typeof adminReportRecipientSchema>;
 
 type AdminReportCadence = "daily" | "weekly" | "test";
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function parseRecipientsJson(value: string | null | undefined) {
   let raw: unknown = [];
@@ -97,6 +108,8 @@ export async function createAdminReportRecipient(
     includeSystemDashboard: input.includeSystemDashboard ?? true,
     includeSystemReadiness: input.includeSystemReadiness ?? true,
     includeScaleGate: input.includeScaleGate ?? true,
+    includeSecuritySummary: input.includeSecuritySummary ?? true,
+    includeRevenueSummary: input.includeRevenueSummary ?? true,
     includeOutreachOverview: input.includeOutreachOverview ?? true,
     includeBillingDiagnostics: input.includeBillingDiagnostics ?? true,
     notes: input.notes?.trim() || null,
@@ -159,8 +172,66 @@ async function fetchOutreachOverview(prisma: PrismaClient) {
   return { totalLeads, activeEnrollments, emailsSent, replies, unsubscribes };
 }
 
+async function fetchRevenueSummary(prisma: PrismaClient) {
+  const subscriptions = await prisma.subscription.findMany({
+    select: { id: true, orgId: true, plan: true, status: true, createdAt: true }
+  });
+
+  const latestByOrg = new Map<string, { plan: string; status: string }>();
+  for (const row of subscriptions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())) {
+    const key = row.orgId || `row:${row.id}`;
+    if (latestByOrg.has(key)) continue;
+    latestByOrg.set(key, { plan: row.plan, status: String(row.status || "").toLowerCase() });
+  }
+
+  const active = Array.from(latestByOrg.values()).filter((row) => ["active", "trialing"].includes(row.status));
+  const byPlan = { founding: 0, starter: 0, pro: 0 };
+  for (const row of active) {
+    if (row.plan === "PRO") byPlan.pro += 1;
+    else if (row.plan === "FOUNDING") byPlan.founding += 1;
+    else byPlan.starter += 1;
+  }
+
+  const recurringPrice = { founding: 249, starter: 349, pro: 599 };
+  const estimatedMrrUsd =
+    byPlan.founding * recurringPrice.founding + byPlan.starter * recurringPrice.starter + byPlan.pro * recurringPrice.pro;
+
+  let stripePaidLast30d: number | null = null;
+  let stripePaidCurrency: string | null = null;
+  let stripeError: string | null = null;
+  try {
+    if (env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET_KEY.includes("placeholder")) {
+      const since = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+      const invoices = await stripe.invoices.list({
+        status: "paid",
+        created: { gte: since },
+        limit: 100
+      });
+      const paid = invoices.data.reduce((sum, invoice) => sum + (invoice.amount_paid || 0), 0);
+      stripePaidLast30d = Math.round((paid / 100) * 100) / 100;
+      stripePaidCurrency = invoices.data[0]?.currency?.toUpperCase() || "USD";
+    }
+  } catch (error) {
+    stripeError = error instanceof Error ? error.message : "stripe_unavailable";
+  }
+
+  return {
+    estimatedMrrUsd,
+    activeSubscriptions: active.length,
+    subscriptionsByPlan: byPlan,
+    stripePaidLast30d,
+    stripePaidCurrency,
+    stripeError
+  };
+}
+
+type ReportSection = {
+  title: string;
+  rows: Array<{ label: string; value: string }>;
+};
+
 async function buildReportSections(prisma: PrismaClient, recipient: AdminReportRecipient) {
-  const sections: string[] = [];
+  const sections: ReportSection[] = [];
 
   if (recipient.includeSystemDashboard || recipient.includeSystemReadiness || recipient.includeScaleGate) {
     const [dashboard, readiness, scaleGate] = await Promise.all([
@@ -170,62 +241,100 @@ async function buildReportSections(prisma: PrismaClient, recipient: AdminReportR
     ]);
 
     if (dashboard) {
-      sections.push(
-        [
-          "System Dashboard",
-          `Inbound calls: 5m ${dashboard.inboundCalls.last5m}, 1h ${dashboard.inboundCalls.last1h}, 24h ${dashboard.inboundCalls.last24h}`,
-          `Webhook success: ${Math.round(dashboard.webhookSuccessRate * 100)}%`,
-          `Twilio error rate: ${Math.round(dashboard.twilioErrorRate * 100)}%`,
-          `Vapi error rate: ${Math.round(dashboard.vapiProcessingErrorRate * 100)}%`,
-          `Missing lead links: ${dashboard.callsMissingLeadLinkage}`,
-          `Auto-recovery last 24h: ${dashboard.autoRecoveryVolumeLast24h}`,
-          `Org exposure: ${Math.round(dashboard.orgExposurePercent * 100)}%`,
-          `Traffic exposure: ${Math.round(dashboard.trafficExposurePercent * 100)}%`
-        ].join("\n")
-      );
+      sections.push({
+        title: "System Dashboard",
+        rows: [
+          { label: "Inbound calls", value: `5m ${dashboard.inboundCalls.last5m} / 1h ${dashboard.inboundCalls.last1h} / 24h ${dashboard.inboundCalls.last24h}` },
+          { label: "Webhook success", value: `${Math.round(dashboard.webhookSuccessRate * 100)}%` },
+          { label: "Twilio error rate", value: `${Math.round(dashboard.twilioErrorRate * 100)}%` },
+          { label: "Vapi error rate", value: `${Math.round(dashboard.vapiProcessingErrorRate * 100)}%` },
+          { label: "Missing lead links", value: String(dashboard.callsMissingLeadLinkage) },
+          { label: "Auto-recovery last 24h", value: String(dashboard.autoRecoveryVolumeLast24h) },
+          { label: "Org exposure", value: `${Math.round(dashboard.orgExposurePercent * 100)}%` },
+          { label: "Traffic exposure", value: `${Math.round(dashboard.trafficExposurePercent * 100)}%` }
+        ]
+      });
     }
 
     if (readiness) {
-      sections.push(
-        [
-          "System Readiness",
-          `Webhook success: ${Math.round(readiness.webhookSuccessRate * 100)}%`,
-          `Lead linkage: ${Math.round(readiness.leadLinkageRate * 100)}%`,
-          `Average call quality: ${Math.round(readiness.avgCallQuality)}`,
-          `P1 incidents last 30d: ${readiness.P1IncidentCountLast30d}`,
-          `SLA WARN: ${readiness.SLAStatusDistribution.WARN}`,
-          `SLA CRITICAL: ${readiness.SLAStatusDistribution.CRITICAL}`,
-          `Data integrity anomalies: ${readiness.DataIntegrityAnomalies}`
-        ].join("\n")
-      );
+      sections.push({
+        title: "System Readiness",
+        rows: [
+          { label: "Webhook success", value: `${Math.round(readiness.webhookSuccessRate * 100)}%` },
+          { label: "Lead linkage", value: `${Math.round(readiness.leadLinkageRate * 100)}%` },
+          { label: "Average call quality", value: String(Math.round(readiness.avgCallQuality)) },
+          { label: "P1 incidents last 30d", value: String(readiness.P1IncidentCountLast30d) },
+          { label: "SLA WARN", value: String(readiness.SLAStatusDistribution.WARN) },
+          { label: "SLA CRITICAL", value: String(readiness.SLAStatusDistribution.CRITICAL) },
+          { label: "Data integrity anomalies", value: String(readiness.DataIntegrityAnomalies) }
+        ]
+      });
     }
 
     if (scaleGate) {
-      sections.push(
-        [
-          "Scale Gate",
-          `Result: ${scaleGate.result}`,
-          `Failing criteria: ${scaleGate.failingCriteria.length ? scaleGate.failingCriteria.join(", ") : "none"}`,
-          `Cooldown required: ${scaleGate.cooldown.required ? "yes" : "no"}`,
-          `Org exposure threshold: ${Math.round(scaleGate.exposure.thresholds.orgExposureThreshold * 100)}%`,
-          `Traffic exposure threshold: ${Math.round(scaleGate.exposure.thresholds.trafficExposureThreshold * 100)}%`
-        ].join("\n")
-      );
+      sections.push({
+        title: "Scale Gate",
+        rows: [
+          { label: "Result", value: scaleGate.result },
+          { label: "Failing criteria", value: scaleGate.failingCriteria.length ? scaleGate.failingCriteria.join(", ") : "none" },
+          { label: "Cooldown required", value: scaleGate.cooldown.required ? "yes" : "no" },
+          { label: "Org exposure threshold", value: `${Math.round(scaleGate.exposure.thresholds.orgExposureThreshold * 100)}%` },
+          { label: "Traffic exposure threshold", value: `${Math.round(scaleGate.exposure.thresholds.trafficExposureThreshold * 100)}%` }
+        ]
+      });
     }
+
+    if (recipient.includeSecuritySummary && dashboard) {
+      sections.push({
+        title: "Security and Auth Health",
+        rows: [
+          { label: "Email provider configured", value: dashboard.emailProviderConfigured ? "yes" : "no" },
+          { label: "2FA required last 24h", value: String(dashboard.auth2fa?.required24h ?? 0) },
+          { label: "OTP success last 24h", value: String(dashboard.auth2fa?.otpSuccess24h ?? 0) },
+          { label: "OTP invalid last 24h", value: String(dashboard.auth2fa?.invalidOtp24h ?? 0) },
+          { label: "OTP email failures last 24h", value: String(dashboard.auth2fa?.emailFailure24h ?? 0) },
+          { label: "Step-up forbidden last 24h", value: String(dashboard.securityCounters?.stepUpForbidden24h ?? 0) },
+          { label: "Webhook replay blocked last 24h", value: String(dashboard.securityCounters?.webhookReplayBlocked24h ?? 0) },
+          { label: "Retry-worthy webhook failures", value: String(dashboard.securityCounters?.webhookRetryWorthyFailure24h ?? 0) }
+        ]
+      });
+    }
+  }
+
+  if (recipient.includeRevenueSummary) {
+    const revenue = await fetchRevenueSummary(prisma);
+    sections.push({
+      title: "Revenue Summary",
+      rows: [
+        { label: "Estimated MRR", value: `$${revenue.estimatedMrrUsd.toLocaleString()}` },
+        { label: "Active subscriptions", value: String(revenue.activeSubscriptions) },
+        {
+          label: "Plan mix",
+          value: `Founding ${revenue.subscriptionsByPlan.founding}, Starter ${revenue.subscriptionsByPlan.starter}, Pro ${revenue.subscriptionsByPlan.pro}`
+        },
+        {
+          label: "Stripe paid last 30d",
+          value:
+            revenue.stripePaidLast30d !== null
+              ? `${revenue.stripePaidCurrency || "USD"} ${revenue.stripePaidLast30d.toLocaleString()}`
+              : revenue.stripeError || "unavailable"
+        }
+      ]
+    });
   }
 
   if (recipient.includeOutreachOverview) {
     const outreach = await fetchOutreachOverview(prisma);
-    sections.push(
-      [
-        "Outreach Overview",
-        `Total leads: ${outreach.totalLeads}`,
-        `Active enrollments: ${outreach.activeEnrollments}`,
-        `Emails sent: ${outreach.emailsSent}`,
-        `Replies: ${outreach.replies}`,
-        `Suppressions / unsubscribes: ${outreach.unsubscribes}`
-      ].join("\n")
-    );
+    sections.push({
+      title: "Outreach Overview",
+      rows: [
+        { label: "Total leads", value: String(outreach.totalLeads) },
+        { label: "Active enrollments", value: String(outreach.activeEnrollments) },
+        { label: "Emails sent", value: String(outreach.emailsSent) },
+        { label: "Replies", value: String(outreach.replies) },
+        { label: "Suppressions / unsubscribes", value: String(outreach.unsubscribes) }
+      ]
+    });
   }
 
   if (recipient.includeBillingDiagnostics) {
@@ -239,16 +348,16 @@ async function buildReportSections(prisma: PrismaClient, recipient: AdminReportR
       },
       detailed: false
     });
-    sections.push(
-      [
-        "Billing Diagnostics",
-        `Overall: ${diagnostics.summary.overall}`,
-        `Checkout ready: ${diagnostics.summary.checkoutReady ? "yes" : "no"}`,
-        `Change plan ready: ${diagnostics.summary.changePlanReady ? "yes" : "no"}`,
-        `Customer portal ready: ${diagnostics.summary.customerPortalReady ? "yes" : "no"}`,
-        `Top issues: ${diagnostics.summary.topIssues.length ? diagnostics.summary.topIssues.join(", ") : "none"}`
-      ].join("\n")
-    );
+    sections.push({
+      title: "Billing Diagnostics",
+      rows: [
+        { label: "Overall", value: diagnostics.summary.overall },
+        { label: "Checkout ready", value: diagnostics.summary.checkoutReady ? "yes" : "no" },
+        { label: "Change plan ready", value: diagnostics.summary.changePlanReady ? "yes" : "no" },
+        { label: "Customer portal ready", value: diagnostics.summary.customerPortalReady ? "yes" : "no" },
+        { label: "Top issues", value: diagnostics.summary.topIssues.length ? diagnostics.summary.topIssues.join(", ") : "none" }
+      ]
+    });
   }
 
   return sections;
@@ -269,24 +378,70 @@ async function buildRecipientReport(prisma: PrismaClient, recipient: AdminReport
     `Generated: ${generatedAt}`,
     recipient.notes ? `Notes: ${recipient.notes}` : null,
     "",
-    ...sections.flatMap((section, index) => [section, index === sections.length - 1 ? null : "\n---\n"]).filter(Boolean) as string[],
+    ...sections.flatMap((section, index) => [
+      section.title,
+      ...section.rows.map((row) => `${row.label}: ${row.value}`),
+      index === sections.length - 1 ? null : "\n---\n"
+    ]).filter(Boolean) as string[],
     "",
     "This report was sent from the Khan Systems internal admin reporting worker."
   ]
     .filter(Boolean)
     .join("\n");
 
-  return { subject, text };
+  const html = `
+    <div style="background:#f5f7fb;padding:24px;font-family:Arial,sans-serif;color:#111827;">
+      <div style="max-width:840px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+        <div style="padding:24px 28px;border-bottom:1px solid #e5e7eb;background:#0f172a;color:#f8fafc;">
+          <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.75;">Khan Systems</div>
+          <h1 style="margin:8px 0 0;font-size:28px;line-height:1.2;">${cadenceLabel(cadence)} diagnostics report</h1>
+          <p style="margin:8px 0 0;font-size:14px;opacity:0.85;">Generated ${generatedAt}</p>
+        </div>
+        <div style="padding:24px 28px;">
+          ${recipient.notes ? `<p style="margin:0 0 20px;font-size:14px;color:#475569;"><strong>Notes:</strong> ${escapeHtml(recipient.notes)}</p>` : ""}
+          ${sections
+            .map(
+              (section) => `
+                <section style="margin-bottom:20px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+                  <div style="padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+                    <h2 style="margin:0;font-size:16px;color:#0f172a;">${escapeHtml(section.title)}</h2>
+                  </div>
+                  <table style="width:100%;border-collapse:collapse;">
+                    <tbody>
+                      ${section.rows
+                        .map(
+                          (row, index) => `
+                            <tr>
+                              <td style="padding:12px 16px;border-bottom:${index === section.rows.length - 1 ? "none" : "1px solid #e5e7eb"};font-size:13px;color:#475569;width:40%;">${escapeHtml(row.label)}</td>
+                              <td style="padding:12px 16px;border-bottom:${index === section.rows.length - 1 ? "none" : "1px solid #e5e7eb"};font-size:13px;color:#0f172a;font-weight:600;">${escapeHtml(row.value)}</td>
+                            </tr>
+                          `
+                        )
+                        .join("")}
+                    </tbody>
+                  </table>
+                </section>
+              `
+            )
+            .join("")}
+          <p style="margin:20px 0 0;font-size:12px;color:#64748b;">This report was sent from the Khan Systems internal admin reporting worker.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return { subject, text, html };
 }
 
 export async function sendAdminReportTest(prisma: PrismaClient, recipientId: string) {
   const recipient = (await listAdminReportRecipients(prisma)).find((item) => item.id === recipientId);
   if (!recipient) throw new Error("Report recipient not found.");
-  const { subject, text } = await buildRecipientReport(prisma, recipient, "test");
+  const { subject, text, html } = await buildRecipientReport(prisma, recipient, "test");
   await sendOrgOperationalNotificationEmail({
     to: recipient.email,
     title: subject,
     body: text,
+    html,
     severity: "INFO"
   });
   return true;
@@ -340,11 +495,12 @@ export async function runAdminReportsTick(prisma: PrismaClient) {
     if (!cadence) continue;
 
     try {
-      const { subject, text } = await buildRecipientReport(prisma, recipient, cadence);
+      const { subject, text, html } = await buildRecipientReport(prisma, recipient, cadence);
       await sendOrgOperationalNotificationEmail({
         to: recipient.email,
         title: subject,
         body: text,
+        html,
         severity: "INFO"
       });
       if (cadence === "daily") recipient.lastDailySentAt = now.toISOString();

@@ -21,6 +21,8 @@ type RecipientDraft = {
   includeSystemDashboard: boolean;
   includeSystemReadiness: boolean;
   includeScaleGate: boolean;
+  includeSecuritySummary: boolean;
+  includeRevenueSummary: boolean;
   includeOutreachOverview: boolean;
   includeBillingDiagnostics: boolean;
   notes: string;
@@ -34,6 +36,8 @@ const emptyDraft: RecipientDraft = {
   includeSystemDashboard: true,
   includeSystemReadiness: true,
   includeScaleGate: true,
+  includeSecuritySummary: true,
+  includeRevenueSummary: true,
   includeOutreachOverview: true,
   includeBillingDiagnostics: true,
   notes: ""
@@ -48,6 +52,8 @@ function toDraft(recipient: AdminReportRecipient): RecipientDraft {
     includeSystemDashboard: recipient.includeSystemDashboard,
     includeSystemReadiness: recipient.includeSystemReadiness,
     includeScaleGate: recipient.includeScaleGate,
+    includeSecuritySummary: recipient.includeSecuritySummary,
+    includeRevenueSummary: recipient.includeRevenueSummary,
     includeOutreachOverview: recipient.includeOutreachOverview,
     includeBillingDiagnostics: recipient.includeBillingDiagnostics,
     notes: recipient.notes || ""
@@ -149,6 +155,12 @@ export default function AdminReportsPage() {
             {renderCheckbox("Scale gate", newRecipient.includeScaleGate, (value) =>
               setNewRecipient((current) => ({ ...current, includeScaleGate: value }))
             )}
+            {renderCheckbox("Security + auth", newRecipient.includeSecuritySummary, (value) =>
+              setNewRecipient((current) => ({ ...current, includeSecuritySummary: value }))
+            )}
+            {renderCheckbox("Revenue summary", newRecipient.includeRevenueSummary, (value) =>
+              setNewRecipient((current) => ({ ...current, includeRevenueSummary: value }))
+            )}
             {renderCheckbox("Outreach overview", newRecipient.includeOutreachOverview, (value) =>
               setNewRecipient((current) => ({ ...current, includeOutreachOverview: value }))
             )}
@@ -245,6 +257,12 @@ export default function AdminReportsPage() {
                     )}
                     {renderCheckbox("Scale gate", draft.includeScaleGate, (value) =>
                       setDrafts((current) => ({ ...current, [recipient.id]: { ...draft, includeScaleGate: value } }))
+                    )}
+                    {renderCheckbox("Security + auth", draft.includeSecuritySummary, (value) =>
+                      setDrafts((current) => ({ ...current, [recipient.id]: { ...draft, includeSecuritySummary: value } }))
+                    )}
+                    {renderCheckbox("Revenue summary", draft.includeRevenueSummary, (value) =>
+                      setDrafts((current) => ({ ...current, [recipient.id]: { ...draft, includeRevenueSummary: value } }))
                     )}
                     {renderCheckbox("Outreach overview", draft.includeOutreachOverview, (value) =>
                       setDrafts((current) => ({ ...current, [recipient.id]: { ...draft, includeOutreachOverview: value } }))

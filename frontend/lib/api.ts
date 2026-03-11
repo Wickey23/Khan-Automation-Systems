@@ -1217,6 +1217,8 @@ export async function createAdminReportRecipient(payload: {
   includeSystemDashboard?: boolean;
   includeSystemReadiness?: boolean;
   includeScaleGate?: boolean;
+  includeSecuritySummary?: boolean;
+  includeRevenueSummary?: boolean;
   includeOutreachOverview?: boolean;
   includeBillingDiagnostics?: boolean;
   notes?: string | null;
@@ -1237,6 +1239,8 @@ export async function updateAdminReportRecipient(
     includeSystemDashboard: boolean;
     includeSystemReadiness: boolean;
     includeScaleGate: boolean;
+    includeSecuritySummary: boolean;
+    includeRevenueSummary: boolean;
     includeOutreachOverview: boolean;
     includeBillingDiagnostics: boolean;
     notes: string | null;

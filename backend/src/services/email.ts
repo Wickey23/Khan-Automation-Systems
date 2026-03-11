@@ -32,7 +32,7 @@ function isResendConfigured(kind: SenderKind = "legacy") {
   return Boolean(env.RESEND_API_KEY && senderFrom(kind));
 }
 
-async function sendViaResend(subject: string, text: string, to: string, kind: SenderKind) {
+async function sendViaResend(subject: string, text: string, to: string, kind: SenderKind, html?: string) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) throw new Error("resend_not_configured");
 
@@ -49,7 +49,8 @@ async function sendViaResend(subject: string, text: string, to: string, kind: Se
         from: senderFrom(kind),
         to: [to],
         subject,
-        text
+        text,
+        ...(html ? { html } : {})
       }),
       signal: controller.signal
     });
@@ -63,7 +64,7 @@ async function sendViaResend(subject: string, text: string, to: string, kind: Se
   }
 }
 
-async function sendViaSmtp(subject: string, text: string, to: string, kind: SenderKind) {
+async function sendViaSmtp(subject: string, text: string, to: string, kind: SenderKind, html?: string) {
   const transporter = buildTransporter();
   if (!transporter) throw new Error("smtp_not_configured");
 
@@ -71,7 +72,8 @@ async function sendViaSmtp(subject: string, text: string, to: string, kind: Send
     from: senderFrom(kind),
     to,
     subject,
-    text
+    text,
+    ...(html ? { html } : {})
   });
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error("smtp_send_timeout")), SEND_TIMEOUT_MS);
@@ -79,11 +81,11 @@ async function sendViaSmtp(subject: string, text: string, to: string, kind: Send
   await Promise.race([sendPromise, timeoutPromise]);
 }
 
-async function sendOrLog(subject: string, text: string, to: string, kind: SenderKind = "legacy") {
+async function sendOrLog(subject: string, text: string, to: string, kind: SenderKind = "legacy", html?: string) {
   const errors: string[] = [];
   if (isResendConfigured(kind)) {
     try {
-      await sendViaResend(subject, text, to, kind);
+      await sendViaResend(subject, text, to, kind, html);
       return;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "resend_unknown_error");
@@ -92,7 +94,7 @@ async function sendOrLog(subject: string, text: string, to: string, kind: Sender
 
   if (isSmtpConfigured()) {
     try {
-      await sendViaSmtp(subject, text, to, kind);
+      await sendViaSmtp(subject, text, to, kind, html);
       return;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "smtp_unknown_error");
@@ -244,6 +246,7 @@ export async function sendOrgOperationalNotificationEmail(payload: {
   to: string;
   title: string;
   body: string;
+  html?: string;
   severity: "INFO" | "ACTION_REQUIRED" | "URGENT";
 }) {
   const subjectPrefix =
@@ -253,5 +256,5 @@ export async function sendOrgOperationalNotificationEmail(payload: {
         ? "[Action Required]"
         : "[Info]";
   const subject = `${subjectPrefix} ${payload.title}`;
-  await sendOrLog(subject, payload.body, payload.to, "alerts");
+  await sendOrLog(subject, payload.body, payload.to, "alerts", payload.html);
 }

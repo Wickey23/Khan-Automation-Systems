@@ -155,6 +155,8 @@ export const adminReportRecipientPayloadSchema = z.object({
   includeSystemDashboard: z.boolean().optional(),
   includeSystemReadiness: z.boolean().optional(),
   includeScaleGate: z.boolean().optional(),
+  includeSecuritySummary: z.boolean().optional(),
+  includeRevenueSummary: z.boolean().optional(),
   includeOutreachOverview: z.boolean().optional(),
   includeBillingDiagnostics: z.boolean().optional(),
   notes: z.string().max(500).optional().nullable()
