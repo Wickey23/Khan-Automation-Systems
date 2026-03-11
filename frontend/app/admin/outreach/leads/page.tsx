@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
@@ -7,6 +8,7 @@ import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
   createAdminOutreachEnrollment,
   createAdminOutreachLead,
+  discoverProspects,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
   importAdminOutreachLeads,
@@ -34,6 +36,13 @@ export default function AdminOutreachLeadsPage() {
   const [selectedSequenceByLead, setSelectedSequenceByLead] = useState<Record<string, string>>({});
   const [bulkText, setBulkText] = useState("");
   const [bulkResults, setBulkResults] = useState<Array<{ lineNumber: number; status: string; reason?: string; email?: string }>>([]);
+  const [discoverLocation, setDiscoverLocation] = useState("");
+  const [discoverKeywords, setDiscoverKeywords] = useState(
+    "truck repair shop,auto repair shop,hvac contractor,equipment repair service,manufacturing service"
+  );
+  const [discoverLimit, setDiscoverLimit] = useState(30);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverSummary, setDiscoverSummary] = useState<string>("");
   const [form, setForm] = useState({
     companyName: "",
     contactName: "",
@@ -100,6 +109,35 @@ export default function AdminOutreachLeadsPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+    }
+  }
+
+  async function onDiscover() {
+    setDiscovering(true);
+    try {
+      const keywords = discoverKeywords
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const result = await discoverProspects({
+        location: discoverLocation.trim(),
+        keywords: keywords.length ? keywords : undefined,
+        limit: discoverLimit
+      });
+      const summary = `Imported ${result.createdCount} map-discovered prospects into the prospecting queue.`;
+      setDiscoverSummary(summary);
+      showToast({
+        title: "Maps search completed",
+        description: summary
+      });
+    } catch (error) {
+      showToast({
+        title: "Maps search failed",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setDiscovering(false);
     }
   }
 
@@ -211,7 +249,7 @@ export default function AdminOutreachLeadsPage() {
         />
         <OutreachSubnav />
 
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle>Add lead</CardTitle>
@@ -248,6 +286,56 @@ export default function AdminOutreachLeadsPage() {
                   ))}
                 </div>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Maps Search</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Search map-style local service businesses by location and keyword. Results are imported into
+                <Link href="/admin/prospects" className="ml-1 underline underline-offset-2">
+                  Prospects
+                </Link>
+                {" "}for qualification before outreach enrollment.
+              </p>
+              <div>
+                <Label>Location</Label>
+                <Input
+                  placeholder="Dallas, TX"
+                  value={discoverLocation}
+                  onChange={(event) => setDiscoverLocation(event.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Business types</Label>
+                <Textarea
+                  rows={4}
+                  value={discoverKeywords}
+                  onChange={(event) => setDiscoverKeywords(event.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Result limit</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={String(discoverLimit)}
+                  onChange={(event) => setDiscoverLimit(Number(event.target.value) || 30)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => void onDiscover()} disabled={discovering}>
+                  {discovering ? "Searching..." : "Search map leads"}
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/admin/prospects">Open prospects</Link>
+                </Button>
+              </div>
+              {discoverSummary ? <div className="text-sm text-muted-foreground">{discoverSummary}</div> : null}
             </CardContent>
           </Card>
         </div>
