@@ -520,6 +520,124 @@ export type AdminRevenueSummary = {
   stripeError: string | null;
 };
 
+export type OutreachLeadStatus = "NEW" | "ACTIVE" | "PAUSED" | "REPLIED" | "BOUNCED" | "UNSUBSCRIBED" | "COMPLETED";
+export type OutreachEnrollmentStatus = "ACTIVE" | "PAUSED" | "COMPLETED" | "STOPPED" | "FAILED";
+export type OutreachEmailEventType =
+  | "QUEUED"
+  | "SENT"
+  | "DELIVERED"
+  | "OPENED"
+  | "CLICKED"
+  | "BOUNCED"
+  | "COMPLAINED"
+  | "FAILED"
+  | "REPLIED"
+  | "UNSUBSCRIBED";
+
+export type OutreachLead = {
+  id: string;
+  orgId: string;
+  companyName: string | null;
+  contactName: string | null;
+  email: string;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  industry: string | null;
+  website: string | null;
+  notes: string | null;
+  status: OutreachLeadStatus;
+  lastContactedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  organization?: { id: string; name: string } | null;
+  enrollments?: Array<{
+    id: string;
+    status: OutreachEnrollmentStatus;
+    currentStepNumber: number;
+    nextSendAt: string | null;
+    sequence?: { id: string; name: string } | null;
+  }>;
+};
+
+export type OutreachSequenceStep = {
+  id?: string;
+  sequenceId?: string;
+  stepNumber: number;
+  delayHours: number;
+  subject: string;
+  bodyHtml: string | null;
+  bodyText: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OutreachSequence = {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  organization?: { id: string; name: string } | null;
+  steps: OutreachSequenceStep[];
+  _count?: { enrollments: number };
+};
+
+export type OutreachEnrollment = {
+  id: string;
+  orgId: string;
+  leadId: string;
+  sequenceId: string;
+  currentStepNumber: number;
+  nextSendAt: string | null;
+  status: OutreachEnrollmentStatus;
+  stopReason: string | null;
+  lastSentAt: string | null;
+  processingStartedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  organization?: { id: string; name: string } | null;
+  lead?: OutreachLead | null;
+  sequence?: { id: string; name: string } | null;
+};
+
+export type OutreachEmailEvent = {
+  id: string;
+  orgId: string;
+  leadId: string | null;
+  enrollmentId: string | null;
+  sequenceId: string | null;
+  stepNumber: number | null;
+  provider: string;
+  providerMessageId: string | null;
+  eventType: OutreachEmailEventType;
+  subject: string | null;
+  toEmail: string;
+  fromEmail: string;
+  errorMessage: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  organization?: { id: string; name: string } | null;
+  lead?: { id: string; email: string; companyName: string | null; contactName: string | null } | null;
+  sequence?: { id: string; name: string } | null;
+};
+
+export type OutreachOverview = {
+  totalLeads: number;
+  activeEnrollments: number;
+  emailsSent: number;
+  replies: number;
+  unsubscribes: number;
+  recentEvents: OutreachEmailEvent[];
+};
+
+export type OutreachBulkImportRowResult =
+  | { lineNumber: number; status: "created"; leadId: string; email: string }
+  | { lineNumber: number; status: "duplicate"; email: string; reason: string }
+  | { lineNumber: number; status: "invalid"; reason: string; raw: string };
+
 export type BusinessSettings = {
   id: string;
   orgId: string;

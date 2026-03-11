@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { env } from "../config/env";
 
 const SEND_TIMEOUT_MS = 12_000;
+type SenderKind = "product" | "alerts" | "legacy";
 
 function buildTransporter() {
   if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
@@ -21,11 +22,17 @@ function buildTransporter() {
   });
 }
 
-function isResendConfigured() {
-  return Boolean(env.RESEND_API_KEY && (env.RESEND_FROM || env.SMTP_FROM));
+function senderFrom(kind: SenderKind) {
+  if (kind === "alerts") return env.EMAIL_FROM_ALERTS || env.RESEND_FROM || env.SMTP_FROM;
+  if (kind === "product") return env.EMAIL_FROM_PRODUCT || env.RESEND_FROM || env.SMTP_FROM;
+  return env.RESEND_FROM || env.SMTP_FROM;
 }
 
-async function sendViaResend(subject: string, text: string, to: string) {
+function isResendConfigured(kind: SenderKind = "legacy") {
+  return Boolean(env.RESEND_API_KEY && senderFrom(kind));
+}
+
+async function sendViaResend(subject: string, text: string, to: string, kind: SenderKind) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) throw new Error("resend_not_configured");
 
@@ -39,7 +46,7 @@ async function sendViaResend(subject: string, text: string, to: string) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from: env.RESEND_FROM || env.SMTP_FROM,
+        from: senderFrom(kind),
         to: [to],
         subject,
         text
@@ -56,12 +63,12 @@ async function sendViaResend(subject: string, text: string, to: string) {
   }
 }
 
-async function sendViaSmtp(subject: string, text: string, to: string) {
+async function sendViaSmtp(subject: string, text: string, to: string, kind: SenderKind) {
   const transporter = buildTransporter();
   if (!transporter) throw new Error("smtp_not_configured");
 
   const sendPromise = transporter.sendMail({
-    from: env.SMTP_FROM,
+    from: senderFrom(kind),
     to,
     subject,
     text
@@ -72,11 +79,11 @@ async function sendViaSmtp(subject: string, text: string, to: string) {
   await Promise.race([sendPromise, timeoutPromise]);
 }
 
-async function sendOrLog(subject: string, text: string, to: string) {
+async function sendOrLog(subject: string, text: string, to: string, kind: SenderKind = "legacy") {
   const errors: string[] = [];
-  if (isResendConfigured()) {
+  if (isResendConfigured(kind)) {
     try {
-      await sendViaResend(subject, text, to);
+      await sendViaResend(subject, text, to, kind);
       return;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "resend_unknown_error");
@@ -85,7 +92,7 @@ async function sendOrLog(subject: string, text: string, to: string) {
 
   if (isSmtpConfigured()) {
     try {
-      await sendViaSmtp(subject, text, to);
+      await sendViaSmtp(subject, text, to, kind);
       return;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "smtp_unknown_error");
@@ -121,7 +128,7 @@ export async function sendLeadNotificationEmail(payload: {
     `Admin Link: ${payload.adminUrl}/admin/leads/${payload.leadId}`
   ].join("\n");
 
-  await sendOrLog(subject, text, env.LEAD_NOTIFICATION_EMAIL);
+  await sendOrLog(subject, text, env.LEAD_NOTIFICATION_EMAIL, "alerts");
 }
 
 export async function sendNewSubscribedClientNotification(payload: {
@@ -138,7 +145,7 @@ export async function sendNewSubscribedClientNotification(payload: {
     `Plan: ${payload.plan}`,
     `Client ID: ${payload.clientId}`
   ].join("\n");
-  await sendOrLog(subject, text, env.LEAD_NOTIFICATION_EMAIL);
+  await sendOrLog(subject, text, env.LEAD_NOTIFICATION_EMAIL, "alerts");
 }
 
 export async function sendClientWelcomeEmail(payload: {
@@ -154,7 +161,7 @@ export async function sendClientWelcomeEmail(payload: {
     `Login URL: ${payload.appUrl}/auth/login`,
     "Please change credentials after first login."
   ].join("\n");
-  await sendOrLog(subject, text, payload.email);
+  await sendOrLog(subject, text, payload.email, "product");
 }
 
 export function isSmtpConfigured() {
@@ -162,7 +169,7 @@ export function isSmtpConfigured() {
 }
 
 export function isEmailProviderConfigured() {
-  return isResendConfigured() || isSmtpConfigured();
+  return isResendConfigured("product") || isSmtpConfigured();
 }
 
 export async function sendLoginOtpEmail(payload: {
@@ -177,7 +184,7 @@ export async function sendLoginOtpEmail(payload: {
     `This code expires in ${payload.expiresMinutes} minutes.`,
     "If you did not request this login, you can ignore this email."
   ].join("\n");
-  await sendOrLog(subject, text, payload.email);
+  await sendOrLog(subject, text, payload.email, "product");
 }
 
 export async function sendBillingConfirmationEmail(payload: {
@@ -198,7 +205,7 @@ export async function sendBillingConfirmationEmail(payload: {
   ]
     .filter(Boolean)
     .join("\n");
-  await sendOrLog(subject, text, payload.email);
+  await sendOrLog(subject, text, payload.email, "product");
 }
 
 export async function sendPasswordResetEmail(payload: {
@@ -213,7 +220,7 @@ export async function sendPasswordResetEmail(payload: {
     `This link expires in ${payload.expiresMinutes} minutes.`,
     "If you did not request this change, you can ignore this email."
   ].join("\n");
-  await sendOrLog(subject, text, payload.email);
+  await sendOrLog(subject, text, payload.email, "product");
 }
 
 export async function sendTeamInviteEmail(payload: {
@@ -230,7 +237,7 @@ export async function sendTeamInviteEmail(payload: {
     `Accept invite: ${payload.inviteUrl}`,
     `This invite expires in ${payload.expiresHours} hours.`
   ].join("\n");
-  await sendOrLog(subject, text, payload.email);
+  await sendOrLog(subject, text, payload.email, "product");
 }
 
 export async function sendOrgOperationalNotificationEmail(payload: {
@@ -246,5 +253,5 @@ export async function sendOrgOperationalNotificationEmail(payload: {
         ? "[Action Required]"
         : "[Info]";
   const subject = `${subjectPrefix} ${payload.title}`;
-  await sendOrLog(subject, payload.body, payload.to);
+  await sendOrLog(subject, payload.body, payload.to, "alerts");
 }

@@ -239,6 +239,37 @@ enum MessageStatus {
   DELIVERED
 }
 
+enum OutreachLeadStatus {
+  NEW
+  ACTIVE
+  PAUSED
+  REPLIED
+  BOUNCED
+  UNSUBSCRIBED
+  COMPLETED
+}
+
+enum OutreachEnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  STOPPED
+  FAILED
+}
+
+enum OutreachEmailEventType {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  COMPLAINED
+  FAILED
+  REPLIED
+  UNSUBSCRIBED
+}
+
 enum CallState {
   RINGING
   CONNECTED
@@ -330,6 +361,11 @@ model Organization {
   orgNotifications     OrgNotification[]
   callClassificationLogs CallClassificationLog[]
   serviceRequests      ServiceRequest[]
+  outreachLeads        OutreachLead[]
+  outreachSequences    OutreachSequence[]
+  outreachEnrollments  OutreachEnrollment[]
+  outreachEmailEvents  OutreachEmailEvent[]
+  outreachSuppressions OutreachSuppression[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 }
@@ -855,6 +891,129 @@ model Message {
 
   @@index([orgId, createdAt])
   @@unique([orgId, providerMessageId])
+}
+
+model OutreachLead {
+  id              String             @id @default(cuid())
+  orgId           String
+  organization    Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  companyName     String?
+  contactName     String?
+  email           String
+  phone           String?
+  city            String?
+  state           String?
+  industry        String?
+  website         String?
+  notes           String?
+  status          OutreachLeadStatus @default(NEW)
+  lastContactedAt DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  enrollments     OutreachEnrollment[]
+  emailEvents     OutreachEmailEvent[]
+
+  @@index([orgId, status, createdAt(sort: Desc)])
+  @@index([orgId, email])
+  @@index([orgId, lastContactedAt])
+}
+
+model OutreachSequence {
+  id           String                 @id @default(cuid())
+  orgId        String
+  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  steps        OutreachSequenceStep[]
+  enrollments  OutreachEnrollment[]
+  emailEvents  OutreachEmailEvent[]
+
+  @@unique([orgId, name])
+  @@index([orgId, isActive, createdAt(sort: Desc)])
+}
+
+model OutreachSequenceStep {
+  id         String           @id @default(cuid())
+  sequenceId String
+  sequence   OutreachSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  stepNumber Int
+  delayHours Int
+  subject    String
+  bodyHtml   String?
+  bodyText   String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([sequenceId, stepNumber])
+  @@index([sequenceId, stepNumber])
+}
+
+model OutreachEnrollment {
+  id                  String                   @id @default(cuid())
+  orgId               String
+  organization        Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId              String
+  lead                OutreachLead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sequenceId          String
+  sequence            OutreachSequence         @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  currentStepNumber   Int                      @default(1)
+  nextSendAt          DateTime?
+  status              OutreachEnrollmentStatus @default(ACTIVE)
+  stopReason          String?
+  lastSentAt          DateTime?
+  processingStartedAt DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  emailEvents         OutreachEmailEvent[]
+
+  @@index([orgId, status, nextSendAt])
+  @@index([orgId, leadId])
+  @@index([orgId, sequenceId])
+  @@index([orgId, processingStartedAt])
+}
+
+model OutreachEmailEvent {
+  id                String                 @id @default(cuid())
+  orgId             String
+  organization      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId            String?
+  lead              OutreachLead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  enrollmentId      String?
+  enrollment        OutreachEnrollment?    @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  sequenceId        String?
+  sequence          OutreachSequence?      @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+  stepNumber        Int?
+  provider          String
+  providerMessageId String?
+  eventType         OutreachEmailEventType
+  subject           String?
+  toEmail           String
+  fromEmail         String
+  errorMessage      String?
+  metadata          Json?
+  createdAt         DateTime               @default(now())
+
+  @@index([orgId, eventType, createdAt(sort: Desc)])
+  @@index([orgId, leadId, createdAt(sort: Desc)])
+  @@index([orgId, enrollmentId, createdAt(sort: Desc)])
+  @@index([orgId, sequenceId, createdAt(sort: Desc)])
+  @@index([orgId, providerMessageId])
+}
+
+model OutreachSuppression {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  email        String
+  reason       String
+  source       String
+  createdAt    DateTime     @default(now())
+
+  @@unique([orgId, email])
+  @@index([orgId, createdAt(sort: Desc)])
 }
 
 model ProvisioningChecklist {

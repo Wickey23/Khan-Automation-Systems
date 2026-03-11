@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
+import { outreachPublicRouter } from "../outreach/outreach.routes";
 
 export const publicRouter = Router();
+publicRouter.use("/outreach", outreachPublicRouter);
 
 function parseQuestions(value: string | null | undefined) {
   if (!value) return [] as string[];

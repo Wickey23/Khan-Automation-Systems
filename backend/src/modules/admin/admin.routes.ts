@@ -41,9 +41,11 @@ import { computeOrgHealth } from "../org/health.service";
 import { ensureDefaultTestScenarios, getTestPassSummary } from "./testing.service";
 import { validateGoLiveBusinessConfig } from "./config-validation.service";
 import { computeOperatorDashboard, computeScaleGate, computeSystemReadiness } from "./system-ops.service";
+import { outreachAdminRouter } from "../outreach/outreach.routes";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAnyRole([UserRole.SUPER_ADMIN, UserRole.ADMIN]));
+adminRouter.use("/outreach", outreachAdminRouter);
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20"

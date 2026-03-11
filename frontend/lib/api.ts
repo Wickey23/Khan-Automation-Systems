@@ -46,7 +46,13 @@ import type {
   AppointmentRequest,
   CalendarConnection,
   OrgCalendarEvent,
-  OrgNotification
+  OrgNotification,
+  OutreachBulkImportRowResult,
+  OutreachEmailEvent,
+  OutreachEnrollment,
+  OutreachLead,
+  OutreachOverview,
+  OutreachSequence
 } from "@/lib/types";
 import type { LeadUpdateInput } from "@/lib/validation";
 
@@ -314,6 +320,156 @@ export async function updateAdminUser(id: string, payload: { role?: AdminUserRec
 
 export async function fetchAdminRevenue() {
   return request<AdminRevenueSummary>("/api/admin/revenue");
+}
+
+export async function fetchAdminOutreachOverview(orgId?: string) {
+  const query = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  return request<OutreachOverview>(`/api/admin/outreach/overview${query}`);
+}
+
+export async function fetchAdminOutreachLeads(query = "") {
+  return request<{ leads: OutreachLead[]; total: number; page: number; limit: number }>(`/api/admin/outreach/leads${query}`);
+}
+
+export async function createAdminOutreachLead(payload: {
+  orgId: string;
+  companyName?: string;
+  contactName?: string;
+  email: string;
+  phone?: string;
+  city?: string;
+  state?: string;
+  industry?: string;
+  website?: string;
+  notes?: string;
+}) {
+  return request<{ lead: OutreachLead }>("/api/admin/outreach/leads", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAdminOutreachLead(id: string, payload: Partial<OutreachLead>) {
+  return request<{ lead: OutreachLead }>(`/api/admin/outreach/leads/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function importAdminOutreachLeads(payload: { orgId: string; text: string }) {
+  return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function suppressAdminOutreachLead(id: string, payload: { orgId: string; reason?: string; source?: string }) {
+  return request<{ suppressed: boolean }>(`/api/admin/outreach/leads/${id}/suppress`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function unsuppressAdminOutreachLead(id: string, orgId: string) {
+  return request<{ suppressed: boolean }>(`/api/admin/outreach/leads/${id}/suppress?orgId=${encodeURIComponent(orgId)}`, {
+    method: "DELETE"
+  });
+}
+
+export async function markAdminOutreachLeadReplied(id: string, payload: { orgId: string; note?: string }) {
+  return request<{ lead: OutreachLead }>(`/api/admin/outreach/leads/${id}/mark-replied`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchAdminOutreachSequences(orgId?: string) {
+  const query = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  return request<{ sequences: OutreachSequence[] }>(`/api/admin/outreach/sequences${query}`);
+}
+
+export async function fetchAdminOutreachSequence(id: string) {
+  return request<{ sequence: OutreachSequence }>(`/api/admin/outreach/sequences/${id}`);
+}
+
+export async function createAdminOutreachSequence(payload: {
+  orgId: string;
+  name: string;
+  description?: string;
+  isActive?: boolean;
+  steps: Array<{ stepNumber: number; delayHours: number; subject: string; bodyHtml?: string; bodyText?: string }>;
+}) {
+  return request<{ sequence: OutreachSequence }>("/api/admin/outreach/sequences", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAdminOutreachSequence(id: string, payload: Partial<OutreachSequence>) {
+  return request<{ sequence: OutreachSequence }>(`/api/admin/outreach/sequences/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function replaceAdminOutreachSequenceSteps(id: string, payload: { steps: OutreachSequence["steps"] }) {
+  return request<{ sequence: OutreachSequence }>(`/api/admin/outreach/sequences/${id}/steps`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteAdminOutreachSequence(id: string) {
+  return request<{ deleted: boolean }>(`/api/admin/outreach/sequences/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function fetchAdminOutreachEnrollments(query = "") {
+  return request<{ enrollments: OutreachEnrollment[] }>(`/api/admin/outreach/enrollments${query}`);
+}
+
+export async function createAdminOutreachEnrollment(payload: { orgId: string; leadId: string; sequenceId: string; startAt?: string }) {
+  return request<{ enrollment: OutreachEnrollment }>("/api/admin/outreach/enrollments", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function pauseAdminOutreachEnrollment(id: string) {
+  return request<{ enrollment: OutreachEnrollment }>(`/api/admin/outreach/enrollments/${id}/pause`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function resumeAdminOutreachEnrollment(id: string) {
+  return request<{ enrollment: OutreachEnrollment }>(`/api/admin/outreach/enrollments/${id}/resume`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function sendNowAdminOutreachEnrollment(id: string) {
+  return request<{ ok: boolean; eventId?: string }>(`/api/admin/outreach/enrollments/${id}/send-now`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function runAdminOutreachTick() {
+  return request<{ processed: number; sent: number; failed: number }>("/api/admin/outreach/runner/tick", {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function fetchAdminOutreachEvents(query = "") {
+  return request<{ events: OutreachEmailEvent[]; total: number; page: number; limit: number }>(`/api/admin/outreach/events${query}`);
+}
+
+export async function unsubscribeOutreachToken(token: string) {
+  return request<{ unsubscribed: boolean }>(`/api/public/outreach/unsubscribe/${encodeURIComponent(token)}`);
 }
 
 export async function fetchTeamMembers() {
