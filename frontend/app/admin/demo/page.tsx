@@ -10,6 +10,41 @@ import { useToast } from "@/components/site/toast-provider";
 import { fetchAdminDemoCalls, fetchAdminDemoConfig, fetchAdminVapiResources, updateAdminDemoConfig } from "@/lib/api";
 import type { DemoCallLog } from "@/lib/types";
 
+function extractField(text: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
+}
+
+function deriveDemoSummary(call: DemoCallLog) {
+  const source = `${call.aiSummary || ""}\n${call.transcript || ""}`;
+  const callerName = extractField(source, [
+    /name[:\s-]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i,
+    /this is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i
+  ]);
+  const serviceRequested = extractField(source, [
+    /service(?: requested)?[:\s-]+([^\n.]+)/i,
+    /issue(?: summary)?[:\s-]+([^\n.]+)/i,
+    /need help with\s+([^\n.]+)/i
+  ]);
+  const urgency = extractField(source, [/urgency[:\s-]+([^\n.]+)/i, /(urgent|emergency|asap|today)/i]);
+  const serviceLocation = extractField(source, [/address[:\s-]+([^\n.]+)/i, /located at\s+([^\n.]+)/i]);
+  const appointmentRequested =
+    /appointment requested[:\s-]+yes/i.test(source) ||
+    /schedule|book|appointment/i.test(source) ||
+    call.outcome === "APPOINTMENT_REQUEST";
+  const summary = call.aiSummary || serviceRequested || "Structured summary not available yet.";
+  const followUp =
+    call.outcome === "MISSED" || call.outcome === "MESSAGE_TAKEN" || call.outcome === "APPOINTMENT_REQUEST"
+      ? "Team should follow up"
+      : call.outcome === "SPAM"
+        ? "No action needed"
+        : "Review outcome";
+  return { callerName, serviceRequested, urgency, serviceLocation, appointmentRequested, summary, followUp };
+}
+
 export default function AdminDemoPage() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -141,7 +176,7 @@ export default function AdminDemoPage() {
         <AdminTopTabs className="mb-3" />
         <h1 className="text-3xl font-bold">Demo Configuration</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure the public voice demo block shown on the landing page.
+          Configure the public voice demo block shown on the landing page and review structured demo call results.
         </p>
 
         <div className="mt-5 rounded-lg border bg-white p-5">
@@ -228,7 +263,7 @@ export default function AdminDemoPage() {
             <div>
               <h2 className="text-lg font-semibold">Demo Call Logs</h2>
               <p className="text-sm text-muted-foreground">
-                Calls made to the demo assistant/number with summary, transcript, and call metadata.
+                Calls made to the demo assistant or number. Each result is shaped to show what the office sees after a missed or handled call.
               </p>
             </div>
             <Button variant="outline" onClick={() => void loadDemoCalls()} disabled={callsLoading}>
@@ -239,6 +274,25 @@ export default function AdminDemoPage() {
           <div className="space-y-3">
             {calls.map((call) => (
               <div key={call.id} className="rounded-md border p-3">
+                {(() => {
+                  const structured = deriveDemoSummary(call);
+                  return (
+                    <>
+                      <div className="mb-3 rounded-md border bg-muted/20 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Structured intake result</p>
+                        <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                          <p><span className="text-muted-foreground">Caller:</span> {structured.callerName || call.fromNumber}</p>
+                          <p><span className="text-muted-foreground">Service:</span> {structured.serviceRequested || "Not captured"}</p>
+                          <p><span className="text-muted-foreground">Urgency:</span> {structured.urgency || "Standard"}</p>
+                          <p><span className="text-muted-foreground">Location:</span> {structured.serviceLocation || "Not captured"}</p>
+                          <p><span className="text-muted-foreground">Appointment requested:</span> {structured.appointmentRequested ? "Yes" : "No"}</p>
+                          <p><span className="text-muted-foreground">Next step:</span> {structured.followUp}</p>
+                        </div>
+                        <p className="mt-2 text-sm">{structured.summary}</p>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   <p><span className="text-muted-foreground">Started:</span> {new Date(call.startedAt).toLocaleString()}</p>
                   <p><span className="text-muted-foreground">From:</span> {call.fromNumber}</p>

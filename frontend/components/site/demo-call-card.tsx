@@ -52,6 +52,14 @@ export function DemoCallCard({ demoNumber }: DemoCallCardProps) {
     <div className="rounded-xl border bg-white p-6">
       <h2 className="text-2xl font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+      <div className="mt-4 rounded-lg border bg-muted/20 p-4">
+        <p className="text-sm font-medium text-foreground">What this demo shows</p>
+        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+          <li>The call is answered or captured without changing the business number.</li>
+          <li>The office gets a structured request summary instead of only a raw transcript.</li>
+          <li>If the team misses the call, the system can preserve the lead with SMS follow-up.</li>
+        </ul>
+      </div>
 
       <div className="mt-5 grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-3">
@@ -80,6 +88,9 @@ export function DemoCallCard({ demoNumber }: DemoCallCardProps) {
             ))}
             {!isConfigured ? <li>Demo line is temporarily unavailable. Use the contact form and we will provide live access.</li> : null}
           </ul>
+          <p className="text-xs text-muted-foreground">
+            The demo is for business call intake. It does not represent emergency dispatch or emergency response.
+          </p>
         </div>
 
         <div className="rounded-lg border bg-muted/20 p-4">
@@ -91,7 +102,7 @@ export function DemoCallCard({ demoNumber }: DemoCallCardProps) {
               <img src={qrUrl} alt="QR code to call demo line" className="h-40 w-40" />
             ) : (
               <div className="flex h-40 w-40 items-center justify-center text-center text-xs text-muted-foreground">
-                Demo number not configured
+                Demo number not configured yet
               </div>
             )}
           </div>
