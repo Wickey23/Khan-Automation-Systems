@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lock, Search, SendHorizontal } from "lucide-react";
-import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, sendOrgMessage } from "@/lib/api";
+import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgMessageThread, OrgMessagingReadiness } from "@/lib/types";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
 
 const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
+type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
 function frontDeskPriorityWeight(thread: OrgMessageThread) {
   const priority = thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority;
@@ -104,6 +105,28 @@ function getLatestMessagePreview(thread: OrgMessageThread) {
   return latest.body.length > 88 ? `${latest.body.slice(0, 88).trim()}...` : latest.body;
 }
 
+function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
+  if (!thread?.leadId) return [];
+  const state = threadFrontDesk(thread)?.state;
+  const action = threadFrontDesk(thread)?.recommendedAction;
+  if (state === "booked") {
+    return [
+      { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
+      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+    ];
+  }
+  if (state === "contacted" || action === "Offer times") {
+    return [
+      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
+    ];
+  }
+  return [
+    { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+    { label: "Close request", stage: "COMPLETED", tone: "outline" }
+  ];
+}
+
 export default function AppMessagesPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -121,13 +144,16 @@ export default function AppMessagesPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [canSendMessages, setCanSendMessages] = useState(false);
   const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
+  const [canEditPipeline, setCanEditPipeline] = useState(false);
+  const [savingLeadStage, setSavingLeadStage] = useState<PipelineStage | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [messagesData, billingData, readinessData] = await Promise.all([
+      const [messagesData, billingData, readinessData, me] = await Promise.all([
         fetchOrgMessages(),
         getBillingStatus(),
-        fetchOrgMessagingReadiness()
+        fetchOrgMessagingReadiness(),
+        getMe()
       ]);
       const subscription = billingData.subscription;
       const featureAccess = resolvePlanFeatures({
@@ -139,6 +165,7 @@ export default function AppMessagesPage() {
       setSubscriptionStatus(subscription?.status || null);
       setCanSendMessages(featureAccess.messaging);
       setMessagingReadiness(readinessData);
+      setCanEditPipeline(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
 
       const data = messagesData;
       setThreads(data.threads);
@@ -158,6 +185,7 @@ export default function AppMessagesPage() {
       setSubscriptionStatus(null);
       setCanSendMessages(false);
       setMessagingReadiness(null);
+      setCanEditPipeline(false);
     }
   }, [deepLinkedThreadId]);
 
@@ -241,6 +269,24 @@ export default function AppMessagesPage() {
       });
     } finally {
       setSending(false);
+    }
+  }
+
+  async function onQuickAction(stage: PipelineStage) {
+    if (!selected?.leadId || !canEditPipeline) return;
+    setSavingLeadStage(stage);
+    try {
+      await updateLeadPipelineStage(selected.leadId, stage);
+      await load();
+      showToast({ title: "Follow-up state updated" });
+    } catch (error) {
+      showToast({
+        title: "Could not update lead state",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setSavingLeadStage(null);
     }
   }
 
@@ -428,6 +474,21 @@ export default function AppMessagesPage() {
                     <p className="text-xs text-muted-foreground">
                       Recommended action: {threadFrontDesk(selected)?.recommendedAction}
                     </p>
+                  ) : null}
+                  {selected?.leadId && canEditPipeline ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {threadQuickActions(selected).map((action) => (
+                        <Button
+                          key={`${selected.id}-${action.stage}`}
+                          size="sm"
+                          variant={action.tone}
+                          disabled={savingLeadStage === action.stage}
+                          onClick={() => void onQuickAction(action.stage)}
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
             </CardHeader>
