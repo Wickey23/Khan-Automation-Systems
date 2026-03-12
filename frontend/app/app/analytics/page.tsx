@@ -101,8 +101,8 @@ export default function AppAnalyticsPage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow="Business performance"
-        title="Analytics"
-        description="Track conversation volume, lead capture, and booking performance without digging through raw operational data."
+        title="Performance"
+        description="Use this page to measure how front-desk work is converting into leads, follow-up, and booked jobs without digging through raw operational history."
         actions={
           <div className="inline-flex rounded-2xl border bg-white p-1 shadow-sm">
             {(["7d", "30d"] as const).map((option) => (

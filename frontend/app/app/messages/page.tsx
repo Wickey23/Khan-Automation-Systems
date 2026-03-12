@@ -393,9 +393,9 @@ export default function AppMessagesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Client inbox"
-        title="Messages"
-        description="Review SMS threads, send manual follow-up when needed, and keep booking conversations in one clear inbox."
+        eyebrow="Reply workspace"
+        title="Inbox"
+        description="Use this page when the newest customer movement is a text reply. Review the thread, send follow-up, and move booking conversations forward without losing context."
         actions={
           <Button type="button" variant="outline" onClick={() => void load()}>
             Refresh inbox

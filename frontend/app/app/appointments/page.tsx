@@ -747,8 +747,8 @@ export default function AppAppointmentsPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Scheduling workspace"
-        title="Appointments"
-        description="Review captured requests first, then manage the appointments already on the calendar."
+        title="Booking Queue"
+        description="Use this page to turn captured requests into scheduled work. Review new booking requests first, then manage the appointments already confirmed on the calendar."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button

@@ -247,8 +247,8 @@ export default function AppOnboardingPage() {
     <div className="space-y-4">
       <PageHeader
         eyebrow="Workspace setup"
-        title="Onboarding Wizard"
-        description={`Status: ${status}. Capture the business details, intake rules, and booking preferences needed to configure the front desk correctly.`}
+        title="Setup Wizard"
+        description={`Status: ${status}. Use this page to teach the system how your office works before calls, texts, and bookings start flowing into the front desk.`}
         actions={
           <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
         }

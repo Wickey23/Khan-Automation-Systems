@@ -311,9 +311,9 @@ export default function AppLeadsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Leads"
-        title="Leads"
-        description="This page should help you see who needs follow-up next, not make you manage a spreadsheet."
+        eyebrow="Follow-up queue"
+        title="Lead Queue"
+        description="Use this page to work open requests that still need office follow-up. It is the clearest view of who needs a callback, a reply, scheduling, or resolution next."
         actions={
           <div className="inline-flex rounded-xl border bg-white p-1 shadow-sm">
             <button

@@ -811,8 +811,8 @@ export default function AppOverviewPage() {
       <div className="space-y-6">
         <PageHeader
           eyebrow="Front desk"
-          title="Today"
-          description="Today's active follow-up work, saved missed calls, and booked jobs."
+          title="Front Desk"
+          description="Use this page to see what just happened, what needs attention now, and which requests are already moving toward booked work."
           actions={
             <>
               <Button asChild>
@@ -835,8 +835,8 @@ export default function AppOverviewPage() {
     <div className="space-y-8">
       <PageHeader
         eyebrow="Front desk"
-        title="Today"
-        description="Today's active follow-up work, saved missed calls, and booked jobs."
+        title="Front Desk"
+        description="Use this page to see what just happened, what needs attention now, and which requests are already moving toward booked work."
         actions={
           <>
             <Button asChild>

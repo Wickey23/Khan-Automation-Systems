@@ -23,14 +23,14 @@ const navItems: Array<{
   requiredRoles?: ClientRole[];
   requiredFeature?: FeatureKey;
 }> = [
-  { href: "/app", label: "Overview", icon: LayoutDashboard },
-  { href: "/app/onboarding", label: "Onboarding", icon: ClipboardCheck },
-  { href: "/app/calls", label: "Conversations", icon: PhoneCall },
-  { href: "/app/leads", label: "Leads", icon: UserRoundSearch },
-  { href: "/app/appointments", label: "Appointments", icon: CalendarClock, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
-  { href: "/app/messages", label: "Messages", icon: MessageSquareText },
-  { href: "/app/analytics", label: "Analytics", icon: BarChart3, requiredPlan: "STARTER" },
-  { href: "/app/settings", label: "Assistant Settings", icon: Settings2, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app", label: "Front Desk", icon: LayoutDashboard },
+  { href: "/app/onboarding", label: "Setup Wizard", icon: ClipboardCheck },
+  { href: "/app/calls", label: "Call Queue", icon: PhoneCall },
+  { href: "/app/leads", label: "Lead Queue", icon: UserRoundSearch },
+  { href: "/app/appointments", label: "Booking Queue", icon: CalendarClock, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
+  { href: "/app/messages", label: "Inbox", icon: MessageSquareText },
+  { href: "/app/analytics", label: "Performance", icon: BarChart3, requiredPlan: "STARTER" },
+  { href: "/app/settings", label: "Receptionist Setup", icon: Settings2, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", icon: Wallet, requiredRoles: ["CLIENT_ADMIN"] },
   { href: "/app/team", label: "Team & Routing", icon: Users2, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
@@ -248,12 +248,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {primaryNavItems.map(renderNavItem)}
               </div>
               <div className="border-t pt-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Admin & setup</p>
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Setup & management</p>
                 <div className="grid gap-1">
                   {secondaryNavItems.map(renderNavItem)}
                 </div>
               </div>
             </nav>
+            <div className="mt-5 rounded-[22px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(243,248,252,0.96)_100%)] px-4 py-4 shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">How work flows</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">Calls and texts create front-desk work.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Start in Front Desk, work the Call Queue or Inbox, move booking-ready requests into the Booking Queue, then finish them as booked or resolved.
+              </p>
+            </div>
             <div className="mt-5 border-t border-slate-200/80 pt-4">
               <Link href="/auth/logout" className="inline-flex w-full rounded-2xl border border-slate-200/90 bg-white/[0.85] px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950">
                 Logout

@@ -642,8 +642,8 @@ export default function AppSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Assistant configuration"
-        title="Assistant Settings"
-        description="Shape how your receptionist handles calls, booking, follow-up, and team routing."
+        title="Receptionist Setup"
+        description="Use this page to decide how your receptionist behaves: call routing, booking rules, alerts, business hours, and the knowledge your team wants the assistant to use."
         actions={
           <Button onClick={onSave} disabled={saving}>
             {saving ? "Saving..." : "Save assistant settings"}
@@ -1371,7 +1371,9 @@ export default function AppSettingsPage() {
           {!featureFlags.notificationsEnabled ? (
             <p className="text-sm text-muted-foreground">Enable notifications feature to view operational alerts.</p>
           ) : notifications.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No notifications yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No setup notifications yet. Calendar issues, booking fallbacks, and other assistant alerts will appear here when your office needs to review them.
+            </p>
           ) : (
             notifications.slice(0, 20).map((item) => (
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-2 text-sm">
@@ -1426,7 +1428,9 @@ export default function AppSettingsPage() {
         </p>
         <div className="mt-3 space-y-2">
           {knowledgeFiles.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No knowledge files uploaded yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No knowledge files uploaded yet. Add service notes, FAQs, pricing rules, or policies here when you want the receptionist to answer with more business-specific context.
+            </p>
           ) : (
             knowledgeFiles.map((file) => (
               <div key={file.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">

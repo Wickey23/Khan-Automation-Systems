@@ -142,8 +142,8 @@ export default function CustomerBasePage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow="Customer memory"
-        title="Customer Base"
-        description="Review returning caller memory, linked lead context, and recent request history so your team can recognize repeat customers quickly."
+        title="Customer Memory"
+        description="Use this page to recognize repeat callers quickly. It shows known customer context, linked lead records, and recent history that should shape follow-up."
       />
 
       {canAccess === false ? (

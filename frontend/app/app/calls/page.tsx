@@ -450,9 +450,9 @@ export default function AppCallsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Calls"
-        title="Calls"
-        description="Review the front-desk queue, open a call, and see the next action before you read the transcript."
+        eyebrow="Front-desk queue"
+        title="Call Queue"
+        description="Use this page when the next step starts from a phone call. Confirm what the customer needed, then follow the next action before reading raw transcript detail."
         actions={
           <Button onClick={() => void refreshAndRepopulate()} disabled={refreshing}>
             {refreshing ? "Refreshing..." : "Refresh"}
