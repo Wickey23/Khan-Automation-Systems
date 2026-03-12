@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchOrgCalls, getMe, repopulateOrgCalls, updateLeadPipelineStage } from "@/lib/api";
@@ -717,6 +718,23 @@ export default function AppCallsPage() {
                     <p className="text-sm leading-6 text-muted-foreground">
                       {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
                     </p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCall.leadId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/leads?leadId=${encodeURIComponent(selectedCall.leadId)}`}>Open lead</Link>
+                        </Button>
+                      ) : null}
+                      {selectedCall.recoverySmsThreadId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`}>Open inbox</Link>
+                        </Button>
+                      ) : null}
+                      {selectedCall.appointmentRequestId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/appointments?requestId=${encodeURIComponent(selectedCall.appointmentRequestId)}`}>Open booking</Link>
+                        </Button>
+                      ) : null}
+                    </div>
                     {selectedCall.leadId && canEditPipeline ? (
                       <div className="flex flex-wrap gap-2">
                         {callQuickActions(selectedCall).map((action) => (
