@@ -157,6 +157,14 @@ function requestStatusTone(status: AppointmentRequest["status"]) {
   }
 }
 
+function bookingActionLabel(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "Review request";
+  if (request.status === "APPROVED") return "Offer times";
+  if (request.status === "SLOT_OFFERED") return "Wait for reply";
+  if (request.status === "SCHEDULED") return "Confirm booking";
+  return "No action needed";
+}
+
 function outcomeLabel(outcome: OrgCallRecord["outcome"]) {
   switch (outcome) {
     case "APPOINTMENT_REQUEST":
@@ -712,7 +720,11 @@ export default function AppOverviewPage() {
               <>
                 <div className="space-y-3">
                   {bookingBoardItems.map((item) => (
-                    <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                    <Link
+                      key={item.id}
+                      href={`/app/appointments?requestId=${encodeURIComponent(item.id)}`}
+                      className="block rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-slate-50"
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-semibold text-slate-950">{item.customerName || "Customer"}</p>
@@ -722,6 +734,7 @@ export default function AppOverviewPage() {
                           <p className="text-xs text-slate-500">
                             {item.requestedTimeLabel || item.requestedPreference || `Updated ${formatShortDateTime(item.lastEventAt)}`}
                           </p>
+                          <p className="text-xs font-medium text-slate-900">Next action: {bookingActionLabel(item)}</p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <Badge className={clientBadgeClass(requestStatusTone(item.status))}>{requestStatusLabel(item.status)}</Badge>
@@ -730,7 +743,7 @@ export default function AppOverviewPage() {
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
                 <div className="pt-1">
@@ -801,6 +814,9 @@ export default function AppOverviewPage() {
                     <Badge className={clientBadgeClass(item.badgeTone)}>{item.badge}</Badge>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">{item.summary}</p>
+                  <p className="mt-2 text-xs font-medium text-foreground/80">
+                    {item.kind === "request" ? "Open booking request" : "Open lead follow-up"}
+                  </p>
                 </Link>
               ))
             ) : (
