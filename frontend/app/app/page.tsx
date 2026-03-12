@@ -417,16 +417,23 @@ export default function AppOverviewPage() {
     const items: ActionNeededItem[] = [];
 
     for (const call of state.calls.filter((item) => item.frontDesk?.needsFollowUp)) {
+      const hasRecoveryReply = Boolean(call.recoverySmsThreadId && call.recoverySmsResponse);
       items.push({
         id: `call-${call.id}`,
         type: "NEEDS_FOLLOW_UP",
         severity: frontDeskSeverity(call.frontDesk?.frontDeskPriority),
-        label: `${call.frontDesk?.recommendedAction}: ${call.frontDesk?.callerName || call.displayName || call.fromNumber}`,
-        detail: call.frontDesk?.summary || "Customer request still needs office follow-up.",
-        href: `/app/calls?callId=${encodeURIComponent(call.id)}`,
-        ctaLabel: "Open call",
-        timestamp: call.startedAt,
-        sourceModule: "conversations"
+        label: hasRecoveryReply
+          ? `Customer replied: ${call.frontDesk?.callerName || call.displayName || call.fromNumber}`
+          : `${call.frontDesk?.recommendedAction}: ${call.frontDesk?.callerName || call.displayName || call.fromNumber}`,
+        detail: hasRecoveryReply
+          ? call.recoverySmsResponse || call.frontDesk?.summary || "Customer replied to the recovery text."
+          : call.frontDesk?.summary || "Customer request still needs office follow-up.",
+        href: hasRecoveryReply
+          ? `/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId || "")}`
+          : `/app/calls?callId=${encodeURIComponent(call.id)}`,
+        ctaLabel: hasRecoveryReply ? "Open inbox" : "Open call",
+        timestamp: hasRecoveryReply ? call.recoverySmsSentAt || call.startedAt : call.startedAt,
+        sourceModule: hasRecoveryReply ? "messages" : "conversations"
       });
     }
 
@@ -462,6 +469,7 @@ export default function AppOverviewPage() {
     for (const request of state.requests
       .filter((item) => item.status === "SLOT_OFFERED")
       .sort((a, b) => new Date(a.lastEventAt).getTime() - new Date(b.lastEventAt).getTime())) {
+      if (request.latestMessageDirection === "INBOUND") continue;
       if ((hoursSince(request.lastEventAt) || 0) < 24) continue;
       items.push({
         id: `offer-${request.id}`,
@@ -495,12 +503,21 @@ export default function AppOverviewPage() {
         id: `review-${request.id}`,
         type: "NEEDS_REVIEW",
         severity: "warning",
-        label: `${request.customerName || "Customer"} needs request review`,
-        detail: "Review the booking request and offer the next available time.",
-        href: `/app/appointments?requestId=${encodeURIComponent(request.id)}`,
-        ctaLabel: "Open booking",
-        timestamp: request.lastEventAt,
-        sourceModule: "appointments"
+        label:
+          request.latestMessageDirection === "INBOUND"
+            ? `${request.customerName || "Customer"} replied about booking`
+            : `${request.customerName || "Customer"} needs request review`,
+        detail:
+          request.latestMessageDirection === "INBOUND"
+            ? "The customer replied in text. Review the thread and finish the booking handoff."
+            : "Review the booking request and offer the next available time.",
+        href:
+          request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId
+            ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
+            : `/app/appointments?requestId=${encodeURIComponent(request.id)}`,
+        ctaLabel: request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId ? "Open inbox" : "Open booking",
+        timestamp: request.latestMessageAt || request.lastEventAt,
+        sourceModule: request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId ? "messages" : "appointments"
       });
     }
 
