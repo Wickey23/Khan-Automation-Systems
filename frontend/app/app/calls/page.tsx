@@ -209,6 +209,13 @@ function recoveryStatus(call: OrgCallRecord) {
   };
 }
 
+function latestCallMovementLabel(call: OrgCallRecord) {
+  if (String(call.recoverySmsResponse || "").trim()) return "Customer replied";
+  if (call.recoverySmsSentAt) return "Office sent recovery text";
+  if (call.frontDesk?.followUpState === "contacted") return "Office sent follow-up";
+  return "No follow-up movement yet";
+}
+
 function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
   switch (value) {
     case "needs_follow_up":
@@ -579,6 +586,8 @@ export default function AppCallsPage() {
                       <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{formatDuration(call.durationSec || 0)}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{latestCallMovementLabel(call)}</span>
                       {recoveryStatus(call) ? (
                         <>
                           <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -742,7 +751,8 @@ export default function AppCallsPage() {
                         ["Service location", selectedCall.frontDesk?.serviceLocation || "Not captured"],
                         ["Appointment requested", selectedCall.frontDesk?.appointmentRequested ? "Yes" : "No"],
                         ["Recommended action", selectedCall.frontDesk?.recommendedAction || getNextAction(selectedCall)],
-                        ["Follow-up state", getDispositionLabel(selectedCall)]
+                        ["Follow-up state", getDispositionLabel(selectedCall)],
+                        ["Latest movement", latestCallMovementLabel(selectedCall)]
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-xl border bg-slate-50 p-4">
                           <p className="page-eyebrow">{label}</p>
