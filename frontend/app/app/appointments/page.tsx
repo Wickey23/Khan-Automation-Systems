@@ -1018,31 +1018,31 @@ export default function AppAppointmentsPage() {
                                   SMS: {request.effectiveSmsPhone}
                                   {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {request.effectiveSmsPhone ? (
-                                    <Button asChild size="sm" variant="outline">
-                                      <Link
-                                        href={
-                                          request.latestMessageThreadId
-                                            ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
-                                            : `/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`
-                                        }
-                                      >
-                                        Open inbox
-                                      </Link>
+                                <div className="space-y-2">
+                                  <p className="page-eyebrow">Jump to follow-up</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {request.effectiveSmsPhone ? (
+                                      <Button asChild size="sm" variant={request.latestMessageDirection === "INBOUND" ? "default" : "outline"}>
+                                        <Link
+                                          href={
+                                            request.latestMessageThreadId
+                                              ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
+                                              : `/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`
+                                          }
+                                        >
+                                          Open inbox
+                                        </Link>
+                                      </Button>
+                                    ) : null}
+                                    {request.leadId ? (
+                                      <Button asChild size="sm" variant={!request.effectiveSmsPhone ? "default" : "outline"}>
+                                        <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
+                                      </Button>
+                                    ) : null}
+                                    <Button asChild size="sm" variant={request.effectiveSmsPhone || request.leadId ? "outline" : "default"}>
+                                      <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
                                     </Button>
-                                  ) : null}
-                                  <Button asChild size="sm" variant="outline">
-                                    <Link href={`/app/appointments?requestId=${encodeURIComponent(request.id)}`}>Review request</Link>
-                                  </Button>
-                                  {request.leadId ? (
-                                    <Button asChild size="sm" variant="outline">
-                                      <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
-                                    </Button>
-                                  ) : null}
-                                  <Button asChild size="sm" variant="outline">
-                                    <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
-                                  </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>

@@ -822,30 +822,40 @@ export default function AppCallsPage() {
                         </div>
                       ))}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCall.recoverySmsThreadId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`}>Open inbox</Link>
-                        </Button>
-                      ) : null}
-                      {selectedCall.recordingUrl ? (
-                        <Button asChild size="sm" variant="outline">
-                          <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer">
-                            Open recording
-                          </a>
-                        </Button>
-                      ) : null}
-                      {selectedCall.leadId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/leads?leadId=${encodeURIComponent(selectedCall.leadId)}`}>Open lead</Link>
-                        </Button>
-                      ) : null}
-                      {selectedCall.appointmentRequestId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/appointments?requestId=${encodeURIComponent(selectedCall.appointmentRequestId)}`}>Open booking</Link>
-                        </Button>
-                      ) : null}
-                    </div>
+                    {(selectedCall.recoverySmsThreadId || selectedCall.leadId || selectedCall.appointmentRequestId || selectedCall.recordingUrl) ? (
+                      <div className={`${frontDeskContextPanelClass()} space-y-3`}>
+                        <div className="space-y-1">
+                          <p className="page-eyebrow">Jump to follow-up</p>
+                          <p className="text-sm text-muted-foreground">
+                            Open the most relevant workspace next, then use the remaining links only if you need more context.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCall.recoverySmsThreadId ? (
+                            <Button asChild size="sm">
+                              <Link href={`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`}>Open inbox</Link>
+                            </Button>
+                          ) : null}
+                          {selectedCall.appointmentRequestId ? (
+                            <Button asChild size="sm" variant={selectedCall.recoverySmsThreadId ? "outline" : "default"}>
+                              <Link href={`/app/appointments?requestId=${encodeURIComponent(selectedCall.appointmentRequestId)}`}>Open booking</Link>
+                            </Button>
+                          ) : null}
+                          {selectedCall.leadId ? (
+                            <Button asChild size="sm" variant={selectedCall.recoverySmsThreadId || selectedCall.appointmentRequestId ? "outline" : "default"}>
+                              <Link href={`/app/leads?leadId=${encodeURIComponent(selectedCall.leadId)}`}>Open lead</Link>
+                            </Button>
+                          ) : null}
+                          {selectedCall.recordingUrl ? (
+                            <Button asChild size="sm" variant="outline">
+                              <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer">
+                                Open recording
+                              </a>
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                     {selectedCall.leadId && canEditPipeline ? (
                       <div className="flex flex-wrap gap-2">
                         {callQuickActions(selectedCall).map((action) => (

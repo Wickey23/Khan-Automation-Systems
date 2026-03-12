@@ -706,23 +706,28 @@ export default function AppMessagesPage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selected.latestAppointmentRequestId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
-                        </Button>
-                      ) : null}
-                      {selected.leadId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead</Link>
-                        </Button>
-                      ) : null}
-                      {selected.latestCallId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call</Link>
-                        </Button>
-                      ) : null}
-                    </div>
+                    {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
+                      <div className="mt-3 space-y-2">
+                        <p className="page-eyebrow">Jump to follow-up</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selected.latestAppointmentRequestId ? (
+                            <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"}>
+                              <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
+                            </Button>
+                          ) : null}
+                          {selected.leadId ? (
+                            <Button asChild size="sm" variant={!selected.latestAppointmentRequestId ? "default" : "outline"}>
+                              <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead</Link>
+                            </Button>
+                          ) : null}
+                          {selected.latestCallId ? (
+                            <Button asChild size="sm" variant="outline">
+                              <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call</Link>
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                     {threadOutcomeNote(selected) ? (
                       <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{threadOutcomeNote(selected)}</p>
                     ) : null}
