@@ -34,7 +34,15 @@ import type {
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskCardClass, frontDeskContextPanelClass, frontDeskEmptyStateClass, frontDeskOutcomeBadgeMeta } from "@/lib/front-desk-ui";
+import {
+  frontDeskActionBadgeClass,
+  frontDeskCardClass,
+  frontDeskContextPanelClass,
+  frontDeskEmptyStateClass,
+  frontDeskLoadingCardClass,
+  frontDeskOutcomeBadgeMeta,
+  frontDeskSkeletonLineClass
+} from "@/lib/front-desk-ui";
 
 const requestQueueFilters = ["ALL", "needs_review", "ready_to_book", "awaiting_reply", "booked", "closed"] as const;
 
@@ -1261,8 +1269,22 @@ export default function AppAppointmentsPage() {
               );
             })}
           </div>
-          {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading appointments...</p> : null}
-          {loadingCalendarEvents ? <p className="mt-1 text-sm text-muted-foreground">Loading provider calendar events...</p> : null}
+          {loading ? (
+            <div className={`mt-3 ${frontDeskLoadingCardClass()}`}>
+              <div className="space-y-3">
+                <div className={frontDeskSkeletonLineClass("md")} />
+                <div className={frontDeskSkeletonLineClass()} />
+              </div>
+            </div>
+          ) : null}
+          {loadingCalendarEvents ? (
+            <div className={`mt-3 ${frontDeskLoadingCardClass()}`}>
+              <div className="space-y-3">
+                <div className={frontDeskSkeletonLineClass("sm")} />
+                <div className={frontDeskSkeletonLineClass("lg")} />
+              </div>
+            </div>
+          ) : null}
           {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments are on the schedule yet. Confirmed bookings will appear here once the office starts placing jobs.</p> : null}
         </div>
       ) : (
@@ -1289,7 +1311,15 @@ export default function AppAppointmentsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={9}>Loading appointments...</td>
+                  <td className="p-3" colSpan={9}>
+                    <div className={frontDeskLoadingCardClass()}>
+                      <div className="space-y-3">
+                        <div className={frontDeskSkeletonLineClass("md")} />
+                        <div className={frontDeskSkeletonLineClass()} />
+                        <div className={frontDeskSkeletonLineClass("lg")} />
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               ) : appointments.length ? (
                 appointments.map((appointment) => (

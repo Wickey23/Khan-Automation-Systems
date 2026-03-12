@@ -66,3 +66,19 @@ export function frontDeskContextPanelClass() {
 export function frontDeskEmptyStateClass() {
   return "rounded-2xl border border-dashed border-slate-300 bg-slate-50/90 px-4 py-6 text-sm text-slate-600";
 }
+
+export function frontDeskLoadingCardClass() {
+  return "rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]";
+}
+
+export function frontDeskSkeletonLineClass(width: "full" | "lg" | "md" | "sm" = "full") {
+  const sizeClass =
+    width === "lg"
+      ? "w-3/4"
+      : width === "md"
+        ? "w-1/2"
+        : width === "sm"
+          ? "w-1/3"
+          : "w-full";
+  return `h-2.5 animate-pulse rounded-full bg-slate-200/90 ${sizeClass}`;
+}

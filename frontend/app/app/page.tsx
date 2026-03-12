@@ -37,9 +37,11 @@ import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
   frontDeskEmptyStateClass,
+  frontDeskLoadingCardClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
-  frontDeskPriorityMeta
+  frontDeskPriorityMeta,
+  frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
 type DashboardState = {
@@ -876,8 +878,12 @@ export default function AppOverviewPage() {
             {loading ? (
               <div className="grid gap-3">
                 {[0, 1, 2].map((item) => (
-                    <div key={item} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                    {"Loading today's booking board..."}
+                    <div key={item} className={frontDeskLoadingCardClass()}>
+                    <div className="space-y-3">
+                      <div className={frontDeskSkeletonLineClass("md")} />
+                      <div className={frontDeskSkeletonLineClass()} />
+                      <div className={frontDeskSkeletonLineClass("lg")} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -953,8 +959,12 @@ export default function AppOverviewPage() {
               <CardTitle className="text-lg text-slate-950">Needs attention</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                Loading follow-up tasks...
+                <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("lg")} />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -976,8 +986,12 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
-                Loading callback queue...
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("sm")} />
+                  <div className={frontDeskSkeletonLineClass("lg")} />
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                </div>
               </div>
             ) : callbackQueue.length ? (
               callbackQueue.map((call) => (
@@ -1058,8 +1072,12 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
-                Loading new requests and leads...
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("sm")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("lg")} />
+                </div>
               </div>
             ) : newRequestsAndLeads.length ? (
               newRequestsAndLeads.map((item) => (
@@ -1107,8 +1125,12 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
-                Loading recent customer conversations...
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("sm")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                </div>
               </div>
             ) : recentCalls.length ? (
               recentCalls.map((call) => (
@@ -1187,8 +1209,12 @@ export default function AppOverviewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
-                Loading recent messages...
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("sm")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                </div>
               </div>
             ) : recentMessageThreads.length ? (
               recentMessageThreads.map((thread) => {
