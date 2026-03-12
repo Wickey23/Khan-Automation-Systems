@@ -760,11 +760,6 @@ export default function AppOverviewPage() {
     return [...requestItems, ...leadItems].slice(0, 4);
   }, [frontDeskLeadQueue, openRequests]);
 
-  const missedRecoveryCount = useMemo(
-    () => state.calls.filter((call) => (call.outcome === "MISSED" || call.outcome === "ABANDONED" || call.unansweredTransfer) && Boolean(call.recoverySmsSentAt)).length,
-    [state.calls]
-  );
-
   const callbackCount = useMemo(
     () => state.calls.filter((call) => call.frontDesk?.recommendedAction === "Call back now").length,
     [state.calls]
@@ -805,7 +800,7 @@ export default function AppOverviewPage() {
         <PageHeader
           eyebrow="Front desk"
           title="Today"
-          description="Today's schedule, customers waiting for follow-up, and new requests."
+          description="Today's active follow-up work, saved missed calls, and booked jobs."
           actions={
             <>
               <Button asChild>
@@ -829,7 +824,7 @@ export default function AppOverviewPage() {
       <PageHeader
         eyebrow="Front desk"
         title="Today"
-        description="Today's schedule, customers waiting for follow-up, and new requests."
+        description="Today's active follow-up work, saved missed calls, and booked jobs."
         actions={
           <>
             <Button asChild>
@@ -854,12 +849,12 @@ export default function AppOverviewPage() {
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Needs attention now</p>
             <p className="mt-2 text-sm text-slate-100">
-              {loading ? "Checking follow-up queue..." : `${customerActionCount} customer items need action now`}
+              {loading ? "Checking follow-up queue..." : `${customerActionCount} active customer items need action now`}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Callbacks and missed-call rescue</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing incoming requests..." : `${callbackCount} callbacks pending, ${missedRecoveryCount} recovered missed calls`}</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing callback and rescue work..." : `${callbackCount} callbacks pending, ${savedMissedCallCount} saved missed calls`}</p>
           </div>
         </div>
       </section>
