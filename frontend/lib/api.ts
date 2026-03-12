@@ -745,6 +745,7 @@ export async function fetchOrgCalls(params?: {
   page?: number;
   pageSize?: number;
   outcome?: "APPOINTMENT_REQUEST" | "MESSAGE_TAKEN" | "TRANSFERRED" | "MISSED" | "ABANDONED" | "SPAM";
+  callId?: string;
   query?: string;
   date?: string;
   from?: string;
@@ -754,6 +755,7 @@ export async function fetchOrgCalls(params?: {
   if (params?.page) search.set("page", String(params.page));
   if (params?.pageSize) search.set("pageSize", String(params.pageSize));
   if (params?.outcome) search.set("outcome", params.outcome);
+  if (params?.callId) search.set("callId", params.callId);
   if (params?.query) search.set("query", params.query);
   if (params?.date) search.set("date", params.date);
   if (params?.from) search.set("from", params.from);

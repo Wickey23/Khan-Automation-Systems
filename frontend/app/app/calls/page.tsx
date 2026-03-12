@@ -288,6 +288,7 @@ export default function AppCallsPage() {
         page: next.page,
         pageSize: 25,
         ...(next.outcome !== "ALL" ? { outcome: next.outcome } : {}),
+        ...(deepLinkedCallId ? { callId: deepLinkedCallId } : {}),
         ...(queryText ? { query: queryText } : {})
       });
       setCalls(data.calls);
@@ -310,15 +311,17 @@ export default function AppCallsPage() {
         setSelectedCall(fresh);
       }
     } catch {
-      setCalls([]);
-      setTotalVisible(0);
-      setTotalPages(1);
-      setAssignedPhoneNumber(null);
-      setAssignedNumberProvider(null);
+      if (!calls.length) {
+        setCalls([]);
+        setTotalVisible(0);
+        setTotalPages(1);
+        setAssignedPhoneNumber(null);
+        setAssignedNumberProvider(null);
+      }
     } finally {
       setLoading(false);
     }
-  }, [deepLinkedCallId]);
+  }, [calls.length, deepLinkedCallId]);
 
   const refreshAndRepopulate = useCallback(async () => {
     setRefreshing(true);
@@ -369,8 +372,9 @@ export default function AppCallsPage() {
 
   useEffect(() => {
     if (!deepLinkedCallId) return;
-    setQuery(deepLinkedCallId);
+    setQuery("");
     setOutcomeFilter("ALL");
+    setStateFilter("ALL");
     setPage(1);
   }, [deepLinkedCallId]);
 

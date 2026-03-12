@@ -299,6 +299,7 @@ const listOrgCallsSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   outcome: z.enum(["APPOINTMENT_REQUEST", "MESSAGE_TAKEN", "TRANSFERRED", "MISSED", "ABANDONED", "SPAM"]).optional(),
+  callId: z.string().trim().min(1).max(100).optional(),
   query: z.string().trim().max(100).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   from: z.string().datetime().optional(),
@@ -975,6 +976,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
 
   const page = parsed.data.page || 1;
   const pageSize = parsed.data.pageSize || 25;
+  const callId = String(parsed.data.callId || "").trim();
   const query = String(parsed.data.query || "").trim();
   const normalizedQuery = query.toLowerCase();
   const hasExplicitDate = Boolean(parsed.data.date);
@@ -992,6 +994,7 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
         : null;
   const callWhere = {
     orgId,
+    ...(callId ? { id: callId } : {}),
     ...(dateWindow
       ? {
           startedAt: {
