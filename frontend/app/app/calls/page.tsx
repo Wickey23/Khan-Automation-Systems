@@ -48,29 +48,24 @@ function formatRelativeUpdate(value: Date | null) {
   return value.toLocaleString();
 }
 
-function todayDateValue() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function formatQueueDayHeading(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
-function shiftDateValue(value: string, delta: number) {
-  const base = new Date(`${value}T00:00:00`);
-  base.setDate(base.getDate() + delta);
-  const year = base.getFullYear();
-  const month = String(base.getMonth() + 1).padStart(2, "0");
-  const day = String(base.getDate()).padStart(2, "0");
+function callDayKey(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function formatDayHeading(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString([], {
-    weekday: "long",
-    month: "short",
-    day: "numeric"
-  });
 }
 
 function getNextAction(call: OrgCallRecord) {
@@ -151,13 +146,6 @@ function formatPriorityLabel(priority: FrontDeskPriority | undefined) {
   return frontDeskPriorityMeta(priority).label;
 }
 
-function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
-  if (priority === "urgent") return 0;
-  if (priority === "high") return 1;
-  if (priority === "normal") return 2;
-  return 3;
-}
-
 function callQueueStateLabel(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "needs_follow_up") return "Needs follow-up";
   if (call.frontDesk?.followUpState === "contacted") return "Contacted";
@@ -165,16 +153,6 @@ function callQueueStateLabel(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "closed") return "Resolved";
   if (call.frontDesk?.followUpState === "spam") return "Spam";
   return outcomeLabel(call.outcome);
-}
-
-function callStateWeight(call: OrgCallRecord) {
-  const state = call.frontDesk?.followUpState;
-  if (state === "needs_follow_up") return 0;
-  if (state === "contacted") return 1;
-  if (state === "booked") return 2;
-  if (state === "closed") return 3;
-  if (state === "spam") return 4;
-  return 1;
 }
 
 function callWorkTypeLabel(call: OrgCallRecord) {
@@ -280,7 +258,6 @@ export default function AppCallsPage() {
   const searchParams = useSearchParams();
   const deepLinkedCallId = searchParams.get("callId") || "";
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
-  const [selectedDay, setSelectedDay] = useState(todayDateValue());
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalVisible, setTotalVisible] = useState(0);
@@ -298,17 +275,14 @@ export default function AppCallsPage() {
   const detailsRef = useRef<HTMLElement | null>(null);
   const shouldScrollToDetailsRef = useRef(false);
   const selectedCallIdRef = useRef<string | null>(null);
-  const selectedDayRef = useRef(selectedDay);
   const queryRef = useRef(query);
   const outcomeFilterRef = useRef(outcomeFilter);
   const pageRef = useRef(page);
 
-  const loadCalls = useCallback(async (next: { day: string; query: string; outcome: "ALL" | OrgCallRecord["outcome"]; page: number }) => {
+  const loadCalls = useCallback(async (next: { query: string; outcome: "ALL" | OrgCallRecord["outcome"]; page: number }) => {
     try {
       const queryText = next.query.trim();
-      const omitDateFilter = Boolean(deepLinkedCallId) && queryText === deepLinkedCallId;
       const data = await fetchOrgCalls({
-        ...(omitDateFilter ? {} : { date: next.day }),
         page: next.page,
         pageSize: 25,
         ...(next.outcome !== "ALL" ? { outcome: next.outcome } : {}),
@@ -350,17 +324,16 @@ export default function AppCallsPage() {
     } catch {
       // still refresh current data
     } finally {
-      await loadCalls({ day: selectedDay, query, outcome: outcomeFilter, page });
+      await loadCalls({ query, outcome: outcomeFilter, page });
       setRefreshing(false);
     }
-  }, [loadCalls, outcomeFilter, page, query, selectedDay]);
+  }, [loadCalls, outcomeFilter, page, query]);
 
   useEffect(() => {
-    selectedDayRef.current = selectedDay;
     queryRef.current = query;
     outcomeFilterRef.current = outcomeFilter;
     pageRef.current = page;
-  }, [selectedDay, query, outcomeFilter, page]);
+  }, [query, outcomeFilter, page]);
 
   useEffect(() => {
     selectedCallIdRef.current = selectedCall?.id || null;
@@ -374,10 +347,10 @@ export default function AppCallsPage() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
+      void loadCalls({ query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
     }, 12000);
 
-    const refresh = () => void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
+    const refresh = () => void loadCalls({ query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
@@ -388,8 +361,8 @@ export default function AppCallsPage() {
   }, [loadCalls]);
 
   useEffect(() => {
-    void loadCalls({ day: selectedDay, query, outcome: outcomeFilter, page });
-  }, [selectedDay, query, outcomeFilter, page, loadCalls]);
+    void loadCalls({ query, outcome: outcomeFilter, page });
+  }, [query, outcomeFilter, page, loadCalls]);
 
   useEffect(() => {
     if (!deepLinkedCallId) return;
@@ -411,15 +384,23 @@ export default function AppCallsPage() {
           if (stateFilter === "ALL") return true;
           return (call.frontDesk?.followUpState || "closed") === stateFilter;
         })
-        .sort((a, b) => {
-          const stateDelta = callStateWeight(a) - callStateWeight(b);
-          if (stateDelta !== 0) return stateDelta;
-          const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
-          if (priorityDelta !== 0) return priorityDelta;
-          return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
-        }),
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
     [calls, stateFilter]
   );
+
+  const callsByDay = useMemo(() => {
+    const groups: Array<{ day: string; label: string; calls: OrgCallRecord[] }> = [];
+    for (const call of visibleCalls) {
+      const day = callDayKey(call.startedAt);
+      const lastGroup = groups[groups.length - 1];
+      if (!lastGroup || lastGroup.day !== day) {
+        groups.push({ day, label: formatQueueDayHeading(day), calls: [call] });
+      } else {
+        lastGroup.calls.push(call);
+      }
+    }
+    return groups;
+  }, [visibleCalls]);
 
   const metrics = useMemo(() => {
     const totalVisible = visibleCalls.length;
@@ -441,7 +422,7 @@ export default function AppCallsPage() {
     setSavingLeadStage(stage);
     try {
       await updateLeadPipelineStage(selectedCall.leadId, stage);
-      await loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
+      await loadCalls({ query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
     } finally {
       setSavingLeadStage(null);
     }
@@ -452,7 +433,7 @@ export default function AppCallsPage() {
       <PageHeader
         eyebrow="Front-desk queue"
         title="Call Queue"
-        description="Use this page when the next step starts from a phone call. Confirm what the customer needed, then follow the next action before reading raw transcript detail."
+        description="Newest calls appear first so the office can work straight down the queue. Confirm what the customer needed, then follow the next action before reading raw transcript detail."
         actions={
           <Button onClick={() => void refreshAndRepopulate()} disabled={refreshing}>
             {refreshing ? "Refreshing..." : "Refresh"}
@@ -480,7 +461,7 @@ export default function AppCallsPage() {
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>Showing {filteredLabel}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>{formatDayHeading(selectedDay)}</span>
+              <span>{callsByDay[0]?.label || "Recent queue"}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>Updated {formatRelativeUpdate(lastUpdated)}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -537,24 +518,14 @@ export default function AppCallsPage() {
                     Search the queue, open a call, then review the structured summary and recommended next step.
                   </p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-                  <Input
-                    type="date"
-                    value={selectedDay}
-                    onChange={(e) => {
-                      setSelectedDay(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                  <Input
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.target.value);
-                      setPage(1);
-                    }}
-                    placeholder="Search by caller name, phone number, summary, or call ID"
-                  />
-                </div>
+                <Input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search by caller name, phone number, summary, or call ID"
+                />
                 <div className="flex flex-wrap gap-2">
                   {callStateFilters.map((filter) => {
                     const count =
@@ -581,9 +552,9 @@ export default function AppCallsPage() {
               <div className={`${frontDeskContextPanelClass()} text-sm`}>
                 <p className="font-medium text-foreground">Queue summary</p>
                 <div className="mt-3 space-y-2 text-muted-foreground">
-                  <p>{metrics.totalVisible} visible calls on {formatDayHeading(selectedDay)}.</p>
+                  <p>{metrics.totalVisible} visible calls across the current queue.</p>
                   <p>{calls.length} calls currently loaded on page {page} before queue-state filtering.</p>
-                  <p>Use the day selector or day navigation to move the review queue backward or forward.</p>
+                  <p>Calls are grouped by day with the newest activity first so the latest work stays on top.</p>
                 </div>
               </div>
             </CardContent>
@@ -621,125 +592,104 @@ export default function AppCallsPage() {
                   </div>
                 ))}
               </div>
-            ) : visibleCalls.length ? (
-              visibleCalls.map((call) => {
-                const selected = selectedCall?.id === call.id;
-                return (
-                  <button
-                    key={call.id}
-                    type="button"
-                    onClick={() => {
-                      shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
-                      setSelectedCall(call);
-                    }}
-                    className={`w-full p-5 text-left transition-all ${frontDeskCardClass("default")} ${
-                      call.frontDesk?.followUpState === "closed"
-                        ? frontDeskOutcomeSurfaceClass("resolved")
-                        : call.frontDesk?.followUpState === "booked"
-                          ? frontDeskOutcomeSurfaceClass("booked")
-                          : call.recoverySmsResponse
-                            ? frontDeskOutcomeSurfaceClass("saved")
-                            : frontDeskOutcomeSurfaceClass("active")
-                    } ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-base font-semibold text-foreground">{extractCallerName(call)}</p>
-                        <p className="text-sm text-muted-foreground">{call.fromNumber}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(call.startedAt).toLocaleString()}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>{frontDeskPriorityMeta(call.frontDesk?.frontDeskPriority).label}</Badge>
-                        <Badge className={clientBadgeClass(getDispositionTone(call))}>{callWorkTypeLabel(call)}</Badge>
-                        <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
-                      </div>
+            ) : callsByDay.length ? (
+              callsByDay.map((group) => (
+                <div key={group.day} className="space-y-3">
+                  <div className="sticky top-[5.25rem] z-10 -mx-1 rounded-full bg-background/85 px-1 py-1 backdrop-blur">
+                    <div className="flex items-center gap-3 px-2">
+                      <p className="page-eyebrow">{group.label}</p>
+                      <div className="h-px flex-1 bg-border/70" />
+                      <span className="text-xs text-muted-foreground">{group.calls.length} call{group.calls.length === 1 ? "" : "s"}</span>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(callPrimaryActionLabel(call))}`}>
-                        {callPrimaryActionLabel(call)}
-                      </span>
-                      <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                        {callQueueStateLabel(call)}
-                      </span>
-                    </div>
-                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                      {call.frontDesk?.summary || call.aiSummary || call.summary || "No summary available yet."}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{call.frontDesk?.urgency || "Standard priority"}</span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{formatDuration(call.durationSec || 0)}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{latestCallMovementLabel(call)}</span>
-                      {recoveryStatus(call) ? (
-                        <>
+                  </div>
+                  {group.calls.map((call) => {
+                    const selected = selectedCall?.id === call.id;
+                    return (
+                      <button
+                        key={call.id}
+                        type="button"
+                        onClick={() => {
+                          shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
+                          setSelectedCall(call);
+                        }}
+                        className={`w-full p-5 text-left transition-all ${frontDeskCardClass("default")} ${
+                          call.frontDesk?.followUpState === "closed"
+                            ? frontDeskOutcomeSurfaceClass("resolved")
+                            : call.frontDesk?.followUpState === "booked"
+                              ? frontDeskOutcomeSurfaceClass("booked")
+                              : call.recoverySmsResponse
+                                ? frontDeskOutcomeSurfaceClass("saved")
+                                : frontDeskOutcomeSurfaceClass("active")
+                        } ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-1">
+                            <p className="text-base font-semibold text-foreground">{extractCallerName(call)}</p>
+                            <p className="text-sm text-muted-foreground">{call.fromNumber}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(call.startedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                            <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>{frontDeskPriorityMeta(call.frontDesk?.frontDeskPriority).label}</Badge>
+                            <Badge className={clientBadgeClass(getDispositionTone(call))}>{callWorkTypeLabel(call)}</Badge>
+                            <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(callPrimaryActionLabel(call))}`}>
+                            {callPrimaryActionLabel(call)}
+                          </span>
+                          <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                            {callQueueStateLabel(call)}
+                          </span>
+                        </div>
+                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                          {call.frontDesk?.summary || call.aiSummary || call.summary || "No summary available yet."}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
                           <span className="h-1 w-1 rounded-full bg-slate-300" />
-                          <span>{recoveryStatus(call)?.label}</span>
-                        </>
-                      ) : null}
-                    </div>
-                    {callOutcomeBadge(call) ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge className={clientBadgeClass(callOutcomeBadge(call)!.tone)}>{callOutcomeBadge(call)!.label}</Badge>
-                      </div>
-                    ) : null}
-                    {callOutcomeListNote(call) ? (
-                      <p className="mt-3 rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{callOutcomeListNote(call)}</p>
-                    ) : null}
-                  </button>
-                );
-              })
+                          <span>{call.frontDesk?.urgency || "Standard priority"}</span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
+                          <span className="h-1 w-1 rounded-full bg-slate-300" />
+                          <span>{formatDuration(call.durationSec || 0)}</span>
+                          <span className="h-1 w-1 rounded-full bg-slate-300" />
+                          <span>{latestCallMovementLabel(call)}</span>
+                          {recoveryStatus(call) ? (
+                            <>
+                              <span className="h-1 w-1 rounded-full bg-slate-300" />
+                              <span>{recoveryStatus(call)?.label}</span>
+                            </>
+                          ) : null}
+                        </div>
+                        {callOutcomeBadge(call) ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Badge className={clientBadgeClass(callOutcomeBadge(call)!.tone)}>{callOutcomeBadge(call)!.label}</Badge>
+                          </div>
+                        ) : null}
+                        {callOutcomeListNote(call) ? (
+                          <p className="mt-3 rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{callOutcomeListNote(call)}</p>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
             ) : (
               <div className={frontDeskEmptyStateClass()}>
                 No calls match this queue yet. When customers call or miss the business line, their request will appear here with a summary and the next office action.
               </div>
             )}
           </div>
-
-          <Card className={frontDeskWorkspaceCardClass("subtle")}>
-            <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <p className="page-eyebrow">Day navigation</p>
-                <p className="text-sm text-muted-foreground">{formatDayHeading(selectedDay)}</p>
-              </div>
-              <p className="hidden text-sm text-muted-foreground 2xl:block">
-                Page {page} of {totalPages} - {totalVisible} matching call{totalVisible === 1 ? "" : "s"}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => {
-                  setSelectedDay((current) => shiftDateValue(current, -1));
-                  setPage(1);
-                }}>
-                  Previous day
-                </Button>
-                <Button variant="outline" onClick={() => {
-                  setSelectedDay(todayDateValue());
-                  setPage(1);
-                }} disabled={selectedDay === todayDateValue()}>
-                  Today
-                </Button>
-                <Button variant="outline" onClick={() => {
-                  setSelectedDay((current) => shiftDateValue(current, 1));
-                  setPage(1);
-                }}>
-                  Next day
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
           {totalPages > 1 ? (
             <Card className={frontDeskWorkspaceCardClass("subtle")}>
               <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
-                  <p className="page-eyebrow">Page controls</p>
-                  <p className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages} for {formatDayHeading(selectedDay)}.
-                  </p>
+                  <p className="page-eyebrow">Queue pages</p>
+                  <p className="text-sm text-muted-foreground">Page {page} of {totalPages} across the newest matching calls.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}>
