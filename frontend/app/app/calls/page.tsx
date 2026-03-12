@@ -17,10 +17,12 @@ import {
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskMetricCardClass,
   frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
+  frontDeskWorkspaceCardClass,
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
@@ -458,7 +460,7 @@ export default function AppCallsPage() {
         }
       />
 
-      <Card className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
+      <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="space-y-3">
             <div className="space-y-1">
@@ -506,7 +508,7 @@ export default function AppCallsPage() {
           { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests on this page" },
           { label: "Urgent", value: metrics.urgentCount, meta: "Urgent front-desk items on this page" }
         ].map((item) => (
-          <Card key={item.label}>
+          <Card key={item.label} className={frontDeskMetricCardClass()}>
             <CardContent className="p-5">
               <p className="page-eyebrow">{item.label}</p>
               <p className="mt-3 text-3xl font-semibold tracking-tight">{item.value}</p>
@@ -518,7 +520,7 @@ export default function AppCallsPage() {
 
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-4 min-w-0">
-          <Card>
+          <Card className={frontDeskWorkspaceCardClass("subtle")}>
             <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_280px]">
               <div className="space-y-3">
                 <div className="space-y-1">
@@ -691,7 +693,7 @@ export default function AppCallsPage() {
             )}
           </div>
 
-          <Card className="border-slate-200 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
+          <Card className={frontDeskWorkspaceCardClass("subtle")}>
             <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
                 <p className="page-eyebrow">Day navigation</p>
@@ -723,7 +725,7 @@ export default function AppCallsPage() {
             </CardContent>
           </Card>
           {totalPages > 1 ? (
-            <Card className="border-slate-200 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
+            <Card className={frontDeskWorkspaceCardClass("subtle")}>
               <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <p className="page-eyebrow">Page controls</p>
@@ -745,7 +747,7 @@ export default function AppCallsPage() {
         </div>
 
         <section ref={detailsRef} className="2xl:sticky 2xl:top-24 2xl:self-start">
-          <Card className="border-slate-200 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
+          <Card className={frontDeskWorkspaceCardClass("default")}>
             <CardContent className="p-6">
               {loading ? (
                 <div className="space-y-4">

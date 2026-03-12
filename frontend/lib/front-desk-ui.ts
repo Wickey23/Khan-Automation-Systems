@@ -95,3 +95,21 @@ export function frontDeskOutcomeSurfaceClass(kind: "active" | "saved" | "booked"
       return "border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_100%)]";
   }
 }
+
+export function frontDeskWorkspaceCardClass(kind: "default" | "hero" | "subtle" = "default") {
+  if (kind === "hero") {
+    return "rounded-[30px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(239,246,255,0.96)_46%,rgba(219,234,254,0.90)_100%)] shadow-[0_24px_52px_rgba(15,23,42,0.12)]";
+  }
+  if (kind === "subtle") {
+    return "rounded-[26px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(244,247,251,0.96)_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]";
+  }
+  return "rounded-[28px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,249,252,0.98)_100%)] shadow-[0_20px_44px_rgba(15,23,42,0.10)]";
+}
+
+export function frontDeskMetricCardClass() {
+  return "rounded-[24px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(243,248,252,0.98)_100%)] shadow-[0_16px_32px_rgba(15,23,42,0.08)]";
+}
+
+export function frontDeskActionStripClass() {
+  return "inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.06)]";
+}

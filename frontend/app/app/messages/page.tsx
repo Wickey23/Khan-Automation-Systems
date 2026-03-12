@@ -22,6 +22,7 @@ import {
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
+  frontDeskWorkspaceCardClass,
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
@@ -403,7 +404,7 @@ export default function AppMessagesPage() {
       />
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_320px]">
-        <Card className={canSendMessages ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}>
+        <Card className={`${frontDeskWorkspaceCardClass("hero")} ${canSendMessages ? "border-emerald-200/90 bg-[linear-gradient(135deg,rgba(236,253,245,0.98)_0%,rgba(209,250,229,0.92)_100%)]" : "border-amber-200/90 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]"}`}>
           <CardContent className={`px-5 py-6 text-sm sm:px-6 sm:py-5 ${canSendMessages ? "text-emerald-950" : "text-amber-950"}`}>
             <div className="flex items-start gap-3">
               {canSendMessages ? <SendHorizontal className="mt-1 h-4 w-4 shrink-0" /> : <Lock className="mt-1 h-4 w-4 shrink-0" />}
@@ -437,7 +438,7 @@ export default function AppMessagesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardContent className="grid gap-3 p-5 text-sm">
             <div>
               <p className="page-eyebrow">Assigned number</p>
@@ -462,7 +463,7 @@ export default function AppMessagesPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:gap-5">
-        <Card className="self-start overflow-hidden">
+        <Card className={`${frontDeskWorkspaceCardClass("default")} self-start overflow-hidden`}>
           <CardHeader className="pb-3">
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
@@ -612,7 +613,7 @@ export default function AppMessagesPage() {
         </Card>
 
         <div className="grid gap-4 2xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-          <Card className="self-start">
+          <Card className={`${frontDeskWorkspaceCardClass("subtle")} self-start`}>
             <CardHeader className="pb-3">
               <div className="space-y-1">
                 <CardTitle className="text-lg">Compose message</CardTitle>
@@ -677,7 +678,7 @@ export default function AppMessagesPage() {
             </CardContent>
           </Card>
 
-          <Card className="min-w-0 overflow-hidden">
+          <Card className={`${frontDeskWorkspaceCardClass("default")} min-w-0 overflow-hidden`}>
             <CardHeader className="pb-3">
               <div className="space-y-1">
                 <CardTitle className="text-lg">Conversation</CardTitle>

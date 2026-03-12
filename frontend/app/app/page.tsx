@@ -38,10 +38,12 @@ import {
   frontDeskCardClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskMetricCardClass,
   frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
+  frontDeskWorkspaceCardClass,
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
@@ -870,7 +872,7 @@ export default function AppOverviewPage() {
       </section>
 
       <section className="grid gap-6 2xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.9fr)]">
-        <Card className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
+        <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardHeader>
             <CardTitle className="text-slate-950">{scheduleTitle}</CardTitle>
             <CardDescription className="text-slate-600">{scheduleDescription}</CardDescription>
@@ -955,7 +957,7 @@ export default function AppOverviewPage() {
         </Card>
 
         {loading ? (
-          <Card className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
+          <Card className={frontDeskWorkspaceCardClass("subtle")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg text-slate-950">Needs attention</CardTitle>
             </CardHeader>
@@ -970,12 +972,12 @@ export default function AppOverviewPage() {
             </CardContent>
           </Card>
         ) : (
-          <ActionNeededPanel items={actionItems} className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]" />
+          <ActionNeededPanel items={actionItems} className={frontDeskWorkspaceCardClass("subtle")} />
         )}
       </section>
 
       <section className="grid gap-6 2xl:grid-cols-2">
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Needs callback</CardTitle>
@@ -1069,7 +1071,7 @@ export default function AppOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>New requests</CardTitle>
@@ -1128,7 +1130,7 @@ export default function AppOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Missed calls and recent conversations</CardTitle>
@@ -1220,7 +1222,7 @@ export default function AppOverviewPage() {
       </section>
 
       <section>
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Recent customer messages</CardTitle>
@@ -1308,21 +1310,21 @@ export default function AppOverviewPage() {
           <p className="text-sm text-muted-foreground">Supportive context for the day. These numbers should not compete with the booking board.</p>
         </div>
         <div className="metric-grid">
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Calls Today</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{callsToday}</p>
               <p className="text-sm text-muted-foreground">{loading ? "Loading activity..." : callsToday === 0 ? "No calls yet today" : "Last 24 hours"}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">New Leads</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{newLeadsToday}</p>
               <p className="text-sm text-muted-foreground">{loading ? "Loading leads..." : newLeadsToday === 0 ? "No new leads captured" : "Captured today"}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Active Follow-Up</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{customerActionCount}</p>
@@ -1331,7 +1333,7 @@ export default function AppOverviewPage() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Alerts</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{systemActionCount}</p>
@@ -1340,14 +1342,14 @@ export default function AppOverviewPage() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Answer Rate</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{formatPercent(answerRate)}</p>
               <p className="text-sm text-muted-foreground">{loading ? "Loading reporting..." : "Answered calls divided by total calls in the current reporting window"}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Saved Missed Calls</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">
@@ -1358,7 +1360,7 @@ export default function AppOverviewPage() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Booked Outcomes</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "-" : `${bookedOutcomeCount}`}</p>
@@ -1371,7 +1373,7 @@ export default function AppOverviewPage() {
       </section>
 
       <section>
-        <Card className="bg-muted/18">
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardHeader>
             <CardTitle>System health</CardTitle>
             <CardDescription>Support information for the front desk and booking workflow.</CardDescription>

@@ -42,6 +42,8 @@ import {
   frontDeskLoadingCardClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskOutcomeSurfaceClass,
+  frontDeskWorkspaceCardClass,
+  frontDeskMetricCardClass,
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
@@ -767,7 +769,7 @@ export default function AppAppointmentsPage() {
         }
       />
 
-      <div className="rounded-2xl border bg-white p-4 shadow-sm">
+      <div className={frontDeskWorkspaceCardClass("hero")}>
         <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] 2xl:items-start">
           <div className="space-y-3">
             <div>
@@ -779,22 +781,22 @@ export default function AppAppointmentsPage() {
             </div>
             {!featureDisabled ? (
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                <div className={frontDeskMetricCardClass()}>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs review</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
                 </div>
-                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                <div className={frontDeskMetricCardClass()}>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer replied</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{repliedAppointmentRequests.length}</p>
                 </div>
-                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                <div className={frontDeskMetricCardClass()}>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">On calendar</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{appointments.length}</p>
                 </div>
               </div>
             ) : null}
           </div>
-          <div className="rounded-xl border bg-slate-50/80 p-4">
+          <div className={frontDeskContextPanelClass()}>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">View filters</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3 2xl:grid-cols-1">
               <label className="text-sm">
@@ -848,13 +850,13 @@ export default function AppAppointmentsPage() {
       </div>
 
       {featureDisabled ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="rounded-[22px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] p-4 text-sm text-amber-950 shadow-[0_12px_26px_rgba(217,119,6,0.12)]">
           Appointments are currently disabled for this workspace. Ask an admin to enable the feature flag for your org.
         </div>
       ) : null}
 
       {!featureDisabled ? (
-        <div className="rounded-lg border bg-white p-4">
+        <div className={frontDeskWorkspaceCardClass("default")}>
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Appointment Requests</h2>
@@ -1173,7 +1175,7 @@ export default function AppAppointmentsPage() {
       ) : null}
 
       {viewMode === "CALENDAR" ? (
-        <div className="rounded-lg border bg-white p-4">
+        <div className={frontDeskWorkspaceCardClass("default")}>
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold">Appointments Calendar</h2>
@@ -1300,7 +1302,7 @@ export default function AppAppointmentsPage() {
           {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments are on the schedule yet. Confirmed bookings will appear here once the office starts placing jobs.</p> : null}
         </div>
       ) : (
-        <div className="rounded-lg border bg-white p-4">
+        <div className={frontDeskWorkspaceCardClass("default")}>
           <div className="mb-3">
             <h2 className="text-base font-semibold">Appointments List</h2>
             <p className="text-xs text-muted-foreground">Review upcoming, completed, and canceled appointments in one list.</p>
@@ -1417,7 +1419,7 @@ export default function AppAppointmentsPage() {
       )}
 
       {canWrite && !featureDisabled ? (
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <div className={frontDeskWorkspaceCardClass("subtle")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Office Booking</p>

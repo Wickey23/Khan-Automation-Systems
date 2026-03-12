@@ -6,7 +6,7 @@ import type { ActionNeededItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { clientBadgeClass } from "@/lib/client-badges";
-import { frontDeskActionBadgeClass, frontDeskCardClass, frontDeskEmptyStateClass } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskCardClass, frontDeskEmptyStateClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function severityTone(severity: ActionNeededItem["severity"]) {
   if (severity === "critical") return "critical";
@@ -75,7 +75,7 @@ export function ActionNeededPanel({
   const visibleItems = items.slice(0, 4);
 
   return (
-    <Card className={className}>
+    <Card className={className || frontDeskWorkspaceCardClass("subtle")}>
       <CardHeader className="pb-2">
         <CardTitle className={`text-lg ${dark ? "text-white" : ""}`}>Needs attention</CardTitle>
       </CardHeader>

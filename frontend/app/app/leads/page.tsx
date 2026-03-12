@@ -19,10 +19,12 @@ import {
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskMetricCardClass,
   frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
+  frontDeskWorkspaceCardClass,
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
@@ -336,7 +338,7 @@ export default function AppLeadsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {stats.map((item) => (
-          <Card key={item.label}>
+          <Card key={item.label} className={frontDeskMetricCardClass()}>
             <CardContent className="p-5">
               <p className="page-eyebrow">{item.label}</p>
               <p className="mt-3 text-3xl font-semibold tracking-tight">{item.value}</p>
@@ -345,7 +347,7 @@ export default function AppLeadsPage() {
         ))}
       </div>
 
-      <Card>
+      <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_220px_auto] xl:items-end">
           <Input
             value={query}
@@ -598,7 +600,7 @@ export default function AppLeadsPage() {
             </div>
           ) : customerFiltered.length ? (
             customerFiltered.map((customer) => (
-              <Card key={customer.phoneNumber}>
+              <Card key={customer.phoneNumber} className={frontDeskWorkspaceCardClass("subtle")}>
                 <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_220px_120px] xl:items-center">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
