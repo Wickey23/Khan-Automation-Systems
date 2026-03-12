@@ -125,6 +125,13 @@ function latestThreadDirection(thread: OrgMessageThread) {
   return latest.direction === "INBOUND" ? "Customer replied" : "Office sent follow-up";
 }
 
+function threadNextActionLabel(thread: OrgMessageThread) {
+  if (thread.latestAppointmentRequestId && latestThreadDirection(thread) === "Customer replied") {
+    return "Review reply";
+  }
+  return threadFrontDesk(thread)?.recommendedAction || "Review thread";
+}
+
 function threadWorkTypeLabel(thread: OrgMessageThread) {
   const action = threadFrontDesk(thread)?.recommendedAction;
   const state = threadFrontDesk(thread)?.state;
@@ -502,7 +509,7 @@ export default function AppMessagesPage() {
                       </div>
                       {threadFrontDesk(thread)?.recommendedAction ? (
                         <p className="mt-2 text-[11px] font-medium text-muted-foreground">
-                          Next action: {threadFrontDesk(thread)?.recommendedAction}
+                          Next action: {threadNextActionLabel(thread)}
                         </p>
                       ) : null}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -529,7 +536,7 @@ export default function AppMessagesPage() {
                   </p>
                   {selected && threadFrontDesk(selected)?.recommendedAction ? (
                     <p className="text-xs text-muted-foreground">
-                      Recommended action: {threadFrontDesk(selected)?.recommendedAction}
+                      Recommended action: {threadNextActionLabel(selected)}
                     </p>
                   ) : null}
                   {selected?.leadId && canEditPipeline ? (
@@ -610,7 +617,7 @@ export default function AppMessagesPage() {
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Next action</p>
-                        <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.recommendedAction || "Review thread"}</p>
+                        <p className="mt-1 text-sm text-foreground">{threadNextActionLabel(selected)}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Follow-up state</p>
