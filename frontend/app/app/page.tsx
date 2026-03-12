@@ -854,7 +854,11 @@ export default function AppOverviewPage() {
               callbackQueue.map((call) => (
                 <Link
                   key={call.id}
-                  href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
+                  href={
+                    call.recoverySmsThreadId && call.recoverySmsResponse
+                      ? `/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId)}`
+                      : `/app/calls?callId=${encodeURIComponent(call.id)}`
+                  }
                   className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -883,6 +887,9 @@ export default function AppOverviewPage() {
                     {call.recoverySmsThreadId ? (
                       <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-foreground/75">Inbox thread linked</span>
                     ) : null}
+                    <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-foreground/75">
+                      {call.recoverySmsThreadId && call.recoverySmsResponse ? "Open inbox" : "Open call"}
+                    </span>
                   </div>
                 </Link>
               ))
