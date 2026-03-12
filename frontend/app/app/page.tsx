@@ -9,6 +9,7 @@ import {
   fetchOrgCalls,
   fetchOrgHealth,
   fetchOrgLeads,
+  fetchOrgMessages,
   fetchOrgMessagingReadiness,
   fetchOrgNotifications,
   fetchOrgOnboarding,
@@ -22,6 +23,7 @@ import type {
   OrgAnalytics,
   OrgCallRecord,
   OrgHealth,
+  OrgMessageThread,
   OrgMessagingReadiness,
   OrgNotification
 } from "@/lib/types";
@@ -40,6 +42,7 @@ type DashboardState = {
   notifications: OrgNotification[];
   calls: OrgCallRecord[];
   leads: Lead[];
+  threads: OrgMessageThread[];
   requests: AppointmentRequest[];
   analytics: OrgAnalytics | null;
 };
@@ -265,6 +268,24 @@ function followUpLabel(state: OrgCallRecord["frontDesk"] | Lead["frontDesk"] | u
   }
 }
 
+function threadStateBadge(thread: OrgMessageThread) {
+  const state = thread.frontDesk || thread.lead?.frontDesk;
+  switch (state?.state) {
+    case "needs_follow_up":
+      return { label: "Needs follow-up", tone: "warning" as const };
+    case "contacted":
+      return { label: "Contacted", tone: "pending" as const };
+    case "booked":
+      return { label: "Booked", tone: "booking" as const };
+    case "closed":
+      return { label: "Closed", tone: "success" as const };
+    case "spam":
+      return { label: "Spam", tone: "neutral" as const };
+    default:
+      return { label: "Open", tone: "neutral" as const };
+  }
+}
+
 export default function AppOverviewPage() {
   const [state, setState] = useState<DashboardState>({
     assignedPhoneNumber: null,
@@ -274,6 +295,7 @@ export default function AppOverviewPage() {
     notifications: [],
     calls: [],
     leads: [],
+    threads: [],
     requests: [],
     analytics: null
   });
@@ -293,10 +315,11 @@ export default function AppOverviewPage() {
       fetchOrgNotifications(),
       fetchOrgCalls({ page: 1, pageSize: 25 }),
       fetchOrgLeads(),
+      fetchOrgMessages(),
       fetchAppointmentRequests(),
       fetchOrgAnalytics({ range: "7d" })
     ])
-      .then(([profile, , health, messagingReadiness, notifications, calls, leads, requests, analytics]) => {
+      .then(([profile, , health, messagingReadiness, notifications, calls, leads, messages, requests, analytics]) => {
         if (!active) return;
         setState({
           assignedPhoneNumber: profile.assignedPhoneNumber,
@@ -306,6 +329,7 @@ export default function AppOverviewPage() {
           notifications: notifications.notifications || [],
           calls: calls.calls || [],
           leads: leads.leads || [],
+          threads: messages.threads || [],
           requests: requests.requests || [],
           analytics
         });
@@ -513,6 +537,19 @@ export default function AppOverviewPage() {
         })
         .slice(0, 4),
     [state.calls]
+  );
+
+  const recentMessageThreads = useMemo(
+    () =>
+      [...state.threads]
+        .sort((a, b) => {
+          const priorityDelta = frontDeskPriorityWeight((a.frontDesk || a.lead?.frontDesk)?.frontDeskPriority) -
+            frontDeskPriorityWeight((b.frontDesk || b.lead?.frontDesk)?.frontDeskPriority);
+          if (priorityDelta !== 0) return priorityDelta;
+          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+        })
+        .slice(0, 4),
+    [state.threads]
   );
 
   const newRequestsAndLeads = useMemo(() => {
@@ -793,6 +830,56 @@ export default function AppOverviewPage() {
             ) : (
               <div className="empty-state">
                 When a call is handled or missed, this area shows the structured summary, urgency, and the next office action.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card>
+          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+            <div className="space-y-1">
+              <CardTitle>Recent customer messages</CardTitle>
+              <CardDescription>Reply-driven follow-up threads tied to open requests and missed-call recovery.</CardDescription>
+            </div>
+            <Button asChild variant="ghost" className="shrink-0">
+              <Link href="/app/messages">Open inbox</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loading ? (
+              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
+                Loading recent messages...
+              </div>
+            ) : recentMessageThreads.length ? (
+              recentMessageThreads.map((thread) => {
+                const badge = threadStateBadge(thread);
+                const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
+                const latestMessage = thread.messages?.[0]?.body || "Open the thread to review the latest message.";
+                return (
+                  <div key={thread.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
+                        <p className="text-xs text-muted-foreground">{formatShortDateTime(thread.lastMessageAt)}</p>
+                      </div>
+                      <Badge className={clientBadgeClass(badge.tone)}>{badge.label}</Badge>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
+                      {frontDesk?.summary || latestMessage}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{frontDesk?.recommendedAction || "Review thread"}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{thread.contactPhone}</span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="empty-state">
+                Customer replies and missed-call SMS conversations will appear here once follow-up texting starts.
               </div>
             )}
           </CardContent>
