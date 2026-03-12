@@ -264,7 +264,7 @@ export default function AppMessagesPage() {
             thread.contactPhone,
             getLatestMessagePreview(thread),
             threadFrontDesk(thread)?.summary || "",
-            threadFrontDesk(thread)?.recommendedAction || ""
+            threadNextActionLabel(thread)
           ]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query))

@@ -216,7 +216,7 @@ export default function AppLeadsPage() {
     return leads.filter((lead) => {
       if (queueFilter !== "ALL" && lead.frontDesk?.state !== queueFilter) return false;
       if (!q) return true;
-      return [lead.id, lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), lead.frontDesk?.recommendedAction || "", lead.frontDesk?.state || ""]
+      return [lead.id, lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), leadNextActionLabel(lead), lead.frontDesk?.state || ""]
         .join(" ")
         .toLowerCase()
         .includes(q);
