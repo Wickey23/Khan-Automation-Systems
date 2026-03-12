@@ -990,7 +990,7 @@ export default function AppAppointmentsPage() {
                                   <p className="text-sm text-foreground">{request.assignedUserLabel || "Unassigned"}</p>
                                 </div>
                               </div>
-                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,340px)] xl:items-start">
+                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:items-start">
                                 <div className="space-y-3 text-sm">
                                   <div className="grid gap-3 sm:grid-cols-2">
                                     <div className={`${frontDeskContextPanelClass()} space-y-1`}>
@@ -1003,16 +1003,29 @@ export default function AppAppointmentsPage() {
                                       <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
                                     </div>
                                   </div>
-                                  {requestOutcomeBadge(request) ? (
-                                    <div className="flex flex-wrap gap-2">
-                                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
-                                        {requestOutcomeBadge(request)!.label}
-                                      </span>
+                                  <div className={`${frontDeskContextPanelClass()} grid gap-3 text-sm md:grid-cols-2`}>
+                                    <div className="space-y-2">
+                                      <span className="page-eyebrow">Queue status</span>
+                                      <div className="flex flex-wrap gap-2">
+                                        {requestOutcomeBadge(request) ? (
+                                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
+                                            {requestOutcomeBadge(request)!.label}
+                                          </span>
+                                        ) : null}
+                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                          {requestStatusLabel(request)}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
                                     </div>
-                                  ) : null}
-                                  {requestOutcomeListNote(request) ? (
-                                    <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{requestOutcomeListNote(request)}</p>
-                                  ) : null}
+                                    <div className="space-y-1">
+                                      <span className="page-eyebrow">Why this matters now</span>
+                                      <p className="text-muted-foreground">
+                                        {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
+                                      </p>
+                                      {requestOutcomeListNote(request) ? <p className="text-xs text-muted-foreground">{requestOutcomeListNote(request)}</p> : null}
+                                    </div>
+                                  </div>
                                 </div>
                                 <div className={`${frontDeskContextPanelClass()} space-y-3`}>
                                 <div>
