@@ -168,7 +168,7 @@ function callWorkTypeLabel(call: OrgCallRecord) {
   if (call.frontDesk?.recommendedAction === "Call back now") return "Callback";
   if (call.frontDesk?.recommendedAction === "Offer times") return "Scheduling";
   if (call.frontDesk?.followUpState === "booked") return "Booked work";
-  if (call.frontDesk?.followUpState === "closed") return "Closed";
+  if (call.frontDesk?.followUpState === "closed") return "Resolved";
   if (call.frontDesk?.followUpState === "spam") return "Spam";
   return "General review";
 }
@@ -230,7 +230,7 @@ function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
     case "booked":
       return "Booked";
     case "closed":
-      return "Closed";
+      return "Resolved";
     case "spam":
       return "Spam";
     default:

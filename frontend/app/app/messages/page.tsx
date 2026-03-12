@@ -62,7 +62,7 @@ function threadFilterLabel(value: (typeof threadFilters)[number]) {
     case "booked":
       return "Booked";
     case "closed":
-      return "Closed";
+      return "Resolved";
     case "spam":
       return "Spam";
     default:
@@ -139,7 +139,7 @@ function threadWorkTypeLabel(thread: OrgMessageThread) {
   if (action === "Call back now") return "Callback";
   if (action === "Offer times") return "Scheduling";
   if (state === "booked") return "Booked work";
-  if (state === "closed") return "Closed";
+  if (state === "closed") return "Resolved";
   if (state === "spam") return "Spam";
   return "General follow-up";
 }

@@ -61,7 +61,8 @@ function requestStatusLabel(request: AppointmentRequest) {
   if (request.status === "SLOT_OFFERED") return "Awaiting reply";
   if (request.status === "APPROVED") return "Ready to book";
   if (request.status === "SCHEDULED") return "Booked";
-  return request.status.replaceAll("_", " ");
+  if (request.status === "CLOSED" || request.status === "DENIED") return "Resolved";
+  return "Request";
 }
 
 function requestWorkTypeLabel(request: AppointmentRequest) {
@@ -69,7 +70,7 @@ function requestWorkTypeLabel(request: AppointmentRequest) {
   if (request.status === "APPROVED") return "Scheduling";
   if (request.status === "SLOT_OFFERED") return "Waiting on customer";
   if (request.status === "SCHEDULED") return "Booked work";
-  if (request.status === "CLOSED" || request.status === "DENIED") return "Closed";
+  if (request.status === "CLOSED" || request.status === "DENIED") return "Resolved";
   return "Request";
 }
 
@@ -92,7 +93,7 @@ function requestQueueFilterLabel(value: (typeof requestQueueFilters)[number]) {
     case "booked":
       return "Booked";
     case "closed":
-      return "Closed";
+      return "Resolved";
     default:
       return "All";
   }

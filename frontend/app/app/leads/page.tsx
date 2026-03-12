@@ -88,7 +88,7 @@ function queueStateLabel(value: (typeof queueStates)[number]) {
     case "booked":
       return "Booked";
     case "closed":
-      return "Closed";
+      return "Resolved";
     case "spam":
       return "Spam";
     default:

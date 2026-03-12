@@ -136,9 +136,9 @@ function requestStatusLabel(status: AppointmentRequest["status"]) {
     case "PENDING_REVIEW":
       return "Needs review";
     case "DENIED":
-      return "Closed";
+      return "Resolved";
     case "CLOSED":
-      return "Closed";
+      return "Resolved";
     default:
       return "Active";
   }
@@ -282,7 +282,7 @@ function followUpLabel(state: OrgCallRecord["frontDesk"] | Lead["frontDesk"] | u
     case "booked":
       return "Booked";
     case "closed":
-      return "Closed";
+      return "Resolved";
     case "spam":
       return "Spam";
     default:
@@ -300,7 +300,7 @@ function threadStateBadge(thread: OrgMessageThread) {
     case "booked":
       return { label: "Booked", tone: "booking" as const };
     case "closed":
-      return { label: "Closed", tone: "success" as const };
+      return { label: "Resolved", tone: "success" as const };
     case "spam":
       return { label: "Spam", tone: "neutral" as const };
     default:
