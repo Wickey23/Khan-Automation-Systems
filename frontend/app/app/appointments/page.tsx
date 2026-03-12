@@ -777,8 +777,8 @@ export default function AppAppointmentsPage() {
         </p>
       </div>
 
-      <div className={frontDeskWorkspaceCardClass("hero")}>
-        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] 2xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className={`${frontDeskWorkspaceCardClass("hero")} p-5 sm:p-6`}>
           <div className="space-y-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workspace focus</p>
@@ -804,55 +804,55 @@ export default function AppAppointmentsPage() {
               </div>
             ) : null}
           </div>
-          <div className={frontDeskContextPanelClass()}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">View filters</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3 2xl:grid-cols-1">
-              <label className="text-sm">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
-                <select
-                  value={status}
-                  onChange={(event) => {
-                    const next = event.target.value as Appointment["status"] | "ALL";
-                    setStatus(next);
-                    void load(next, fromDate, toDate);
-                  }}
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                >
-                  <option value="ALL">All appointments</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="CONFIRMED">Confirmed</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELED">Canceled</option>
-                  <option value="NO_SHOW">No show</option>
-                </select>
-              </label>
-              <label className="text-sm">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setFromDate(next);
-                    void load(status, next, toDate);
-                  }}
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setToDate(next);
-                    void load(status, fromDate, next);
-                  }}
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                />
-              </label>
-            </div>
+        </div>
+        <div className={frontDeskContextPanelClass()}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">View filters</p>
+          <div className="mt-3 grid gap-3">
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
+              <select
+                value={status}
+                onChange={(event) => {
+                  const next = event.target.value as Appointment["status"] | "ALL";
+                  setStatus(next);
+                  void load(next, fromDate, toDate);
+                }}
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              >
+                <option value="ALL">All appointments</option>
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELED">Canceled</option>
+                <option value="NO_SHOW">No show</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setFromDate(next);
+                  void load(status, next, toDate);
+                }}
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setToDate(next);
+                  void load(status, fromDate, next);
+                }}
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              />
+            </label>
           </div>
         </div>
       </div>
