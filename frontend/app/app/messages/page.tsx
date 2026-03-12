@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
 
+const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
+
 function frontDeskPriorityWeight(thread: OrgMessageThread) {
   const priority = thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority;
   if (priority === "urgent") return 0;
@@ -33,6 +35,23 @@ function getThreadStateBadge(thread: OrgMessageThread) {
   if (frontDesk?.state === "closed") return { label: "Closed", tone: "success" as const };
   if (frontDesk?.state === "spam") return { label: "Spam", tone: "neutral" as const };
   return null;
+}
+
+function threadFilterLabel(value: (typeof threadFilters)[number]) {
+  switch (value) {
+    case "needs_follow_up":
+      return "Needs follow-up";
+    case "contacted":
+      return "Contacted";
+    case "booked":
+      return "Booked";
+    case "closed":
+      return "Closed";
+    case "spam":
+      return "Spam";
+    default:
+      return "All";
+  }
 }
 
 function formatWhen(value: string) {
@@ -97,6 +116,7 @@ export default function AppMessagesPage() {
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [threadFilter, setThreadFilter] = useState<(typeof threadFilters)[number]>("ALL");
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [canSendMessages, setCanSendMessages] = useState(false);
@@ -167,12 +187,17 @@ export default function AppMessagesPage() {
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query))
         );
-    return [...matched].sort((a, b) => {
-      const priorityDelta = frontDeskPriorityWeight(a) - frontDeskPriorityWeight(b);
-      if (priorityDelta !== 0) return priorityDelta;
-      return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
-    });
-  }, [search, threads]);
+    return [...matched]
+      .filter((thread) => {
+        if (threadFilter === "ALL") return true;
+        return (threadFrontDesk(thread)?.state || "closed") === threadFilter;
+      })
+      .sort((a, b) => {
+        const priorityDelta = frontDeskPriorityWeight(a) - frontDeskPriorityWeight(b);
+        if (priorityDelta !== 0) return priorityDelta;
+        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+      });
+  }, [search, threadFilter, threads]);
   const threadsWithActionNeeded = useMemo(
     () =>
       threads.filter(
@@ -310,6 +335,22 @@ export default function AppMessagesPage() {
                   className="h-11 w-full rounded-xl border bg-background pl-10 pr-3 text-sm"
                 />
               </label>
+              <div className="flex flex-wrap gap-2">
+                {threadFilters.map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setThreadFilter(filter)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors ${
+                      threadFilter === filter
+                        ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(31,58,138,0.16)]"
+                        : "bg-white text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {threadFilterLabel(filter)}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
