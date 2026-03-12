@@ -47,11 +47,11 @@ function buildThresholdSignals(input: {
 }
 
 function deriveNotes(input: { lead: Lead | null; aiSummary: string | null; transcript: string | null }) {
-  const leadNotes = normalizeMeaningfulText(input.lead?.notes);
-  if (leadNotes) return leadNotes;
-
   const summary = normalizeMeaningfulText(input.aiSummary);
   if (summary) return summary;
+
+  const leadNotes = normalizeMeaningfulText(input.lead?.notes);
+  if (leadNotes) return leadNotes;
 
   const transcript = normalizeMeaningfulText(input.transcript);
   if (!transcript) return null;
