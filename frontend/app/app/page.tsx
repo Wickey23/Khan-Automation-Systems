@@ -642,6 +642,7 @@ export default function AppOverviewPage() {
       kind: "request" as const,
       title: request.customerName || "Customer request",
       meta: request.requestedTimeLabel || request.requestedPreference || formatShortDate(request.lastEventAt),
+      sourceLabel: "Booking request",
       badge: requestStatusLabel(request.status),
       badgeTone: requestStatusTone(request.status),
       summary: request.issueSummary || "Appointment request waiting for review."
@@ -654,6 +655,7 @@ export default function AppOverviewPage() {
       kind: "lead" as const,
       title: lead.name || lead.business || "New lead",
       meta: lead.phone || formatShortDate(lead.createdAt),
+      sourceLabel: lead.frontDesk?.recommendedAction === "Call back now" ? "Callback lead" : "Open lead",
       badge: followUpLabel(lead.frontDesk),
       badgeTone:
         lead.frontDesk?.frontDeskPriority === "urgent"
@@ -926,6 +928,7 @@ export default function AppOverviewPage() {
                     <Badge className={clientBadgeClass(item.badgeTone)}>{item.badge}</Badge>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">{item.summary}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{item.sourceLabel}</p>
                   <p className="mt-2 text-xs font-medium text-foreground/80">
                     {item.kind === "request" ? "Open booking request" : "Open lead follow-up"}
                   </p>
