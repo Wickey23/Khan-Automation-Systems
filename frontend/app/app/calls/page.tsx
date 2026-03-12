@@ -17,6 +17,7 @@ import {
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
@@ -621,7 +622,15 @@ export default function AppCallsPage() {
                       shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
                       setSelectedCall(call);
                     }}
-                    className={`w-full p-5 text-left transition-all ${frontDeskCardClass("default")} ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
+                    className={`w-full p-5 text-left transition-all ${frontDeskCardClass("default")} ${
+                      call.frontDesk?.followUpState === "closed"
+                        ? frontDeskOutcomeSurfaceClass("resolved")
+                        : call.frontDesk?.followUpState === "booked"
+                          ? frontDeskOutcomeSurfaceClass("booked")
+                          : call.recoverySmsResponse
+                            ? frontDeskOutcomeSurfaceClass("saved")
+                            : frontDeskOutcomeSurfaceClass("active")
+                    } ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">

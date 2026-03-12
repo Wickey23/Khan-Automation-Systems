@@ -18,6 +18,7 @@ import {
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
@@ -538,6 +539,14 @@ export default function AppMessagesPage() {
                         setTo(thread.contactPhone || "");
                       }}
                       className={`w-full border-t px-5 py-4 text-left transition-colors first:border-t-0 hover:bg-muted/30 ${
+                        threadFrontDesk(thread)?.state === "closed"
+                          ? frontDeskOutcomeSurfaceClass("resolved")
+                          : threadFrontDesk(thread)?.state === "booked"
+                            ? frontDeskOutcomeSurfaceClass("booked")
+                            : latestThreadDirection(thread) === "Customer replied"
+                              ? frontDeskOutcomeSurfaceClass("saved")
+                              : frontDeskOutcomeSurfaceClass("active")
+                      } ${
                         selectedId === thread.id ? "bg-primary/[0.06]" : ""
                       } ${selectedId === thread.id ? "shadow-[inset_0_0_0_1px_rgba(31,58,138,0.14)]" : ""}`}
                     >

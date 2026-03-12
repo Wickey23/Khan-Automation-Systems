@@ -41,6 +41,7 @@ import {
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
   frontDeskOutcomeBadgeMeta,
+  frontDeskOutcomeSurfaceClass,
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
@@ -925,6 +926,14 @@ export default function AppAppointmentsPage() {
                           <div
                             key={request.id}
                             className={`${frontDeskCardClass("default")} p-4 ${
+                              request.status === "CLOSED" || request.status === "DENIED"
+                                ? frontDeskOutcomeSurfaceClass("resolved")
+                                : request.status === "SCHEDULED"
+                                  ? frontDeskOutcomeSurfaceClass("booked")
+                                  : request.latestMessageDirection === "INBOUND"
+                                    ? frontDeskOutcomeSurfaceClass("saved")
+                                    : frontDeskOutcomeSurfaceClass("active")
+                            } ${
                               request.id === highlightedRequestId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""
                             }`}
                           >

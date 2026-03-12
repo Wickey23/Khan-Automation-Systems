@@ -38,6 +38,7 @@ import {
   frontDeskCardClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
@@ -1002,7 +1003,15 @@ export default function AppOverviewPage() {
                       ? `/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId)}`
                       : `/app/calls?callId=${encodeURIComponent(call.id)}`
                   }
-                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")} ${
+                    overviewCallOutcomeBadge(call)?.label === "Resolved"
+                      ? frontDeskOutcomeSurfaceClass("resolved")
+                      : overviewCallOutcomeBadge(call)?.label === "Booked outcome"
+                        ? frontDeskOutcomeSurfaceClass("booked")
+                        : overviewCallOutcomeBadge(call)?.label === "Saved lead"
+                          ? frontDeskOutcomeSurfaceClass("saved")
+                          : frontDeskOutcomeSurfaceClass("active")
+                  }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
@@ -1084,7 +1093,13 @@ export default function AppOverviewPage() {
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")} ${
+                    item.badge === "Resolved"
+                      ? frontDeskOutcomeSurfaceClass("resolved")
+                      : item.badge === "Booked"
+                        ? frontDeskOutcomeSurfaceClass("booked")
+                        : frontDeskOutcomeSurfaceClass("active")
+                  }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
@@ -1140,7 +1155,15 @@ export default function AppOverviewPage() {
                 <Link
                   key={call.id}
                   href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
-                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")} ${
+                    overviewCallOutcomeBadge(call)?.label === "Resolved"
+                      ? frontDeskOutcomeSurfaceClass("resolved")
+                      : overviewCallOutcomeBadge(call)?.label === "Booked outcome"
+                        ? frontDeskOutcomeSurfaceClass("booked")
+                        : overviewCallOutcomeBadge(call)?.label === "Saved lead"
+                          ? frontDeskOutcomeSurfaceClass("saved")
+                          : frontDeskOutcomeSurfaceClass("active")
+                  }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
@@ -1226,7 +1249,15 @@ export default function AppOverviewPage() {
                   <Link
                     key={thread.id}
                     href={`/app/messages?threadId=${encodeURIComponent(thread.id)}`}
-                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")} ${
+                    overviewThreadOutcomeBadge(thread)?.label === "Resolved"
+                      ? frontDeskOutcomeSurfaceClass("resolved")
+                      : overviewThreadOutcomeBadge(thread)?.label === "Booked outcome"
+                        ? frontDeskOutcomeSurfaceClass("booked")
+                        : overviewThreadOutcomeBadge(thread)?.label === "Saved lead"
+                          ? frontDeskOutcomeSurfaceClass("saved")
+                          : frontDeskOutcomeSurfaceClass("active")
+                  }`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                       <div className="min-w-0 space-y-1">

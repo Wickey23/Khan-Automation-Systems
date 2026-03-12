@@ -19,6 +19,7 @@ import {
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
+  frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
@@ -435,7 +436,15 @@ export default function AppLeadsPage() {
             </div>
           ) : filtered.length ? (
             filtered.map((lead) => (
-                <Card key={lead.id} className={`${frontDeskCardClass("default")} ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
+                <Card key={lead.id} className={`${frontDeskCardClass("default")} ${
+                  lead.frontDesk?.state === "closed"
+                    ? frontDeskOutcomeSurfaceClass("resolved")
+                    : lead.frontDesk?.state === "booked"
+                      ? frontDeskOutcomeSurfaceClass("booked")
+                      : lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied"
+                        ? frontDeskOutcomeSurfaceClass("saved")
+                        : frontDeskOutcomeSurfaceClass("active")
+                } ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
                 <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.2fr)_220px_220px] xl:items-start">
                   <div className="space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">

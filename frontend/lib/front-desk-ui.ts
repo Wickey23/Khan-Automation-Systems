@@ -82,3 +82,16 @@ export function frontDeskSkeletonLineClass(width: "full" | "lg" | "md" | "sm" = 
           : "w-full";
   return `h-2.5 animate-pulse rounded-full bg-slate-200/90 ${sizeClass}`;
 }
+
+export function frontDeskOutcomeSurfaceClass(kind: "active" | "saved" | "booked" | "resolved") {
+  switch (kind) {
+    case "saved":
+      return "border-sky-200 bg-sky-50/45";
+    case "booked":
+      return "border-emerald-200 bg-emerald-50/45";
+    case "resolved":
+      return "border-slate-200 bg-slate-50/75 opacity-90";
+    default:
+      return "border-slate-200 bg-white";
+  }
+}
