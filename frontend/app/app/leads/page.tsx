@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/ui/page";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
 const queueStates = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
+type PipelineStage = (typeof pipelineStages)[number];
 
 function prettyStage(value: string) {
   return value.replaceAll("_", " ").toLowerCase();
@@ -96,6 +97,34 @@ function leadStatusTone(status: Lead["status"]) {
     default:
       return "neutral";
   }
+}
+
+function leadQuickActions(lead: Lead): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
+  if (lead.frontDesk?.state === "spam") {
+    return [{ label: "Close request", stage: "COMPLETED", tone: "outline" }];
+  }
+  if (lead.frontDesk?.state === "booked" || lead.pipelineStage === "SCHEDULED") {
+    return [
+      { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
+      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+    ];
+  }
+  if (lead.frontDesk?.recommendedAction === "Offer times" || lead.pipelineStage === "NEEDS_SCHEDULING") {
+    return [
+      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
+    ];
+  }
+  if (lead.frontDesk?.state === "contacted") {
+    return [
+      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+    ];
+  }
+  return [
+    { label: "Keep open", stage: "NEW_LEAD", tone: "outline" },
+    { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" }
+  ];
 }
 
 export default function AppLeadsPage() {
@@ -287,8 +316,8 @@ export default function AppLeadsPage() {
         <div className="space-y-3">
           {filtered.length ? (
             filtered.map((lead) => (
-              <Card key={lead.id} className={lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}>
-                <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_180px_190px] lg:items-center">
+                <Card key={lead.id} className={lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}>
+                <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_220px_220px] lg:items-center">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
@@ -307,6 +336,19 @@ export default function AppLeadsPage() {
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>{formatActivityLabel(lead)}</span>
                       </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {leadQuickActions(lead).map((action) => (
+                        <Button
+                          key={`${lead.id}-${action.stage}`}
+                          size="sm"
+                          variant={action.tone}
+                          disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
+                          onClick={() => void onPipelineChange(lead.id, action.stage)}
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
                     </div>
                   </div>
 
@@ -327,12 +369,13 @@ export default function AppLeadsPage() {
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    <p className="page-eyebrow">Details</p>
+                    <p className="page-eyebrow">Follow-up brief</p>
                     <p className="text-muted-foreground">{formatActivityLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
                     {lead.frontDesk?.recommendedAction ? (
                       <p className="text-muted-foreground">Next action: {lead.frontDesk.recommendedAction}</p>
                     ) : null}
+                    <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
                     {lead.classification ? (
                       <p className="text-muted-foreground">
                         Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}
