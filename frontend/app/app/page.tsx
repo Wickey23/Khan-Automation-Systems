@@ -325,6 +325,11 @@ function latestCallDirection(call: OrgCallRecord) {
   return "No follow-up movement yet";
 }
 
+function overviewCallActionLabel(call: OrgCallRecord) {
+  if (String(call.recoverySmsResponse || "").trim() && call.recoverySmsThreadId) return "Review reply";
+  return call.frontDesk?.recommendedAction || "Review request";
+}
+
 function overviewLeadActionLabel(lead: Lead) {
   if (lead.latestAppointmentRequestId && lead.latestMessageThreadId && lead.frontDesk?.needsFollowUp) {
     return "Review reply";
@@ -1050,7 +1055,7 @@ export default function AppOverviewPage() {
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{call.frontDesk?.urgency || "Standard priority"}</span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
-                    <span>{call.frontDesk?.recommendedAction || "Review request"}</span>
+                    <span>{overviewCallActionLabel(call)}</span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{latestCallDirection(call)}</span>
                   </div>

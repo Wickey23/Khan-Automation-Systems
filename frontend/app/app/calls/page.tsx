@@ -585,7 +585,7 @@ export default function AppCallsPage() {
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{call.frontDesk?.urgency || "Standard priority"}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{call.frontDesk?.recommendedAction || getNextAction(call)}</span>
+                      <span>{callPrimaryActionLabel(call)}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
