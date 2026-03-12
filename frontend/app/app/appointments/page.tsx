@@ -34,6 +34,31 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page";
 
+function requestActionLabel(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "Review request";
+  if (request.status === "APPROVED") return "Offer times";
+  if (request.status === "SLOT_OFFERED") return "Wait for reply";
+  if (request.status === "SCHEDULED") return "Confirm booking";
+  return "No action needed";
+}
+
+function requestActionTone(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "warning";
+  if (request.status === "APPROVED") return "booking";
+  if (request.status === "SLOT_OFFERED") return "pending";
+  if (request.status === "SCHEDULED") return "success";
+  if (request.status === "DENIED") return "critical";
+  return "neutral";
+}
+
+function requestStatusLabel(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "Needs review";
+  if (request.status === "SLOT_OFFERED") return "Awaiting reply";
+  if (request.status === "APPROVED") return "Ready to book";
+  if (request.status === "SCHEDULED") return "Booked";
+  return request.status.replaceAll("_", " ");
+}
+
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const todayDateValue = (() => {
@@ -606,9 +631,9 @@ export default function AppAppointmentsPage() {
   const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
   const nextFocusLabel =
     pendingAppointmentRequests.length > 0
-      ? `${pendingAppointmentRequests.length} requests need review`
+      ? `${pendingAppointmentRequests.length} requests need a booking decision`
       : offeredAppointmentRequests.length > 0
-        ? `${offeredAppointmentRequests.length} customers are waiting on slot follow-up`
+        ? `${offeredAppointmentRequests.length} customers are waiting on a reply`
         : viewMode === "CALENDAR"
           ? "Review the schedule for conflicts"
           : "Review the appointment list";
@@ -786,15 +811,14 @@ export default function AppAppointmentsPage() {
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>
                                 <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
                               </div>
-                              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
-                                {request.status === "PENDING_REVIEW"
-                                  ? "Request Captured"
-                                  : request.status === "SLOT_OFFERED"
-                                    ? "Awaiting Reply"
-                                    : request.status === "SCHEDULED"
-                                      ? "Scheduled"
-                                      : request.status.replaceAll("_", " ")}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                  {requestStatusLabel(request)}
+                                </span>
+                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
+                                  {requestActionLabel(request)}
+                                </span>
+                              </div>
                             </div>
                             <div className="mt-3 grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
                               <div className="space-y-3 text-sm">
@@ -822,6 +846,7 @@ export default function AppAppointmentsPage() {
                                 </div>
                                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                                   <span>State: {request.requestState}</span>
+                                  <span>Next action: {requestActionLabel(request)}</span>
                                   {request.leadId ? (
                                     <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
                                       Open lead
@@ -835,14 +860,17 @@ export default function AppAppointmentsPage() {
                               <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
                                 <div>
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Next office action</span>
-                                  <p className="mt-1 text-sm text-slate-900">
+                                  <p className="mt-1 text-sm text-slate-900">{requestActionLabel(request)}</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
                                     {request.status === "PENDING_REVIEW"
-                                      ? "Review and assign this request."
+                                      ? "Review the request, assign the right technician, and decide whether to offer times."
                                       : request.status === "APPROVED"
-                                        ? "Offer a time or schedule directly."
+                                        ? "Send slots or book directly while the request is still fresh."
                                         : request.status === "SLOT_OFFERED"
-                                          ? "Waiting for the customer to reply."
-                                          : "No immediate action required."}
+                                          ? "The customer has a slot offer. Follow up if they do not reply."
+                                          : request.status === "SCHEDULED"
+                                            ? "The request is already booked."
+                                            : "No immediate action required."}
                                   </p>
                                 </div>
                                 <div className="text-xs text-muted-foreground">SMS: {request.effectiveSmsPhone}</div>
