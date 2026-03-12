@@ -72,6 +72,15 @@ function frontDeskPriorityLabel(lead: Lead) {
   return "Normal priority";
 }
 
+function leadWorkTypeLabel(lead: Lead) {
+  if (lead.frontDesk?.recommendedAction === "Call back now") return "Callback";
+  if (lead.frontDesk?.recommendedAction === "Offer times" || lead.pipelineStage === "NEEDS_SCHEDULING") return "Scheduling";
+  if (lead.frontDesk?.state === "booked") return "Booked work";
+  if (lead.frontDesk?.state === "closed") return "Closed";
+  if (lead.frontDesk?.state === "spam") return "Spam";
+  return "General follow-up";
+}
+
 function queueStateLabel(value: (typeof queueStates)[number]) {
   switch (value) {
     case "needs_follow_up":
@@ -343,6 +352,7 @@ export default function AppLeadsPage() {
                         <p className="text-sm text-muted-foreground">{lead.business}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={clientBadgeClass(frontDeskTone(lead))}>{leadWorkTypeLabel(lead)}</Badge>
                         <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
                         <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskPriorityLabel(lead)}</Badge>
                       </div>
