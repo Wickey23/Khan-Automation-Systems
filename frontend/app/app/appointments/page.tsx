@@ -35,6 +35,8 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page";
 
+const requestQueueFilters = ["ALL", "needs_review", "ready_to_book", "awaiting_reply", "booked", "closed"] as const;
+
 function requestActionLabel(request: AppointmentRequest) {
   if (request.status === "PENDING_REVIEW") return "Review request";
   if (request.status === "APPROVED") return "Offer times";
@@ -60,6 +62,31 @@ function requestStatusLabel(request: AppointmentRequest) {
   return request.status.replaceAll("_", " ");
 }
 
+function requestQueueState(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "needs_review" as const;
+  if (request.status === "APPROVED") return "ready_to_book" as const;
+  if (request.status === "SLOT_OFFERED") return "awaiting_reply" as const;
+  if (request.status === "SCHEDULED") return "booked" as const;
+  return "closed" as const;
+}
+
+function requestQueueFilterLabel(value: (typeof requestQueueFilters)[number]) {
+  switch (value) {
+    case "needs_review":
+      return "Needs review";
+    case "ready_to_book":
+      return "Ready to book";
+    case "awaiting_reply":
+      return "Awaiting reply";
+    case "booked":
+      return "Booked";
+    case "closed":
+      return "Closed";
+    default:
+      return "All";
+  }
+}
+
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -73,6 +100,7 @@ export default function AppAppointmentsPage() {
   })();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequest[]>([]);
+  const [requestQueueFilter, setRequestQueueFilter] = useState<(typeof requestQueueFilters)[number]>("ALL");
   const [viewMode, setViewMode] = useState<"LIST" | "CALENDAR">("CALENDAR");
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -632,6 +660,10 @@ export default function AppAppointmentsPage() {
   const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "APPROVED");
   const offeredAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SLOT_OFFERED");
   const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
+  const filteredAppointmentRequests =
+    requestQueueFilter === "ALL"
+      ? sortedAppointmentRequests
+      : sortedAppointmentRequests.filter((request) => requestQueueState(request) === requestQueueFilter);
   const nextFocusLabel =
     pendingAppointmentRequests.length > 0
       ? `${pendingAppointmentRequests.length} requests need a booking decision`
@@ -777,25 +809,52 @@ export default function AppAppointmentsPage() {
               </p>
             </div>
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              {sortedAppointmentRequests.length} request{sortedAppointmentRequests.length === 1 ? "" : "s"}
+              {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
             </span>
           </div>
           {sortedAppointmentRequests.length ? (
             <div className="space-y-6">
+              <div className="flex flex-wrap gap-2">
+                {requestQueueFilters.map((filter) => {
+                  const count =
+                    filter === "ALL"
+                      ? sortedAppointmentRequests.length
+                      : sortedAppointmentRequests.filter((request) => requestQueueState(request) === filter).length;
+                  return (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setRequestQueueFilter(filter)}
+                      className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                        requestQueueFilter === filter
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {requestQueueFilterLabel(filter)}{" "}
+                      <span className="text-xs text-muted-foreground">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
               {([
                 { key: "pending", title: "Pending review", items: pendingAppointmentRequests },
                 { key: "approved", title: "Approved", items: approvedAppointmentRequests },
                 { key: "offered", title: "Slot offered", items: offeredAppointmentRequests },
                 { key: "denied", title: "Denied", items: deniedAppointmentRequests }
               ] as const).map((section) =>
-                section.items.length ? (
+                section.items.filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter).length ? (
                   <div key={section.key} className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</h3>
-                      <span className="text-xs text-muted-foreground">{section.items.length}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {section.items.filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter).length}
+                      </span>
                     </div>
                     <div className="space-y-3">
-                      {section.items.map((request) => {
+                      {section.items
+                        .filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter)
+                        .map((request) => {
                         const reviewTone =
                           request.status === "APPROVED"
                             ? "success"
@@ -807,7 +866,7 @@ export default function AppAppointmentsPage() {
                         const draftTechnician = requestTechnicianDrafts[request.id] ?? request.assignedUserId ?? "";
                         const requestSlotDate = requestSlotDates[request.id] || "";
                         const slotsForRequest = requestAvailableSlots[request.id] || [];
-                        return (
+                          return (
                           <div
                             key={request.id}
                             className={`rounded-xl border bg-white p-4 shadow-sm ${
@@ -983,8 +1042,8 @@ export default function AppAppointmentsPage() {
                               </div>
                             ) : null}
                           </div>
-                        );
-                      })}
+                          );
+                        })}
                     </div>
                   </div>
                 ) : null
