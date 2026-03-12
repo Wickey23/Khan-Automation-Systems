@@ -62,6 +62,9 @@ export type Lead = {
   classificationConfidence?: number | null;
   source?: "WEB_FORM" | "PHONE_CALL" | "SMS";
   dnc?: boolean;
+  latestCallId?: string | null;
+  latestMessageThreadId?: string | null;
+  latestAppointmentRequestId?: string | null;
   frontDesk?: LeadFrontDesk;
   createdAt: string;
   updatedAt: string;

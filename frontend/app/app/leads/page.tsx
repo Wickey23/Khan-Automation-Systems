@@ -386,6 +386,23 @@ export default function AppLeadsPage() {
                       <p className="text-muted-foreground">Next action: {lead.frontDesk.recommendedAction}</p>
                     ) : null}
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {lead.latestCallId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
+                        </Button>
+                      ) : null}
+                      {lead.latestMessageThreadId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
+                        </Button>
+                      ) : null}
+                      {lead.latestAppointmentRequestId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`}>Open booking</Link>
+                        </Button>
+                      ) : null}
+                    </div>
                     {lead.classification ? (
                       <p className="text-muted-foreground">
                         Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}

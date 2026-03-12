@@ -921,19 +921,25 @@ orgRouter.get("/leads", async (req: AuthenticatedRequest, res) => {
     data: {
       leads: leads.map((lead) => {
         const normalizedPhone = normalizePhoneE164(lead.phone);
+        const latestMessageThread =
+          latestMessageThreadByLeadId.get(lead.id) || (normalizedPhone ? latestMessageThreadByPhone.get(normalizedPhone) || null : null);
+        const latestCall = latestCallByLeadId.get(lead.id) || (normalizedPhone ? latestCallByPhone.get(normalizedPhone) || null : null);
+        const latestAppointmentRequest = (() => {
+          const request = latestAppointmentRequestByLeadId.get(lead.id);
+          return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
+        })();
         const frontDesk = buildLeadFrontDesk({
           lead,
           serviceRequest: latestServiceRequestByLeadId.get(lead.id) || null,
-          appointmentRequest: (() => {
-            const request = latestAppointmentRequestByLeadId.get(lead.id);
-            return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
-          })(),
-          latestMessageThread:
-            latestMessageThreadByLeadId.get(lead.id) || (normalizedPhone ? latestMessageThreadByPhone.get(normalizedPhone) || null : null),
-          latestCall: latestCallByLeadId.get(lead.id) || (normalizedPhone ? latestCallByPhone.get(normalizedPhone) || null : null)
+          appointmentRequest: latestAppointmentRequest,
+          latestMessageThread,
+          latestCall
         });
         return {
           ...lead,
+          latestCallId: latestCall?.id || null,
+          latestMessageThreadId: latestMessageThread?.id || null,
+          latestAppointmentRequestId: latestAppointmentRequest?.id || null,
           frontDesk
         };
       }),
