@@ -273,7 +273,9 @@ export default function AppCallsPage() {
   const [canEditPipeline, setCanEditPipeline] = useState(false);
   const [savingLeadStage, setSavingLeadStage] = useState<PipelineStage | null>(null);
   const detailsRef = useRef<HTMLElement | null>(null);
+  const callItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const shouldScrollToDetailsRef = useRef(false);
+  const shouldScrollToQueueItemRef = useRef(false);
   const selectedCallIdRef = useRef<string | null>(null);
   const queryRef = useRef(query);
   const outcomeFilterRef = useRef(outcomeFilter);
@@ -299,6 +301,7 @@ export default function AppCallsPage() {
         const directMatch = data.calls.find((item) => item.id === deepLinkedCallId) || null;
         if (directMatch) {
           shouldScrollToDetailsRef.current = true;
+          shouldScrollToQueueItemRef.current = true;
           setSelectedCall(directMatch);
         }
       }
@@ -401,6 +404,14 @@ export default function AppCallsPage() {
     }
     return groups;
   }, [visibleCalls]);
+
+  useEffect(() => {
+    if (!deepLinkedCallId || !shouldScrollToQueueItemRef.current) return;
+    const target = callItemRefs.current[deepLinkedCallId];
+    if (!target) return;
+    shouldScrollToQueueItemRef.current = false;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [callsByDay, deepLinkedCallId]);
 
   const metrics = useMemo(() => {
     const totalVisible = visibleCalls.length;
@@ -604,9 +615,13 @@ export default function AppCallsPage() {
                   </div>
                   {group.calls.map((call) => {
                     const selected = selectedCall?.id === call.id;
+                    const linked = call.id === deepLinkedCallId;
                     return (
                       <button
                         key={call.id}
+                        ref={(node) => {
+                          callItemRefs.current[call.id] = node;
+                        }}
                         type="button"
                         onClick={() => {
                           shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
@@ -620,7 +635,7 @@ export default function AppCallsPage() {
                               : call.recoverySmsResponse
                                 ? frontDeskOutcomeSurfaceClass("saved")
                                 : frontDeskOutcomeSurfaceClass("active")
-                        } ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
+                        } ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || linked)} ${linked ? "ring-2 ring-primary/30 shadow-[0_18px_36px_rgba(31,58,138,0.12)]" : ""}`}
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="space-y-1">
@@ -631,6 +646,7 @@ export default function AppCallsPage() {
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                            {linked ? <Badge className={clientBadgeClass("pending")}>Opened from another workspace</Badge> : null}
                             <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>{frontDeskPriorityMeta(call.frontDesk?.frontDeskPriority).label}</Badge>
                             <Badge className={clientBadgeClass(getDispositionTone(call))}>{callWorkTypeLabel(call)}</Badge>
                             <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
@@ -726,6 +742,18 @@ export default function AppCallsPage() {
                 </div>
               ) : selectedCall ? (
                 <div className="space-y-6">
+                  {deepLinkedCallId && selectedCall.id === deepLinkedCallId ? (
+                    <div className={`${frontDeskContextPanelClass()} border-primary/20 text-sm`}>
+                      <p className="page-eyebrow">Linked call</p>
+                      <p className="mt-2 font-medium text-slate-950">
+                        You were sent here for {extractCallerName(selectedCall)} at{" "}
+                        {new Date(selectedCall.startedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.
+                      </p>
+                      <p className="mt-1 text-slate-700">
+                        This is the call another workspace linked you to. Review it first, then move into Inbox, Booking Queue, or Lead Queue if the next step lives there.
+                      </p>
+                    </div>
+                  ) : null}
                   <div className="space-y-2">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
