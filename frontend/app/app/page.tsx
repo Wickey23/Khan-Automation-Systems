@@ -585,6 +585,19 @@ export default function AppOverviewPage() {
     [state.calls]
   );
 
+  const callbackQueue = useMemo(
+    () =>
+      [...state.calls]
+        .filter((call) => call.frontDesk?.recommendedAction === "Call back now")
+        .sort((a, b) => {
+          const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
+          if (priorityDelta !== 0) return priorityDelta;
+          return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+        })
+        .slice(0, 4),
+    [state.calls]
+  );
+
   const recentMessageThreads = useMemo(
     () =>
       [...state.threads]
@@ -629,15 +642,13 @@ export default function AppOverviewPage() {
     return [...requestItems, ...leadItems].slice(0, 4);
   }, [frontDeskLeadQueue, openRequests]);
 
-  const urgentItemsCount = useMemo(
-    () =>
-      state.calls.filter((call) => call.frontDesk?.frontDeskPriority === "urgent" && call.frontDesk?.needsFollowUp).length +
-      state.leads.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent" && lead.frontDesk?.needsFollowUp).length,
-    [state.calls, state.leads]
-  );
-
   const missedRecoveryCount = useMemo(
     () => state.calls.filter((call) => (call.outcome === "MISSED" || call.outcome === "ABANDONED" || call.unansweredTransfer) && Boolean(call.recoverySmsSentAt)).length,
+    [state.calls]
+  );
+
+  const callbackCount = useMemo(
+    () => state.calls.filter((call) => call.frontDesk?.recommendedAction === "Call back now").length,
     [state.calls]
   );
 
@@ -710,8 +721,8 @@ export default function AppOverviewPage() {
             <p className="mt-2 text-sm text-slate-100">{loading ? "Checking follow-up queue..." : `${actionItems.length} requests need action right now`}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Urgent and missed-call items</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing incoming requests..." : `${urgentItemsCount} urgent items, ${missedRecoveryCount} recovered missed calls`}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Callbacks and missed-call rescue</p>
+            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing incoming requests..." : `${callbackCount} callbacks pending, ${missedRecoveryCount} recovered missed calls`}</p>
           </div>
         </div>
       </section>
@@ -795,6 +806,57 @@ export default function AppOverviewPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+            <div className="space-y-1">
+              <CardTitle>Needs callback</CardTitle>
+              <CardDescription>The calls that still need a live phone follow-up from the office.</CardDescription>
+            </div>
+            <Button asChild variant="ghost" className="shrink-0">
+              <Link href="/app/calls">Open call queue</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loading ? (
+              <div className="rounded-xl border border-border/90 bg-muted/25 px-4 py-4 text-sm text-muted-foreground">
+                Loading callback queue...
+              </div>
+            ) : callbackQueue.length ? (
+              callbackQueue.map((call) => (
+                <Link
+                  key={call.id}
+                  href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
+                  className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
+                      <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
+                    </div>
+                    <Badge className={clientBadgeClass(call.frontDesk?.frontDeskPriority === "urgent" ? "critical" : "warning")}>
+                      {call.frontDesk?.frontDeskPriority === "urgent" ? "Urgent callback" : "Callback needed"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
+                    {call.frontDesk?.summary || "Customer request still needs a callback."}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{call.frontDesk?.urgency || "Standard priority"}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{call.recoverySmsResponse ? "Recovery reply received" : call.recoverySmsSentAt ? "Recovery text sent" : "No recovery text sent"}</span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="empty-state">
+                Calls that still need a live callback will appear here once the front desk starts capturing missed or urgent requests.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
