@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
 import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
@@ -134,6 +135,8 @@ function formatPriorityLabel(priority: FrontDeskPriority | undefined) {
 }
 
 export default function AppCallsPage() {
+  const searchParams = useSearchParams();
+  const deepLinkedCallId = searchParams.get("callId") || "";
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [selectedDay, setSelectedDay] = useState(todayDateValue());
   const [page, setPage] = useState(1);
@@ -156,12 +159,14 @@ export default function AppCallsPage() {
 
   const loadCalls = useCallback(async (next: { day: string; query: string; outcome: "ALL" | OrgCallRecord["outcome"]; page: number }) => {
     try {
+      const queryText = next.query.trim();
+      const omitDateFilter = Boolean(deepLinkedCallId) && queryText === deepLinkedCallId;
       const data = await fetchOrgCalls({
-        date: next.day,
+        ...(omitDateFilter ? {} : { date: next.day }),
         page: next.page,
         pageSize: 25,
         ...(next.outcome !== "ALL" ? { outcome: next.outcome } : {}),
-        ...(next.query.trim() ? { query: next.query.trim() } : {})
+        ...(queryText ? { query: queryText } : {})
       });
       setCalls(data.calls);
       setPage(data.page);
@@ -170,6 +175,13 @@ export default function AppCallsPage() {
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
       setLastUpdated(new Date());
+      if (deepLinkedCallId) {
+        const directMatch = data.calls.find((item) => item.id === deepLinkedCallId) || null;
+        if (directMatch) {
+          shouldScrollToDetailsRef.current = true;
+          setSelectedCall(directMatch);
+        }
+      }
       if (selectedCallIdRef.current) {
         const fresh = data.calls.find((item) => item.id === selectedCallIdRef.current) || null;
         setSelectedCall(fresh);
@@ -181,7 +193,7 @@ export default function AppCallsPage() {
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
     }
-  }, []);
+  }, [deepLinkedCallId]);
 
   const refreshAndRepopulate = useCallback(async () => {
     setRefreshing(true);
@@ -224,6 +236,13 @@ export default function AppCallsPage() {
   useEffect(() => {
     void loadCalls({ day: selectedDay, query, outcome: outcomeFilter, page });
   }, [selectedDay, query, outcomeFilter, page, loadCalls]);
+
+  useEffect(() => {
+    if (!deepLinkedCallId) return;
+    setQuery(deepLinkedCallId);
+    setOutcomeFilter("ALL");
+    setPage(1);
+  }, [deepLinkedCallId]);
 
   useEffect(() => {
     if (!selectedCall || !detailsRef.current || !shouldScrollToDetailsRef.current) return;
@@ -379,7 +398,7 @@ export default function AppCallsPage() {
                       shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
                       setSelectedCall(call);
                     }}
-                    className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-all ${prioritySurface(call.frontDesk?.frontDeskPriority, selected)}`}
+                    className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-all ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">

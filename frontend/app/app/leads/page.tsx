@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchCustomerBase, fetchOrgLeads, getBillingStatus, getMe, updateLeadPipelineStage } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
@@ -81,6 +82,8 @@ function leadStatusTone(status: Lead["status"]) {
 
 export default function AppLeadsPage() {
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const highlightedLeadId = searchParams.get("leadId") || "";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
   const [plan, setPlan] = useState<"NONE" | "STARTER" | "PRO">("NONE");
@@ -110,12 +113,18 @@ export default function AppLeadsPage() {
       });
   }, []);
 
+  useEffect(() => {
+    if (!highlightedLeadId) return;
+    setQuery(highlightedLeadId);
+    setView("OPEN_LEADS");
+  }, [highlightedLeadId]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return leads.filter((lead) => {
       if (statusFilter !== "ALL" && lead.status !== statusFilter) return false;
       if (!q) return true;
-      return [lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), lead.frontDesk?.recommendedAction || "", lead.frontDesk?.state || ""]
+      return [lead.id, lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), lead.frontDesk?.recommendedAction || "", lead.frontDesk?.state || ""]
         .join(" ")
         .toLowerCase()
         .includes(q);
@@ -261,7 +270,7 @@ export default function AppLeadsPage() {
         <div className="space-y-3">
           {filtered.length ? (
             filtered.map((lead) => (
-              <Card key={lead.id}>
+              <Card key={lead.id} className={lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}>
                 <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_180px_190px] lg:items-center">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-3">
