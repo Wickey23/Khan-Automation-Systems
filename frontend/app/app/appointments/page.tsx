@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   approveAppointmentRequest,
@@ -61,6 +62,8 @@ function requestStatusLabel(request: AppointmentRequest) {
 
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const highlightedRequestId = searchParams.get("requestId") || "";
   const todayDateValue = (() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -805,7 +808,12 @@ export default function AppAppointmentsPage() {
                         const requestSlotDate = requestSlotDates[request.id] || "";
                         const slotsForRequest = requestAvailableSlots[request.id] || [];
                         return (
-                          <div key={request.id} className="rounded-xl border bg-white p-4 shadow-sm">
+                          <div
+                            key={request.id}
+                            className={`rounded-xl border bg-white p-4 shadow-sm ${
+                              request.id === highlightedRequestId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""
+                            }`}
+                          >
                             <div className="flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between">
                               <div>
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>

@@ -761,7 +761,15 @@ export default function AppOverviewPage() {
               </div>
             ) : newRequestsAndLeads.length ? (
               newRequestsAndLeads.map((item) => (
-                <div key={item.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
+                <Link
+                  key={item.id}
+                  href={
+                    item.kind === "request"
+                      ? `/app/appointments?requestId=${encodeURIComponent(item.id.replace("request-", ""))}`
+                      : `/app/leads?leadId=${encodeURIComponent(item.id.replace("lead-", ""))}`
+                  }
+                  className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{item.title}</p>
@@ -770,7 +778,7 @@ export default function AppOverviewPage() {
                     <Badge className={clientBadgeClass(item.badgeTone)}>{item.badge}</Badge>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">{item.summary}</p>
-                </div>
+                </Link>
               ))
             ) : (
               <div className="empty-state">
@@ -797,7 +805,11 @@ export default function AppOverviewPage() {
               </div>
             ) : recentCalls.length ? (
               recentCalls.map((call) => (
-                <div key={call.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
+                <Link
+                  key={call.id}
+                  href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
+                  className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
@@ -825,7 +837,7 @@ export default function AppOverviewPage() {
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{call.frontDesk?.recommendedAction || "Review request"}</span>
                   </div>
-                </div>
+                </Link>
               ))
             ) : (
               <div className="empty-state">
