@@ -51,24 +51,24 @@ export function frontDeskOutcomeBadgeMeta(kind: "saved" | "booked" | "resolved")
 
 export function frontDeskCardClass(kind: "default" | "muted" | "focus" = "default") {
   if (kind === "focus") {
-    return "rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-px hover:shadow-[0_18px_36px_rgba(15,23,42,0.10)]";
+    return "rounded-[26px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(245,249,255,0.98)_62%,rgba(231,241,252,0.96)_100%)] shadow-[0_22px_48px_rgba(15,23,42,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_26px_54px_rgba(15,23,42,0.15)]";
   }
   if (kind === "muted") {
-    return "rounded-2xl border border-border/80 bg-muted/[0.16] shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/[0.24]";
+    return "rounded-[24px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.95)_0%,rgba(241,245,249,0.95)_100%)] shadow-[0_10px_24px_rgba(15,23,42,0.05)] transition-colors hover:bg-[linear-gradient(180deg,rgba(245,248,252,0.98)_0%,rgba(237,242,247,0.98)_100%)]";
   }
-  return "rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-px hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)]";
+  return "rounded-[24px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_100%)] shadow-[0_16px_36px_rgba(15,23,42,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(15,23,42,0.10)]";
 }
 
 export function frontDeskContextPanelClass() {
-  return "rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]";
+  return "rounded-[26px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(244,248,253,0.98)_70%,rgba(233,241,251,0.95)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.08)]";
 }
 
 export function frontDeskEmptyStateClass() {
-  return "rounded-2xl border border-dashed border-slate-300 bg-slate-50/90 px-4 py-6 text-sm text-slate-600";
+  return "rounded-[24px] border border-dashed border-slate-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(243,248,253,0.96)_100%)] px-5 py-7 text-sm leading-6 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]";
 }
 
 export function frontDeskLoadingCardClass() {
-  return "rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]";
+  return "rounded-[24px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,249,252,0.98)_100%)] px-4 py-4 shadow-[0_16px_36px_rgba(15,23,42,0.06)]";
 }
 
 export function frontDeskSkeletonLineClass(width: "full" | "lg" | "md" | "sm" = "full") {
@@ -86,12 +86,12 @@ export function frontDeskSkeletonLineClass(width: "full" | "lg" | "md" | "sm" = 
 export function frontDeskOutcomeSurfaceClass(kind: "active" | "saved" | "booked" | "resolved") {
   switch (kind) {
     case "saved":
-      return "border-sky-200 bg-sky-50/45";
+      return "border-sky-200/90 bg-[linear-gradient(180deg,rgba(240,249,255,0.96)_0%,rgba(224,242,254,0.9)_100%)]";
     case "booked":
-      return "border-emerald-200 bg-emerald-50/45";
+      return "border-emerald-200/90 bg-[linear-gradient(180deg,rgba(240,253,244,0.96)_0%,rgba(220,252,231,0.9)_100%)]";
     case "resolved":
-      return "border-slate-200 bg-slate-50/75 opacity-90";
+      return "border-slate-200/90 bg-[linear-gradient(180deg,rgba(248,250,252,0.95)_0%,rgba(241,245,249,0.92)_100%)] opacity-90";
     default:
-      return "border-slate-200 bg-white";
+      return "border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_100%)]";
   }
 }
