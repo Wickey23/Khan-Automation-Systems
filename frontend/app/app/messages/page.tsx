@@ -121,6 +121,17 @@ function latestThreadDirection(thread: OrgMessageThread) {
   return latest.direction === "INBOUND" ? "Customer replied" : "Office sent follow-up";
 }
 
+function threadWorkTypeLabel(thread: OrgMessageThread) {
+  const action = threadFrontDesk(thread)?.recommendedAction;
+  const state = threadFrontDesk(thread)?.state;
+  if (action === "Call back now") return "Callback";
+  if (action === "Offer times") return "Scheduling";
+  if (state === "booked") return "Booked work";
+  if (state === "closed") return "Closed";
+  if (state === "spam") return "Spam";
+  return "General follow-up";
+}
+
 function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
   if (!thread?.leadId) return [];
   const state = threadFrontDesk(thread)?.state;
@@ -451,6 +462,9 @@ export default function AppMessagesPage() {
                           <p className="mt-2 text-[11px] text-muted-foreground">Last update {formatWhen(thread.lastMessageAt)}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
+                            {threadWorkTypeLabel(thread)}
+                          </span>
                           {getThreadStateBadge(thread) ? (
                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(getThreadStateBadge(thread)!.tone)}`}>
                               {getThreadStateBadge(thread)!.label}
