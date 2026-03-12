@@ -16,6 +16,10 @@ import { PageHeader } from "@/components/ui/page";
 const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
+function normalizePhoneMatch(value: string | null | undefined) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 function frontDeskPriorityWeight(thread: OrgMessageThread) {
   const priority = thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority;
   if (priority === "urgent") return 0;
@@ -158,6 +162,7 @@ export default function AppMessagesPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
   const deepLinkedThreadId = searchParams.get("threadId") || "";
+  const deepLinkedContactPhone = searchParams.get("contactPhone") || "";
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
@@ -202,6 +207,12 @@ export default function AppMessagesPage() {
         if (deepLinkedThreadId) {
           return data.threads.some((thread) => thread.id === deepLinkedThreadId) ? deepLinkedThreadId : current || data.threads[0]?.id || "";
         }
+        if (deepLinkedContactPhone) {
+          const matchedThread = data.threads.find(
+            (thread) => normalizePhoneMatch(thread.contactPhone) === normalizePhoneMatch(deepLinkedContactPhone)
+          );
+          if (matchedThread) return matchedThread.id;
+        }
         return current || data.threads[0]?.id || "";
       });
     } catch {
@@ -214,12 +225,21 @@ export default function AppMessagesPage() {
       setMessagingReadiness(null);
       setCanEditPipeline(false);
     }
-  }, [deepLinkedThreadId]);
+  }, [deepLinkedContactPhone, deepLinkedThreadId]);
 
   useEffect(() => {
-    if (!deepLinkedThreadId) return;
-    setSelectedId(deepLinkedThreadId);
-  }, [deepLinkedThreadId]);
+    if (deepLinkedThreadId) {
+      setSelectedId(deepLinkedThreadId);
+      return;
+    }
+    if (!deepLinkedContactPhone) return;
+    setSelectedId((current) => {
+      const matchedThread = threads.find(
+        (thread) => normalizePhoneMatch(thread.contactPhone) === normalizePhoneMatch(deepLinkedContactPhone)
+      );
+      return matchedThread?.id || current;
+    });
+  }, [deepLinkedContactPhone, deepLinkedThreadId, threads]);
 
   useEffect(() => {
     void load();

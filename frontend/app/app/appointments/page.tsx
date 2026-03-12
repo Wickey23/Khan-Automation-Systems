@@ -955,6 +955,11 @@ export default function AppAppointmentsPage() {
                                       <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
                                     </Button>
                                   ) : null}
+                                  {request.effectiveSmsPhone ? (
+                                    <Button asChild size="sm" variant="outline">
+                                      <Link href={`/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`}>Open inbox</Link>
+                                    </Button>
+                                  ) : null}
                                   <Button asChild size="sm" variant="outline">
                                     <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
                                   </Button>
