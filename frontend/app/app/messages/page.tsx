@@ -575,6 +575,23 @@ export default function AppMessagesPage() {
                         <p className="mt-1 text-sm text-foreground">{latestThreadDirection(selected)}</p>
                       </div>
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selected.leadId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead</Link>
+                        </Button>
+                      ) : null}
+                      {selected.latestCallId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call</Link>
+                        </Button>
+                      ) : null}
+                      {selected.latestAppointmentRequestId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
                 {[...selected.messages]

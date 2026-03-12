@@ -2804,20 +2804,30 @@ orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
       threads: threads.map((thread) => {
         const normalizedPhone = normalizePhoneE164(thread.contactPhone);
         const lead = thread.lead || null;
+        const latestCall = lead
+          ? latestCallByLeadId.get(lead.id) || (normalizedPhone ? latestCallByPhone.get(normalizedPhone) || null : null)
+          : normalizedPhone
+            ? latestCallByPhone.get(normalizedPhone) || null
+            : null;
+        const latestAppointmentRequest = lead
+          ? (() => {
+              const request = latestAppointmentRequestByLeadId.get(lead.id);
+              return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
+            })()
+          : null;
         const frontDesk = lead
           ? buildLeadFrontDesk({
               lead,
               serviceRequest: latestServiceRequestByLeadId.get(lead.id) || null,
-              appointmentRequest: (() => {
-                const request = latestAppointmentRequestByLeadId.get(lead.id);
-                return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
-              })(),
-              latestCall: latestCallByLeadId.get(lead.id) || (normalizedPhone ? latestCallByPhone.get(normalizedPhone) || null : null),
+              appointmentRequest: latestAppointmentRequest,
+              latestCall,
               latestMessageThread: thread
             })
           : null;
         return {
           ...thread,
+          latestCallId: latestCall?.id || null,
+          latestAppointmentRequestId: latestAppointmentRequest?.id || null,
           lead: lead
             ? {
                 ...lead,

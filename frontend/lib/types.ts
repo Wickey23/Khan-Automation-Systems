@@ -460,6 +460,8 @@ export type OrgMessageThread = {
   id: string;
   orgId: string;
   leadId: string | null;
+  latestCallId?: string | null;
+  latestAppointmentRequestId?: string | null;
   channel: string;
   contactName: string | null;
   contactPhone: string;
