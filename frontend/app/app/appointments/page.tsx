@@ -33,7 +33,7 @@ import type {
 } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, SectionHeading } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -749,13 +749,36 @@ export default function AppAppointmentsPage() {
         eyebrow="Scheduling workspace"
         title="Booking Queue"
         description="Use this page to turn captured requests into scheduled work. Review new booking requests first, then manage the appointments already confirmed on the calendar."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={viewMode === "CALENDAR" ? "default" : "outline"}
+              onClick={() => setViewMode("CALENDAR")}
+            >
+              Calendar view
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "LIST" ? "default" : "outline"}
+              onClick={() => setViewMode("LIST")}
+            >
+              List view
+            </Button>
+            {canWrite && !featureDisabled ? (
+              <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)}>
+                {showDirectBooking ? "Hide office booking" : "Book manually"}
+              </Button>
+            ) : null}
+          </div>
+        }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,420px)] xl:items-start">
         <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>
-          <div className="space-y-3">
+          <div className="space-y-5">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Booking workflow</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Booking control center</p>
               <p className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-slate-900">{nextFocusLabel}</p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
                 Start with new requests, move reply-driven work through Inbox when needed, then use calendar or list view to confirm jobs already placed on the schedule.
@@ -796,84 +819,76 @@ export default function AppAppointmentsPage() {
         <div className={`${frontDeskWorkspaceCardClass("default")} p-5`}>
           <div className="space-y-4">
             <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workspace controls</p>
-              <p className="text-base font-semibold text-slate-900">Change the view, filter the schedule, and keep manual booking close at hand.</p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button
-                size="sm"
-                variant={viewMode === "CALENDAR" ? "default" : "outline"}
-                onClick={() => setViewMode("CALENDAR")}
-                className="w-full"
-              >
-                Calendar view
-              </Button>
-              <Button
-                size="sm"
-                variant={viewMode === "LIST" ? "default" : "outline"}
-                onClick={() => setViewMode("LIST")}
-                className="w-full"
-              >
-                List view
-              </Button>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Scheduling controls</p>
+              <p className="text-base font-semibold text-slate-900">Filter the schedule, focus the calendar, and keep office booking within reach.</p>
             </div>
             <div className="grid gap-3">
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
-              <select
-                value={status}
-                onChange={(event) => {
-                  const next = event.target.value as Appointment["status"] | "ALL";
-                  setStatus(next);
-                  void load(next, fromDate, toDate);
-                }}
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-              >
-                <option value="ALL">All appointments</option>
-                <option value="PENDING">Pending</option>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELED">Canceled</option>
-                <option value="NO_SHOW">No show</option>
-              </select>
-            </label>
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setFromDate(next);
-                  void load(status, next, toDate);
-                }}
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setToDate(next);
-                  void load(status, fromDate, next);
-                }}
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-              />
-            </label>
-          </div>
-            <div className="rounded-2xl border border-slate-200/90 bg-white/70 px-4 py-4 text-sm text-slate-700">
-              <p className="page-eyebrow">Direct booking</p>
-              <p className="mt-2 leading-6">
-                Use manual booking when the office already has the customer details and only needs to place the job on the calendar.
-              </p>
-              {canWrite && !featureDisabled ? (
-                <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)} className="mt-3">
-                  {showDirectBooking ? "Hide booking form" : "Open booking form"}
-                </Button>
-              ) : null}
+              <label className="text-sm">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
+                <select
+                  value={status}
+                  onChange={(event) => {
+                    const next = event.target.value as Appointment["status"] | "ALL";
+                    setStatus(next);
+                    void load(next, fromDate, toDate);
+                  }}
+                  className="mt-1 h-10 w-full rounded-xl border bg-background px-3"
+                >
+                  <option value="ALL">All appointments</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELED">Canceled</option>
+                  <option value="NO_SHOW">No show</option>
+                </select>
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">From</span>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setFromDate(next);
+                      void load(status, next, toDate);
+                    }}
+                    className="mt-1 h-10 w-full rounded-xl border bg-background px-3"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">To</span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setToDate(next);
+                      void load(status, fromDate, next);
+                    }}
+                    className="mt-1 h-10 w-full rounded-xl border bg-background px-3"
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="grid gap-3">
+              <div className="rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-4 text-sm text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <p className="page-eyebrow">Office booking</p>
+                <p className="mt-2 font-medium text-slate-950">Keep manual scheduling available, but separate from the live request queue.</p>
+                <p className="mt-1 leading-6">
+                  Use manual booking when the office already has the customer details and only needs to place the job on the calendar.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-4 text-sm text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <p className="page-eyebrow">Calendar connections</p>
+                <p className="mt-2 leading-6">
+                  {canManageCalendar
+                    ? calendarFeatureEnabled
+                      ? `Connected providers: ${calendarProviders.length || 0}.`
+                      : "Calendar connections are not enabled for this workspace yet."
+                    : "Google and Outlook booking connections are managed in Receptionist Setup."}
+                </p>
+              </div>
             </div>
             {!canManageCalendar ? (
               <div className="rounded-2xl border border-slate-200/90 bg-white/60 px-4 py-3 text-xs leading-6 text-muted-foreground">
@@ -892,58 +907,63 @@ export default function AppAppointmentsPage() {
 
       {!featureDisabled ? (
         <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
-          <div className="flex flex-col gap-4 border-b border-border/60 pb-5 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="page-eyebrow">Request board</p>
-              <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-slate-950">Appointment Requests</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Review what the assistant captured, decide who is ready for scheduling, and keep reply-driven booking work moving toward a confirmed job.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px]">
-              <div className={frontDeskMetricCardClass()}>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs review</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
+          <SectionHeading
+            eyebrow="Request board"
+            title="Appointment requests"
+            description="Review what the assistant captured, decide who is ready for scheduling, and keep reply-driven booking work moving toward a confirmed job."
+            actions={
+              <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px]">
+                <div className={frontDeskMetricCardClass()}>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs review</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
+                </div>
+                <div className={frontDeskMetricCardClass()}>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Ready to book</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{approvedAppointmentRequests.length}</p>
+                </div>
+                <div className={frontDeskMetricCardClass()}>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{offeredAppointmentRequests.length}</p>
+                </div>
               </div>
-              <div className={frontDeskMetricCardClass()}>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Ready to book</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{approvedAppointmentRequests.length}</p>
-              </div>
-              <div className={frontDeskMetricCardClass()}>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{offeredAppointmentRequests.length}</p>
-              </div>
-            </div>
-          </div>
+            }
+            className="border-b border-border/60 pb-5"
+          />
           {sortedAppointmentRequests.length ? (
             <div className="space-y-6 pt-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap gap-2">
-                {requestQueueFilters.map((filter) => {
-                  const count =
-                    filter === "ALL"
-                      ? sortedAppointmentRequests.length
-                      : sortedAppointmentRequests.filter((request) => requestQueueState(request) === filter).length;
-                  return (
-                    <button
-                      key={filter}
-                      type="button"
-                      onClick={() => setRequestQueueFilter(filter)}
-                      className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                        requestQueueFilter === filter
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      }`}
-                    >
-                      {requestQueueFilterLabel(filter)}{" "}
-                      <span className="text-xs text-muted-foreground">{count}</span>
-                    </button>
-                    );
-                })}
+              <div className={`${frontDeskContextPanelClass()} flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between`}>
+                <div>
+                  <p className="page-eyebrow">Queue filters</p>
+                  <p className="mt-2 text-sm text-slate-700">Separate fresh requests, reply-driven booking work, and already-finished outcomes.</p>
                 </div>
-                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                  {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
-                </span>
+                <div className="flex flex-col gap-3 lg:items-end">
+                  <div className="flex flex-wrap gap-2">
+                    {requestQueueFilters.map((filter) => {
+                      const count =
+                        filter === "ALL"
+                          ? sortedAppointmentRequests.length
+                          : sortedAppointmentRequests.filter((request) => requestQueueState(request) === filter).length;
+                      return (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setRequestQueueFilter(filter)}
+                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                            requestQueueFilter === filter
+                              ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(31,58,138,0.16)]"
+                              : "border-border bg-background text-slate-700 hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {requestQueueFilterLabel(filter)}{" "}
+                          <span className={`text-xs ${requestQueueFilter === filter ? "text-primary-foreground/80" : "text-slate-500"}`}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="rounded-full border border-slate-200/90 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+                    {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
+                  </span>
+                </div>
               </div>
               {([
                 { key: "pending", title: "Pending review", items: pendingAppointmentRequests },
@@ -1249,32 +1269,33 @@ export default function AppAppointmentsPage() {
 
       {viewMode === "CALENDAR" ? (
         <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="page-eyebrow">Calendar view</p>
-              <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-slate-950">Appointments Calendar</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">Review scheduled work and outside calendar conflicts in one place.</p>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-              >
-                Previous
-              </Button>
-              <h2 className="text-base font-semibold">
-                {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-              </h2>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <SectionHeading
+            eyebrow="Calendar view"
+            title="Appointments calendar"
+            description="Review scheduled work and outside calendar conflicts in one place."
+            actions={
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                >
+                  Previous
+                </Button>
+                <h2 className="text-base font-semibold">
+                  {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+                </h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            }
+            className="mb-4"
+          />
           <div className="grid grid-cols-7 gap-2 text-center text-xs uppercase tracking-wide text-muted-foreground">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
               <div key={label} className="py-1">{label}</div>
@@ -1377,11 +1398,12 @@ export default function AppAppointmentsPage() {
         </div>
       ) : (
         <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
-          <div className="mb-4">
-            <p className="page-eyebrow">List view</p>
-            <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-slate-950">Appointments List</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Review upcoming, completed, and canceled appointments in one list.</p>
-          </div>
+          <SectionHeading
+            eyebrow="List view"
+            title="Appointments list"
+            description="Review upcoming, completed, and canceled appointments in one list."
+            className="mb-4"
+          />
           <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="bg-muted/40">
@@ -1495,18 +1517,16 @@ export default function AppAppointmentsPage() {
 
       {canWrite && !featureDisabled ? (
         <div className={`${frontDeskWorkspaceCardClass("subtle")} p-5 sm:p-6`}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="max-w-2xl">
-              <p className="page-eyebrow">Office booking</p>
-              <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-slate-950">Book directly when you already have the details</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Use this when the office already knows the customer and just needs to place the appointment on the calendar.
-              </p>
-            </div>
-            <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)}>
-              {showDirectBooking ? "Hide booking form" : "Open booking form"}
-            </Button>
-          </div>
+          <SectionHeading
+            eyebrow="Office booking"
+            title="Book directly when the office already has the details"
+            description="Use this when the office already knows the customer and just needs to place the appointment on the calendar."
+            actions={
+              <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)}>
+                {showDirectBooking ? "Hide booking form" : "Open booking form"}
+              </Button>
+            }
+          />
           {showDirectBooking ? (
             <>
           {customerBase.length > 0 ? (
