@@ -62,6 +62,15 @@ function requestStatusLabel(request: AppointmentRequest) {
   return request.status.replaceAll("_", " ");
 }
 
+function requestWorkTypeLabel(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "Review";
+  if (request.status === "APPROVED") return "Scheduling";
+  if (request.status === "SLOT_OFFERED") return "Waiting on customer";
+  if (request.status === "SCHEDULED") return "Booked work";
+  if (request.status === "CLOSED" || request.status === "DENIED") return "Closed";
+  return "Request";
+}
+
 function requestQueueState(request: AppointmentRequest) {
   if (request.status === "PENDING_REVIEW") return "needs_review" as const;
   if (request.status === "APPROVED") return "ready_to_book" as const;
@@ -883,6 +892,9 @@ export default function AppAppointmentsPage() {
                                 <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
+                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
+                                  {requestWorkTypeLabel(request)}
+                                </span>
                                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
                                   {requestStatusLabel(request)}
                                 </span>
