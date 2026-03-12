@@ -318,6 +318,13 @@ function latestThreadDirection(thread: OrgMessageThread) {
   return latestMessage.direction === "INBOUND" ? "Customer replied" : "Office sent follow-up";
 }
 
+function latestCallDirection(call: OrgCallRecord) {
+  if (String(call.recoverySmsResponse || "").trim()) return "Customer replied";
+  if (call.recoverySmsSentAt) return "Office sent recovery text";
+  if (call.frontDesk?.followUpState === "contacted") return "Office sent follow-up";
+  return "No follow-up movement yet";
+}
+
 export default function AppOverviewPage() {
   const [state, setState] = useState<DashboardState>({
     assignedPhoneNumber: null,
@@ -1030,6 +1037,8 @@ export default function AppOverviewPage() {
                     <span>{call.frontDesk?.urgency || "Standard priority"}</span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{call.frontDesk?.recommendedAction || "Review request"}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{latestCallDirection(call)}</span>
                   </div>
                 </Link>
                   );
@@ -1091,6 +1100,8 @@ export default function AppOverviewPage() {
                       <span>{frontDesk?.recommendedAction || "Review thread"}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{thread.contactPhone}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{formatShortDateTime(thread.lastMessageAt)}</span>
                     </div>
                   </Link>
                 );
