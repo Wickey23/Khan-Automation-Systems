@@ -18,9 +18,11 @@ import {
   frontDeskCardClass,
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
+  frontDeskLoadingCardClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
-  frontDeskPriorityMeta
+  frontDeskPriorityMeta,
+  frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
@@ -209,6 +211,7 @@ export default function AppLeadsPage() {
   const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
   const [plan, setPlan] = useState<"NONE" | "STARTER" | "PRO">("NONE");
   const [role, setRole] = useState<"CLIENT" | "CLIENT_STAFF" | "CLIENT_ADMIN" | "ADMIN" | "SUPER_ADMIN" | null>(null);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [queueFilter, setQueueFilter] = useState<(typeof queueStates)[number]>("ALL");
   const [pipelineAvailable, setPipelineAvailable] = useState(true);
@@ -231,6 +234,9 @@ export default function AppLeadsPage() {
         setPlan("NONE");
         setRole(null);
         setPipelineAvailable(false);
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, []);
 
@@ -390,7 +396,44 @@ export default function AppLeadsPage() {
 
       {view === "OPEN_LEADS" ? (
         <div className="space-y-3">
-          {filtered.length ? (
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className={frontDeskLoadingCardClass()}>
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_220px_220px] xl:items-start">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className={frontDeskSkeletonLineClass("md")} />
+                          <div className={frontDeskSkeletonLineClass("sm")} />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200/90" />
+                          <div className="h-6 w-24 animate-pulse rounded-full bg-slate-200/90" />
+                        </div>
+                      </div>
+                      <div className="h-6 w-36 animate-pulse rounded-full bg-slate-200/90" />
+                      <div className={frontDeskSkeletonLineClass()} />
+                      <div className={frontDeskSkeletonLineClass("lg")} />
+                    </div>
+                    <div className={frontDeskLoadingCardClass()}>
+                      <div className="space-y-3">
+                        <div className={frontDeskSkeletonLineClass("sm")} />
+                        <div className="h-10 animate-pulse rounded-xl bg-slate-200/90" />
+                      </div>
+                    </div>
+                    <div className={frontDeskLoadingCardClass()}>
+                      <div className="space-y-3">
+                        <div className={frontDeskSkeletonLineClass("sm")} />
+                        <div className={frontDeskSkeletonLineClass("md")} />
+                        <div className={frontDeskSkeletonLineClass("lg")} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length ? (
             filtered.map((lead) => (
                 <Card key={lead.id} className={`${frontDeskCardClass("default")} ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
                 <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.2fr)_220px_220px] xl:items-start">
@@ -529,7 +572,19 @@ export default function AppLeadsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {customerFiltered.length ? (
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1].map((item) => (
+                <div key={item} className={frontDeskLoadingCardClass()}>
+                  <div className="space-y-3">
+                    <div className={frontDeskSkeletonLineClass("md")} />
+                    <div className={frontDeskSkeletonLineClass("sm")} />
+                    <div className={frontDeskSkeletonLineClass("lg")} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : customerFiltered.length ? (
             customerFiltered.map((customer) => (
               <Card key={customer.phoneNumber}>
                 <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_220px_120px] xl:items-center">

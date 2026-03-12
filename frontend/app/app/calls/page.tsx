@@ -16,9 +16,11 @@ import {
   frontDeskCardClass,
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
+  frontDeskLoadingCardClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
-  frontDeskPriorityMeta
+  frontDeskPriorityMeta,
+  frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
 const callStateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
@@ -276,6 +278,7 @@ export default function AppCallsPage() {
   const deepLinkedCallId = searchParams.get("callId") || "";
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [selectedDay, setSelectedDay] = useState(todayDateValue());
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalVisible, setTotalVisible] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -332,6 +335,8 @@ export default function AppCallsPage() {
       setTotalPages(1);
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
+    } finally {
+      setLoading(false);
     }
   }, [deepLinkedCallId]);
 
@@ -583,7 +588,29 @@ export default function AppCallsPage() {
                 {visibleCalls.length} visible on this page
               </span>
             </div>
-            {visibleCalls.length ? (
+            {loading ? (
+              <div className="space-y-3">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className={frontDeskLoadingCardClass()}>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className={frontDeskSkeletonLineClass("md")} />
+                          <div className={frontDeskSkeletonLineClass("sm")} />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200/90" />
+                          <div className="h-6 w-24 animate-pulse rounded-full bg-slate-200/90" />
+                        </div>
+                      </div>
+                      <div className="h-6 w-32 animate-pulse rounded-full bg-slate-200/90" />
+                      <div className={frontDeskSkeletonLineClass()} />
+                      <div className={frontDeskSkeletonLineClass("lg")} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : visibleCalls.length ? (
               visibleCalls.map((call) => {
                 const selected = selectedCall?.id === call.id;
                 return (
@@ -711,7 +738,24 @@ export default function AppCallsPage() {
         <section ref={detailsRef} className="2xl:sticky 2xl:top-24 2xl:self-start">
           <Card className="border-slate-200 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
             <CardContent className="p-6">
-              {selectedCall ? (
+              {loading ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className={frontDeskSkeletonLineClass("sm")} />
+                    <div className={frontDeskSkeletonLineClass("md")} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[0, 1, 2, 3].map((item) => (
+                      <div key={item} className={frontDeskLoadingCardClass()}>
+                        <div className="space-y-3">
+                          <div className={frontDeskSkeletonLineClass("sm")} />
+                          <div className={frontDeskSkeletonLineClass("md")} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : selectedCall ? (
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

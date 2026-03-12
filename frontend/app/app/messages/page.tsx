@@ -17,9 +17,11 @@ import {
   frontDeskActionBadgeClass,
   frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
+  frontDeskLoadingCardClass,
   frontDeskOutcomeBadgeMeta,
   frontDeskPriorityBadgeClass,
-  frontDeskPriorityMeta
+  frontDeskPriorityMeta,
+  frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
 const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
@@ -222,6 +224,7 @@ export default function AppMessagesPage() {
   const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
   const [canEditPipeline, setCanEditPipeline] = useState(false);
   const [savingLeadStage, setSavingLeadStage] = useState<PipelineStage | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -268,6 +271,8 @@ export default function AppMessagesPage() {
       setCanSendMessages(false);
       setMessagingReadiness(null);
       setCanEditPipeline(false);
+    } finally {
+      setLoading(false);
     }
   }, [deepLinkedContactPhone, deepLinkedThreadId]);
 
@@ -494,7 +499,28 @@ export default function AppMessagesPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[620px] overflow-auto">
-            {!filteredThreads.length ? (
+            {loading ? (
+              <div className="m-5 space-y-3">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className={frontDeskLoadingCardClass()}>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className={frontDeskSkeletonLineClass("md")} />
+                          <div className={frontDeskSkeletonLineClass("sm")} />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200/90" />
+                          <div className="h-6 w-24 animate-pulse rounded-full bg-slate-200/90" />
+                        </div>
+                      </div>
+                      <div className="h-6 w-32 animate-pulse rounded-full bg-slate-200/90" />
+                      <div className={frontDeskSkeletonLineClass()} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : !filteredThreads.length ? (
               <div className={`${frontDeskEmptyStateClass()} m-5`}>
                 No SMS conversations are active yet. Missed-call recovery texts, booking replies, and customer follow-up threads will appear here when the office needs to respond.
               </div>
@@ -651,7 +677,29 @@ export default function AppMessagesPage() {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="max-h-[620px] space-y-3 overflow-auto pr-1">
-              {!selected ? (
+              {loading ? (
+                <div className="space-y-4">
+                  <div className={frontDeskLoadingCardClass()}>
+                    <div className="space-y-3">
+                      <div className={frontDeskSkeletonLineClass("sm")} />
+                      <div className={frontDeskSkeletonLineClass("md")} />
+                      <div className={frontDeskSkeletonLineClass()} />
+                    </div>
+                  </div>
+                  {[0, 1].map((item) => (
+                    <div key={item} className={frontDeskLoadingCardClass()}>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="h-5 w-20 animate-pulse rounded-full bg-slate-200/90" />
+                          <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/90" />
+                        </div>
+                        <div className={frontDeskSkeletonLineClass()} />
+                        <div className={frontDeskSkeletonLineClass("lg")} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !selected ? (
                 <div className={frontDeskEmptyStateClass()}>Select a thread to review the customer context first, then decide whether the office should reply, schedule, or resolve the request.</div>
               ) : !selected.messages.length ? (
                 <div className={frontDeskEmptyStateClass()}>This thread has no messages yet. New inbound replies and outbound follow-up will appear here when the conversation starts.</div>
