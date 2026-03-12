@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
-import { frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -652,14 +652,14 @@ export default function AppSettingsPage() {
       />
 
       <section className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <div className={frontDeskWorkspaceCardClass("subtle") + " p-5"}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Operations overview</p>
           <h2 className="text-lg font-semibold">Assistant at a glance</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Review the routing and booking setup that affects live calls before you move into the detailed sections.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-xl border bg-slate-50 p-4">
+            <div className={frontDeskContextPanelClass()}>
               <p className="page-eyebrow">Inbound mode</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{formatVoiceRoutingMode(state.voiceRoutingMode)}</p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -670,7 +670,7 @@ export default function AppSettingsPage() {
                   : "AI answers first"}
               </p>
             </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
+            <div className={frontDeskContextPanelClass()}>
               <p className="page-eyebrow">Calendar booking</p>
               <p className="mt-2 text-sm font-medium text-slate-950">
                 {primaryCalendarConnection ? `${primaryCalendarConnection.provider} connected` : "Manual scheduling"}
@@ -679,7 +679,7 @@ export default function AppSettingsPage() {
                 {primaryCalendarConnection ? primaryCalendarConnection.accountEmail : "No active calendar connection"}
               </p>
             </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
+            <div className={frontDeskContextPanelClass()}>
               <p className="page-eyebrow">Alert routing</p>
               <p className="mt-2 text-sm font-medium text-slate-950">
                 {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Live contacts set" : "Needs notification contact"}
@@ -688,19 +688,19 @@ export default function AppSettingsPage() {
                 {readinessHints.emails.length} email / {readinessHints.phones.length} phone recipient{readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
               </p>
             </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
+            <div className={frontDeskContextPanelClass()}>
               <p className="page-eyebrow">Timezone</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{state.timezone}</p>
               <p className="mt-1 text-xs text-muted-foreground">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"} configured</p>
             </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
+            <div className={frontDeskContextPanelClass()}>
               <p className="page-eyebrow">After hours</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{formatAfterHoursMode(state.afterHoursMode)}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {transferNumberCount > 0 ? `${transferNumberCount} transfer number${transferNumberCount === 1 ? "" : "s"} ready` : "No transfer number configured"}
               </p>
             </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
+            <div className={frontDeskContextPanelClass()}>
               <p className="page-eyebrow">Coverage</p>
               <p className="mt-2 text-sm font-medium text-slate-950">
                 {state.voiceMediaStreamingEnabled ? "Media streaming on" : "Standard call path"}
@@ -712,7 +712,7 @@ export default function AppSettingsPage() {
           </div>
         </div>
 
-        <section className="rounded-2xl border bg-white p-5 shadow-sm">
+        <section className={frontDeskWorkspaceCardClass("subtle") + " p-5"}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Go-live checks</p>
           <h2 className="text-lg font-semibold">Readiness snapshot</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -741,7 +741,7 @@ export default function AppSettingsPage() {
                 readinessHints.hasHours ? `${openDaysCount} open day${openDaysCount === 1 ? "" : "s"} set` : "Set your open days and hours"
               ]
             ].map(([label, value, detail]) => (
-              <div key={label} className="rounded-xl border bg-muted/20 p-4">
+              <div key={label} className={frontDeskContextPanelClass()}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="page-eyebrow">{label}</p>
@@ -770,16 +770,16 @@ export default function AppSettingsPage() {
                 This area is only for account verification and delivery diagnostics. It does not affect day-to-day assistant behavior.
               </p>
               <div className="mt-4 space-y-3">
-                <div className="rounded-xl border bg-slate-50 p-4">
+                <div className={frontDeskContextPanelClass()}>
                   <p className="page-eyebrow">Account email</p>
                   <p className="mt-2 text-sm font-medium text-slate-950">{security?.email || "Unknown"}</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border bg-slate-50 p-4">
+                  <div className={frontDeskContextPanelClass()}>
                     <p className="page-eyebrow">2FA policy</p>
                     <p className="mt-2 text-sm font-medium text-slate-950">{security?.twoFactorEnabledForAccount ? "Required for this account" : "Not required"}</p>
                   </div>
-                  <div className="rounded-xl border bg-slate-50 p-4">
+                  <div className={frontDeskContextPanelClass()}>
                     <p className="page-eyebrow">Email provider</p>
                     <p className="mt-2 text-sm font-medium text-slate-950">{security?.emailProviderConfigured ? "Configured" : "Missing"}</p>
                   </div>
@@ -787,15 +787,15 @@ export default function AppSettingsPage() {
               </div>
             </div>
             <div className="space-y-3">
-              <div className="rounded-xl border bg-slate-50 p-4">
+              <div className={frontDeskContextPanelClass()}>
                 <p className="page-eyebrow">Last code sent</p>
                 <p className="mt-2 text-sm font-medium text-slate-950">{formatDateTime(security?.lastOtpEmailSentAt)}</p>
               </div>
-              <div className="rounded-xl border bg-slate-50 p-4">
+              <div className={frontDeskContextPanelClass()}>
                 <p className="page-eyebrow">Last code verified</p>
                 <p className="mt-2 text-sm font-medium text-slate-950">{formatDateTime(security?.lastOtpVerifiedAt)}</p>
               </div>
-              <div className="rounded-xl border bg-slate-50 p-4">
+              <div className={frontDeskContextPanelClass()}>
                 <p className="page-eyebrow">Recent verification issue</p>
                 <p className="mt-2 text-sm font-medium text-slate-950">
                   {security?.lastOtpFailureReason ? security.lastOtpFailureReason.replace(/_/g, " ") : "No recent failure recorded"}
@@ -808,7 +808,7 @@ export default function AppSettingsPage() {
           </div>
         </AccordionContent>
       </AccordionItem>
-      <section className="grid gap-4 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2">
+      <section className={`grid gap-4 ${frontDeskWorkspaceCardClass("subtle")} p-5 sm:grid-cols-2`}>
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
           <h2 className="text-lg font-semibold">Business Info & Call Routing</h2>
@@ -817,21 +817,21 @@ export default function AppSettingsPage() {
           </p>
         </div>
         <div className="sm:col-span-2 grid gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border bg-slate-50 p-4">
+          <div className={frontDeskContextPanelClass()}>
             <p className="page-eyebrow">Office coverage</p>
             <p className="mt-2 text-sm font-medium text-slate-950">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"}</p>
           </div>
-          <div className="rounded-xl border bg-slate-50 p-4">
+          <div className={frontDeskContextPanelClass()}>
             <p className="page-eyebrow">After-hours action</p>
             <p className="mt-2 text-sm font-medium text-slate-950">{formatAfterHoursMode(state.afterHoursMode)}</p>
           </div>
-          <div className="rounded-xl border bg-slate-50 p-4">
+          <div className={frontDeskContextPanelClass()}>
             <p className="page-eyebrow">Transfer coverage</p>
             <p className="mt-2 text-sm font-medium text-slate-950">
               {transferNumberCount > 0 ? `${transferNumberCount} number${transferNumberCount === 1 ? "" : "s"}` : "Not configured"}
             </p>
           </div>
-          <div className="rounded-xl border bg-slate-50 p-4">
+          <div className={frontDeskContextPanelClass()}>
             <p className="page-eyebrow">Human-first routing</p>
             <p className="mt-2 text-sm font-medium text-slate-950">
               {supportsHumanForwardingMode(state.voiceRoutingMode) ? "Enabled" : "Off"}

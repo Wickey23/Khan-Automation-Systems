@@ -254,7 +254,12 @@ export default function AppOnboardingPage() {
         }
       />
       <Card className={frontDeskWorkspaceCardClass("hero")}>
-        <CardHeader><CardTitle>Business Profile</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle>Business Profile</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Start with the business details your office and assistant need on every request.
+          </p>
+        </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div><Label>Legal Business Name</Label><Input value={state.legalBusinessName} onChange={(e)=>setState((p)=>({...p,legalBusinessName:e.target.value}))} /></div>
           <div><Label>Display Name</Label><Input value={state.displayName} onChange={(e)=>setState((p)=>({...p,displayName:e.target.value}))} /></div>
@@ -265,7 +270,12 @@ export default function AppOnboardingPage() {
         </CardContent>
       </Card>
       <Card className={frontDeskWorkspaceCardClass("default")}>
-        <CardHeader><CardTitle>Operations Preferences</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle>Operations Preferences</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Tell the system how bookings, after-hours handling, and intake questions should work.
+          </p>
+        </CardHeader>
         <CardContent className="grid gap-3">
           <div><Label>Services (one per line)</Label><Textarea value={state.services} onChange={(e)=>setState((p)=>({...p,services:e.target.value}))} /></div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -356,7 +366,12 @@ export default function AppOnboardingPage() {
         </CardContent>
       </Card>
       <Card className={frontDeskWorkspaceCardClass("default")}>
-        <CardHeader><CardTitle>Policies & Notifications</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle>Policies & Notifications</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Set the policies and alert contacts that help your team follow up correctly once requests start arriving.
+          </p>
+        </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div><Label>Warranty policy</Label><Textarea value={state.warrantyPolicy} onChange={(e)=>setState((p)=>({...p,warrantyPolicy:e.target.value}))} /></div>
           <div><Label>Cancellation policy</Label><Textarea value={state.cancellationPolicy} onChange={(e)=>setState((p)=>({...p,cancellationPolicy:e.target.value}))} /></div>
@@ -364,25 +379,30 @@ export default function AppOnboardingPage() {
           <div><Label>Manager phones</Label><Textarea value={state.managerPhones} onChange={(e)=>setState((p)=>({...p,managerPhones:e.target.value}))} /></div>
         </CardContent>
       </Card>
-      <div className={`${frontDeskContextPanelClass()} flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between`}>
+      <div className={`${frontDeskContextPanelClass()} flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between`}>
         <div className="space-y-1">
           <p className="page-eyebrow">Onboarding actions</p>
           <p className="text-sm text-muted-foreground">Save progress, preview the generated build sheet, or submit the onboarding package for review.</p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
-        <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
-        <Link href="/app/onboarding/preview">
-          <Button type="button" variant="outline">Open build sheet page</Button>
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+        <Button className="sm:min-w-[10rem]" onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
+        <Button className="sm:min-w-[10rem]" variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
+        <Link href="/app/onboarding/preview" className="sm:min-w-[10rem]">
+          <Button className="w-full" type="button" variant="outline">Open build sheet page</Button>
         </Link>
-        <Button variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
+        <Button className="sm:min-w-[10rem]" variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
         </div>
       </div>
       {previewJson ? (
         <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardHeader><CardTitle>AI Configuration Package Preview</CardTitle></CardHeader>
+          <CardHeader className="pb-3">
+            <CardTitle>AI Configuration Package Preview</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              This is the generated build sheet your team can review before the receptionist goes live.
+            </p>
+          </CardHeader>
           <CardContent>
-            <pre className="max-h-96 overflow-auto rounded bg-muted p-3 text-xs">{previewJson}</pre>
+            <pre className="max-h-96 overflow-auto rounded-2xl border bg-slate-950 p-4 text-xs text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">{previewJson}</pre>
           </CardContent>
         </Card>
       ) : null}
