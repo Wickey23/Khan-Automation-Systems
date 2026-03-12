@@ -931,12 +931,34 @@ export default function AppAppointmentsPage() {
           />
           {sortedAppointmentRequests.length ? (
             <div className="space-y-6 pt-5">
-              <div className={`${frontDeskContextPanelClass()} flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between`}>
-                <div>
-                  <p className="page-eyebrow">Queue filters</p>
-                  <p className="mt-2 text-sm text-slate-700">Separate fresh requests, reply-driven booking work, and already-finished outcomes.</p>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_360px] xl:items-start">
+                <div className={`${frontDeskContextPanelClass()} space-y-3`}>
+                  <p className="page-eyebrow">How to work this board</p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">1. Review</p>
+                      <p className="mt-1 text-sm text-slate-700">Start with fresh requests that still need a scheduling decision.</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">2. Reply work</p>
+                      <p className="mt-1 text-sm text-slate-700">Move to Inbox first when the customer already replied by text.</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">3. Confirm</p>
+                      <p className="mt-1 text-sm text-slate-700">Use booked and resolved sections to verify what is already handled.</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-3 lg:items-end">
+                <div className={`${frontDeskContextPanelClass()} space-y-3`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="page-eyebrow">Queue filters</p>
+                      <p className="mt-2 text-sm text-slate-700">Separate fresh requests, reply-driven work, and finished outcomes.</p>
+                    </div>
+                    <span className="rounded-full border border-slate-200/90 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+                      {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {requestQueueFilters.map((filter) => {
                       const count =
@@ -960,9 +982,6 @@ export default function AppAppointmentsPage() {
                       );
                     })}
                   </div>
-                  <span className="rounded-full border border-slate-200/90 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
-                    {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
-                  </span>
                 </div>
               </div>
               {([
@@ -975,9 +994,24 @@ export default function AppAppointmentsPage() {
               ] as const).map((section) =>
                 section.items.filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter).length ? (
                   <div key={section.key} className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</h3>
-                      <span className="text-xs text-muted-foreground">
+                    <div className={`${frontDeskContextPanelClass()} flex items-center justify-between gap-3 px-4 py-3`}>
+                      <div>
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</h3>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {section.key === "pending"
+                            ? "Fresh requests waiting on office review."
+                            : section.key === "approved"
+                              ? "Requests ready for times, assignment, or direct booking."
+                              : section.key === "offered"
+                                ? "Requests with slot offers waiting on the customer."
+                                : section.key === "scheduled"
+                                  ? "Booked appointments already placed on the schedule."
+                                  : section.key === "closed"
+                                    ? "Handled booking work that no longer needs action."
+                                    : "Requests the office denied or closed out."}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-slate-200/90 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
                         {section.items.filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter).length}
                       </span>
                     </div>
@@ -1011,40 +1045,42 @@ export default function AppAppointmentsPage() {
                               request.id === highlightedRequestId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""
                             }`}
                           >
-                            <div className="flex flex-col gap-3 border-b pb-3 xl:flex-row xl:items-start xl:justify-between">
-                              <div>
-                                <h3 className="text-base font-semibold">{request.customerName}</h3>
-                                <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
-                                <div className="mt-2 flex flex-wrap gap-2">
+                            <div className="flex flex-col gap-4 border-b border-border/70 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="min-w-0 space-y-2">
+                                <div>
+                                  <h3 className="text-lg font-semibold text-slate-950">{request.customerName}</h3>
+                                  <p className="text-sm text-slate-600">{request.effectiveSmsPhone}</p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
                                   <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(requestActionLabel(request))}`}>
                                     {requestActionLabel(request)}
                                   </span>
+                                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
+                                    {requestWorkTypeLabel(request)}
+                                  </span>
+                                  {request.latestMessageDirection === "INBOUND" ? (
+                                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass("warning")}`}>
+                                      Customer replied
+                                    </span>
+                                  ) : null}
+                                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                    {requestStatusLabel(request)}
+                                  </span>
                                 </div>
                               </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
-                                  {requestWorkTypeLabel(request)}
-                                </span>
-                                {request.latestMessageDirection === "INBOUND" ? (
-                                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass("warning")}`}>
-                                    Customer replied
-                                  </span>
-                                ) : null}
-                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
-                                  {requestStatusLabel(request)}
-                                </span>
+                              <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:min-w-[320px]">
+                                <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                                  <p className="page-eyebrow">Issue</p>
+                                  <p className="mt-2 text-sm text-slate-900">{request.issueSummary}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                                  <p className="page-eyebrow">Requested for</p>
+                                  <p className="mt-2 text-sm text-slate-900">{request.requestedTimeLabel || "Not captured yet"}</p>
+                                </div>
                               </div>
                             </div>
                             <div className="mt-3 space-y-4">
                               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
-                                  <span className="page-eyebrow">Issue</span>
-                                  <p className="text-sm text-foreground">{request.issueSummary}</p>
-                                </div>
-                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
-                                  <span className="page-eyebrow">Requested for</span>
-                                  <p className="text-sm text-foreground">{request.requestedTimeLabel || "Not captured yet"}</p>
-                                </div>
                                 <div className={`${frontDeskContextPanelClass()} space-y-1`}>
                                   <span className="page-eyebrow">Address</span>
                                   <p className="text-sm text-foreground">{request.serviceAddress || "Not captured yet"}</p>
@@ -1053,45 +1089,75 @@ export default function AppAppointmentsPage() {
                                   <span className="page-eyebrow">Assigned</span>
                                   <p className="text-sm text-foreground">{request.assignedUserLabel || "Unassigned"}</p>
                                 </div>
+                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                  <span className="page-eyebrow">Requested on</span>
+                                  <p className="text-sm text-foreground">{new Date(request.startedAt).toLocaleString()}</p>
+                                </div>
+                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                  <span className="page-eyebrow">Latest movement</span>
+                                  <p className="text-sm text-foreground">{requestLatestMessageLabel(request)}</p>
+                                </div>
                               </div>
-                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,320px)] xl:items-start">
+                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
                                 <div className="grid gap-4">
-                                  <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
-                                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                      <div className="space-y-1">
-                                        <span className="page-eyebrow">Requested on</span>
-                                        <p className="text-sm text-foreground">{new Date(request.startedAt).toLocaleString()}</p>
-                                      </div>
-                                      <div className="space-y-1">
-                                        <span className="page-eyebrow">Queue state</span>
-                                        <p className="text-sm text-foreground">{request.requestState}</p>
-                                        <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
-                                      </div>
-                                      <div className="space-y-2">
-                                        <span className="page-eyebrow">Queue status</span>
-                                        <div className="flex flex-wrap gap-2">
-                                          {requestOutcomeBadge(request) ? (
-                                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
-                                              {requestOutcomeBadge(request)!.label}
+                                  <div className={`${frontDeskContextPanelClass()} grid gap-4 text-sm lg:grid-cols-[minmax(0,1fr)_280px]`}>
+                                    <div className="space-y-4">
+                                      <div className="grid gap-3 md:grid-cols-2">
+                                        <div className="space-y-1">
+                                          <span className="page-eyebrow">Queue state</span>
+                                          <p className="text-sm text-foreground">{request.requestState}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <span className="page-eyebrow">Queue status</span>
+                                          <div className="flex flex-wrap gap-2">
+                                            {requestOutcomeBadge(request) ? (
+                                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
+                                                {requestOutcomeBadge(request)!.label}
+                                              </span>
+                                            ) : null}
+                                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                              {requestStatusLabel(request)}
                                             </span>
-                                          ) : null}
-                                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
-                                            {requestStatusLabel(request)}
-                                          </span>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <span className="page-eyebrow">Why this matters now</span>
-                                      <p className="text-muted-foreground">
-                                        {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
-                                      </p>
-                                    </div>
-                                    {requestOutcomeListNote(request) ? (
-                                      <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
-                                        {requestOutcomeListNote(request)}
+                                      <div className="space-y-1">
+                                        <span className="page-eyebrow">Why this matters now</span>
+                                        <p className="text-slate-700">
+                                          {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
+                                        </p>
                                       </div>
-                                    ) : null}
+                                      {requestOutcomeListNote(request) ? (
+                                        <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
+                                          {requestOutcomeListNote(request)}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-4">
+                                      <p className="page-eyebrow">Next office action</p>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(requestActionLabel(request))}`}>
+                                          {requestActionLabel(request)}
+                                        </span>
+                                      </div>
+                                      <p className="mt-3 text-sm text-slate-700">
+                                        {request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId
+                                          ? "The customer already replied in text. Review the thread first, then finish the booking handoff."
+                                          : request.status === "PENDING_REVIEW"
+                                            ? "Review the request, assign the right technician, and decide whether to offer times."
+                                            : request.status === "APPROVED"
+                                              ? "Send slots or book directly while the request is still fresh."
+                                              : request.status === "SLOT_OFFERED"
+                                                ? "The customer has a slot offer. Follow up if they do not reply."
+                                                : request.status === "SCHEDULED"
+                                                  ? "This request is already booked. Use the linked records only if the office needs to confirm the appointment details."
+                                                  : "This request is already resolved. No additional booking action is needed."}
+                                      </p>
+                                      <div className="mt-3 text-xs text-muted-foreground">
+                                        SMS: {request.effectiveSmsPhone}
+                                        {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
+                                      </div>
+                                    </div>
                                   </div>
 
                                   <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
@@ -1151,57 +1217,59 @@ export default function AppAppointmentsPage() {
                             </div>
                             </div>
                             {canWrite && request.status !== "DENIED" && request.status !== "SCHEDULED" && request.status !== "CLOSED" ? (
-                              <div className="mt-4 rounded-xl border bg-slate-50 p-4">
-                                <label className="block text-sm">
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
-                                  <select
-                                    className="mt-1 h-10 w-full rounded-md border bg-background px-3"
-                                    value={draftTechnician}
-                                    onChange={(event) =>
-                                      setRequestTechnicianDrafts((current) => ({
-                                        ...current,
-                                        [request.id]: event.target.value
-                                      }))
-                                    }
-                                  >
-                                    <option value="">Unassigned</option>
-                                    {assignableTechnicians.map((tech) => (
-                                      <option key={tech.id} value={tech.id}>
-                                        {tech.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                                <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full sm:w-auto"
-                                    disabled={requestSavingId === request.id}
-                                    onClick={() => void onAssignRequest(request)}
-                                  >
-                                    Assign
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    disabled={requestSavingId === request.id}
-                                    variant={request.status === "APPROVED" ? "outline" : "default"}
-                                    className="w-full sm:w-auto"
-                                    onClick={() => void onApproveRequest(request)}
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full sm:w-auto"
-                                    disabled={requestSavingId === request.id}
-                                    onClick={() => void onDenyRequest(request)}
-                                  >
-                                    Deny
-                                  </Button>
+                              <div className={`${frontDeskContextPanelClass()} mt-4 space-y-4`}>
+                                <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_auto] lg:items-end">
+                                  <label className="block text-sm">
+                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Assign technician</span>
+                                    <select
+                                      className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                                      value={draftTechnician}
+                                      onChange={(event) =>
+                                        setRequestTechnicianDrafts((current) => ({
+                                          ...current,
+                                          [request.id]: event.target.value
+                                        }))
+                                      }
+                                    >
+                                      <option value="">Unassigned</option>
+                                      {assignableTechnicians.map((tech) => (
+                                        <option key={tech.id} value={tech.id}>
+                                          {tech.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <div className="grid gap-2 sm:grid-cols-3">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full"
+                                      disabled={requestSavingId === request.id}
+                                      onClick={() => void onAssignRequest(request)}
+                                    >
+                                      Assign
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      disabled={requestSavingId === request.id}
+                                      variant={request.status === "APPROVED" ? "outline" : "default"}
+                                      className="w-full"
+                                      onClick={() => void onApproveRequest(request)}
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full"
+                                      disabled={requestSavingId === request.id}
+                                      onClick={() => void onDenyRequest(request)}
+                                    >
+                                      Deny
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end">
+                                <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_auto] lg:items-end">
                                     <label className="min-w-[180px] flex-1 text-sm">
                                       <span className="text-xs uppercase tracking-wide text-muted-foreground">Find schedule slots</span>
                                       <input
@@ -1220,35 +1288,36 @@ export default function AppAppointmentsPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    className="w-full lg:w-auto"
                                     disabled={requestLoadingSlotsId === request.id}
                                     onClick={() => void onFetchRequestSlots(request)}
                                   >
                                     {requestLoadingSlotsId === request.id ? "Loading..." : "Find slots"}
                                   </Button>
                                 </div>
-                                  {slotsForRequest.length ? (
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                      {slotsForRequest.map((slot) => {
-                                        const creatingKey = `${request.id}:${slot.startAt}`;
-                                        return (
-                                          <Button
-                                            key={slot.startAt}
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={requestCreatingSlotId === creatingKey}
-                                            onClick={() => void onBookRequestSlot(request, slot)}
-                                          >
-                                            {requestCreatingSlotId === creatingKey
-                                              ? "Scheduling..."
-                                              : new Date(slot.startAt).toLocaleTimeString([], {
-                                                  hour: "numeric",
-                                                  minute: "2-digit"
-                                                })}
-                                          </Button>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : null}
+                                {slotsForRequest.length ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {slotsForRequest.map((slot) => {
+                                      const creatingKey = `${request.id}:${slot.startAt}`;
+                                      return (
+                                        <Button
+                                          key={slot.startAt}
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={requestCreatingSlotId === creatingKey}
+                                          onClick={() => void onBookRequestSlot(request, slot)}
+                                        >
+                                          {requestCreatingSlotId === creatingKey
+                                            ? "Scheduling..."
+                                            : new Date(slot.startAt).toLocaleTimeString([], {
+                                                hour: "numeric",
+                                                minute: "2-digit"
+                                              })}
+                                        </Button>
+                                      );
+                                    })}
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>
