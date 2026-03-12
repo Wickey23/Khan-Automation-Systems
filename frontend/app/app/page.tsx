@@ -966,7 +966,7 @@ export default function AppOverviewPage() {
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Needs callback</CardTitle>
-              <CardDescription>The calls that still need a live phone follow-up from the office.</CardDescription>
+              <CardDescription>Open callback work that still needs a live office response.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="shrink-0">
               <Link href="/app/calls">Open call queue</Link>
@@ -1048,7 +1048,7 @@ export default function AppOverviewPage() {
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>New requests</CardTitle>
-              <CardDescription>The open requests and leads that still need office follow-up.</CardDescription>
+              <CardDescription>Fresh customer work that still needs office review or booking follow-up.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="shrink-0">
               <Link href="/app/leads">Open leads</Link>
@@ -1177,7 +1177,7 @@ export default function AppOverviewPage() {
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Recent customer messages</CardTitle>
-              <CardDescription>Reply-driven follow-up threads tied to open requests and missed-call recovery.</CardDescription>
+              <CardDescription>Live SMS replies and follow-up threads tied to active customer work.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="shrink-0">
               <Link href="/app/messages">Open inbox</Link>
@@ -1265,10 +1265,10 @@ export default function AppOverviewPage() {
           </Card>
           <Card>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Open Requests</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Active Follow-Up</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{customerActionCount}</p>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Loading requests..." : customerActionCount === 0 ? "Nothing waiting for review" : "Customer work waiting now"}
+                {loading ? "Loading requests..." : customerActionCount === 0 ? "No live customer work waiting" : "Open customer work waiting now"}
               </p>
             </CardContent>
           </Card>
