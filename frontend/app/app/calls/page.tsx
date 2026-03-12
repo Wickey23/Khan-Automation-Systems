@@ -138,6 +138,13 @@ function formatPriorityLabel(priority: FrontDeskPriority | undefined) {
   return priority;
 }
 
+function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
+  if (priority === "urgent") return 0;
+  if (priority === "high") return 1;
+  if (priority === "normal") return 2;
+  return 3;
+}
+
 function callQueueStateLabel(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "needs_follow_up") return "Needs follow-up";
   if (call.frontDesk?.followUpState === "contacted") return "Contacted";
@@ -145,6 +152,16 @@ function callQueueStateLabel(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "closed") return "Closed";
   if (call.frontDesk?.followUpState === "spam") return "Spam";
   return outcomeLabel(call.outcome);
+}
+
+function callStateWeight(call: OrgCallRecord) {
+  const state = call.frontDesk?.followUpState;
+  if (state === "needs_follow_up") return 0;
+  if (state === "contacted") return 1;
+  if (state === "booked") return 2;
+  if (state === "closed") return 3;
+  if (state === "spam") return 4;
+  return 1;
 }
 
 function callQuickActions(call: OrgCallRecord | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
@@ -327,10 +344,18 @@ export default function AppCallsPage() {
 
   const visibleCalls = useMemo(
     () =>
-      calls.filter((call) => {
-        if (stateFilter === "ALL") return true;
-        return (call.frontDesk?.followUpState || "closed") === stateFilter;
-      }),
+      [...calls]
+        .filter((call) => {
+          if (stateFilter === "ALL") return true;
+          return (call.frontDesk?.followUpState || "closed") === stateFilter;
+        })
+        .sort((a, b) => {
+          const stateDelta = callStateWeight(a) - callStateWeight(b);
+          if (stateDelta !== 0) return stateDelta;
+          const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
+          if (priorityDelta !== 0) return priorityDelta;
+          return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+        }),
     [calls, stateFilter]
   );
 
