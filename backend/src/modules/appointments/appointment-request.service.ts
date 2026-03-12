@@ -492,7 +492,59 @@ export async function listAppointmentRequestsForOrg(prisma: PrismaClient, orgId:
     orderBy: [{ lastEventAt: "desc" }, { createdAt: "desc" }]
   });
 
+  const leadIds = [...new Set(requests.map((request) => request.leadId).filter(Boolean))] as string[];
+  const phones = [...new Set(requests.map((request) => normalizePhoneE164(request.followUpPhone || request.callerPhone)).filter(Boolean))];
+
+  const threads =
+    leadIds.length || phones.length
+      ? await prisma.messageThread.findMany({
+          where: {
+            orgId,
+            OR: [
+              ...(leadIds.length ? [{ leadId: { in: leadIds } }] : []),
+              ...(phones.length ? [{ contactPhone: { in: phones } }] : [])
+            ]
+          },
+          select: {
+            id: true,
+            leadId: true,
+            contactPhone: true,
+            lastMessageAt: true,
+            messages: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { direction: true }
+            }
+          },
+          orderBy: [{ lastMessageAt: "desc" }]
+        })
+      : [];
+
+  const latestThreadByLeadId = new Map<string, (typeof threads)[number]>();
+  const latestThreadByPhone = new Map<string, (typeof threads)[number]>();
+
+  for (const thread of threads) {
+    if (thread.leadId && !latestThreadByLeadId.has(thread.leadId)) {
+      latestThreadByLeadId.set(thread.leadId, thread);
+    }
+    const normalizedPhone = normalizePhoneE164(thread.contactPhone);
+    if (normalizedPhone && !latestThreadByPhone.has(normalizedPhone)) {
+      latestThreadByPhone.set(normalizedPhone, thread);
+    }
+  }
+
   return requests.map((request) => ({
+    ...(function () {
+      const latestThread =
+        (request.leadId ? latestThreadByLeadId.get(request.leadId) : null) ||
+        latestThreadByPhone.get(normalizePhoneE164(request.followUpPhone || request.callerPhone)) ||
+        null;
+      return {
+        latestMessageThreadId: latestThread?.id || null,
+        latestMessageAt: latestThread?.lastMessageAt ? latestThread.lastMessageAt.toISOString() : null,
+        latestMessageDirection: latestThread?.messages[0]?.direction || null
+      };
+    })(),
     id: request.id,
     callLogId: request.callLogId,
     providerCallId: request.callLog.providerCallId,

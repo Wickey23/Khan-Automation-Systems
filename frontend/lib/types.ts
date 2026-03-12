@@ -801,6 +801,9 @@ export type AppointmentRequest = {
   reviewedByLabel: string | null;
   denialReason: string | null;
   pipelineStage: LeadPipelineStage | null;
+  latestMessageThreadId?: string | null;
+  latestMessageAt?: string | null;
+  latestMessageDirection?: "INBOUND" | "OUTBOUND" | null;
 };
 
 export type OrgCalendarEvent = {

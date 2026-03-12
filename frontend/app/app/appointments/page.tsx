@@ -96,6 +96,12 @@ function requestQueueFilterLabel(value: (typeof requestQueueFilters)[number]) {
   }
 }
 
+function requestLatestMessageLabel(request: AppointmentRequest) {
+  if (request.latestMessageDirection === "INBOUND") return "Customer replied";
+  if (request.latestMessageDirection === "OUTBOUND") return "Office sent follow-up";
+  return "No SMS follow-up yet";
+}
+
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -930,6 +936,7 @@ export default function AppAppointmentsPage() {
                                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                                   <span>State: {request.requestState}</span>
                                   <span>Next action: {requestActionLabel(request)}</span>
+                                  <span>{requestLatestMessageLabel(request)}</span>
                                 </div>
                               </div>
                               <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
@@ -948,7 +955,10 @@ export default function AppAppointmentsPage() {
                                             : "No immediate action required."}
                                   </p>
                                 </div>
-                                <div className="text-xs text-muted-foreground">SMS: {request.effectiveSmsPhone}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  SMS: {request.effectiveSmsPhone}
+                                  {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
+                                </div>
                                 <div className="flex flex-wrap gap-2">
                                   {request.leadId ? (
                                     <Button asChild size="sm" variant="outline">
@@ -957,7 +967,15 @@ export default function AppAppointmentsPage() {
                                   ) : null}
                                   {request.effectiveSmsPhone ? (
                                     <Button asChild size="sm" variant="outline">
-                                      <Link href={`/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`}>Open inbox</Link>
+                                      <Link
+                                        href={
+                                          request.latestMessageThreadId
+                                            ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
+                                            : `/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`
+                                        }
+                                      >
+                                        Open inbox
+                                      </Link>
                                     </Button>
                                   ) : null}
                                   <Button asChild size="sm" variant="outline">
