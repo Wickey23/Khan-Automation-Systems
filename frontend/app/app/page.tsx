@@ -258,6 +258,13 @@ function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
   return 3;
 }
 
+function priorityBadge(priority: FrontDeskPriority | undefined) {
+  if (priority === "urgent") return { label: "Urgent", tone: "critical" as const };
+  if (priority === "high") return { label: "High priority", tone: "warning" as const };
+  if (priority === "low") return { label: "Low priority", tone: "neutral" as const };
+  return { label: "Normal priority", tone: "neutral" as const };
+}
+
 function followUpLabel(state: OrgCallRecord["frontDesk"] | Lead["frontDesk"] | undefined) {
   const value = state ? ("followUpState" in state ? state.followUpState : state.state) : null;
   switch (value) {
@@ -844,6 +851,9 @@ export default function AppOverviewPage() {
               </div>
             ) : recentCalls.length ? (
               recentCalls.map((call) => (
+                (() => {
+                  const priority = priorityBadge(call.frontDesk?.frontDeskPriority);
+                  return (
                 <Link
                   key={call.id}
                   href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
@@ -854,17 +864,20 @@ export default function AppOverviewPage() {
                       <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
                     </div>
-                    <Badge
-                      className={clientBadgeClass(
-                        call.frontDesk?.frontDeskPriority === "urgent"
-                          ? "critical"
-                          : call.frontDesk?.frontDeskPriority === "high"
-                            ? "warning"
-                            : outcomeTone(call.outcome)
-                      )}
-                    >
-                      {followUpLabel(call.frontDesk)}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className={clientBadgeClass(priority.tone)}>{priority.label}</Badge>
+                      <Badge
+                        className={clientBadgeClass(
+                          call.frontDesk?.frontDeskPriority === "urgent"
+                            ? "critical"
+                            : call.frontDesk?.frontDeskPriority === "high"
+                              ? "warning"
+                              : outcomeTone(call.outcome)
+                        )}
+                      >
+                        {followUpLabel(call.frontDesk)}
+                      </Badge>
+                    </div>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                     {call.frontDesk?.summary || call.aiSummary || call.summary || "Conversation summary will appear here after the call is processed."}
@@ -877,6 +890,8 @@ export default function AppOverviewPage() {
                     <span>{call.frontDesk?.recommendedAction || "Review request"}</span>
                   </div>
                 </Link>
+                  );
+                })()
               ))
             ) : (
               <div className="empty-state">
@@ -907,6 +922,7 @@ export default function AppOverviewPage() {
               recentMessageThreads.map((thread) => {
                 const badge = threadStateBadge(thread);
                 const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
+                const priority = priorityBadge(frontDesk?.frontDeskPriority);
                 const latestMessage = thread.messages?.[0]?.body || "Open the thread to review the latest message.";
                 return (
                   <Link
@@ -919,7 +935,10 @@ export default function AppOverviewPage() {
                         <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
                         <p className="text-xs text-muted-foreground">{formatShortDateTime(thread.lastMessageAt)}</p>
                       </div>
-                      <Badge className={clientBadgeClass(badge.tone)}>{badge.label}</Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={clientBadgeClass(priority.tone)}>{priority.label}</Badge>
+                        <Badge className={clientBadgeClass(badge.tone)}>{badge.label}</Badge>
+                      </div>
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                       {frontDesk?.summary || latestMessage}

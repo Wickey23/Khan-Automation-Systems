@@ -56,6 +56,13 @@ function frontDeskStateLabel(lead: Lead) {
   }
 }
 
+function frontDeskPriorityLabel(lead: Lead) {
+  if (lead.frontDesk?.frontDeskPriority === "urgent") return "Urgent";
+  if (lead.frontDesk?.frontDeskPriority === "high") return "High priority";
+  if (lead.frontDesk?.frontDeskPriority === "low") return "Low priority";
+  return "Normal priority";
+}
+
 function queueStateLabel(value: (typeof queueStates)[number]) {
   switch (value) {
     case "needs_follow_up":
@@ -324,7 +331,10 @@ export default function AppLeadsPage() {
                         <p className="text-base font-semibold text-foreground">{lead.name}</p>
                         <p className="text-sm text-muted-foreground">{lead.business}</p>
                       </div>
-                      <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
+                        <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskPriorityLabel(lead)}</Badge>
+                      </div>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       <p>{lead.phone || lead.email || "No contact info"}</p>
