@@ -34,7 +34,7 @@ import type {
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta } from "@/lib/front-desk-ui";
 
 const requestQueueFilters = ["ALL", "needs_review", "ready_to_book", "awaiting_reply", "booked", "closed"] as const;
 
@@ -114,6 +114,13 @@ function requestReplyWeight(request: AppointmentRequest) {
 function requestOutcomeListNote(request: AppointmentRequest) {
   if (request.status === "SCHEDULED") return "Booked work already confirmed.";
   if (request.status === "CLOSED" || request.status === "DENIED") return "Handled and resolved by the office.";
+  return null;
+}
+
+function requestOutcomeBadge(request: AppointmentRequest) {
+  if (request.status === "SCHEDULED") return frontDeskOutcomeBadgeMeta("booked");
+  if (request.status === "CLOSED" || request.status === "DENIED") return frontDeskOutcomeBadgeMeta("resolved");
+  if (request.latestMessageDirection === "INBOUND") return frontDeskOutcomeBadgeMeta("saved");
   return null;
 }
 
@@ -966,6 +973,13 @@ export default function AppAppointmentsPage() {
                                   <span>Next action: {requestActionLabel(request)}</span>
                                   <span>{requestLatestMessageLabel(request)}</span>
                                 </div>
+                                {requestOutcomeBadge(request) ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
+                                      {requestOutcomeBadge(request)!.label}
+                                    </span>
+                                  </div>
+                                ) : null}
                                 {requestOutcomeListNote(request) ? (
                                   <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{requestOutcomeListNote(request)}</p>
                                 ) : null}

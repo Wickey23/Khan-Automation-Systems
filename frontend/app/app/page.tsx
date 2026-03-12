@@ -33,7 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 type DashboardState = {
   assignedPhoneNumber: string | null;
@@ -361,6 +361,27 @@ function overviewThreadOutcomeNote(thread: OrgMessageThread) {
 function overviewBookingOutcomeNote(request: AppointmentRequest) {
   if (request.status === "SCHEDULED") return "Booked work already confirmed.";
   if (request.latestMessageDirection === "INBOUND") return "Customer replied and the booking handoff is active.";
+  return null;
+}
+
+function overviewBookingOutcomeBadge(request: AppointmentRequest) {
+  if (request.status === "SCHEDULED") return frontDeskOutcomeBadgeMeta("booked");
+  if (request.latestMessageDirection === "INBOUND") return frontDeskOutcomeBadgeMeta("saved");
+  return null;
+}
+
+function overviewCallOutcomeBadge(call: OrgCallRecord) {
+  if (call.frontDesk?.followUpState === "booked") return frontDeskOutcomeBadgeMeta("booked");
+  if (call.frontDesk?.followUpState === "closed") return frontDeskOutcomeBadgeMeta("resolved");
+  if (call.recoverySmsResponse) return frontDeskOutcomeBadgeMeta("saved");
+  return null;
+}
+
+function overviewThreadOutcomeBadge(thread: OrgMessageThread) {
+  const state = (thread.frontDesk || thread.lead?.frontDesk)?.state;
+  if (state === "booked") return frontDeskOutcomeBadgeMeta("booked");
+  if (state === "closed") return frontDeskOutcomeBadgeMeta("resolved");
+  if (latestThreadDirection(thread) === "Customer replied") return frontDeskOutcomeBadgeMeta("saved");
   return null;
 }
 
@@ -884,6 +905,11 @@ export default function AppOverviewPage() {
                             <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(bookingActionLabel(item))}`}>
                               {bookingActionLabel(item)}
                             </span>
+                            {overviewBookingOutcomeBadge(item) ? (
+                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(overviewBookingOutcomeBadge(item)!.tone)}`}>
+                                {overviewBookingOutcomeBadge(item)!.label}
+                              </span>
+                            ) : null}
                           </div>
                           {overviewBookingOutcomeNote(item) ? (
                             <p className="text-xs text-slate-500">{overviewBookingOutcomeNote(item)}</p>
@@ -980,6 +1006,9 @@ export default function AppOverviewPage() {
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(call.recoverySmsThreadId && call.recoverySmsResponse ? "Review reply" : "Call back now")}`}>
                       {call.recoverySmsThreadId && call.recoverySmsResponse ? "Review reply" : "Call back now"}
                     </span>
+                    {overviewCallOutcomeBadge(call) ? (
+                      <Badge className={clientBadgeClass(overviewCallOutcomeBadge(call)!.tone)}>{overviewCallOutcomeBadge(call)!.label}</Badge>
+                    ) : null}
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                     {call.frontDesk?.summary || "Customer request still needs a callback."}
@@ -1113,6 +1142,9 @@ export default function AppOverviewPage() {
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(overviewCallActionLabel(call))}`}>
                       {overviewCallActionLabel(call)}
                     </span>
+                    {overviewCallOutcomeBadge(call) ? (
+                      <Badge className={clientBadgeClass(overviewCallOutcomeBadge(call)!.tone)}>{overviewCallOutcomeBadge(call)!.label}</Badge>
+                    ) : null}
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                     {call.frontDesk?.summary || call.aiSummary || call.summary || "Conversation summary will appear here after the call is processed."}
@@ -1182,6 +1214,9 @@ export default function AppOverviewPage() {
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(overviewThreadActionLabel(thread))}`}>
                         {overviewThreadActionLabel(thread)}
                       </span>
+                      {overviewThreadOutcomeBadge(thread) ? (
+                        <Badge className={clientBadgeClass(overviewThreadOutcomeBadge(thread)!.tone)}>{overviewThreadOutcomeBadge(thread)!.label}</Badge>
+                      ) : null}
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                       {frontDesk?.summary || latestMessage}
