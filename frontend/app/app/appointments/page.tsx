@@ -991,41 +991,42 @@ export default function AppAppointmentsPage() {
                                 </div>
                               </div>
                               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:items-start">
-                                <div className="space-y-3 text-sm">
-                                  <div className="grid gap-3 sm:grid-cols-2">
-                                    <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    <div className="space-y-1">
                                       <span className="page-eyebrow">Requested on</span>
                                       <p className="text-sm text-foreground">{new Date(request.startedAt).toLocaleString()}</p>
                                     </div>
-                                    <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                    <div className="space-y-1">
                                       <span className="page-eyebrow">Queue state</span>
                                       <p className="text-sm text-foreground">{request.requestState}</p>
                                       <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
                                     </div>
                                   </div>
-                                  <div className={`${frontDeskContextPanelClass()} grid gap-3 text-sm md:grid-cols-2`}>
-                                    <div className="space-y-2">
-                                      <span className="page-eyebrow">Queue status</span>
-                                      <div className="flex flex-wrap gap-2">
-                                        {requestOutcomeBadge(request) ? (
-                                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
-                                            {requestOutcomeBadge(request)!.label}
-                                          </span>
-                                        ) : null}
-                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
-                                          {requestStatusLabel(request)}
+                                  <div className="space-y-2">
+                                    <span className="page-eyebrow">Queue status</span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {requestOutcomeBadge(request) ? (
+                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
+                                          {requestOutcomeBadge(request)!.label}
                                         </span>
-                                      </div>
-                                      <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <span className="page-eyebrow">Why this matters now</span>
-                                      <p className="text-muted-foreground">
-                                        {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
-                                      </p>
-                                      {requestOutcomeListNote(request) ? <p className="text-xs text-muted-foreground">{requestOutcomeListNote(request)}</p> : null}
+                                      ) : null}
+                                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                        {requestStatusLabel(request)}
+                                      </span>
                                     </div>
                                   </div>
+                                  <div className="space-y-1">
+                                    <span className="page-eyebrow">Why this matters now</span>
+                                    <p className="text-muted-foreground">
+                                      {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
+                                    </p>
+                                  </div>
+                                  {requestOutcomeListNote(request) ? (
+                                    <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
+                                      {requestOutcomeListNote(request)}
+                                    </div>
+                                  ) : null}
                                 </div>
                                 <div className={`${frontDeskContextPanelClass()} space-y-3`}>
                                 <div>
@@ -1050,9 +1051,6 @@ export default function AppAppointmentsPage() {
                                   </p>
                                 </div>
                                 <div className="space-y-2 text-xs text-muted-foreground">
-                                  <p className="text-sm text-muted-foreground">
-                                    Why this matters now: {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
-                                  </p>
                                   SMS: {request.effectiveSmsPhone}
                                   {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                 </div>

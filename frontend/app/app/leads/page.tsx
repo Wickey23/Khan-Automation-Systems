@@ -509,12 +509,9 @@ export default function AppLeadsPage() {
                           <p className="text-sm text-foreground">{latestLeadMovementLabel(lead)}</p>
                         </div>
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)] xl:items-start">
-                      <div className="space-y-3">
-                        {leadOutcomeListNote(lead) ? (
-                          <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{leadOutcomeListNote(lead)}</p>
-                        ) : null}
-                        <div className={`${frontDeskContextPanelClass()} grid gap-3 text-sm md:grid-cols-2`}>
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:items-start">
+                      <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
+                        <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1">
                             <p className="page-eyebrow">Customer context</p>
                             <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
@@ -526,9 +523,14 @@ export default function AppLeadsPage() {
                             <p className="text-muted-foreground">
                               {leadNextActionLabel(lead)}. Use Lead Queue when the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
                             </p>
-                            {leadOutcomeNote(lead) ? <p className="text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
                           </div>
                         </div>
+                        {leadOutcomeListNote(lead) ? (
+                          <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
+                            {leadOutcomeListNote(lead)}
+                          </div>
+                        ) : null}
+                        {leadOutcomeNote(lead) ? <p className="text-sm text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
                       </div>
 
                       <div className={`${frontDeskContextPanelClass()} space-y-3 text-sm`}>
