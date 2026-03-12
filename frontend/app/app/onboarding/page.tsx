@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchOrgOnboarding, previewOrgOnboarding, saveOrgOnboarding, submitOrgOnboarding } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, SectionHeading } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { clientBadgeClass } from "@/lib/client-badges";
+import { frontDeskContextPanelClass, frontDeskEmptyStateClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type FormState = {
   legalBusinessName: string;
@@ -75,6 +77,38 @@ const defaultState: FormState = {
   websiteForm: "",
   testMode: true
 };
+
+function hasText(value: string) {
+  return Boolean(value.trim());
+}
+
+function sectionReady(values: string[], mode: "all" | "any" = "all") {
+  return mode === "all" ? values.every(hasText) : values.some(hasText);
+}
+
+function statusTone(status: string) {
+  if (status === "SUBMITTED") return "success" as const;
+  if (status === "DRAFT") return "pending" as const;
+  return "warning" as const;
+}
+
+function OnboardingField({
+  label,
+  children,
+  hint
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {children}
+      {hint ? <p className="text-xs leading-5 text-slate-500">{hint}</p> : null}
+    </div>
+  );
+}
 
 export default function AppOnboardingPage() {
   const { showToast } = useToast();
@@ -204,6 +238,35 @@ export default function AppOnboardingPage() {
     [state]
   );
 
+  const setupSections = useMemo(
+    () => [
+      {
+        label: "Business profile",
+        detail: "Identity, address, and service area.",
+        complete: sectionReady([state.legalBusinessName, state.displayName, state.industry, state.address, state.serviceArea])
+      },
+      {
+        label: "Operations and booking",
+        detail: "Services, booking flow, after-hours, and transfers.",
+        complete: sectionReady([state.services, state.afterHoursInstructions, state.transferNumbers], "any")
+      },
+      {
+        label: "Policies and alerts",
+        detail: "Policies and who gets notified.",
+        complete: sectionReady([state.warrantyPolicy, state.cancellationPolicy, state.managerEmails], "any")
+      },
+      {
+        label: "Existing systems",
+        detail: "CRM, shop system, and forms.",
+        complete: sectionReady([state.shopManagementSystem, state.crm, state.websiteForm], "any")
+      }
+    ],
+    [state]
+  );
+
+  const completedSections = setupSections.filter((section) => section.complete).length;
+  const completionPercent = Math.round((completedSections / setupSections.length) * 100);
+
   async function onSaveDraft() {
     setSaving(true);
     try {
@@ -244,175 +307,222 @@ export default function AppOnboardingPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace setup"
         title="Setup Wizard"
-        description={`Status: ${status}. Use this page to teach the system how your office works before calls, texts, and bookings start flowing into the front desk.`}
+        description={`Status: ${status}. Teach the receptionist how your office operates before live calls, texts, and booking requests start flowing into the front desk.`}
         actions={
-          <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={onPreview} disabled={saving}>Preview build sheet</Button>
+            <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
+          </div>
         }
       />
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">How setup works</p>
-        <p className="mt-2 font-medium text-slate-950">Complete this once so the front desk starts with the right business rules.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          Setup Wizard happens before live work begins. Once calls, texts, and booking requests start arriving, your team will spend most of its time in Front Desk, Call Queue, Inbox, and Booking Queue instead.
-        </p>
-      </div>
+
       <Card className={frontDeskWorkspaceCardClass("hero")}>
-        <CardHeader className="pb-3">
-          <CardTitle>Business Profile</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Start with the business details your office and assistant need on every request.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div><Label>Legal Business Name</Label><Input value={state.legalBusinessName} onChange={(e)=>setState((p)=>({...p,legalBusinessName:e.target.value}))} /></div>
-          <div><Label>Display Name</Label><Input value={state.displayName} onChange={(e)=>setState((p)=>({...p,displayName:e.target.value}))} /></div>
-          <div><Label>Industry</Label><Input value={state.industry} onChange={(e)=>setState((p)=>({...p,industry:e.target.value}))} /></div>
-          <div><Label>Website</Label><Input value={state.website} onChange={(e)=>setState((p)=>({...p,website:e.target.value}))} /></div>
-          <div className="sm:col-span-2"><Label>Address</Label><Input value={state.address} onChange={(e)=>setState((p)=>({...p,address:e.target.value}))} /></div>
-          <div className="sm:col-span-2"><Label>Service Area</Label><Input value={state.serviceArea} onChange={(e)=>setState((p)=>({...p,serviceArea:e.target.value}))} /></div>
-        </CardContent>
-      </Card>
-      <Card className={frontDeskWorkspaceCardClass("default")}>
-        <CardHeader className="pb-3">
-          <CardTitle>Operations Preferences</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Tell the system how bookings, after-hours handling, and intake questions should work.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <div><Label>Services (one per line)</Label><Textarea value={state.services} onChange={(e)=>setState((p)=>({...p,services:e.target.value}))} /></div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Do you currently use a booking app?</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                value={state.usesBookingApp}
-                onChange={(e) => setState((p) => ({ ...p, usesBookingApp: e.target.value as FormState["usesBookingApp"] }))}
-              >
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-                <option value="not_sure">Not sure</option>
-              </select>
+        <CardContent className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.1fr)_360px] xl:items-start">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="page-eyebrow">How setup works</p>
+              <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-slate-950 sm:text-[34px]">
+                Build the receptionist around how your office already operates.
+              </h2>
+              <p className="max-w-3xl text-[15px] leading-7 text-slate-600">
+                Complete the sections below once so live calls, text follow-up, and booking requests land in the right queues with the right business rules from day one.
+              </p>
             </div>
-            <div>
-              <Label>Booking app</Label>
-              <Input
-                value={state.bookingAppName}
-                onChange={(e) => setState((p) => ({ ...p, bookingAppName: e.target.value }))}
-                placeholder="Jobber, Housecall Pro, ServiceTitan, Calendly, etc."
-              />
-            </div>
-            <div>
-              <Label>How should AI handle bookings?</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                value={state.bookingAppMode}
-                onChange={(e) => setState((p) => ({ ...p, bookingAppMode: e.target.value as FormState["bookingAppMode"] }))}
-              >
-                <option value="staff_review">Create booking request for staff review</option>
-                <option value="direct_booking">Book directly in existing app/calendar</option>
-                <option value="link_only">Send booking link only</option>
-              </select>
-            </div>
-            <div>
-              <Label>Booking workflow</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                value={state.bookingMethod}
-                onChange={(e) => setState((p) => ({ ...p, bookingMethod: e.target.value as FormState["bookingMethod"] }))}
-              >
-                <option value="manager_notify">Manager notify</option>
-                <option value="manual">Manual booking</option>
-                <option value="google_calendar">Google Calendar</option>
-              </select>
-            </div>
-            <div>
-              <Label>Booking link (if applicable)</Label>
-              <Input
-                value={state.bookingLink}
-                onChange={(e) => setState((p) => ({ ...p, bookingLink: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-            <div>
-              <Label>Calendar/account email</Label>
-              <Input
-                value={state.bookingAccountEmail}
-                onChange={(e) => setState((p) => ({ ...p, bookingAccountEmail: e.target.value }))}
-                placeholder="scheduler@company.com"
-              />
-            </div>
-            <div>
-              <Label>Default appointment duration (minutes)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={state.appointmentDurationMin}
-                onChange={(e) => setState((p) => ({ ...p, appointmentDurationMin: e.target.value }))}
-                placeholder="60"
-              />
-            </div>
-            <div>
-              <Label>Buffer between appointments (minutes)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={state.appointmentBufferMin}
-                onChange={(e) => setState((p) => ({ ...p, appointmentBufferMin: e.target.value }))}
-                placeholder="15"
-              />
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Current status</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge className={clientBadgeClass(statusTone(status))}>{status.replaceAll("_", " ")}</Badge>
+                  <Badge className={clientBadgeClass(state.testMode ? "automated" : "neutral")}>
+                    {state.testMode ? "Test mode on" : "Live mode"}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm text-slate-600">
+                  {status === "SUBMITTED"
+                    ? "Your setup package has been submitted for review."
+                    : "Keep saving as you go, then preview the build sheet before submitting."}
+                </p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Completion</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{completionPercent}%</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {completedSections} of {setupSections.length} setup sections are materially filled in.
+                </p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">What this affects</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  Front Desk, Call Queue, Inbox, and Booking Queue all rely on this setup to summarize calls correctly and route follow-up work to the right place.
+                </p>
+              </div>
             </div>
           </div>
-          <div><Label>After-hours instructions</Label><Textarea value={state.afterHoursInstructions} onChange={(e)=>setState((p)=>({...p,afterHoursInstructions:e.target.value}))} /></div>
-          <div><Label>Transfer numbers (one per line)</Label><Textarea value={state.transferNumbers} onChange={(e)=>setState((p)=>({...p,transferNumbers:e.target.value}))} /></div>
-          <div><Label>Custom intake questions (one per line)</Label><Textarea value={state.customQuestions} onChange={(e)=>setState((p)=>({...p,customQuestions:e.target.value}))} /></div>
+
+          <div className={`${frontDeskContextPanelClass()} space-y-4`}>
+            <div className="space-y-1">
+              <p className="page-eyebrow">Setup checklist</p>
+              <p className="text-sm text-slate-600">Use this panel to see what still needs office input before go-live.</p>
+            </div>
+            <div className="space-y-3">
+              {setupSections.map((section) => (
+                <div key={section.label} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-950">{section.label}</p>
+                    <p className="text-xs leading-5 text-slate-600">{section.detail}</p>
+                  </div>
+                  <Badge className={clientBadgeClass(section.complete ? "success" : "pending")}>
+                    {section.complete ? "Ready" : "Needs input"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
-      <Card className={frontDeskWorkspaceCardClass("default")}>
-        <CardHeader className="pb-3">
-          <CardTitle>Policies & Notifications</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Set the policies and alert contacts that help your team follow up correctly once requests start arriving.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div><Label>Warranty policy</Label><Textarea value={state.warrantyPolicy} onChange={(e)=>setState((p)=>({...p,warrantyPolicy:e.target.value}))} /></div>
-          <div><Label>Cancellation policy</Label><Textarea value={state.cancellationPolicy} onChange={(e)=>setState((p)=>({...p,cancellationPolicy:e.target.value}))} /></div>
-          <div><Label>Manager emails</Label><Textarea value={state.managerEmails} onChange={(e)=>setState((p)=>({...p,managerEmails:e.target.value}))} /></div>
-          <div><Label>Manager phones</Label><Textarea value={state.managerPhones} onChange={(e)=>setState((p)=>({...p,managerPhones:e.target.value}))} /></div>
-        </CardContent>
-      </Card>
-      <div className={`${frontDeskContextPanelClass()} flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between`}>
-        <div className="space-y-1">
-          <p className="page-eyebrow">Onboarding actions</p>
-          <p className="text-sm text-muted-foreground">Save progress, preview the generated build sheet, or submit the onboarding package for review.</p>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className="space-y-6">
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 1" title="Business Profile" description="Set the core business identity the receptionist should use on every request." />
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <OnboardingField label="Legal business name"><Input value={state.legalBusinessName} onChange={(e)=>setState((p)=>({...p,legalBusinessName:e.target.value}))} /></OnboardingField>
+              <OnboardingField label="Display name"><Input value={state.displayName} onChange={(e)=>setState((p)=>({...p,displayName:e.target.value}))} /></OnboardingField>
+              <OnboardingField label="Industry"><Input value={state.industry} onChange={(e)=>setState((p)=>({...p,industry:e.target.value}))} /></OnboardingField>
+              <OnboardingField label="Website"><Input value={state.website} onChange={(e)=>setState((p)=>({...p,website:e.target.value}))} /></OnboardingField>
+              <div className="sm:col-span-2"><OnboardingField label="Business address"><Input value={state.address} onChange={(e)=>setState((p)=>({...p,address:e.target.value}))} /></OnboardingField></div>
+              <div className="sm:col-span-2"><OnboardingField label="Service area" hint="List cities, counties, or neighborhoods the office actually serves."><Input value={state.serviceArea} onChange={(e)=>setState((p)=>({...p,serviceArea:e.target.value}))} /></OnboardingField></div>
+            </CardContent>
+          </Card>
+
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 2" title="Operations and Booking" description="Tell the receptionist how services, scheduling, transfers, and after-hours follow-up should work." />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <OnboardingField label="Services offered (one per line)" hint="Use the same language the office uses when categorizing requests.">
+                <Textarea value={state.services} onChange={(e)=>setState((p)=>({...p,services:e.target.value}))} className="min-h-[140px]" />
+              </OnboardingField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <OnboardingField label="Do you currently use a booking app?">
+                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={state.usesBookingApp} onChange={(e) => setState((p) => ({ ...p, usesBookingApp: e.target.value as FormState["usesBookingApp"] }))}>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="not_sure">Not sure</option>
+                  </select>
+                </OnboardingField>
+                <OnboardingField label="Booking app" hint="Examples: Jobber, Housecall Pro, ServiceTitan, Calendly.">
+                  <Input value={state.bookingAppName} onChange={(e) => setState((p) => ({ ...p, bookingAppName: e.target.value }))} />
+                </OnboardingField>
+                <OnboardingField label="How should AI handle bookings?">
+                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={state.bookingAppMode} onChange={(e) => setState((p) => ({ ...p, bookingAppMode: e.target.value as FormState["bookingAppMode"] }))}>
+                    <option value="staff_review">Create booking request for staff review</option>
+                    <option value="direct_booking">Book directly in existing app or calendar</option>
+                    <option value="link_only">Send booking link only</option>
+                  </select>
+                </OnboardingField>
+                <OnboardingField label="Booking workflow">
+                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={state.bookingMethod} onChange={(e) => setState((p) => ({ ...p, bookingMethod: e.target.value as FormState["bookingMethod"] }))}>
+                    <option value="manager_notify">Manager notify</option>
+                    <option value="manual">Manual booking</option>
+                    <option value="google_calendar">Google Calendar</option>
+                  </select>
+                </OnboardingField>
+                <OnboardingField label="Booking link"><Input value={state.bookingLink} onChange={(e) => setState((p) => ({ ...p, bookingLink: e.target.value }))} placeholder="https://..." /></OnboardingField>
+                <OnboardingField label="Calendar or account email"><Input value={state.bookingAccountEmail} onChange={(e) => setState((p) => ({ ...p, bookingAccountEmail: e.target.value }))} placeholder="scheduler@company.com" /></OnboardingField>
+                <OnboardingField label="Default appointment duration (minutes)"><Input type="number" min={0} value={state.appointmentDurationMin} onChange={(e) => setState((p) => ({ ...p, appointmentDurationMin: e.target.value }))} placeholder="60" /></OnboardingField>
+                <OnboardingField label="Buffer between appointments (minutes)"><Input type="number" min={0} value={state.appointmentBufferMin} onChange={(e) => setState((p) => ({ ...p, appointmentBufferMin: e.target.value }))} placeholder="15" /></OnboardingField>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <OnboardingField label="After-hours instructions"><Textarea value={state.afterHoursInstructions} onChange={(e)=>setState((p)=>({...p,afterHoursInstructions:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+                <OnboardingField label="Holiday policy"><Textarea value={state.holidayPolicy} onChange={(e)=>setState((p)=>({...p,holidayPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+                <OnboardingField label="Transfer numbers (one per line)"><Textarea value={state.transferNumbers} onChange={(e)=>setState((p)=>({...p,transferNumbers:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+                <OnboardingField label="Custom intake questions (one per line)"><Textarea value={state.customQuestions} onChange={(e)=>setState((p)=>({...p,customQuestions:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 3" title="Policies and Notifications" description="Set the policies and alert recipients that guide follow-up once requests start landing in the queues." />
+            </CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-2">
+              <OnboardingField label="Warranty policy"><Textarea value={state.warrantyPolicy} onChange={(e)=>setState((p)=>({...p,warrantyPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Cancellation policy"><Textarea value={state.cancellationPolicy} onChange={(e)=>setState((p)=>({...p,cancellationPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Diagnostics policy"><Textarea value={state.diagnosticsPolicy} onChange={(e)=>setState((p)=>({...p,diagnosticsPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Lead summary recipients"><Textarea value={state.leadSummaryRecipients} onChange={(e)=>setState((p)=>({...p,leadSummaryRecipients:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Manager emails"><Textarea value={state.managerEmails} onChange={(e)=>setState((p)=>({...p,managerEmails:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Manager phones"><Textarea value={state.managerPhones} onChange={(e)=>setState((p)=>({...p,managerPhones:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+            </CardContent>
+          </Card>
+
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 4" title="Existing Systems" description="Document the tools and channels your office already uses so the receptionist fits into the current workflow." />
+            </CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-2">
+              <OnboardingField label="Shop management system"><Input value={state.shopManagementSystem} onChange={(e)=>setState((p)=>({...p,shopManagementSystem:e.target.value}))} placeholder="Housecall Pro, Jobber, ServiceTitan, etc." /></OnboardingField>
+              <OnboardingField label="CRM"><Input value={state.crm} onChange={(e)=>setState((p)=>({...p,crm:e.target.value}))} placeholder="HubSpot, Salesforce, custom CRM, etc." /></OnboardingField>
+              <div className="lg:col-span-2"><OnboardingField label="Website form or lead-source notes"><Textarea value={state.websiteForm} onChange={(e)=>setState((p)=>({...p,websiteForm:e.target.value}))} className="min-h-[120px]" /></OnboardingField></div>
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-        <Button className="sm:min-w-[10rem]" onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
-        <Button className="sm:min-w-[10rem]" variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
-        <Link href="/app/onboarding/preview" className="sm:min-w-[10rem]">
-          <Button className="w-full" type="button" variant="outline">Open build sheet page</Button>
-        </Link>
-        <Button className="sm:min-w-[10rem]" variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
+
+        <div className="space-y-6 xl:sticky xl:top-24">
+          <div className={`${frontDeskContextPanelClass()} space-y-4`}>
+            <div className="space-y-1">
+              <p className="page-eyebrow">Submit and review</p>
+              <p className="text-sm text-slate-600">Save progress, preview the generated build sheet, then submit the package when the office rules are ready for review.</p>
+            </div>
+            <div className="grid gap-3">
+              <Button className="w-full" onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
+              <Button className="w-full" variant="outline" onClick={onPreview} disabled={saving}>Preview build sheet</Button>
+              <Link href="/app/onboarding/preview"><Button className="w-full" type="button" variant="outline">Open build sheet page</Button></Link>
+              <Button className="w-full" variant="outline" onClick={onSubmit} disabled={saving}>Submit setup package</Button>
+            </div>
+          </div>
+
+          <div className={`${frontDeskContextPanelClass()} space-y-3`}>
+            <p className="page-eyebrow">Go-live checklist</p>
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-950">1. Business profile is accurate</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Business name, address, website, and service area should match how the office represents itself publicly.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-950">2. Booking workflow is realistic</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Choose the booking approach the office can actually support so requests land in the right queue.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-950">3. Alert recipients are ready</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Manager emails and phones should route live follow-up to the right people on day one.</p>
+              </div>
+            </div>
+          </div>
+
+          {previewJson ? (
+            <Card className={frontDeskWorkspaceCardClass("subtle")}>
+              <CardHeader className="pb-3">
+                <CardTitle>Build sheet preview</CardTitle>
+                <p className="text-sm text-muted-foreground">Review the generated setup package before submitting it for configuration.</p>
+              </CardHeader>
+              <CardContent>
+                <pre className="max-h-[28rem] overflow-auto rounded-2xl border bg-slate-950 p-4 text-xs text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">{previewJson}</pre>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className={frontDeskEmptyStateClass()}>
+              Build sheet preview will appear here after you run a preview. Use it to review what the office configuration package will look like before submission.
+            </div>
+          )}
         </div>
       </div>
-      {previewJson ? (
-        <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardHeader className="pb-3">
-            <CardTitle>AI Configuration Package Preview</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              This is the generated build sheet your team can review before the receptionist goes live.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <pre className="max-h-96 overflow-auto rounded-2xl border bg-slate-950 p-4 text-xs text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">{previewJson}</pre>
-          </CardContent>
-        </Card>
-      ) : null}
     </div>
   );
 }
