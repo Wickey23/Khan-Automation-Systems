@@ -29,6 +29,15 @@ function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
   return 3;
 }
 
+function frontDeskStateWeight(state: string | undefined) {
+  if (state === "needs_follow_up") return 0;
+  if (state === "contacted") return 1;
+  if (state === "booked") return 2;
+  if (state === "closed") return 3;
+  if (state === "spam") return 4;
+  return 1;
+}
+
 function frontDeskTone(lead: Lead) {
   if (lead.frontDesk?.frontDeskPriority === "urgent") return "critical";
   if (lead.frontDesk?.frontDeskPriority === "high") return "warning";
@@ -183,6 +192,8 @@ export default function AppLeadsPage() {
         .toLowerCase()
         .includes(q);
     }).sort((a, b) => {
+      const stateDelta = frontDeskStateWeight(a.frontDesk?.state) - frontDeskStateWeight(b.frontDesk?.state);
+      if (stateDelta !== 0) return stateDelta;
       const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
       if (priorityDelta !== 0) return priorityDelta;
       return new Date(b.frontDesk?.lastActivityAt || b.updatedAt).getTime() - new Date(a.frontDesk?.lastActivityAt || a.updatedAt).getTime();
