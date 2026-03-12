@@ -344,54 +344,104 @@ export default function AppLeadsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-        {stats.map((item) => (
-          <Card key={item.label} className={frontDeskMetricCardClass()}>
-            <CardContent className="p-5">
-              <p className="page-eyebrow">{item.label}</p>
-              <p className="mt-3 text-3xl font-semibold tracking-tight">{item.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card className={frontDeskWorkspaceCardClass("hero")}>
-        <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_220px_auto] xl:items-end">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={view === "OPEN_LEADS" ? "Search by name, business, phone, email, or source" : "Search customers by name or phone"}
-          />
-          {view === "OPEN_LEADS" ? (
-            <select
-              value={queueFilter}
-              onChange={(event) => setQueueFilter(event.target.value as (typeof queueStates)[number])}
-              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              {queueStates.map((state) => (
-                <option key={state} value={state}>
-                  {queueStateLabel(state)}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-              Pro customer memory view
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
+        <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Follow-up workflow</p>
+              <p className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-slate-900">
+                {view === "OPEN_LEADS"
+                  ? filtered.length
+                    ? `${filtered.length} open requests are in the queue`
+                    : "No open requests need follow-up right now"
+                  : `${customerFiltered.length} known customers are in memory`}
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                {view === "OPEN_LEADS"
+                  ? "Start here when the office needs to decide the next step for a request. Work fresh follow-up first, move live text replies into Inbox, and push scheduling-ready jobs into Booking Queue."
+                  : "Use customer memory when the office needs context from repeat callers, prior outcomes, and older interactions before responding."}
+              </p>
             </div>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {plan === "PRO" ? (
-              <Button asChild variant="outline">
-                <Link href="/app/customer-base">Legacy customer memory</Link>
-              </Button>
-            ) : (
-              <Button asChild>
-                <Link href="/app/billing">Upgrade to Pro</Link>
-              </Button>
-            )}
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">1. Triage open work</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Review who still needs contact, callback, or office review before the request goes cold.</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">2. Work live replies</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">If the latest movement is a customer reply, switch to Inbox and keep the conversation moving.</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">3. Advance the job</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Use stage actions to move the request toward scheduling, booking, or final resolution.</p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+              {stats.map((item) => (
+                <div key={item.label} className={frontDeskMetricCardClass()}>
+                  <div className="p-5">
+                    <p className="page-eyebrow">{item.label}</p>
+                    <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{item.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className={`${frontDeskWorkspaceCardClass("default")} p-5`}>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Queue controls</p>
+              <p className="text-base font-semibold text-slate-900">Search the queue, change the current view, and keep customer memory close at hand.</p>
+            </div>
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={view === "OPEN_LEADS" ? "Search by name, business, phone, email, or source" : "Search customers by name or phone"}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {view === "OPEN_LEADS" ? (
+                <label className="text-sm">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Queue state</span>
+                  <select
+                    value={queueFilter}
+                    onChange={(event) => setQueueFilter(event.target.value as (typeof queueStates)[number])}
+                    className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                  >
+                    {queueStates.map((state) => (
+                      <option key={state} value={state}>
+                        {queueStateLabel(state)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                  Pro customer memory view
+                </div>
+              )}
+              <div className="rounded-2xl border border-slate-200/90 bg-white/70 px-4 py-4 text-sm text-slate-700">
+                <p className="page-eyebrow">Customer memory</p>
+                <p className="mt-2 leading-6">
+                  Keep repeat callers and prior outcomes nearby when the office needs more context before responding.
+                </p>
+                <div className="mt-3">
+                  {plan === "PRO" ? (
+                    <Button asChild variant="outline" className="w-full">
+                      <Link href="/app/customer-base">Open customer memory</Link>
+                    </Button>
+                  ) : (
+                    <Button asChild className="w-full">
+                      <Link href="/app/billing">Upgrade to Pro</Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {!pipelineAvailable && view === "OPEN_LEADS" ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -455,11 +505,11 @@ export default function AppLeadsPage() {
                         ? frontDeskOutcomeSurfaceClass("saved")
                         : frontDeskOutcomeSurfaceClass("active")
                 } ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
-                <CardContent className="space-y-4 p-5">
-                  <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                <CardContent className="space-y-5 p-5 sm:p-6">
+                  <div className="flex flex-col gap-4 border-b border-border/60 pb-5 xl:flex-row xl:items-start xl:justify-between">
                     <div className="space-y-2">
                       <div className="space-y-1">
-                        <p className="text-base font-semibold text-foreground">{lead.name}</p>
+                        <p className="text-[20px] font-semibold tracking-[-0.02em] text-foreground">{lead.name}</p>
                         <p className="text-sm text-muted-foreground">{lead.business}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -474,7 +524,7 @@ export default function AppLeadsPage() {
                         ) : null}
                       </div>
                     </div>
-                    <div className="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
+                    <div className="grid gap-2 sm:flex sm:flex-wrap xl:justify-end">
                       {leadQuickActions(lead).map((action) => (
                         <Button
                           key={`${lead.id}-${action.stage}`}
@@ -491,7 +541,7 @@ export default function AppLeadsPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
                         <div className={`${frontDeskContextPanelClass()} space-y-1`}>
                           <p className="page-eyebrow">Contact</p>
                           <p className="text-sm font-medium text-foreground">{lead.phone || lead.email || "No contact info"}</p>
@@ -509,7 +559,7 @@ export default function AppLeadsPage() {
                           <p className="text-sm text-foreground">{latestLeadMovementLabel(lead)}</p>
                         </div>
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:items-start">
+                    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,360px)] 2xl:items-start">
                       <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1">
@@ -521,7 +571,7 @@ export default function AppLeadsPage() {
                           <div className="space-y-1">
                             <p className="page-eyebrow">Why this matters now</p>
                             <p className="text-muted-foreground">
-                              {leadNextActionLabel(lead)}. Use Lead Queue when the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
+                              {leadNextActionLabel(lead)}. Stay in Lead Queue while the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
                             </p>
                           </div>
                         </div>
@@ -533,7 +583,7 @@ export default function AppLeadsPage() {
                         {leadOutcomeNote(lead) ? <p className="text-sm text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
                       </div>
 
-                      <div className={`${frontDeskContextPanelClass()} space-y-3 text-sm`}>
+                      <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
                         <div className="space-y-2">
                           <p className="page-eyebrow">Next stage</p>
                           <select
@@ -552,9 +602,9 @@ export default function AppLeadsPage() {
                         {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
                           <div className="space-y-2 border-t border-border/60 pt-3">
                             <p className="page-eyebrow">Related workspaces</p>
-                            <div className="grid gap-2 sm:flex sm:flex-wrap">
+                            <div className="grid gap-2">
                               {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
-                                <Button asChild size="sm" className="w-full sm:w-auto">
+                                <Button asChild size="sm" className="w-full justify-start">
                                   <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
                                 </Button>
                               ) : null}
@@ -563,7 +613,7 @@ export default function AppLeadsPage() {
                                   asChild
                                   size="sm"
                                   variant={lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? "outline" : "default"}
-                                  className="w-full sm:w-auto"
+                                  className="w-full justify-start"
                                 >
                                   <Link href={`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`}>Open booking</Link>
                                 </Button>
@@ -579,13 +629,13 @@ export default function AppLeadsPage() {
                                         ? "default"
                                         : "outline"
                                   }
-                                  className="w-full sm:w-auto"
+                                  className="w-full justify-start"
                                 >
                                   <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
                                 </Button>
                               ) : null}
                               {lead.latestMessageThreadId && latestLeadMovementLabel(lead) !== "Customer replied" ? (
-                                <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                                <Button asChild size="sm" variant="outline" className="w-full justify-start">
                                   <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
                                 </Button>
                               ) : null}
