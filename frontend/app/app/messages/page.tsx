@@ -33,6 +33,21 @@ function normalizePhoneMatch(value: string | null | undefined) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function isPlaceholderName(value: string | null | undefined) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return !normalized || normalized === "unknown contact" || normalized === "unknown caller" || normalized === "not provided";
+}
+
+function extractNameFromSummary(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const calledMatch = text.match(/^(.+?) called\b/i);
+  if (calledMatch?.[1]) return calledMatch[1].trim();
+  const quoteMatch = text.match(/^["']?([^"']{2,60})["']?\s+(?:requested|needs|asked)/i);
+  if (quoteMatch?.[1]) return quoteMatch[1].trim();
+  return null;
+}
+
 function frontDeskPriorityWeight(thread: OrgMessageThread) {
   const priority = thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority;
   if (priority === "urgent") return 0;
@@ -43,6 +58,20 @@ function frontDeskPriorityWeight(thread: OrgMessageThread) {
 
 function threadFrontDesk(thread: OrgMessageThread) {
   return thread.frontDesk || thread.lead?.frontDesk || null;
+}
+
+function threadDisplayName(thread: OrgMessageThread) {
+  if (!isPlaceholderName(thread.contactName)) return String(thread.contactName).trim();
+  if (!isPlaceholderName(thread.lead?.name)) return String(thread.lead?.name).trim();
+  return extractNameFromSummary(threadFrontDesk(thread)?.summary) || "Unknown contact";
+}
+
+function threadDisplayAction(thread: OrgMessageThread) {
+  const action = threadNextActionLabel(thread);
+  if ((action === "No action needed" || action === "Ignore") && threadQuickActions(thread).length) {
+    return threadQuickActions(thread)[0].label;
+  }
+  return action;
 }
 
 function threadStateWeight(thread: OrgMessageThread) {
@@ -441,7 +470,7 @@ export default function AppMessagesPage() {
               </div>
               <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Selected</p>
-                <p className="mt-2 truncate text-sm font-semibold">{selected?.contactName || selected?.contactPhone || "No thread selected"}</p>
+                        <p className="mt-2 truncate text-sm font-semibold">{selected ? threadDisplayName(selected) || selected.contactPhone : "No thread selected"}</p>
               </div>
             </div>
           </CardContent>
@@ -630,7 +659,7 @@ export default function AppMessagesPage() {
                   </p>
                   {selected && threadFrontDesk(selected)?.recommendedAction ? (
                     <p className="text-xs text-muted-foreground">
-                      Recommended action: {threadNextActionLabel(selected)}
+                      Recommended action: {threadDisplayAction(selected)}
                     </p>
                   ) : null}
                   {selected?.leadId && canEditPipeline ? (
@@ -691,7 +720,7 @@ export default function AppMessagesPage() {
               <div className="space-y-1">
                 <CardTitle className="text-lg">Conversation</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {selected ? `${selected.contactName || selected.lead?.name || "Unknown contact"} • ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
+                  {selected ? `${threadDisplayName(selected)} • ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
                 </p>
               </div>
             </CardHeader>
@@ -739,7 +768,7 @@ export default function AppMessagesPage() {
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
-                        <p className="mt-1 text-sm text-foreground">{selected.contactName || selected.lead?.name || "Unknown contact"}</p>
+                        <p className="mt-1 text-sm text-foreground">{threadDisplayName(selected)}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Phone number</p>
@@ -755,7 +784,7 @@ export default function AppMessagesPage() {
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Recommended action</p>
-                        <p className="mt-1 text-sm text-foreground">{threadNextActionLabel(selected)}</p>
+                        <p className="mt-1 text-sm text-foreground">{threadDisplayAction(selected)}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Follow-up state</p>
@@ -775,7 +804,7 @@ export default function AppMessagesPage() {
                       ) : null}
                     </div>
                     <p className={`${frontDeskContextPanelClass()} mt-3 text-sm text-muted-foreground`}>
-                      Why this matters now: {threadNextActionLabel(selected)}. Stay in Inbox when the customer already replied here, then move to Lead Queue or Booking Queue only if this thread needs a larger follow-up action.
+                      Why this matters now: {threadDisplayAction(selected)}. Stay in Inbox when the customer already replied here, then move to Lead Queue or Booking Queue only if this thread needs a larger follow-up action.
                     </p>
                     {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
                       <div className="mt-3 space-y-2">
