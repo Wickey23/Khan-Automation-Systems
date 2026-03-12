@@ -983,7 +983,9 @@ export default function AppAppointmentsPage() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No open appointment requests yet.</p>
+            <p className="text-sm text-muted-foreground">
+              Appointment requests captured from calls will appear here so the office can review, offer times, and confirm bookings.
+            </p>
           )}
         </div>
       ) : null}

@@ -736,7 +736,9 @@ export default function AppOverviewPage() {
                 </div>
               ))
             ) : (
-              <div className="empty-state">No leads or requests need attention right now.</div>
+              <div className="empty-state">
+                New inbound requests, missed-call recoveries, and callback work will appear here once the front desk starts capturing activity.
+              </div>
             )}
           </CardContent>
         </Card>
@@ -789,7 +791,9 @@ export default function AppOverviewPage() {
                 </div>
               ))
             ) : (
-              <div className="empty-state">No calls yet today.</div>
+              <div className="empty-state">
+                When a call is handled or missed, this area shows the structured summary, urgency, and the next office action.
+              </div>
             )}
           </CardContent>
         </Card>

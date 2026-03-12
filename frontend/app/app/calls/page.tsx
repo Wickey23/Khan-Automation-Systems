@@ -432,7 +432,9 @@ export default function AppCallsPage() {
                 );
               })
             ) : (
-              <div className="empty-state">No calls match this view yet.</div>
+              <div className="empty-state">
+                Calls that match this filter will appear here with structured intake details and a recommended next step for the office.
+              </div>
             )}
           </div>
 
@@ -612,7 +614,7 @@ export default function AppCallsPage() {
                     <p className="page-eyebrow">Call details</p>
                     <h2 className="text-2xl">Select a call</h2>
                     <p className="text-sm leading-6 text-muted-foreground">
-                      This panel stays fixed so your review workflow is stable. Open any call from the queue to inspect the summary, transcript, disposition, and next step.
+                      This panel stays fixed so your review workflow is stable. Open any call from the queue to inspect the structured intake result first, then review transcript or recording only if needed.
                     </p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">

@@ -302,7 +302,9 @@ export default function AppMessagesPage() {
           <CardContent className="p-0">
             <div className="max-h-[620px] overflow-auto">
             {!filteredThreads.length ? (
-              <div className="empty-state m-5">No messages yet.</div>
+              <div className="empty-state m-5">
+                SMS follow-up threads will appear here after missed-call recovery, appointment offers, or customer replies.
+              </div>
             ) : (
               filteredThreads.map((thread) => (
                 (() => {
@@ -421,9 +423,9 @@ export default function AppMessagesPage() {
             <CardContent className="pt-0">
               <div className="max-h-[620px] space-y-3 overflow-auto pr-1">
               {!selected ? (
-                <div className="empty-state">Select a thread to view messages.</div>
+                <div className="empty-state">Select a thread to review the conversation and decide the next follow-up action.</div>
               ) : !selected.messages.length ? (
-                <div className="empty-state">No messages in this thread yet.</div>
+                <div className="empty-state">This thread has no messages yet. New inbound replies or outbound follow-up will appear here.</div>
               ) : (
                 [...selected.messages]
                   .reverse()

@@ -326,7 +326,9 @@ export default function AppLeadsPage() {
               </Card>
             ))
           ) : (
-            <div className="empty-state">No leads match this filter yet.</div>
+            <div className="empty-state">
+              Captured calls, SMS replies, and web inquiries that still need follow-up will appear here as an operator queue.
+            </div>
           )}
         </div>
       ) : (
