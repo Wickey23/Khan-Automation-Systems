@@ -102,6 +102,12 @@ function requestLatestMessageLabel(request: AppointmentRequest) {
   return "No SMS follow-up yet";
 }
 
+function requestReplyWeight(request: AppointmentRequest) {
+  if (request.latestMessageDirection === "INBOUND") return 0;
+  if (request.latestMessageDirection === "OUTBOUND") return 1;
+  return 2;
+}
+
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -668,6 +674,7 @@ export default function AppAppointmentsPage() {
     const priority = { PENDING_REVIEW: 0, APPROVED: 1, SLOT_OFFERED: 2, DENIED: 3, SCHEDULED: 4, CLOSED: 5 } as const;
     return (
       priority[a.status] - priority[b.status] ||
+      requestReplyWeight(a) - requestReplyWeight(b) ||
       new Date(b.lastEventAt).getTime() - new Date(a.lastEventAt).getTime()
     );
   });
@@ -681,8 +688,13 @@ export default function AppAppointmentsPage() {
     requestQueueFilter === "ALL"
       ? sortedAppointmentRequests
       : sortedAppointmentRequests.filter((request) => requestQueueState(request) === requestQueueFilter);
+  const repliedAppointmentRequests = sortedAppointmentRequests.filter(
+    (request) => request.latestMessageDirection === "INBOUND" && !["SCHEDULED", "DENIED", "CLOSED"].includes(request.status)
+  );
   const nextFocusLabel =
-    pendingAppointmentRequests.length > 0
+    repliedAppointmentRequests.length > 0
+      ? `${repliedAppointmentRequests.length} booking replies need review`
+      : pendingAppointmentRequests.length > 0
       ? `${pendingAppointmentRequests.length} requests need a booking decision`
       : offeredAppointmentRequests.length > 0
         ? `${offeredAppointmentRequests.length} customers are waiting on a reply`
@@ -747,8 +759,8 @@ export default function AppAppointmentsPage() {
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
                 </div>
                 <div className="rounded-xl border bg-slate-50 px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{offeredAppointmentRequests.length}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer replied</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{repliedAppointmentRequests.length}</p>
                 </div>
                 <div className="rounded-xl border bg-slate-50 px-4 py-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">On calendar</p>
@@ -901,6 +913,11 @@ export default function AppAppointmentsPage() {
                                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
                                   {requestWorkTypeLabel(request)}
                                 </span>
+                                {request.latestMessageDirection === "INBOUND" ? (
+                                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass("warning")}`}>
+                                    Customer replied
+                                  </span>
+                                ) : null}
                                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
                                   {requestStatusLabel(request)}
                                 </span>
