@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
+import { frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -758,7 +759,7 @@ export default function AppSettingsPage() {
       </section>
 
       <Accordion type="multiple" defaultValue={["calendar", "services"]} className="space-y-4">
-      <AccordionItem value="security" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="security" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Security & Verification
         </AccordionTrigger>
@@ -1026,7 +1027,7 @@ export default function AppSettingsPage() {
         </label>
       </section>
 
-      <AccordionItem value="calendar" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="calendar" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Calendar connections
         </AccordionTrigger>
@@ -1258,7 +1259,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="booking" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="booking" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Booking rules and alerts
         </AccordionTrigger>
@@ -1342,7 +1343,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="notifications" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="notifications" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Notification inbox
         </AccordionTrigger>
@@ -1399,7 +1400,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="knowledge" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="knowledge" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Knowledge files
         </AccordionTrigger>
@@ -1446,7 +1447,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="business-hours" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="business-hours" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Business hours
         </AccordionTrigger>
@@ -1503,7 +1504,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="services" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="services" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Services and routing
         </AccordionTrigger>
@@ -1546,7 +1547,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="policies" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="policies" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Policies and answers
         </AccordionTrigger>
@@ -1578,7 +1579,7 @@ export default function AppSettingsPage() {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="sms" className="rounded-2xl border bg-white px-5 shadow-sm">
+      <AccordionItem value="sms" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           SMS follow-up
         </AccordionTrigger>

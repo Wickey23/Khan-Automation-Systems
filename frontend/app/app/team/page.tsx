@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
+import { frontDeskWorkspaceCardClass, frontDeskMetricCardClass } from "@/lib/front-desk-ui";
 
 function toRoleInput(role: TeamMember["role"]): "admin" | "manager" | "viewer" {
   if (role === "ADMIN") return "admin";
@@ -228,7 +229,7 @@ export default function TeamPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardHeader className="pb-3">
             <CardTitle>Routing at a glance</CardTitle>
           </CardHeader>
@@ -248,7 +249,7 @@ export default function TeamPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardHeader className="pb-3">
             <CardTitle>Quick links</CardTitle>
           </CardHeader>
@@ -269,7 +270,7 @@ export default function TeamPage() {
       </div>
 
       {roleBlocked ? (
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardContent className="p-5 text-sm">
             You do not have access to Team management. Contact your admin for role access.
           </CardContent>
@@ -277,32 +278,32 @@ export default function TeamPage() {
       ) : null}
 
       {!proEnabled && !roleBlocked ? (
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardContent className="p-5 text-sm">
             Team management is a Pro feature. Upgrade to Pro to invite and manage multiple users.
           </CardContent>
         </Card>
       ) : null}
 
-      <Card className={roleBlocked ? "opacity-60" : ""}>
+      <Card className={`${frontDeskWorkspaceCardClass("default")} ${roleBlocked ? "opacity-60" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle>Seat usage</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <div className={`${frontDeskMetricCardClass()} text-sm`}>
               <p className="page-eyebrow">Active members</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.activeMembers ?? activeCount}</p>
             </div>
-            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <div className={`${frontDeskMetricCardClass()} text-sm`}>
               <p className="page-eyebrow">Pending invites</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.pendingInvites ?? 0}</p>
             </div>
-            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <div className={`${frontDeskMetricCardClass()} text-sm`}>
               <p className="page-eyebrow">Allowed seats</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.allowedSeats}</p>
             </div>
-            <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <div className={`${frontDeskMetricCardClass()} text-sm`}>
               <p className="page-eyebrow">Used seats</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">{usedSeats}</p>
             </div>
@@ -325,7 +326,7 @@ export default function TeamPage() {
       </Card>
 
       {canManage && proEnabled && !roleBlocked ? (
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="pb-3">
             <CardTitle>Invite team member</CardTitle>
           </CardHeader>
@@ -365,7 +366,7 @@ export default function TeamPage() {
         </Card>
       ) : null}
 
-      <Card className={!proEnabled || roleBlocked ? "opacity-60" : ""}>
+      <Card className={`${frontDeskWorkspaceCardClass("default")} ${!proEnabled || roleBlocked ? "opacity-60" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle>Team members and role coverage</CardTitle>
         </CardHeader>

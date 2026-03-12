@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
+import { frontDeskWorkspaceCardClass, frontDeskMetricCardClass } from "@/lib/front-desk-ui";
 
 const PLAN_COPY = {
   none: {
@@ -312,7 +313,7 @@ export default function AppBillingPage() {
         }
       />
 
-      <Card className="overflow-hidden">
+      <Card className={`${frontDeskWorkspaceCardClass("hero")} overflow-hidden`}>
         <CardHeader>
           <CardTitle>Current subscription</CardTitle>
         </CardHeader>
@@ -344,21 +345,21 @@ export default function AppBillingPage() {
             </div>
           ) : null}
             <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border bg-white p-4">
+            <div className={frontDeskMetricCardClass()}>
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Plan
                 <InfoHint text="Active plan tier used for feature access and pricing." />
               </p>
               <p className="mt-1 text-base font-semibold">{formatPlan(subscription?.plan)}</p>
             </div>
-            <div className="rounded-2xl border bg-white p-4">
+            <div className={frontDeskMetricCardClass()}>
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Status
                 <InfoHint text="Billing state from Stripe (for example active, trialing, or past_due)." />
               </p>
               <p className="mt-1 text-base font-semibold">{subscription ? formatStatus(subscription.status) : "not active"}</p>
             </div>
-            <div className="rounded-2xl border bg-white p-4">
+            <div className={frontDeskMetricCardClass()}>
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Current period end
                 <InfoHint text="Date the current paid billing period ends before renewal." />
@@ -535,7 +536,7 @@ export default function AppBillingPage() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
         <CardHeader>
           <CardTitle>Billing diagnostics</CardTitle>
         </CardHeader>
@@ -576,7 +577,7 @@ export default function AppBillingPage() {
                     ["Stripe checks", diagnostics.checks.stripe],
                     ["Org linkage", diagnostics.checks.orgLinkage]
                   ] as Array<[string, BillingDiagnosticCheck[]]>).map(([title, list]) => (
-                    <div key={title} className="rounded-2xl border bg-white p-4">
+                    <div key={title} className={frontDeskWorkspaceCardClass("subtle")}>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
                       <div className="mt-2 space-y-2">
                         {list.map((check) => (

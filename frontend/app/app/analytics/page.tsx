@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader } from "@/components/ui/page";
+import { frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -119,7 +120,7 @@ export default function AppAnalyticsPage() {
         }
       />
 
-      <Card>
+      <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm">
           <div>
             <p className="page-eyebrow">Data freshness</p>
@@ -138,7 +139,7 @@ export default function AppAnalyticsPage() {
       </Card>
 
       {!isPro ? (
-        <Card className="border-amber-200 bg-amber-50/70">
+        <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]`}>
           <CardContent className="p-5 text-sm text-amber-950">
             <div className="flex items-center gap-2 font-semibold">
               <Lock className="h-4 w-4" />
@@ -156,7 +157,7 @@ export default function AppAnalyticsPage() {
 
       <div className={`metric-grid ${!isPro ? "opacity-60" : ""}`}>
         {metricCards.map((item) => (
-          <Card key={item.label}>
+          <Card key={item.label} className={frontDeskMetricCardClass()}>
             <CardContent className="p-5">
               <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
                 {item.label}
@@ -170,14 +171,14 @@ export default function AppAnalyticsPage() {
       </div>
 
       {isViewer ? (
-        <Card className="border-amber-200 bg-amber-50/70">
+        <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]`}>
           <CardContent className="p-4 text-sm text-amber-950">Viewer role access: summary KPI cards only.</CardContent>
         </Card>
       ) : null}
 
       {!isViewer ? (
       <div className={`grid gap-4 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
-        <Card className="lg:col-span-2">
+        <Card className={`${frontDeskWorkspaceCardClass("default")} lg:col-span-2`}>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -208,7 +209,7 @@ export default function AppAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardHeader className="pb-3">
             <CardTitle>What happened</CardTitle>
           </CardHeader>
@@ -231,7 +232,7 @@ export default function AppAnalyticsPage() {
       ) : null}
 
       {!isViewer ? (
-      <Card className={!isPro ? "opacity-60" : ""}>
+      <Card className={`${frontDeskWorkspaceCardClass("default")} ${!isPro ? "opacity-60" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle>Leads captured over time</CardTitle>
         </CardHeader>

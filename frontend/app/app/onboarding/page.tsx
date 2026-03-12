@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
+import { frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type FormState = {
   legalBusinessName: string;
@@ -243,11 +245,15 @@ export default function AppOnboardingPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold">Onboarding Wizard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Status: {status}</p>
-      </div>
-      <Card>
+      <PageHeader
+        eyebrow="Workspace setup"
+        title="Onboarding Wizard"
+        description={`Status: ${status}. Capture the business details, intake rules, and booking preferences needed to configure the front desk correctly.`}
+        actions={
+          <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
+        }
+      />
+      <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardHeader><CardTitle>Business Profile</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div><Label>Legal Business Name</Label><Input value={state.legalBusinessName} onChange={(e)=>setState((p)=>({...p,legalBusinessName:e.target.value}))} /></div>
@@ -258,7 +264,7 @@ export default function AppOnboardingPage() {
           <div className="sm:col-span-2"><Label>Service Area</Label><Input value={state.serviceArea} onChange={(e)=>setState((p)=>({...p,serviceArea:e.target.value}))} /></div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className={frontDeskWorkspaceCardClass("default")}>
         <CardHeader><CardTitle>Operations Preferences</CardTitle></CardHeader>
         <CardContent className="grid gap-3">
           <div><Label>Services (one per line)</Label><Textarea value={state.services} onChange={(e)=>setState((p)=>({...p,services:e.target.value}))} /></div>
@@ -349,7 +355,7 @@ export default function AppOnboardingPage() {
           <div><Label>Custom intake questions (one per line)</Label><Textarea value={state.customQuestions} onChange={(e)=>setState((p)=>({...p,customQuestions:e.target.value}))} /></div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className={frontDeskWorkspaceCardClass("default")}>
         <CardHeader><CardTitle>Policies & Notifications</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div><Label>Warranty policy</Label><Textarea value={state.warrantyPolicy} onChange={(e)=>setState((p)=>({...p,warrantyPolicy:e.target.value}))} /></div>
@@ -367,7 +373,7 @@ export default function AppOnboardingPage() {
         <Button variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
       </div>
       {previewJson ? (
-        <Card>
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardHeader><CardTitle>AI Configuration Package Preview</CardTitle></CardHeader>
           <CardContent>
             <pre className="max-h-96 overflow-auto rounded bg-muted p-3 text-xs">{previewJson}</pre>
