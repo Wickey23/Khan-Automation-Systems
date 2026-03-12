@@ -46,6 +46,22 @@ function itemSurfaceDark(severity: ActionNeededItem["severity"]) {
   return "border-white/10 bg-white/6 hover:bg-white/10";
 }
 
+function itemActionLabel(item: ActionNeededItem) {
+  if (item.ctaLabel) return item.ctaLabel;
+  switch (item.sourceModule) {
+    case "conversations":
+      return "Open call";
+    case "leads":
+      return "Open lead";
+    case "appointments":
+      return "Open booking";
+    case "messages":
+      return "Open thread";
+    default:
+      return "Open";
+  }
+}
+
 export function ActionNeededPanel({
   items,
   className,
@@ -85,6 +101,7 @@ export function ActionNeededPanel({
                         <span>{sourceLabel(item.sourceModule)}</span>
                         {item.timestamp ? <span>{new Date(item.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span> : null}
                       </div>
+                      <p className={`text-xs font-medium ${dark ? "text-slate-200" : "text-foreground/80"}`}>{itemActionLabel(item)}</p>
                     </div>
                   </div>
                   <ArrowRight className={`mt-1 h-4 w-4 shrink-0 ${dark ? "text-slate-400" : "text-muted-foreground"}`} />

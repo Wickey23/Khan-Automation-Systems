@@ -391,7 +391,8 @@ export default function AppOverviewPage() {
         severity: frontDeskSeverity(call.frontDesk?.frontDeskPriority),
         label: `${call.frontDesk?.recommendedAction}: ${call.frontDesk?.callerName || call.displayName || call.fromNumber}`,
         detail: call.frontDesk?.summary || "Customer request still needs office follow-up.",
-        href: "/app/calls",
+        href: `/app/calls?callId=${encodeURIComponent(call.id)}`,
+        ctaLabel: "Open call",
         timestamp: call.startedAt,
         sourceModule: "conversations"
       });
@@ -404,7 +405,8 @@ export default function AppOverviewPage() {
         severity: frontDeskSeverity(lead.frontDesk?.frontDeskPriority),
         label: `${lead.frontDesk?.recommendedAction}: ${lead.name || lead.phone || "New lead"}`,
         detail: summarizeLead(lead),
-        href: "/app/leads",
+        href: `/app/leads?leadId=${encodeURIComponent(lead.id)}`,
+        ctaLabel: "Open lead",
         timestamp: lead.frontDesk?.lastActivityAt || lead.updatedAt,
         sourceModule: "leads"
       });
@@ -419,6 +421,7 @@ export default function AppOverviewPage() {
         label: `${frontDesk?.recommendedAction || "Review thread"}: ${thread.contactName || thread.lead?.name || thread.contactPhone}`,
         detail: frontDesk?.summary || thread.messages?.[0]?.body || "Customer reply needs review.",
         href: `/app/messages?threadId=${encodeURIComponent(thread.id)}`,
+        ctaLabel: "Open thread",
         timestamp: thread.lastMessageAt,
         sourceModule: "messages"
       });
@@ -434,7 +437,8 @@ export default function AppOverviewPage() {
         severity: "warning",
         label: `${request.customerName || "Customer"} has not replied to an offered time`,
         detail: "Follow up and confirm whether the appointment slot still works.",
-        href: "/app/appointments",
+        href: `/app/appointments?requestId=${encodeURIComponent(request.id)}`,
+        ctaLabel: "Open booking",
         timestamp: request.lastEventAt,
         sourceModule: "appointments"
       });
@@ -447,7 +451,8 @@ export default function AppOverviewPage() {
         severity: "warning",
         label: `${call.outcome === "ABANDONED" ? "Abandoned call" : call.unansweredTransfer ? "Unanswered transfer" : "Missed call"} from ${call.displayName || call.fromNumber}`,
         detail: call.unansweredTransfer ? "Follow up because the transfer did not connect." : "Call back and help them get scheduled.",
-        href: "/app/calls",
+        href: `/app/calls?callId=${encodeURIComponent(call.id)}`,
+        ctaLabel: "Open call",
         timestamp: call.startedAt,
         sourceModule: "conversations"
       });
@@ -460,7 +465,8 @@ export default function AppOverviewPage() {
         severity: "warning",
         label: `${request.customerName || "Customer"} needs request review`,
         detail: "Review the booking request and offer the next available time.",
-        href: "/app/appointments",
+        href: `/app/appointments?requestId=${encodeURIComponent(request.id)}`,
+        ctaLabel: "Open booking",
         timestamp: request.lastEventAt,
         sourceModule: "appointments"
       });
@@ -474,6 +480,7 @@ export default function AppOverviewPage() {
         label: "Messaging issue may block customer replies",
         detail: "Check messaging setup before follow-up texts are affected.",
         href: "/app/settings",
+        ctaLabel: "Open settings",
         timestamp: null,
         sourceModule: "messages"
       });
@@ -487,6 +494,7 @@ export default function AppOverviewPage() {
         label: state.health.summary,
         detail: "Review system health details and clear anything blocking customers.",
         href: "/app",
+        ctaLabel: "Open dashboard",
         timestamp: state.health.metrics.recentActivityAt,
         sourceModule: "system"
       });
@@ -501,6 +509,7 @@ export default function AppOverviewPage() {
         label: notification.title,
         detail: notificationDetail(notification),
         href: isCalendarFallback ? "/app/settings" : "/app/calls",
+        ctaLabel: isCalendarFallback ? "Open settings" : "Open calls",
         timestamp: notification.createdAt,
         sourceModule: notification.type === "NEW_LEAD_CAPTURED" ? "leads" : notification.type === "APPOINTMENT_BOOKED" ? "appointments" : "system"
       });

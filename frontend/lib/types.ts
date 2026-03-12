@@ -828,6 +828,7 @@ export type ActionNeededItem = {
   label: string;
   detail?: string;
   href: string;
+  ctaLabel?: string;
   timestamp?: string | null;
   sourceModule: "conversations" | "leads" | "appointments" | "messages" | "system";
 };
