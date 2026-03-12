@@ -253,6 +253,13 @@ export default function AppOnboardingPage() {
           <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
         }
       />
+      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
+        <p className="page-eyebrow">How setup works</p>
+        <p className="mt-2 font-medium text-slate-950">Complete this once so the front desk starts with the right business rules.</p>
+        <p className="mt-1 leading-6 text-slate-600">
+          Setup Wizard happens before live work begins. Once calls, texts, and booking requests start arriving, your team will spend most of its time in Front Desk, Call Queue, Inbox, and Booking Queue instead.
+        </p>
+      </div>
       <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardHeader className="pb-3">
           <CardTitle>Business Profile</CardTitle>

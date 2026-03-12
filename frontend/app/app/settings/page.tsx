@@ -651,6 +651,14 @@ export default function AppSettingsPage() {
         }
       />
 
+      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
+        <p className="page-eyebrow">When to use this page</p>
+        <p className="mt-2 font-medium text-slate-950">Come here when you need to change how the front desk behaves.</p>
+        <p className="mt-1 leading-6 text-slate-600">
+          Front Desk, Call Queue, Inbox, and Booking Queue show the live work. Receptionist Setup is where you change the rules behind that work: routing, alerts, booking behavior, hours, and assistant knowledge.
+        </p>
+      </div>
+
       <section className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <div className={frontDeskWorkspaceCardClass("subtle") + " p-5"}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Operations overview</p>
