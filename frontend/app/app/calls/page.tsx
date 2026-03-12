@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchOrgCalls, repopulateOrgCalls } from "@/lib/api";
+import { fetchOrgCalls, getMe, repopulateOrgCalls, updateLeadPipelineStage } from "@/lib/api";
 import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
 
 const callStateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
+type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
 function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "-";
@@ -145,6 +146,26 @@ function callQueueStateLabel(call: OrgCallRecord) {
   return outcomeLabel(call.outcome);
 }
 
+function callQuickActions(call: OrgCallRecord | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
+  if (!call?.leadId) return [];
+  if (call.frontDesk?.followUpState === "booked") {
+    return [
+      { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
+      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+    ];
+  }
+  if (call.frontDesk?.recommendedAction === "Offer times" || call.frontDesk?.followUpState === "contacted") {
+    return [
+      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
+    ];
+  }
+  return [
+    { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+    { label: "Close request", stage: "COMPLETED", tone: "outline" }
+  ];
+}
+
 function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
   switch (value) {
     case "needs_follow_up":
@@ -178,6 +199,8 @@ export default function AppCallsPage() {
   const [query, setQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
   const [stateFilter, setStateFilter] = useState<(typeof callStateFilters)[number]>("ALL");
+  const [canEditPipeline, setCanEditPipeline] = useState(false);
+  const [savingLeadStage, setSavingLeadStage] = useState<PipelineStage | null>(null);
   const detailsRef = useRef<HTMLElement | null>(null);
   const shouldScrollToDetailsRef = useRef(false);
   const selectedCallIdRef = useRef<string | null>(null);
@@ -248,6 +271,12 @@ export default function AppCallsPage() {
   }, [selectedCall]);
 
   useEffect(() => {
+    void getMe()
+      .then((me) => setCanEditPipeline(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role)))
+      .catch(() => setCanEditPipeline(false));
+  }, []);
+
+  useEffect(() => {
     const intervalId = window.setInterval(() => {
       void loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
     }, 12000);
@@ -302,6 +331,17 @@ export default function AppCallsPage() {
   }, [visibleCalls]);
 
   const filteredLabel = outcomeFilter === "ALL" ? "All calls" : outcomeFilter.replaceAll("_", " ").toLowerCase();
+
+  async function onQuickAction(stage: PipelineStage) {
+    if (!selectedCall?.leadId || !canEditPipeline) return;
+    setSavingLeadStage(stage);
+    try {
+      await updateLeadPipelineStage(selectedCall.leadId, stage);
+      await loadCalls({ day: selectedDayRef.current, query: queryRef.current, outcome: outcomeFilterRef.current, page: pageRef.current });
+    } finally {
+      setSavingLeadStage(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -651,6 +691,21 @@ export default function AppCallsPage() {
                     <p className="text-sm leading-6 text-muted-foreground">
                       {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
                     </p>
+                    {selectedCall.leadId && canEditPipeline ? (
+                      <div className="flex flex-wrap gap-2">
+                        {callQuickActions(selectedCall).map((action) => (
+                          <Button
+                            key={`${selectedCall.id}-${action.stage}`}
+                            size="sm"
+                            variant={action.tone}
+                            disabled={savingLeadStage === action.stage}
+                            onClick={() => void onQuickAction(action.stage)}
+                          >
+                            {action.label}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2">
