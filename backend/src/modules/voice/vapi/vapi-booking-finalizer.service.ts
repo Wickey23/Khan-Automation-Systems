@@ -13,6 +13,7 @@ import { getBusyBlocks } from "../../appointments/calendar-busy.service";
 import { generateAvailabilitySlots } from "../../appointments/slotting.service";
 import { assertOrgSmsQuota } from "../../sms/sms-governance.service";
 import {
+  buildAppointmentSlotOfferFallback,
   buildNewLeadAcknowledgementFallback,
   getSmsTemplatesFromPolicies,
   renderOperationalSmsTemplate
@@ -217,7 +218,11 @@ async function sendAvailabilityOptionsSms(input: {
     const slotLines = input.slots.map((slot, index) => `${index + 1}. ${slot.label}`).join("\n");
     const body = renderOperationalSmsTemplate({
       template: null,
-      fallback: "Hi {{customerName}}, here are the next available times from {{businessName}}:\n{{slotLines}}\nReply with the option you want and our team will finalize scheduling.",
+      fallback: buildAppointmentSlotOfferFallback({
+        businessName,
+        customerName: input.customerName || "there",
+        slotLines
+      }),
       values: {
         customerName: input.customerName || "there",
         businessName,

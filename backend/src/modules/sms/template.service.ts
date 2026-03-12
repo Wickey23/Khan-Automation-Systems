@@ -59,6 +59,15 @@ export function buildNewLeadAcknowledgementFallback(input: {
   return `Thanks ${customerName} - ${input.businessName} received your request. Our team will follow up shortly.`;
 }
 
+export function buildAppointmentSlotOfferFallback(input: {
+  businessName: string;
+  customerName?: string | null;
+  slotLines: string;
+}) {
+  const customerName = String(input.customerName || "").trim() || "there";
+  return `Hi ${customerName}, ${input.businessName} has a few scheduling options:\n${input.slotLines}\nReply with the option that works best and the team will confirm the booking.`;
+}
+
 export function renderOperationalSmsTemplate(input: {
   template?: string | null;
   fallback: string;

@@ -8,6 +8,7 @@ import {
   type PrismaClient
 } from "@prisma/client";
 import { env } from "../../config/env";
+import { buildAppointmentSlotOfferFallback, buildNewLeadAcknowledgementFallback } from "../sms/template.service";
 import {
   assertOrgSmsQuota,
   assertRequestClarificationAllowed,
@@ -395,12 +396,12 @@ export async function sendAppointmentRequestFollowUpSms(input: {
   const businessName = request.organization.name || "Khan Systems";
   const safeName = request.customerName || request.lead?.name || "there";
   const address = String(request.serviceAddressRaw || "").trim();
-  const body =
-    input.state === "NEEDS_SCHEDULING"
-      ? address
-        ? `Thanks ${safeName} - ${businessName} received your service request at ${address}. Our team will contact you shortly to confirm scheduling.`
-        : `Thanks ${safeName} - ${businessName} received your service request. Please reply with your full street address so we can finalize scheduling.`
-      : `Thanks ${safeName} - ${businessName} received your service request. Our team will follow up shortly with scheduling options.`;
+  const body = buildNewLeadAcknowledgementFallback({
+    businessName,
+    customerName: safeName,
+    serviceAddress: address,
+    needsAddress: input.state === "NEEDS_SCHEDULING" && !address
+  });
 
   return sendCanonicalRequestSms({
     prisma: input.prisma,
@@ -473,7 +474,11 @@ export async function sendAppointmentRequestSlotOffer(input: {
     });
   });
 
-  const body = buildOfferBody(offerPayload.slots);
+  const body = buildAppointmentSlotOfferFallback({
+    businessName: request.organization.name || "Khan Systems",
+    customerName: request.customerName || request.lead?.name || "there",
+    slotLines: offerPayload.slots.map((slot) => `${slot.index}) ${slot.label}`).join("\n")
+  });
   const sendResult = await sendCanonicalRequestSms({
     prisma: input.prisma,
     request,
