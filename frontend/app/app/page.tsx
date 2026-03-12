@@ -862,6 +862,14 @@ export default function AppOverviewPage() {
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{call.recoverySmsResponse ? "Recovery reply received" : call.recoverySmsSentAt ? "Recovery text sent" : "No recovery text sent"}</span>
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {call.leadId ? (
+                      <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-foreground/75">Lead linked</span>
+                    ) : null}
+                    {call.recoverySmsThreadId ? (
+                      <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-foreground/75">Inbox thread linked</span>
+                    ) : null}
+                  </div>
                 </Link>
               ))
             ) : (
