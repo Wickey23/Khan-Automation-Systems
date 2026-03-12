@@ -327,7 +327,7 @@ export default function AppLeadsPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {stats.map((item) => (
           <Card key={item.label}>
             <CardContent className="p-5">
@@ -339,7 +339,7 @@ export default function AppLeadsPage() {
       </div>
 
       <Card>
-        <CardContent className="grid gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
+        <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_220px_auto] xl:items-end">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -393,9 +393,9 @@ export default function AppLeadsPage() {
           {filtered.length ? (
             filtered.map((lead) => (
                 <Card key={lead.id} className={`${frontDeskCardClass("default")} ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
-                <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_220px_220px] lg:items-center">
+                <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.2fr)_220px_220px] xl:items-start">
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                       <div className="space-y-1">
                         <p className="text-base font-semibold text-foreground">{lead.name}</p>
                         <p className="text-sm text-muted-foreground">{lead.business}</p>
@@ -443,7 +443,7 @@ export default function AppLeadsPage() {
                     ) : null}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className={`${frontDeskContextPanelClass()} space-y-2`}>
                     <p className="page-eyebrow">Next stage</p>
                     <select
                       value={lead.pipelineStage || "NEW_LEAD"}
@@ -459,7 +459,7 @@ export default function AppLeadsPage() {
                     </select>
                   </div>
 
-                  <div className="space-y-2 text-sm">
+                  <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
                     <p className="page-eyebrow">Customer context</p>
                     <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
                     <p className="text-muted-foreground">{lead.phone || lead.email || "No contact info"}</p>
@@ -513,7 +513,7 @@ export default function AppLeadsPage() {
           {customerFiltered.length ? (
             customerFiltered.map((customer) => (
               <Card key={customer.phoneNumber}>
-                <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px_120px] lg:items-center">
+                <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_220px_120px] xl:items-center">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-semibold text-foreground">{customer.displayName}</p>

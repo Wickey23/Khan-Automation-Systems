@@ -848,7 +848,7 @@ export default function AppOverviewPage() {
       />
 
       <section className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#172554_52%,#0f172a_100%)] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Today at a glance</p>
             <p className="mt-2 text-sm text-slate-100">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
@@ -866,7 +866,7 @@ export default function AppOverviewPage() {
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.9fr)]">
+      <section className="grid gap-6 2xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.9fr)]">
         <Card className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
           <CardHeader>
             <CardTitle className="text-slate-950">{scheduleTitle}</CardTitle>
@@ -963,14 +963,14 @@ export default function AppOverviewPage() {
         )}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      <section className="grid gap-6 2xl:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Needs callback</CardTitle>
               <CardDescription>Open callback work that still needs a live office response.</CardDescription>
             </div>
-            <Button asChild variant="ghost" className="shrink-0">
+            <Button asChild variant="ghost" className="shrink-0 self-start">
               <Link href="/app/calls">Open call queue</Link>
             </Button>
           </CardHeader>
@@ -990,7 +990,7 @@ export default function AppOverviewPage() {
                   }
                   className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
@@ -1052,7 +1052,7 @@ export default function AppOverviewPage() {
               <CardTitle>New requests</CardTitle>
               <CardDescription>Fresh customer work that still needs office review or booking follow-up.</CardDescription>
             </div>
-            <Button asChild variant="ghost" className="shrink-0">
+            <Button asChild variant="ghost" className="shrink-0 self-start">
               <Link href="/app/leads">Open leads</Link>
             </Button>
           </CardHeader>
@@ -1068,7 +1068,7 @@ export default function AppOverviewPage() {
                   href={item.href}
                   className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{item.title}</p>
                       <p className="text-xs text-muted-foreground">{item.meta}</p>
@@ -1101,7 +1101,7 @@ export default function AppOverviewPage() {
               <CardTitle>Missed calls and recent conversations</CardTitle>
               <CardDescription>Structured intake first, then the next action your office should take.</CardDescription>
             </div>
-            <Button asChild variant="ghost" className="shrink-0">
+            <Button asChild variant="ghost" className="shrink-0 self-start">
               <Link href="/app/calls">View all</Link>
             </Button>
           </CardHeader>
@@ -1120,7 +1120,7 @@ export default function AppOverviewPage() {
                   href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
                   className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
@@ -1181,7 +1181,7 @@ export default function AppOverviewPage() {
               <CardTitle>Recent customer messages</CardTitle>
               <CardDescription>Live SMS replies and follow-up threads tied to active customer work.</CardDescription>
             </div>
-            <Button asChild variant="ghost" className="shrink-0">
+            <Button asChild variant="ghost" className="shrink-0 self-start">
               <Link href="/app/messages">Open inbox</Link>
             </Button>
           </CardHeader>
@@ -1202,7 +1202,7 @@ export default function AppOverviewPage() {
                     href={`/app/messages?threadId=${encodeURIComponent(thread.id)}`}
                   className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                       <div className="min-w-0 space-y-1">
                         <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
                         <p className="text-xs text-muted-foreground">{formatShortDateTime(thread.lastMessageAt)}</p>
@@ -1341,7 +1341,7 @@ export default function AppOverviewPage() {
                 </div>
               </div>
             ) : null}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
               <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Status</p>
                 <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-foreground">

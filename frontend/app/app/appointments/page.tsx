@@ -759,7 +759,7 @@ export default function AppAppointmentsPage() {
       />
 
       <div className="rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start">
+        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] 2xl:items-start">
           <div className="space-y-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workspace focus</p>
@@ -787,7 +787,7 @@ export default function AppAppointmentsPage() {
           </div>
           <div className="rounded-xl border bg-slate-50/80 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">View filters</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 2xl:grid-cols-1">
               <label className="text-sm">
                 <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
                 <select
@@ -920,7 +920,7 @@ export default function AppAppointmentsPage() {
                               request.id === highlightedRequestId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""
                             }`}
                           >
-                            <div className="flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="flex flex-col gap-3 border-b pb-3 xl:flex-row xl:items-start xl:justify-between">
                               <div>
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>
                                 <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
@@ -944,7 +944,7 @@ export default function AppAppointmentsPage() {
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-3 grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
+                            <div className="mt-3 grid gap-4 2xl:grid-cols-[1.5fr_0.9fr]">
                               <div className="space-y-3 text-sm">
                                 <div>
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>

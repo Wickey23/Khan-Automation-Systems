@@ -88,7 +88,7 @@ export function ActionNeededPanel({
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`flex items-start justify-between gap-3 px-4 py-3 transition-colors duration-150 ${dark ? `rounded-2xl ${itemSurfaceDark(item.severity)}` : `${frontDeskCardClass("muted")} ${itemSurface(item.severity)}`}`}
+                  className={`flex flex-col gap-3 px-4 py-3 transition-colors duration-150 sm:flex-row sm:items-start sm:justify-between ${dark ? `rounded-2xl ${itemSurfaceDark(item.severity)}` : `${frontDeskCardClass("muted")} ${itemSurface(item.severity)}`}`}
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <div className={`mt-0.5 rounded-lg p-2 shadow-sm ${dark ? "bg-white/10 text-slate-200" : "bg-white/80 text-muted-foreground"}`}>
@@ -109,7 +109,7 @@ export function ActionNeededPanel({
                       </div>
                     </div>
                   </div>
-                  <ArrowRight className={`mt-1 h-4 w-4 shrink-0 ${dark ? "text-slate-400" : "text-muted-foreground"}`} />
+                  <ArrowRight className={`h-4 w-4 shrink-0 self-end sm:mt-1 sm:self-auto ${dark ? "text-slate-400" : "text-muted-foreground"}`} />
                 </Link>
               );
             })()

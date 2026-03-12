@@ -453,7 +453,7 @@ export default function AppCallsPage() {
       />
 
       <Card className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-        <CardContent className="grid gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="space-y-3">
             <div className="space-y-1">
               <p className="page-eyebrow">Assigned line</p>
@@ -493,7 +493,7 @@ export default function AppCallsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {[
           { label: "Visible calls", value: metrics.totalVisible, meta: `Page ${page} of ${totalPages}` },
           { label: "Need follow-up", value: metrics.needsReview, meta: "Open requests on this page" },
@@ -510,10 +510,10 @@ export default function AppCallsPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-4 min-w-0">
           <Card>
-            <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_280px]">
               <div className="space-y-3">
                 <div className="space-y-1">
                   <p className="page-eyebrow">Review queue</p>
@@ -602,7 +602,7 @@ export default function AppCallsPage() {
                         <p className="text-sm text-muted-foreground">{call.fromNumber}</p>
                         <p className="text-xs text-muted-foreground">{new Date(call.startedAt).toLocaleString()}</p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>{frontDeskPriorityMeta(call.frontDesk?.frontDeskPriority).label}</Badge>
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{callWorkTypeLabel(call)}</Badge>
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
@@ -661,7 +661,7 @@ export default function AppCallsPage() {
                 <p className="page-eyebrow">Day navigation</p>
                 <p className="text-sm text-muted-foreground">{formatDayHeading(selectedDay)}</p>
               </div>
-              <p className="hidden text-sm text-muted-foreground xl:block">
+              <p className="hidden text-sm text-muted-foreground 2xl:block">
                 Page {page} of {totalPages} - {totalVisible} matching call{totalVisible === 1 ? "" : "s"}
               </p>
               <div className="flex items-center gap-2">
@@ -708,13 +708,13 @@ export default function AppCallsPage() {
           ) : null}
         </div>
 
-        <section ref={detailsRef} className="xl:sticky xl:top-24 xl:self-start">
+        <section ref={detailsRef} className="2xl:sticky 2xl:top-24 2xl:self-start">
           <Card className="border-slate-200 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
             <CardContent className="p-6">
               {selectedCall ? (
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
                         <p className="page-eyebrow">Selected call</p>
                         <div className="flex flex-wrap items-center gap-2">

@@ -396,7 +396,7 @@ export default function AppMessagesPage() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_320px]">
         <Card className={canSendMessages ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}>
           <CardContent className={`px-5 py-6 text-sm sm:px-6 sm:py-5 ${canSendMessages ? "text-emerald-950" : "text-amber-950"}`}>
             <div className="flex items-start gap-3">
@@ -455,7 +455,7 @@ export default function AppMessagesPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:gap-5">
+      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:gap-5">
         <Card className="self-start overflow-hidden">
           <CardHeader className="pb-3">
             <div className="space-y-3">
@@ -576,7 +576,7 @@ export default function AppMessagesPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        <div className="grid gap-4 2xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
           <Card className="self-start">
             <CardHeader className="pb-3">
               <div className="space-y-1">
@@ -735,7 +735,7 @@ export default function AppMessagesPage() {
                     return (
                       <div
                         key={message.id}
-                        className={`max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
+                        className={`max-w-full sm:max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
                           message.direction === "OUTBOUND" ? "ml-auto bg-blue-50/70" : "bg-zinc-50/70"
                         }`}
                       >
