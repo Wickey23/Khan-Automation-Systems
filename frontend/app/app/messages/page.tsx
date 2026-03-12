@@ -427,7 +427,31 @@ export default function AppMessagesPage() {
               ) : !selected.messages.length ? (
                 <div className="empty-state">This thread has no messages yet. New inbound replies or outbound follow-up will appear here.</div>
               ) : (
-                [...selected.messages]
+                <>
+                {threadFrontDesk(selected) ? (
+                  <div className="rounded-2xl border bg-slate-50/80 p-4">
+                    <p className="page-eyebrow">Front-desk summary</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Request</p>
+                        <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.summary || "No structured summary yet."}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Next action</p>
+                        <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.recommendedAction || "Review thread"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Follow-up state</p>
+                        <p className="mt-1 text-sm text-foreground">{getThreadStateBadge(selected)?.label || "Open"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Priority</p>
+                        <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.frontDeskPriority || "normal"}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                {[...selected.messages]
                   .reverse()
                   .map((message) => {
                     const badge = getMessageBadge(message);
@@ -452,7 +476,8 @@ export default function AppMessagesPage() {
                         </p>
                       </div>
                     );
-                  })
+                  })}
+                </>
               )}
               </div>
             </CardContent>
