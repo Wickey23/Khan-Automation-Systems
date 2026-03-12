@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
-import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 const callStateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -252,6 +252,14 @@ function callOutcomeNote(call: OrgCallRecord | null) {
 function callOutcomeListNote(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "booked") return "Booked work already confirmed.";
   if (call.frontDesk?.followUpState === "closed") return "Handled and resolved by the office.";
+  if (call.recoverySmsResponse) return "Saved missed call with a live text reply.";
+  return null;
+}
+
+function callOutcomeBadge(call: OrgCallRecord) {
+  if (call.frontDesk?.followUpState === "booked") return frontDeskOutcomeBadgeMeta("booked");
+  if (call.frontDesk?.followUpState === "closed") return frontDeskOutcomeBadgeMeta("resolved");
+  if (call.recoverySmsResponse) return frontDeskOutcomeBadgeMeta("saved");
   return null;
 }
 
@@ -621,6 +629,11 @@ export default function AppCallsPage() {
                         </>
                       ) : null}
                     </div>
+                    {callOutcomeBadge(call) ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge className={clientBadgeClass(callOutcomeBadge(call)!.tone)}>{callOutcomeBadge(call)!.label}</Badge>
+                      </div>
+                    ) : null}
                     {callOutcomeListNote(call) ? (
                       <p className="mt-3 rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{callOutcomeListNote(call)}</p>
                     ) : null}

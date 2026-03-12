@@ -37,3 +37,14 @@ export function frontDeskPriorityBadgeClass(priority: FrontDeskPriority | undefi
 export function frontDeskActionBadgeClass(action: string | null | undefined) {
   return clientBadgeClass(frontDeskActionMeta(action).tone);
 }
+
+export function frontDeskOutcomeBadgeMeta(kind: "saved" | "booked" | "resolved") {
+  switch (kind) {
+    case "saved":
+      return { label: "Saved lead", tone: "pending" as const };
+    case "booked":
+      return { label: "Booked outcome", tone: "booking" as const };
+    case "resolved":
+      return { label: "Resolved", tone: "success" as const };
+  }
+}

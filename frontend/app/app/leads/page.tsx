@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
 const queueStates = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
@@ -183,6 +183,13 @@ function leadOutcomeNote(lead: Lead) {
 function leadOutcomeListNote(lead: Lead) {
   if (lead.frontDesk?.state === "booked") return "Booked work already confirmed.";
   if (lead.frontDesk?.state === "closed") return "Handled and resolved by the office.";
+  return null;
+}
+
+function leadOutcomeBadge(lead: Lead) {
+  if (lead.frontDesk?.state === "booked") return frontDeskOutcomeBadgeMeta("booked");
+  if (lead.frontDesk?.state === "closed") return frontDeskOutcomeBadgeMeta("resolved");
+  if (lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied") return frontDeskOutcomeBadgeMeta("saved");
   return null;
 }
 
@@ -418,6 +425,11 @@ export default function AppLeadsPage() {
                         </Button>
                       ))}
                     </div>
+                    {leadOutcomeBadge(lead) ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className={clientBadgeClass(leadOutcomeBadge(lead)!.tone)}>{leadOutcomeBadge(lead)!.label}</Badge>
+                      </div>
+                    ) : null}
                     {leadOutcomeListNote(lead) ? (
                       <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{leadOutcomeListNote(lead)}</p>
                     ) : null}

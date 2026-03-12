@@ -9,10 +9,11 @@ import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgMessageThread, OrgMessagingReadiness } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -182,6 +183,15 @@ function threadOutcomeListNote(thread: OrgMessageThread) {
   const state = threadFrontDesk(thread)?.state;
   if (state === "booked") return "Booked work already confirmed.";
   if (state === "closed") return "Handled and resolved by the office.";
+  if (latestThreadDirection(thread) === "Customer replied") return "Saved lead with a live customer reply.";
+  return null;
+}
+
+function threadOutcomeBadge(thread: OrgMessageThread) {
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "booked") return frontDeskOutcomeBadgeMeta("booked");
+  if (state === "closed") return frontDeskOutcomeBadgeMeta("resolved");
+  if (latestThreadDirection(thread) === "Customer replied") return frontDeskOutcomeBadgeMeta("saved");
   return null;
 }
 
@@ -542,6 +552,11 @@ export default function AppMessagesPage() {
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>Last update {formatWhen(thread.lastMessageAt)}</span>
                       </div>
+                      {threadOutcomeBadge(thread) ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge className={clientBadgeClass(threadOutcomeBadge(thread)!.tone)}>{threadOutcomeBadge(thread)!.label}</Badge>
+                        </div>
+                      ) : null}
                       {threadOutcomeListNote(thread) ? (
                         <p className="mt-2 rounded-xl border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">{threadOutcomeListNote(thread)}</p>
                       ) : null}
