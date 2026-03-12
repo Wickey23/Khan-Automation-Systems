@@ -121,6 +121,13 @@ function latestLeadMovementLabel(lead: Lead) {
   return formatActivityLabel(lead);
 }
 
+function leadNextActionLabel(lead: Lead) {
+  if (lead.latestAppointmentRequestId && lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied") {
+    return "Review reply";
+  }
+  return lead.frontDesk?.recommendedAction || "Review request";
+}
+
 function leadStatusTone(status: Lead["status"]) {
   switch (status) {
     case "NEW":
@@ -374,7 +381,7 @@ export default function AppLeadsPage() {
                       <p>{lead.phone || lead.email || "No contact info"}</p>
                       <p className="mt-1 line-clamp-2">{summarizeLead(lead)}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span>{lead.frontDesk?.recommendedAction || "Review request"}</span>
+                        <span>{leadNextActionLabel(lead)}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -416,9 +423,7 @@ export default function AppLeadsPage() {
                     <p className="page-eyebrow">Follow-up brief</p>
                     <p className="text-muted-foreground">{latestLeadMovementLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
-                    {lead.frontDesk?.recommendedAction ? (
-                      <p className="text-muted-foreground">Next action: {lead.frontDesk.recommendedAction}</p>
-                    ) : null}
+                    <p className="text-muted-foreground">Next action: {leadNextActionLabel(lead)}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
                     <div className="flex flex-wrap gap-2 pt-1">
                       {lead.latestCallId ? (
