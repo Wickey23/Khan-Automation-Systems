@@ -460,6 +460,14 @@ export default function AppCallsPage() {
         }
       />
 
+      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
+        <p className="page-eyebrow">When to work this queue</p>
+        <p className="mt-2 font-medium text-slate-950">Stay here when a call still needs callback, review, or escalation.</p>
+        <p className="mt-1 leading-6 text-slate-600">
+          If the newest customer movement is already a text reply, jump to Inbox. If the call is ready for scheduling, move into Booking Queue.
+        </p>
+      </div>
+
       <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="space-y-3">

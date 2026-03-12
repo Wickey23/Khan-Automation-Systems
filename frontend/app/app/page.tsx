@@ -36,6 +36,7 @@ import { PageHeader } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
+  frontDeskContextPanelClass,
   frontDeskEmptyStateClass,
   frontDeskLoadingCardClass,
   frontDeskMetricCardClass,
@@ -851,6 +852,16 @@ export default function AppOverviewPage() {
           </>
         }
       />
+
+      <div className={`${frontDeskContextPanelClass()} flex flex-col gap-2 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between`}>
+        <div>
+          <p className="page-eyebrow">Workflow guide</p>
+          <p className="mt-2 font-medium text-slate-950">Start here for triage, then jump into the right queue.</p>
+          <p className="mt-1 leading-6 text-slate-600">
+            Use Front Desk to spot what changed, then move into Call Queue, Inbox, or Booking Queue depending on where the next office action lives.
+          </p>
+        </div>
+      </div>
 
       <section className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#172554_52%,#0f172a_100%)] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

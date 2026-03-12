@@ -769,6 +769,14 @@ export default function AppAppointmentsPage() {
         }
       />
 
+      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
+        <p className="page-eyebrow">When to work this queue</p>
+        <p className="mt-2 font-medium text-slate-950">Use Booking Queue when a request is ready for a scheduling decision.</p>
+        <p className="mt-1 leading-6 text-slate-600">
+          Review fresh requests first, answer booking replies from Inbox when needed, then confirm the appointments already placed on the calendar.
+        </p>
+      </div>
+
       <div className={frontDeskWorkspaceCardClass("hero")}>
         <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] 2xl:items-start">
           <div className="space-y-3">

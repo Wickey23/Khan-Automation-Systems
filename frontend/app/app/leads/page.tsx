@@ -336,6 +336,14 @@ export default function AppLeadsPage() {
         }
       />
 
+      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
+        <p className="page-eyebrow">When to work this queue</p>
+        <p className="mt-2 font-medium text-slate-950">Use Lead Queue for the office’s open follow-up list.</p>
+        <p className="mt-1 leading-6 text-slate-600">
+          This is the best page for deciding who still needs contact, who is moving toward scheduling, and which requests are already done.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {stats.map((item) => (
           <Card key={item.label} className={frontDeskMetricCardClass()}>
