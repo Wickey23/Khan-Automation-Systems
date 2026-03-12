@@ -659,10 +659,15 @@ export default function AppOverviewPage() {
       kind: "request" as const,
       title: request.customerName || "Customer request",
       meta: request.requestedTimeLabel || request.requestedPreference || formatShortDate(request.lastEventAt),
-      sourceLabel: "Booking request",
+      sourceLabel: request.latestMessageDirection === "INBOUND" ? "Booking reply" : "Booking request",
       badge: requestStatusLabel(request.status),
       badgeTone: requestStatusTone(request.status),
-      summary: request.issueSummary || "Appointment request waiting for review."
+      summary: request.issueSummary || "Appointment request waiting for review.",
+      href:
+        request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId
+          ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
+          : `/app/appointments?requestId=${encodeURIComponent(request.id)}`,
+      ctaLabel: request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId ? "Open inbox" : "Open booking request"
     }));
 
     const leadItems = [...frontDeskLeadQueue]
@@ -680,7 +685,9 @@ export default function AppOverviewPage() {
           : lead.frontDesk?.frontDeskPriority === "high"
             ? ("warning" as const)
             : ("neutral" as const),
-      summary: summarizeLead(lead)
+      summary: summarizeLead(lead),
+      href: `/app/leads?leadId=${encodeURIComponent(lead.id)}`,
+      ctaLabel: "Open lead follow-up"
       }));
 
     return [...requestItems, ...leadItems].slice(0, 4);
@@ -937,11 +944,7 @@ export default function AppOverviewPage() {
               newRequestsAndLeads.map((item) => (
                 <Link
                   key={item.id}
-                  href={
-                    item.kind === "request"
-                      ? `/app/appointments?requestId=${encodeURIComponent(item.id.replace("request-", ""))}`
-                      : `/app/leads?leadId=${encodeURIComponent(item.id.replace("lead-", ""))}`
-                  }
+                  href={item.href}
                   className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -954,7 +957,7 @@ export default function AppOverviewPage() {
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">{item.summary}</p>
                   <p className="mt-2 text-xs text-muted-foreground">{item.sourceLabel}</p>
                   <p className="mt-2 text-xs font-medium text-foreground/80">
-                    {item.kind === "request" ? "Open booking request" : "Open lead follow-up"}
+                    {item.ctaLabel}
                   </p>
                 </Link>
               ))
