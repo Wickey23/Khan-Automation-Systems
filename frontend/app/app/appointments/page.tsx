@@ -659,6 +659,8 @@ export default function AppAppointmentsPage() {
   const pendingAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "PENDING_REVIEW");
   const approvedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "APPROVED");
   const offeredAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SLOT_OFFERED");
+  const scheduledAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "SCHEDULED");
+  const closedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "CLOSED");
   const deniedAppointmentRequests = sortedAppointmentRequests.filter((request) => request.status === "DENIED");
   const filteredAppointmentRequests =
     requestQueueFilter === "ALL"
@@ -841,6 +843,8 @@ export default function AppAppointmentsPage() {
                 { key: "pending", title: "Pending review", items: pendingAppointmentRequests },
                 { key: "approved", title: "Approved", items: approvedAppointmentRequests },
                 { key: "offered", title: "Slot offered", items: offeredAppointmentRequests },
+                { key: "scheduled", title: "Booked", items: scheduledAppointmentRequests },
+                { key: "closed", title: "Closed", items: closedAppointmentRequests },
                 { key: "denied", title: "Denied", items: deniedAppointmentRequests }
               ] as const).map((section) =>
                 section.items.filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter).length ? (
