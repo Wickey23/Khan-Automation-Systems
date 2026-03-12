@@ -472,12 +472,13 @@ export default function AppLeadsPage() {
                         <span>{latestLeadMovementLabel(lead)}</span>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid gap-2 sm:flex sm:flex-wrap">
                       {leadQuickActions(lead).map((action) => (
                         <Button
                           key={`${lead.id}-${action.stage}`}
                           size="sm"
                           variant={action.tone}
+                          className="w-full sm:w-auto"
                           disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
                           onClick={() => void onPipelineChange(lead.id, action.stage)}
                         >
@@ -526,9 +527,9 @@ export default function AppLeadsPage() {
                     {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
                       <div className="space-y-2 pt-1">
                         <p className="page-eyebrow">Jump to follow-up</p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid gap-2 sm:flex sm:flex-wrap">
                           {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
-                            <Button asChild size="sm">
+                            <Button asChild size="sm" className="w-full sm:w-auto">
                               <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
                             </Button>
                           ) : null}
@@ -537,6 +538,7 @@ export default function AppLeadsPage() {
                               asChild
                               size="sm"
                               variant={lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? "outline" : "default"}
+                              className="w-full sm:w-auto"
                             >
                               <Link href={`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`}>Open booking</Link>
                             </Button>
@@ -552,12 +554,13 @@ export default function AppLeadsPage() {
                                     ? "default"
                                     : "outline"
                               }
+                              className="w-full sm:w-auto"
                             >
                               <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
                             </Button>
                           ) : null}
                           {lead.latestMessageThreadId && latestLeadMovementLabel(lead) !== "Customer replied" ? (
-                            <Button asChild size="sm" variant="outline">
+                            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
                               <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
                             </Button>
                           ) : null}

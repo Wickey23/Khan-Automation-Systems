@@ -625,12 +625,13 @@ export default function AppMessagesPage() {
                     </p>
                   ) : null}
                   {selected?.leadId && canEditPipeline ? (
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="grid gap-2 pt-1 sm:flex sm:flex-wrap">
                       {threadQuickActions(selected).map((action) => (
                         <Button
                           key={`${selected.id}-${action.stage}`}
                           size="sm"
                           variant={action.tone}
+                          className="w-full sm:w-auto"
                           disabled={savingLeadStage === action.stage}
                           onClick={() => void onQuickAction(action.stage)}
                         >
@@ -662,12 +663,13 @@ export default function AppMessagesPage() {
                   className="min-h-[148px] rounded-xl border bg-background px-3 py-3 text-sm"
               />
               </label>
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="grid gap-2 pt-1 sm:flex sm:flex-wrap">
                 <Button
                   type="button"
                   onClick={() => void onSend()}
                   disabled={sending || !canSendMessages}
                   title={!canSendMessages ? "Upgrade to Pro to enable outbound SMS." : "Send message"}
+                  className="w-full sm:w-auto"
                 >
                   {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}
                 </Button>
@@ -766,19 +768,19 @@ export default function AppMessagesPage() {
                     {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
                       <div className="mt-3 space-y-2">
                         <p className="page-eyebrow">Jump to follow-up</p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid gap-2 sm:flex sm:flex-wrap">
                           {selected.latestAppointmentRequestId ? (
-                            <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"}>
+                            <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"} className="w-full sm:w-auto">
                               <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
                             </Button>
                           ) : null}
                           {selected.leadId ? (
-                            <Button asChild size="sm" variant={!selected.latestAppointmentRequestId ? "default" : "outline"}>
+                            <Button asChild size="sm" variant={!selected.latestAppointmentRequestId ? "default" : "outline"} className="w-full sm:w-auto">
                               <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead</Link>
                             </Button>
                           ) : null}
                           {selected.latestCallId ? (
-                            <Button asChild size="sm" variant="outline">
+                            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
                               <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call</Link>
                             </Button>
                           ) : null}

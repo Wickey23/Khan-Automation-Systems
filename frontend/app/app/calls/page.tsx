@@ -883,24 +883,24 @@ export default function AppCallsPage() {
                             Open the most relevant workspace next, then use the remaining links only if you need more context.
                           </p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid gap-2 sm:flex sm:flex-wrap">
                           {selectedCall.recoverySmsThreadId ? (
-                            <Button asChild size="sm">
+                            <Button asChild size="sm" className="w-full sm:w-auto">
                               <Link href={`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`}>Open inbox</Link>
                             </Button>
                           ) : null}
                           {selectedCall.appointmentRequestId ? (
-                            <Button asChild size="sm" variant={selectedCall.recoverySmsThreadId ? "outline" : "default"}>
+                            <Button asChild size="sm" variant={selectedCall.recoverySmsThreadId ? "outline" : "default"} className="w-full sm:w-auto">
                               <Link href={`/app/appointments?requestId=${encodeURIComponent(selectedCall.appointmentRequestId)}`}>Open booking</Link>
                             </Button>
                           ) : null}
                           {selectedCall.leadId ? (
-                            <Button asChild size="sm" variant={selectedCall.recoverySmsThreadId || selectedCall.appointmentRequestId ? "outline" : "default"}>
+                            <Button asChild size="sm" variant={selectedCall.recoverySmsThreadId || selectedCall.appointmentRequestId ? "outline" : "default"} className="w-full sm:w-auto">
                               <Link href={`/app/leads?leadId=${encodeURIComponent(selectedCall.leadId)}`}>Open lead</Link>
                             </Button>
                           ) : null}
                           {selectedCall.recordingUrl ? (
-                            <Button asChild size="sm" variant="outline">
+                            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
                               <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer">
                                 Open recording
                               </a>
@@ -910,12 +910,13 @@ export default function AppCallsPage() {
                       </div>
                     ) : null}
                     {selectedCall.leadId && canEditPipeline ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid gap-2 sm:flex sm:flex-wrap">
                         {callQuickActions(selectedCall).map((action) => (
                           <Button
                             key={`${selectedCall.id}-${action.stage}`}
                             size="sm"
                             variant={action.tone}
+                            className="w-full sm:w-auto"
                             disabled={savingLeadStage === action.stage}
                             onClick={() => void onQuickAction(action.stage)}
                           >

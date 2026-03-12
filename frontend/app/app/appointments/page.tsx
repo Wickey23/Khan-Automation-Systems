@@ -1029,9 +1029,9 @@ export default function AppAppointmentsPage() {
                                 </div>
                                 <div className="space-y-2">
                                   <p className="page-eyebrow">Jump to follow-up</p>
-                                  <div className="flex flex-wrap gap-2">
+                                  <div className="grid gap-2 sm:flex sm:flex-wrap">
                                     {request.effectiveSmsPhone ? (
-                                      <Button asChild size="sm" variant={request.latestMessageDirection === "INBOUND" ? "default" : "outline"}>
+                                      <Button asChild size="sm" variant={request.latestMessageDirection === "INBOUND" ? "default" : "outline"} className="w-full sm:w-auto">
                                         <Link
                                           href={
                                             request.latestMessageThreadId
@@ -1044,11 +1044,11 @@ export default function AppAppointmentsPage() {
                                       </Button>
                                     ) : null}
                                     {request.leadId ? (
-                                      <Button asChild size="sm" variant={!request.effectiveSmsPhone ? "default" : "outline"}>
+                                      <Button asChild size="sm" variant={!request.effectiveSmsPhone ? "default" : "outline"} className="w-full sm:w-auto">
                                         <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
                                       </Button>
                                     ) : null}
-                                    <Button asChild size="sm" variant={request.effectiveSmsPhone || request.leadId ? "outline" : "default"}>
+                                    <Button asChild size="sm" variant={request.effectiveSmsPhone || request.leadId ? "outline" : "default"} className="w-full sm:w-auto">
                                       <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
                                     </Button>
                                   </div>
@@ -1077,10 +1077,11 @@ export default function AppAppointmentsPage() {
                                     ))}
                                   </select>
                                 </label>
-                                <div className="mt-2 flex flex-wrap gap-2">
+                                <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap">
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    className="w-full sm:w-auto"
                                     disabled={requestSavingId === request.id}
                                     onClick={() => void onAssignRequest(request)}
                                   >
@@ -1090,6 +1091,7 @@ export default function AppAppointmentsPage() {
                                     size="sm"
                                     disabled={requestSavingId === request.id}
                                     variant={request.status === "APPROVED" ? "outline" : "default"}
+                                    className="w-full sm:w-auto"
                                     onClick={() => void onApproveRequest(request)}
                                   >
                                     Approve
@@ -1097,6 +1099,7 @@ export default function AppAppointmentsPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    className="w-full sm:w-auto"
                                     disabled={requestSavingId === request.id}
                                     onClick={() => void onDenyRequest(request)}
                                   >
