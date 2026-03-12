@@ -774,9 +774,12 @@ export default function AppMessagesPage() {
                         </div>
                       ) : null}
                     </div>
+                    <p className={`${frontDeskContextPanelClass()} mt-3 text-sm text-muted-foreground`}>
+                      Why this matters now: {threadNextActionLabel(selected)}. Stay in Inbox when the customer already replied here, then move to Lead Queue or Booking Queue only if this thread needs a larger follow-up action.
+                    </p>
                     {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
                       <div className="mt-3 space-y-2">
-                        <p className="page-eyebrow">Jump to follow-up</p>
+                        <p className="page-eyebrow">Related workspaces</p>
                         <div className="grid gap-2 sm:flex sm:flex-wrap">
                           {selected.latestAppointmentRequestId ? (
                             <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"} className="w-full sm:w-auto">

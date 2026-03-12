@@ -867,6 +867,9 @@ export default function AppCallsPage() {
                     <p className="text-sm leading-6 text-muted-foreground">
                       {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
                     </p>
+                    <p className={`${frontDeskContextPanelClass()} text-sm text-muted-foreground`}>
+                      Why this matters now: {callPrimaryActionLabel(selectedCall)}. Work this call here if the office still needs to callback or review it; otherwise jump straight into Inbox or Booking Queue when the follow-up already moved there.
+                    </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {[
                         ["Caller", extractCallerName(selectedCall)],
@@ -888,9 +891,9 @@ export default function AppCallsPage() {
                     {(selectedCall.recoverySmsThreadId || selectedCall.leadId || selectedCall.appointmentRequestId || selectedCall.recordingUrl) ? (
                       <div className={`${frontDeskContextPanelClass()} space-y-3`}>
                         <div className="space-y-1">
-                          <p className="page-eyebrow">Jump to follow-up</p>
+                          <p className="page-eyebrow">Related workspaces</p>
                           <p className="text-sm text-muted-foreground">
-                            Open the most relevant workspace next, then use the remaining links only if you need more context.
+                            Open the next workspace where the office should continue this request, then use the remaining links only if you need more context.
                           </p>
                         </div>
                         <div className="grid gap-2 sm:flex sm:flex-wrap">

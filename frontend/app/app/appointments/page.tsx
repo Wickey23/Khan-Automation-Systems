@@ -1034,11 +1034,14 @@ export default function AppAppointmentsPage() {
                                   </p>
                                 </div>
                                 <div className="text-xs text-muted-foreground">
+                                  <p className={`${frontDeskContextPanelClass()} mb-3 text-sm text-muted-foreground`}>
+                                    Why this matters now: {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
+                                  </p>
                                   SMS: {request.effectiveSmsPhone}
                                   {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                 </div>
                                 <div className="space-y-2">
-                                  <p className="page-eyebrow">Jump to follow-up</p>
+                                  <p className="page-eyebrow">Related workspaces</p>
                                   <div className="grid gap-2 sm:flex sm:flex-wrap">
                                     {request.effectiveSmsPhone ? (
                                       <Button asChild size="sm" variant={request.latestMessageDirection === "INBOUND" ? "default" : "outline"} className="w-full sm:w-auto">

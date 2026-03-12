@@ -531,12 +531,15 @@ export default function AppLeadsPage() {
                     <p className="text-muted-foreground">Latest movement: {latestLeadMovementLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                    <p className={`${frontDeskContextPanelClass()} text-muted-foreground`}>
+                      Why this matters now: {leadNextActionLabel(lead)}. Use Lead Queue when the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
+                    </p>
                     {leadOutcomeNote(lead) ? (
                       <p className={`${frontDeskContextPanelClass()} text-muted-foreground`}>{leadOutcomeNote(lead)}</p>
                     ) : null}
                     {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
                       <div className="space-y-2 pt-1">
-                        <p className="page-eyebrow">Jump to follow-up</p>
+                        <p className="page-eyebrow">Related workspaces</p>
                         <div className="grid gap-2 sm:flex sm:flex-wrap">
                           {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
                             <Button asChild size="sm" className="w-full sm:w-auto">
