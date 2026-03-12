@@ -801,7 +801,11 @@ export default function AppOverviewPage() {
                   {bookingBoardItems.map((item) => (
                     <Link
                       key={item.id}
-                      href={`/app/appointments?requestId=${encodeURIComponent(item.id)}`}
+                      href={
+                        item.latestMessageDirection === "INBOUND" && item.latestMessageThreadId
+                          ? `/app/messages?threadId=${encodeURIComponent(item.latestMessageThreadId)}`
+                          : `/app/appointments?requestId=${encodeURIComponent(item.id)}`
+                      }
                       className="block rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-slate-50"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -814,6 +818,9 @@ export default function AppOverviewPage() {
                             {item.requestedTimeLabel || item.requestedPreference || `Updated ${formatShortDateTime(item.lastEventAt)}`}
                           </p>
                           <p className="text-xs font-medium text-slate-900">Next action: {bookingActionLabel(item)}</p>
+                          {item.latestMessageDirection === "INBOUND" ? (
+                            <p className="text-xs text-slate-500">Customer replied in text</p>
+                          ) : null}
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <Badge className={clientBadgeClass(requestStatusTone(item.status))}>{requestStatusLabel(item.status)}</Badge>
