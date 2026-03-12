@@ -342,6 +342,28 @@ function overviewThreadActionLabel(thread: OrgMessageThread) {
   return (thread.frontDesk || thread.lead?.frontDesk)?.recommendedAction || "Review thread";
 }
 
+function overviewCallOutcomeNote(call: OrgCallRecord) {
+  if (call.frontDesk?.followUpState === "booked") return "Booked work already confirmed.";
+  if (call.frontDesk?.followUpState === "closed") return "Handled and resolved by the office.";
+  if (call.recoverySmsResponse) return "Saved missed call with a live text reply.";
+  if (call.recoverySmsSentAt) return "Missed-call recovery is already in motion.";
+  return null;
+}
+
+function overviewThreadOutcomeNote(thread: OrgMessageThread) {
+  const state = (thread.frontDesk || thread.lead?.frontDesk)?.state;
+  if (state === "booked") return "Booked work already confirmed.";
+  if (state === "closed") return "Handled and resolved by the office.";
+  if (latestThreadDirection(thread) === "Customer replied") return "Live customer reply waiting in the inbox.";
+  return null;
+}
+
+function overviewBookingOutcomeNote(request: AppointmentRequest) {
+  if (request.status === "SCHEDULED") return "Booked work already confirmed.";
+  if (request.latestMessageDirection === "INBOUND") return "Customer replied and the booking handoff is active.";
+  return null;
+}
+
 export default function AppOverviewPage() {
   const [state, setState] = useState<DashboardState>({
     assignedPhoneNumber: null,
@@ -863,6 +885,9 @@ export default function AppOverviewPage() {
                               {bookingActionLabel(item)}
                             </span>
                           </div>
+                          {overviewBookingOutcomeNote(item) ? (
+                            <p className="text-xs text-slate-500">{overviewBookingOutcomeNote(item)}</p>
+                          ) : null}
                           {item.latestMessageDirection === "INBOUND" ? (
                             <p className="text-xs text-slate-500">Customer replied in text</p>
                           ) : null}
@@ -966,6 +991,9 @@ export default function AppOverviewPage() {
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{call.recoverySmsResponse ? "Recovery reply received" : call.recoverySmsSentAt ? "Recovery text sent" : "No recovery text sent"}</span>
                   </div>
+                  {overviewCallOutcomeNote(call) ? (
+                    <p className="mt-2 rounded-xl border bg-white/60 px-3 py-2 text-xs text-muted-foreground">{overviewCallOutcomeNote(call)}</p>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap gap-2">
                     {call.leadId ? (
                       <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-foreground/75">Lead linked</span>
@@ -1096,6 +1124,9 @@ export default function AppOverviewPage() {
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{latestCallDirection(call)}</span>
                   </div>
+                  {overviewCallOutcomeNote(call) ? (
+                    <p className="mt-2 rounded-xl border bg-white/60 px-3 py-2 text-xs text-muted-foreground">{overviewCallOutcomeNote(call)}</p>
+                  ) : null}
                 </Link>
                   );
                 })()
@@ -1162,6 +1193,9 @@ export default function AppOverviewPage() {
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{formatShortDateTime(thread.lastMessageAt)}</span>
                     </div>
+                    {overviewThreadOutcomeNote(thread) ? (
+                      <p className="mt-2 rounded-xl border bg-white/60 px-3 py-2 text-xs text-muted-foreground">{overviewThreadOutcomeNote(thread)}</p>
+                    ) : null}
                   </Link>
                 );
               })
