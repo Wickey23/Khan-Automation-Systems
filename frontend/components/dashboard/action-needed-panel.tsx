@@ -17,13 +17,13 @@ function severityTone(severity: ActionNeededItem["severity"]) {
 function sourceLabel(source: ActionNeededItem["sourceModule"]) {
   switch (source) {
     case "appointments":
-      return "Appointments";
+      return "Booking Queue";
     case "conversations":
-      return "Calls";
+      return "Call Queue";
     case "leads":
-      return "Leads";
+      return "Lead Queue";
     case "messages":
-      return "Messages";
+      return "Inbox";
     default:
       return "System";
   }
@@ -116,7 +116,7 @@ export function ActionNeededPanel({
           ))
         ) : (
           <div className={`py-8 text-sm ${dark ? "rounded-xl border border-white/10 bg-white/5 text-slate-300" : frontDeskEmptyStateClass()}`}>
-            Nothing needs attention right now. New calls, replies, and booking issues will show up here when the office needs to act.
+            Nothing needs attention right now. New call work, customer replies, and booking issues will show up here when the office needs to act next.
           </div>
         )}
       </CardContent>

@@ -120,6 +120,10 @@ export default function AppAnalyticsPage() {
         }
       />
 
+      <div className={`${frontDeskEmptyStateClass()} text-left`}>
+        Start here when you want to understand whether front-desk work is turning into real customer outcomes. Calls show demand, outcomes show what happened, and leads show whether intake is converting into office follow-up.
+      </div>
+
       <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm">
           <div>
@@ -211,7 +215,7 @@ export default function AppAnalyticsPage() {
             </div>
           ) : (
             <div className={frontDeskEmptyStateClass()}>
-              No call volume data yet. Once calls are handled in this reporting window, daily activity will appear here.
+              No call volume data yet. Once the receptionist starts handling live calls in this reporting window, this chart will show whether demand is building, steady, or dropping off.
             </div>
           )}
           </CardContent>
@@ -233,7 +237,7 @@ export default function AppAnalyticsPage() {
             </div>
           ) : (
             <div className={frontDeskEmptyStateClass()}>
-              No outcomes yet. Call results like requests, transfers, and missed calls will appear here once activity starts.
+              No outcomes yet. Once calls are processed, this section will show whether they became requests, transfers, missed calls, or other front-desk results.
             </div>
           )}
           </CardContent>
@@ -258,7 +262,7 @@ export default function AppAnalyticsPage() {
           </div>
         ) : (
           <div className={frontDeskEmptyStateClass()}>
-            No leads captured in this range yet. New lead creation will show up here as activity builds.
+            No leads captured in this range yet. When calls, texts, or web requests start turning into saved customer work, those lead totals will appear here.
           </div>
         )}
         </CardContent>

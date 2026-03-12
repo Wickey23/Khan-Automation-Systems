@@ -146,11 +146,15 @@ export default function CustomerBasePage() {
         description="Use this page to recognize repeat callers quickly. It shows known customer context, linked lead records, and recent history that should shape follow-up."
       />
 
+      <div className={`${frontDeskEmptyStateClass()} text-left`}>
+        Customer Memory becomes more valuable over time. As repeat callers contact the business, this page helps the office recognize who they are, what happened last time, and whether they already have a linked lead profile.
+      </div>
+
       {canAccess === false ? (
         <div className={`${frontDeskWorkspaceCardClass("subtle")} p-6`}>
-          <h2 className="text-lg font-semibold">Customer Base is a Pro workspace</h2>
+          <h2 className="text-lg font-semibold">Customer Memory is a Pro workspace</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Standard focuses on lead pipeline management. Pro unlocks caller memory, repeat-caller context, and bulk customer-base
+            Standard focuses on lead pipeline management. Pro unlocks caller memory, repeat-caller context, and bulk customer-memory
             imports.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -249,7 +253,7 @@ export default function CustomerBasePage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className={frontDeskEmptyStateClass()}>
-            No customer records yet. Returning callers, imported customer history, and lead-linked memory will appear here once your office starts using caller memory.
+            No customer records yet. Returning callers, imported history, and lead-linked memory will appear here once the business starts building repeat-customer context.
           </div>
         ) : (
           <div className="space-y-3">
