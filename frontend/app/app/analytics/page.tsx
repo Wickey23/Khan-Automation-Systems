@@ -120,27 +120,81 @@ export default function AppAnalyticsPage() {
         }
       />
 
-      <div className={`${frontDeskEmptyStateClass()} text-left`}>
-        Start here when you want to understand whether front-desk work is turning into real customer outcomes. Calls show demand, outcomes show what happened, and leads show whether intake is converting into office follow-up.
-      </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
+        <Card className={frontDeskWorkspaceCardClass("hero")}>
+          <CardContent className="space-y-4 p-6 sm:p-7">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Reporting summary</p>
+              <p className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-slate-900">
+                {loading
+                  ? "Refreshing performance data"
+                  : kpis?.appointmentsBooked
+                    ? `${kpis.appointmentsBooked} booked jobs are in the current reporting window`
+                    : "No booked jobs in the current reporting window yet"}
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Use Performance to confirm whether front-desk work is turning into leads, replies, and booked jobs. Start with demand and outcomes, then check whether intake is converting into office follow-up.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskMetricCardClass()}>
+                <div className="p-5">
+                  <p className="page-eyebrow">Demand</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Track call volume and missed demand before it turns into lost work.</p>
+                </div>
+              </div>
+              <div className={frontDeskMetricCardClass()}>
+                <div className="p-5">
+                  <p className="page-eyebrow">Conversion</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Measure how often calls and replies become leads, requests, and booked jobs.</p>
+                </div>
+              </div>
+              <div className={frontDeskMetricCardClass()}>
+                <div className="p-5">
+                  <p className="page-eyebrow">Follow-up quality</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Use reply and rescue rates to see whether the office is recovering missed demand effectively.</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card className={frontDeskWorkspaceCardClass("hero")}>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm">
-          <div>
-            <p className="page-eyebrow">Data freshness</p>
-            <p className="mt-2 inline-flex items-center gap-1 font-semibold text-foreground">
-              Latest analytics snapshot
-              <InfoHint text="Timestamp of the latest analytics aggregation used in this view." />
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "Not available yet"}
-            </p>
-          </div>
-          <div className="rounded-[20px] border border-slate-200/90 bg-white/70 px-4 py-3 text-sm text-muted-foreground shadow-[0_10px_22px_rgba(15,23,42,0.06)]">
-            {loading ? "Refreshing analytics..." : "Metrics update automatically from the current reporting window."}
-          </div>
-        </CardContent>
-      </Card>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
+          <CardContent className="space-y-4 p-5">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Reporting controls</p>
+              <p className="text-base font-semibold text-slate-900">Switch the reporting window and confirm how fresh the current analytics snapshot is.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(["7d", "30d"] as const).map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  size="sm"
+                  variant={range === option ? "default" : "outline"}
+                  onClick={() => setRange(option)}
+                  className="w-full"
+                >
+                  Last {option === "7d" ? "7 days" : "30 days"}
+                </Button>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-slate-200/90 bg-white/70 px-4 py-4 text-sm text-slate-700">
+              <p className="page-eyebrow">Data freshness</p>
+              <p className="mt-2 inline-flex items-center gap-1 font-semibold text-foreground">
+                Latest analytics snapshot
+                <InfoHint text="Timestamp of the latest analytics aggregation used in this view." />
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "Not available yet"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/90 bg-white/60 px-4 py-3 text-sm text-muted-foreground">
+              {loading ? "Refreshing analytics..." : "Metrics update automatically from the current reporting window."}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {!isPro ? (
         <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]`}>
@@ -159,7 +213,7 @@ export default function AppAnalyticsPage() {
         </Card>
       ) : null}
 
-      <div className={`metric-grid ${!isPro ? "opacity-60" : ""}`}>
+      <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 ${!isPro ? "opacity-60" : ""}`}>
         {metricCards.map((item) => (
           <Card key={item.label} className={frontDeskMetricCardClass()}>
             <CardContent className="p-5">
@@ -181,13 +235,16 @@ export default function AppAnalyticsPage() {
       ) : null}
 
       {!isViewer ? (
-      <div className={`grid gap-4 lg:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
-        <Card className={`${frontDeskWorkspaceCardClass("default")} lg:col-span-2`}>
+      <div className={`grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,360px)] ${!isPro ? "opacity-60" : ""}`}>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
               <CardTitle>Conversation volume</CardTitle>
             </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Review how much demand is reaching the front desk in this reporting window.
+            </p>
           </CardHeader>
           <CardContent>
           {loading ? (
@@ -224,6 +281,9 @@ export default function AppAnalyticsPage() {
         <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardHeader className="pb-3">
             <CardTitle>What happened</CardTitle>
+            <p className="text-sm leading-6 text-muted-foreground">
+              See how calls resolved across requests, transfers, missed demand, and other front-desk outcomes.
+            </p>
           </CardHeader>
           <CardContent>
           {data?.charts.outcomeBreakdown?.length ? (
@@ -249,14 +309,17 @@ export default function AppAnalyticsPage() {
       <Card className={`${frontDeskWorkspaceCardClass("default")} ${!isPro ? "opacity-60" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle>Leads captured over time</CardTitle>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Use this section to confirm whether intake is actually turning into saved follow-up work for the office.
+          </p>
         </CardHeader>
         <CardContent>
         {data?.charts.leadsPerDay?.length ? (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {data.charts.leadsPerDay.map((row) => (
-              <div key={row.day} className="rounded border bg-muted/20 p-2 text-sm">
-                <p className="text-xs text-muted-foreground">{row.day}</p>
-                <p className="mt-1 text-lg font-semibold">{row.value}</p>
+              <div key={row.day} className="rounded-[20px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(244,247,251,0.96)_100%)] p-4 text-sm shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <p className="page-eyebrow">{row.day}</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{row.value}</p>
               </div>
             ))}
           </div>
