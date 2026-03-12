@@ -258,10 +258,10 @@ export default function TeamPage() {
               Routing behavior lives across assistant setup, notifications, and your active communication channels.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Link href="/app/settings" className="rounded-xl border border-slate-200/90 bg-white/85 px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
+              <Link href="/app/settings" className="rounded-xl border border-slate-200/90 bg-white/[0.85] px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
                 Open Assistant Settings
               </Link>
-              <Link href="/app/messages" className="rounded-xl border border-slate-200/90 bg-white/85 px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
+              <Link href="/app/messages" className="rounded-xl border border-slate-200/90 bg-white/[0.85] px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
                 Open Messages
               </Link>
             </div>

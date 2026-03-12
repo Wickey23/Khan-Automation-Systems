@@ -44,7 +44,7 @@ function itemSurface(severity: ActionNeededItem["severity"]) {
 function itemSurfaceDark(severity: ActionNeededItem["severity"]) {
   if (severity === "critical") return "border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/14";
   if (severity === "warning") return "border-amber-400/25 bg-amber-400/10 hover:bg-amber-400/14";
-  return "border-white/10 bg-white/6 hover:bg-white/10";
+  return "border-white/10 bg-white/[0.06] hover:bg-white/10";
 }
 
 function itemActionLabel(item: ActionNeededItem) {

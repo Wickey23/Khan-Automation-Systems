@@ -236,7 +236,7 @@ export default function HomePage() {
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                           {index + 1}
                         </div>
-                        <p className="font-medium text-foreground/85">{item}</p>
+                        <p className="font-medium text-foreground/80">{item}</p>
                       </div>
                     ))}
                   </div>
@@ -403,7 +403,7 @@ export default function HomePage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {["Transcript", "Summary", "Outcome", "Recording", "Next action"].map((item) => (
-                  <div key={item} className="rounded-xl border bg-white/85 px-4 py-3 text-sm font-medium text-foreground/85">
+                  <div key={item} className="rounded-xl border bg-white/[0.85] px-4 py-3 text-sm font-medium text-foreground/80">
                     {item}
                   </div>
                 ))}

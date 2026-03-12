@@ -213,7 +213,8 @@ body {
   }
 
   .surface-panel {
-    @apply rounded-[26px] border bg-white/92 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)];
+    background-color: rgba(255, 255, 255, 0.92);
+    @apply rounded-[26px] border backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)];
   }
 
   .surface-muted {
@@ -254,11 +255,13 @@ body {
   }
 
   .data-toolbar {
-    @apply rounded-[24px] border border-slate-200/90 bg-white/92 p-5 shadow-[0_16px_36px_rgba(15,23,42,0.08)];
+    background-color: rgba(255, 255, 255, 0.92);
+    @apply rounded-[24px] border border-slate-200/90 p-5 shadow-[0_16px_36px_rgba(15,23,42,0.08)];
   }
 
   .table-shell {
-    @apply overflow-hidden rounded-[24px] border border-slate-200/90 bg-white/96 shadow-[0_18px_38px_rgba(15,23,42,0.08)];
+    background-color: rgba(255, 255, 255, 0.96);
+    @apply overflow-hidden rounded-[24px] border border-slate-200/90 shadow-[0_18px_38px_rgba(15,23,42,0.08)];
   }
 
   .app-portal-shell {
@@ -280,7 +283,8 @@ body {
   }
 
   .app-main-shell {
-    @apply min-w-0 space-y-5 rounded-[30px] border border-white/60 bg-white/55 p-2 backdrop-blur-[2px] sm:p-3;
+    background-color: rgba(255, 255, 255, 0.55);
+    @apply min-w-0 space-y-5 rounded-[30px] border border-white/60 p-2 backdrop-blur-[2px] sm:p-3;
   }
 
   .app-banner {

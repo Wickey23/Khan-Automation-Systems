@@ -132,7 +132,7 @@ export default function AppAnalyticsPage() {
               {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "Not available yet"}
             </p>
           </div>
-          <div className="rounded-[20px] border border-slate-200/90 bg-white/75 px-4 py-3 text-sm text-muted-foreground shadow-[0_10px_22px_rgba(15,23,42,0.06)]">
+          <div className="rounded-[20px] border border-slate-200/90 bg-white/70 px-4 py-3 text-sm text-muted-foreground shadow-[0_10px_22px_rgba(15,23,42,0.06)]">
             {loading ? "Refreshing analytics..." : "Metrics update automatically from the current reporting window."}
           </div>
         </CardContent>

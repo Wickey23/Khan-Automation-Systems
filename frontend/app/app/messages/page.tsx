@@ -423,15 +423,15 @@ export default function AppMessagesPage() {
               </div>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-black/5 bg-white/65 px-4 py-3">
+              <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
                 <p className="mt-2 text-2xl font-semibold">{threads.length}</p>
               </div>
-              <div className="rounded-xl border border-black/5 bg-white/65 px-4 py-3">
+              <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Action needed</p>
                 <p className="mt-2 text-2xl font-semibold">{threadsWithActionNeeded}</p>
               </div>
-              <div className="rounded-xl border border-black/5 bg-white/65 px-4 py-3">
+              <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Selected</p>
                 <p className="mt-2 truncate text-sm font-semibold">{selected?.contactName || selected?.contactPhone || "No thread selected"}</p>
               </div>

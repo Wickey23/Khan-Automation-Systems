@@ -854,17 +854,17 @@ export default function AppOverviewPage() {
 
       <section className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#172554_52%,#0f172a_100%)] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Today at a glance</p>
             <p className="mt-2 text-sm text-slate-100">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Needs attention now</p>
             <p className="mt-2 text-sm text-slate-100">
               {loading ? "Checking follow-up queue..." : `${customerActionCount} active customer items need action now`}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Callbacks and missed-call rescue</p>
             <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing callback and rescue work..." : `${callbackCount} callbacks pending, ${savedMissedCallCount} saved missed calls`}</p>
           </div>
@@ -1037,7 +1037,7 @@ export default function AppOverviewPage() {
                       <Badge className={clientBadgeClass(overviewCallOutcomeBadge(call)!.tone)}>{overviewCallOutcomeBadge(call)!.label}</Badge>
                     ) : null}
                   </div>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/80">
                     {call.frontDesk?.summary || "Customer request still needs a callback."}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -1115,7 +1115,7 @@ export default function AppOverviewPage() {
                       {item.ctaLabel === "Open booking" ? "Review request" : item.ctaLabel === "Open inbox" ? "Review reply" : "Review request"}
                     </span>
                   </div>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">{item.summary}</p>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/80">{item.summary}</p>
                   <p className="mt-2 text-xs text-muted-foreground">{item.sourceLabel}</p>
                   <p className="mt-2 text-xs font-medium text-foreground/80">
                     {item.ctaLabel}
@@ -1195,7 +1195,7 @@ export default function AppOverviewPage() {
                       <Badge className={clientBadgeClass(overviewCallOutcomeBadge(call)!.tone)}>{overviewCallOutcomeBadge(call)!.label}</Badge>
                     ) : null}
                   </div>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/80">
                     {call.frontDesk?.summary || call.aiSummary || call.summary || "Conversation summary will appear here after the call is processed."}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -1279,7 +1279,7 @@ export default function AppOverviewPage() {
                         <Badge className={clientBadgeClass(overviewThreadOutcomeBadge(thread)!.tone)}>{overviewThreadOutcomeBadge(thread)!.label}</Badge>
                       ) : null}
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/80">
                       {frontDesk?.summary || latestMessage}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
