@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskWorkspaceCardClass, frontDeskMetricCardClass } from "@/lib/front-desk-ui";
+import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function toRoleInput(role: TeamMember["role"]): "admin" | "manager" | "viewer" {
   if (role === "ADMIN") return "admin";
@@ -258,10 +258,10 @@ export default function TeamPage() {
               Routing behavior lives across assistant setup, notifications, and your active communication channels.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Link href="/app/settings" className="rounded-md border px-3 py-2 font-medium hover:bg-muted">
+              <Link href="/app/settings" className="rounded-xl border border-slate-200/90 bg-white/85 px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
                 Open Assistant Settings
               </Link>
-              <Link href="/app/messages" className="rounded-md border px-3 py-2 font-medium hover:bg-muted">
+              <Link href="/app/messages" className="rounded-xl border border-slate-200/90 bg-white/85 px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
                 Open Messages
               </Link>
             </div>
@@ -314,7 +314,7 @@ export default function TeamPage() {
             <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
           </div>
           {seatsFull ? (
-            <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+            <p className="rounded-[18px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] px-3 py-2 text-amber-950 shadow-[0_10px_22px_rgba(217,119,6,0.10)]">
               {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
               {" "}
               <Link href="/app/billing" className="font-medium underline">
@@ -372,7 +372,13 @@ export default function TeamPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading team...</p>
+            <div className={frontDeskLoadingCardClass()}>
+              <div className="space-y-3">
+                <div className={frontDeskSkeletonLineClass("md")} />
+                <div className={frontDeskSkeletonLineClass()} />
+                <div className={frontDeskSkeletonLineClass("lg")} />
+              </div>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-left text-sm">
@@ -442,7 +448,9 @@ export default function TeamPage() {
                   {!members.length ? (
                     <tr>
                       <td className="p-2 text-muted-foreground" colSpan={6}>
-                        No team members yet.
+                        <div className={frontDeskEmptyStateClass()}>
+                          No team members yet. Invited teammates and active operators will appear here once the office starts sharing access.
+                        </div>
                       </td>
                     </tr>
                   ) : null}

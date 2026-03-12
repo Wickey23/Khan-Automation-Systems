@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type FormState = {
   legalBusinessName: string;
@@ -364,13 +364,19 @@ export default function AppOnboardingPage() {
           <div><Label>Manager phones</Label><Textarea value={state.managerPhones} onChange={(e)=>setState((p)=>({...p,managerPhones:e.target.value}))} /></div>
         </CardContent>
       </Card>
-      <div className="flex gap-3">
+      <div className={`${frontDeskContextPanelClass()} flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between`}>
+        <div className="space-y-1">
+          <p className="page-eyebrow">Onboarding actions</p>
+          <p className="text-sm text-muted-foreground">Save progress, preview the generated build sheet, or submit the onboarding package for review.</p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
         <Button variant="outline" onClick={onPreview} disabled={saving}>Preview config package</Button>
         <Link href="/app/onboarding/preview">
           <Button type="button" variant="outline">Open build sheet page</Button>
         </Link>
         <Button variant="outline" onClick={onSubmit} disabled={saving}>Submit onboarding</Button>
+        </div>
       </div>
       {previewJson ? (
         <Card className={frontDeskWorkspaceCardClass("subtle")}>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -132,7 +132,7 @@ export default function AppAnalyticsPage() {
               {kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleString() : "Not available yet"}
             </p>
           </div>
-          <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          <div className="rounded-[20px] border border-slate-200/90 bg-white/75 px-4 py-3 text-sm text-muted-foreground shadow-[0_10px_22px_rgba(15,23,42,0.06)]">
             {loading ? "Refreshing analytics..." : "Metrics update automatically from the current reporting window."}
           </div>
         </CardContent>
@@ -187,7 +187,13 @@ export default function AppAnalyticsPage() {
           </CardHeader>
           <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <div className={frontDeskLoadingCardClass()}>
+              <div className="space-y-3">
+                <div className={frontDeskSkeletonLineClass("sm")} />
+                <div className={frontDeskSkeletonLineClass()} />
+                <div className={frontDeskSkeletonLineClass("lg")} />
+              </div>
+            </div>
           ) : data?.charts.callsPerDay?.length ? (
             <div className="space-y-1">
               {data.charts.callsPerDay.map((row) => (
@@ -204,7 +210,9 @@ export default function AppAnalyticsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No call data in this range.</p>
+            <div className={frontDeskEmptyStateClass()}>
+              No call volume data yet. Once calls are handled in this reporting window, daily activity will appear here.
+            </div>
           )}
           </CardContent>
         </Card>
@@ -224,7 +232,9 @@ export default function AppAnalyticsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No outcomes to display.</p>
+            <div className={frontDeskEmptyStateClass()}>
+              No outcomes yet. Call results like requests, transfers, and missed calls will appear here once activity starts.
+            </div>
           )}
           </CardContent>
         </Card>
@@ -247,7 +257,9 @@ export default function AppAnalyticsPage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No lead data in this range.</p>
+          <div className={frontDeskEmptyStateClass()}>
+            No leads captured in this range yet. New lead creation will show up here as activity builds.
+          </div>
         )}
         </CardContent>
       </Card>

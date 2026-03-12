@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
-import { frontDeskWorkspaceCardClass, frontDeskMetricCardClass } from "@/lib/front-desk-ui";
+import { frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 const PLAN_COPY = {
   none: {
@@ -542,7 +542,7 @@ export default function AppBillingPage() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           {diagnosticsError ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+            <div className="rounded-[20px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] p-4 text-amber-950 shadow-[0_12px_24px_rgba(217,119,6,0.10)]">
               {diagnosticsError} Billing actions are still available.
             </div>
           ) : null}
@@ -598,7 +598,7 @@ export default function AppBillingPage() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl border bg-muted/20 p-3">
+                <div className={frontDeskEmptyStateClass()}>
                   <p className="text-xs text-muted-foreground">
                     Internal diagnostics are restricted to platform admins. You can still use checkout, plan change, and billing portal actions normally.
                   </p>
