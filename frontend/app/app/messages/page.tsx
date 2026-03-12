@@ -28,6 +28,16 @@ function threadFrontDesk(thread: OrgMessageThread) {
   return thread.frontDesk || thread.lead?.frontDesk || null;
 }
 
+function threadStateWeight(thread: OrgMessageThread) {
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "needs_follow_up") return 0;
+  if (state === "contacted") return 1;
+  if (state === "booked") return 2;
+  if (state === "closed") return 3;
+  if (state === "spam") return 4;
+  return 1;
+}
+
 function getThreadStateBadge(thread: OrgMessageThread) {
   const frontDesk = threadFrontDesk(thread);
   if (frontDesk?.state === "needs_follow_up") return { label: "Needs follow-up", tone: "warning" as const };
@@ -227,6 +237,8 @@ export default function AppMessagesPage() {
         return (threadFrontDesk(thread)?.state || "closed") === threadFilter;
       })
       .sort((a, b) => {
+        const stateDelta = threadStateWeight(a) - threadStateWeight(b);
+        if (stateDelta !== 0) return stateDelta;
         const priorityDelta = frontDeskPriorityWeight(a) - frontDeskPriorityWeight(b);
         if (priorityDelta !== 0) return priorityDelta;
         return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();

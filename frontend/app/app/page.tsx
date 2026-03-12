@@ -265,6 +265,15 @@ function priorityBadge(priority: FrontDeskPriority | undefined) {
   return { label: "Normal priority", tone: "neutral" as const };
 }
 
+function frontDeskStateWeight(state: "needs_follow_up" | "contacted" | "booked" | "closed" | "spam" | undefined | null) {
+  if (state === "needs_follow_up") return 0;
+  if (state === "contacted") return 1;
+  if (state === "booked") return 2;
+  if (state === "closed") return 3;
+  if (state === "spam") return 4;
+  return 1;
+}
+
 function followUpLabel(state: OrgCallRecord["frontDesk"] | Lead["frontDesk"] | undefined) {
   const value = state ? ("followUpState" in state ? state.followUpState : state.state) : null;
   switch (value) {
@@ -577,6 +586,8 @@ export default function AppOverviewPage() {
     () =>
       [...state.calls]
         .sort((a, b) => {
+          const stateDelta = frontDeskStateWeight(a.frontDesk?.followUpState) - frontDeskStateWeight(b.frontDesk?.followUpState);
+          if (stateDelta !== 0) return stateDelta;
           const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
           if (priorityDelta !== 0) return priorityDelta;
           return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
@@ -602,6 +613,10 @@ export default function AppOverviewPage() {
     () =>
       [...state.threads]
         .sort((a, b) => {
+          const stateDelta =
+            frontDeskStateWeight((a.frontDesk || a.lead?.frontDesk)?.state) -
+            frontDeskStateWeight((b.frontDesk || b.lead?.frontDesk)?.state);
+          if (stateDelta !== 0) return stateDelta;
           const priorityDelta = frontDeskPriorityWeight((a.frontDesk || a.lead?.frontDesk)?.frontDeskPriority) -
             frontDeskPriorityWeight((b.frontDesk || b.lead?.frontDesk)?.frontDeskPriority);
           if (priorityDelta !== 0) return priorityDelta;
