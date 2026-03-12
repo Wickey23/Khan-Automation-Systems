@@ -134,6 +134,15 @@ function formatPriorityLabel(priority: FrontDeskPriority | undefined) {
   return priority;
 }
 
+function callQueueStateLabel(call: OrgCallRecord) {
+  if (call.frontDesk?.followUpState === "needs_follow_up") return "Needs follow-up";
+  if (call.frontDesk?.followUpState === "contacted") return "Contacted";
+  if (call.frontDesk?.followUpState === "booked") return "Booked";
+  if (call.frontDesk?.followUpState === "closed") return "Closed";
+  if (call.frontDesk?.followUpState === "spam") return "Spam";
+  return outcomeLabel(call.outcome);
+}
+
 export default function AppCallsPage() {
   const searchParams = useSearchParams();
   const deepLinkedCallId = searchParams.get("callId") || "";
@@ -270,7 +279,7 @@ export default function AppCallsPage() {
       <PageHeader
         eyebrow="Calls"
         title="Calls"
-        description="This page is a simple review queue. Find a call, open it, and see what needs to happen next."
+        description="Review the front-desk queue, open a call, and see the next action before you read the transcript."
         actions={
           <Button onClick={() => void refreshAndRepopulate()} disabled={refreshing}>
             {refreshing ? "Refreshing..." : "Refresh"}
@@ -344,7 +353,7 @@ export default function AppCallsPage() {
                 <div className="space-y-1">
                   <p className="page-eyebrow">Review queue</p>
                   <p className="text-sm text-muted-foreground">
-                    Search the queue, open a call, then review the summary, transcript, and recommended next step.
+                    Search the queue, open a call, then review the structured summary and recommended next step.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
@@ -381,7 +390,7 @@ export default function AppCallsPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="page-eyebrow">Call list</p>
-                <p className="text-sm text-muted-foreground">Open a call to inspect the outcome, summary, transcript, and next step.</p>
+                <p className="text-sm text-muted-foreground">Open a call to inspect the structured intake result, follow-up state, and next step.</p>
               </div>
               <span className="rounded-full border bg-slate-50 px-3 py-1 text-xs font-medium text-muted-foreground">
                 {calls.length} loaded on this page
@@ -409,7 +418,7 @@ export default function AppCallsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
                         <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                          {formatPriorityLabel(call.frontDesk?.frontDeskPriority)}
+                          {callQueueStateLabel(call)}
                         </span>
                       </div>
                     </div>
