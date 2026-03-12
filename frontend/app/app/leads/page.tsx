@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchCustomerBase, fetchOrgLeads, getBillingStatus, getMe, updateLeadPipelineStage } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import { clientBadgeClass } from "@/lib/client-badges";
-import type { CustomerBaseRecord, Lead } from "@/lib/types";
+import type { CustomerBaseRecord, FrontDeskPriority, Lead } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,66 @@ const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "
 
 function prettyStage(value: string) {
   return value.replaceAll("_", " ").toLowerCase();
+}
+
+function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
+  if (priority === "urgent") return 0;
+  if (priority === "high") return 1;
+  if (priority === "normal") return 2;
+  return 3;
+}
+
+function frontDeskTone(lead: Lead) {
+  if (lead.frontDesk?.frontDeskPriority === "urgent") return "critical";
+  if (lead.frontDesk?.frontDeskPriority === "high") return "warning";
+  if (lead.frontDesk?.state === "booked") return "booking";
+  if (lead.frontDesk?.state === "contacted") return "pending";
+  if (lead.frontDesk?.state === "closed") return "success";
+  if (lead.frontDesk?.state === "spam") return "neutral";
+  return leadStatusTone(lead.status);
+}
+
+function frontDeskStateLabel(lead: Lead) {
+  switch (lead.frontDesk?.state) {
+    case "needs_follow_up":
+      return "Needs follow-up";
+    case "contacted":
+      return "Contacted";
+    case "booked":
+      return "Booked";
+    case "closed":
+      return "Closed";
+    case "spam":
+      return "Spam";
+    default:
+      return lead.status;
+  }
+}
+
+function formatActivityLabel(lead: Lead) {
+  if (!lead.frontDesk?.lastActivityAt) return `Created ${new Date(lead.createdAt).toLocaleDateString()}`;
+  const kind = lead.frontDesk.lastActivityType ? lead.frontDesk.lastActivityType.replaceAll("_", " ") : "activity";
+  return `Last ${kind} ${new Date(lead.frontDesk.lastActivityAt).toLocaleDateString()}`;
+}
+
+function summarizeLead(lead: Lead) {
+  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "No service details yet.";
+}
+
+function leadStatusTone(status: Lead["status"]) {
+  switch (status) {
+    case "NEW":
+      return "warning";
+    case "CONTACTED":
+    case "QUALIFIED":
+      return "pending";
+    case "WON":
+      return "success";
+    case "LOST":
+      return "critical";
+    default:
+      return "neutral";
+  }
 }
 
 export default function AppLeadsPage() {
@@ -55,10 +115,14 @@ export default function AppLeadsPage() {
     return leads.filter((lead) => {
       if (statusFilter !== "ALL" && lead.status !== statusFilter) return false;
       if (!q) return true;
-      return [lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || ""]
+      return [lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), lead.frontDesk?.recommendedAction || "", lead.frontDesk?.state || ""]
         .join(" ")
         .toLowerCase()
         .includes(q);
+    }).sort((a, b) => {
+      const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
+      if (priorityDelta !== 0) return priorityDelta;
+      return new Date(b.frontDesk?.lastActivityAt || b.updatedAt).getTime() - new Date(a.frontDesk?.lastActivityAt || a.updatedAt).getTime();
     });
   }, [leads, query, statusFilter]);
 
@@ -72,22 +136,6 @@ export default function AppLeadsPage() {
 
   const planLabel = plan === "PRO" ? "Pro" : plan === "STARTER" ? "Standard" : "No active plan";
   const canEditPipeline = role === "CLIENT_STAFF" || role === "CLIENT_ADMIN" || role === "ADMIN" || role === "SUPER_ADMIN";
-
-  function leadStatusTone(status: Lead["status"]) {
-    switch (status) {
-      case "NEW":
-        return "warning";
-      case "CONTACTED":
-      case "QUALIFIED":
-        return "pending";
-      case "WON":
-        return "success";
-      case "LOST":
-        return "critical";
-      default:
-        return "neutral";
-    }
-  }
 
   async function onPipelineChange(leadId: string, pipelineStage: (typeof pipelineStages)[number]) {
     if (!canEditPipeline || !pipelineAvailable) return;
@@ -108,9 +156,9 @@ export default function AppLeadsPage() {
     view === "OPEN_LEADS"
       ? [
           { label: "Plan", value: planLabel },
-          { label: "Open leads", value: filtered.length },
-          { label: "New", value: filtered.filter((lead) => lead.status === "NEW").length },
-          { label: "Need scheduling", value: filtered.filter((lead) => lead.pipelineStage === "NEEDS_SCHEDULING").length }
+          { label: "Need follow-up", value: filtered.filter((lead) => lead.frontDesk?.needsFollowUp).length },
+          { label: "Urgent", value: filtered.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent").length },
+          { label: "Need scheduling", value: filtered.filter((lead) => lead.pipelineStage === "NEEDS_SCHEDULING" || lead.frontDesk?.recommendedAction === "Offer times").length }
         ]
       : [
           { label: "Plan", value: planLabel },
@@ -221,11 +269,18 @@ export default function AppLeadsPage() {
                         <p className="text-base font-semibold text-foreground">{lead.name}</p>
                         <p className="text-sm text-muted-foreground">{lead.business}</p>
                       </div>
-                      <Badge className={clientBadgeClass(leadStatusTone(lead.status))}>{lead.status}</Badge>
+                      <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       <p>{lead.phone || lead.email || "No contact info"}</p>
-                      <p className="mt-1 line-clamp-2">{lead.serviceRequested || lead.message || "No service details yet."}</p>
+                      <p className="mt-1 line-clamp-2">{summarizeLead(lead)}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span>{lead.frontDesk?.recommendedAction || "Review request"}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>{formatActivityLabel(lead)}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -247,8 +302,11 @@ export default function AppLeadsPage() {
 
                   <div className="space-y-2 text-sm">
                     <p className="page-eyebrow">Details</p>
-                    <p className="text-muted-foreground">Created {new Date(lead.createdAt).toLocaleDateString()}</p>
+                    <p className="text-muted-foreground">{formatActivityLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
+                    {lead.frontDesk?.recommendedAction ? (
+                      <p className="text-muted-foreground">Next action: {lead.frontDesk.recommendedAction}</p>
+                    ) : null}
                     {lead.classification ? (
                       <p className="text-muted-foreground">
                         Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}

@@ -12,6 +12,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
 
+function frontDeskPriorityWeight(thread: OrgMessageThread) {
+  const priority = thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority;
+  if (priority === "urgent") return 0;
+  if (priority === "high") return 1;
+  if (priority === "normal") return 2;
+  return 3;
+}
+
+function threadFrontDesk(thread: OrgMessageThread) {
+  return thread.frontDesk || thread.lead?.frontDesk || null;
+}
+
+function getThreadStateBadge(thread: OrgMessageThread) {
+  const frontDesk = threadFrontDesk(thread);
+  if (frontDesk?.state === "needs_follow_up") return { label: "Needs follow-up", tone: "warning" as const };
+  if (frontDesk?.state === "contacted") return { label: "Contacted", tone: "pending" as const };
+  if (frontDesk?.state === "booked") return { label: "Booked", tone: "booking" as const };
+  if (frontDesk?.state === "closed") return { label: "Closed", tone: "success" as const };
+  if (frontDesk?.state === "spam") return { label: "Spam", tone: "neutral" as const };
+  return null;
+}
+
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
 }
@@ -118,15 +140,34 @@ export default function AppMessagesPage() {
   const selected = useMemo(() => threads.find((thread) => thread.id === selectedId) || null, [threads, selectedId]);
   const filteredThreads = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return threads;
-    return threads.filter((thread) =>
-      [thread.contactName, thread.lead?.name, thread.contactPhone, getLatestMessagePreview(thread)]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    );
+    const matched = !query
+      ? threads
+      : threads.filter((thread) =>
+          [
+            thread.contactName,
+            thread.lead?.name,
+            thread.contactPhone,
+            getLatestMessagePreview(thread),
+            threadFrontDesk(thread)?.summary || "",
+            threadFrontDesk(thread)?.recommendedAction || ""
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query))
+        );
+    return [...matched].sort((a, b) => {
+      const priorityDelta = frontDeskPriorityWeight(a) - frontDeskPriorityWeight(b);
+      if (priorityDelta !== 0) return priorityDelta;
+      return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+    });
   }, [search, threads]);
   const threadsWithActionNeeded = useMemo(
-    () => threads.filter((thread) => getThreadDeliveryBadge(thread)?.tone === "failed" || getThreadPrimaryBadge(thread).tone === "booking").length,
+    () =>
+      threads.filter(
+        (thread) =>
+          getThreadDeliveryBadge(thread)?.tone === "failed" ||
+          getThreadPrimaryBadge(thread).tone === "booking" ||
+          threadFrontDesk(thread)?.needsFollowUp
+      ).length,
     [threads]
   );
 
@@ -284,9 +325,17 @@ export default function AppMessagesPage() {
                           <p className="truncate text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
                           <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
                           <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{getLatestMessagePreview(thread)}</p>
+                          {threadFrontDesk(thread)?.summary ? (
+                            <p className="mt-2 line-clamp-2 text-xs text-foreground/80">{threadFrontDesk(thread)?.summary}</p>
+                          ) : null}
                           <p className="mt-2 text-[11px] text-muted-foreground">Last update {formatWhen(thread.lastMessageAt)}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {getThreadStateBadge(thread) ? (
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(getThreadStateBadge(thread)!.tone)}`}>
+                              {getThreadStateBadge(thread)!.label}
+                            </span>
+                          ) : null}
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
                             {primaryBadge.label}
                           </span>
@@ -297,6 +346,11 @@ export default function AppMessagesPage() {
                           ) : null}
                         </div>
                       </div>
+                      {threadFrontDesk(thread)?.recommendedAction ? (
+                        <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                          Next action: {threadFrontDesk(thread)?.recommendedAction}
+                        </p>
+                      ) : null}
                     </button>
                   );
                 })()
@@ -311,10 +365,15 @@ export default function AppMessagesPage() {
             <CardHeader className="pb-3">
               <div className="space-y-1">
                 <CardTitle className="text-lg">Compose message</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Send a manual follow-up to the selected contact or type any number directly.
-                </p>
-              </div>
+                  <p className="text-sm text-muted-foreground">
+                    Send a manual follow-up to the selected contact or type any number directly.
+                  </p>
+                  {selected && threadFrontDesk(selected)?.recommendedAction ? (
+                    <p className="text-xs text-muted-foreground">
+                      Recommended action: {threadFrontDesk(selected)?.recommendedAction}
+                    </p>
+                  ) : null}
+                </div>
             </CardHeader>
             <CardContent className="grid gap-3">
               <label className="grid gap-1.5 text-sm">

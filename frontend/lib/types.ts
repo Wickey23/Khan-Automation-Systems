@@ -468,7 +468,9 @@ export type OrgMessageThread = {
     name: string;
     business: string;
     phone: string;
+    frontDesk?: LeadFrontDesk;
   } | null;
+  frontDesk?: LeadFrontDesk | null;
   messages: OrgMessage[];
 };
 

@@ -2672,7 +2672,22 @@ orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
       where: { orgId: req.auth.orgId, channel: "SMS" },
       include: {
         lead: {
-          select: { id: true, name: true, business: true, phone: true }
+          select: {
+            id: true,
+            name: true,
+            business: true,
+            phone: true,
+            status: true,
+            pipelineStage: true,
+            urgency: true,
+            serviceRequested: true,
+            serviceAddress: true,
+            classification: true,
+            message: true,
+            appointmentRequested: true,
+            createdAt: true,
+            updatedAt: true
+          }
         },
         messages: {
           orderBy: { createdAt: "desc" },
@@ -2689,10 +2704,123 @@ orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
     })
   ]);
 
+  const orgId = req.auth.orgId;
+  const leadIds = [...new Set(threads.map((thread) => thread.lead?.id).filter(Boolean))] as string[];
+  const phones = [...new Set(threads.map((thread) => normalizePhoneE164(thread.contactPhone)).filter(Boolean))];
+  const [serviceRequests, appointmentRequests, calls] = await Promise.all([
+    leadIds.length
+      ? prisma.serviceRequest.findMany({
+          where: { orgId, leadId: { in: leadIds } },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            leadId: true,
+            customerName: true,
+            phone: true,
+            serviceType: true,
+            urgency: true,
+            serviceAddress: true,
+            appointmentRequested: true,
+            status: true,
+            notes: true,
+            followUpSentAt: true,
+            updatedAt: true
+          }
+        })
+      : [],
+    leadIds.length
+      ? prisma.appointmentRequest.findMany({
+          where: { orgId, leadId: { in: leadIds } },
+          orderBy: [{ lastEventAt: "desc" }, { createdAt: "desc" }],
+          select: {
+            id: true,
+            leadId: true,
+            status: true,
+            issueSummary: true,
+            serviceAddressRaw: true,
+            lastEventAt: true,
+            requestedStartAt: true
+          }
+        })
+      : [],
+    leadIds.length || phones.length
+      ? prisma.callLog.findMany({
+          where: {
+            orgId,
+            OR: [
+              ...(leadIds.length ? [{ leadId: { in: leadIds } }] : []),
+              ...(phones.length ? [{ fromNumber: { in: phones } }] : [])
+            ]
+          },
+          orderBy: { startedAt: "desc" },
+          select: {
+            id: true,
+            leadId: true,
+            fromNumber: true,
+            outcome: true,
+            aiSummary: true,
+            transcript: true,
+            appointmentRequested: true,
+            unansweredTransfer: true,
+            startedAt: true,
+            recoverySmsSentAt: true
+          }
+        })
+      : []
+  ]);
+  const latestServiceRequestByLeadId = new Map<string, (typeof serviceRequests)[number]>();
+  for (const request of serviceRequests) {
+    if (request.leadId && !latestServiceRequestByLeadId.has(request.leadId)) {
+      latestServiceRequestByLeadId.set(request.leadId, request);
+    }
+  }
+  const latestAppointmentRequestByLeadId = new Map<string, (typeof appointmentRequests)[number]>();
+  for (const request of appointmentRequests) {
+    if (request.leadId && !latestAppointmentRequestByLeadId.has(request.leadId)) {
+      latestAppointmentRequestByLeadId.set(request.leadId, request);
+    }
+  }
+  const latestCallByLeadId = new Map<string, (typeof calls)[number]>();
+  const latestCallByPhone = new Map<string, (typeof calls)[number]>();
+  for (const call of calls) {
+    if (call.leadId && !latestCallByLeadId.has(call.leadId)) {
+      latestCallByLeadId.set(call.leadId, call);
+    }
+    const key = normalizePhoneE164(call.fromNumber);
+    if (key && !latestCallByPhone.has(key)) {
+      latestCallByPhone.set(key, call);
+    }
+  }
+
   return res.json({
     ok: true,
     data: {
-      threads,
+      threads: threads.map((thread) => {
+        const normalizedPhone = normalizePhoneE164(thread.contactPhone);
+        const lead = thread.lead || null;
+        const frontDesk = lead
+          ? buildLeadFrontDesk({
+              lead,
+              serviceRequest: latestServiceRequestByLeadId.get(lead.id) || null,
+              appointmentRequest: (() => {
+                const request = latestAppointmentRequestByLeadId.get(lead.id);
+                return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
+              })(),
+              latestCall: latestCallByLeadId.get(lead.id) || (normalizedPhone ? latestCallByPhone.get(normalizedPhone) || null : null),
+              latestMessageThread: thread
+            })
+          : null;
+        return {
+          ...thread,
+          lead: lead
+            ? {
+                ...lead,
+                frontDesk
+              }
+            : null,
+          frontDesk
+        };
+      }),
       assignedPhoneNumber: activePhone?.e164Number || null,
       assignedNumberProvider: activePhone?.provider || null
     }
