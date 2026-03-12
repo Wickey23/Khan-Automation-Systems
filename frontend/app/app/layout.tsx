@@ -206,7 +206,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           "flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all duration-200",
           pathname === item.href
             ? "border-blue-300/80 bg-[linear-gradient(135deg,rgba(30,64,175,0.97)_0%,rgba(37,99,235,0.95)_64%,rgba(14,165,233,0.90)_100%)] text-primary-foreground shadow-[0_18px_34px_rgba(37,99,235,0.26)]"
-            : "border-transparent bg-white/[0.55] text-slate-700 hover:border-slate-200/90 hover:bg-white/[0.92] hover:text-slate-950 hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)]"
+            : "border-slate-200/70 bg-white/[0.88] text-slate-800 shadow-[0_8px_18px_rgba(15,23,42,0.05)] hover:border-slate-300/90 hover:bg-white hover:text-slate-950 hover:shadow-[0_14px_26px_rgba(15,23,42,0.09)]"
         )}
       >
         <span
@@ -214,7 +214,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
             pathname === item.href
               ? "border-white/20 bg-white/[0.12] text-primary-foreground"
-              : "border-slate-200/90 bg-white/90 text-slate-500"
+              : "border-slate-200/95 bg-white text-slate-600"
           )}
         >
           <Icon className={cn("h-4 w-4", pathname === item.href && item.href === "/app/messages" ? "scale-110" : "")} />
@@ -254,15 +254,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </nav>
-            <div className="mt-5 rounded-[22px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(243,248,252,0.96)_100%)] px-4 py-4 shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
+            <div className="mt-5 rounded-[22px] border border-slate-200/95 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(240,246,252,0.98)_100%)] px-4 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">How work flows</p>
               <p className="mt-2 text-sm font-medium text-slate-950">Calls and texts create front-desk work.</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-slate-700">
                 Start in Front Desk, work the Call Queue or Inbox, move booking-ready requests into the Booking Queue, then finish them as booked or resolved.
               </p>
             </div>
             <div className="mt-5 border-t border-slate-200/80 pt-4">
-              <Link href="/auth/logout" className="inline-flex w-full rounded-2xl border border-slate-200/90 bg-white/[0.85] px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950">
+              <Link href="/auth/logout" className="inline-flex w-full rounded-2xl border border-slate-200/95 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-[0_10px_20px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50 hover:text-slate-950">
                 Logout
               </Link>
             </div>

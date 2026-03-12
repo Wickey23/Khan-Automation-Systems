@@ -151,9 +151,9 @@ html {
 body {
   @apply bg-background text-foreground antialiased;
   background:
-    radial-gradient(circle at top left, rgba(30, 64, 175, 0.08), transparent 28%),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 24%),
-    linear-gradient(180deg, #f7f9fc 0%, #eef4fb 100%);
+    radial-gradient(circle at top left, rgba(30, 64, 175, 0.12), transparent 26%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.10), transparent 22%),
+    linear-gradient(180deg, #f3f7fc 0%, #e5eef8 100%);
   font-family:
     "Inter",
     "Neue Haas Grotesk Text Pro",
@@ -213,8 +213,8 @@ body {
   }
 
   .surface-panel {
-    background-color: rgba(255, 255, 255, 0.92);
-    @apply rounded-[26px] border backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)];
+    background-color: rgba(255, 255, 255, 0.97);
+    @apply rounded-[26px] border border-slate-200/95 backdrop-blur-sm shadow-[0_20px_42px_rgba(15,23,42,0.10)];
   }
 
   .surface-muted {
@@ -223,11 +223,11 @@ body {
   }
 
   .page-eyebrow {
-    @apply inline-flex w-fit rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-900;
+    @apply inline-flex w-fit rounded-full border border-sky-300/90 bg-sky-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)];
   }
 
   .page-header {
-    @apply flex flex-col gap-5 rounded-[30px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(240,247,255,0.95)_58%,rgba(228,239,252,0.9)_100%)] px-6 py-6 shadow-[0_22px_50px_rgba(15,23,42,0.10)] md:flex-row md:items-end md:justify-between md:px-8;
+    @apply flex flex-col gap-5 rounded-[30px] border border-slate-200/95 bg-[linear-gradient(135deg,rgba(255,255,255,0.99)_0%,rgba(236,245,255,0.98)_55%,rgba(220,234,250,0.95)_100%)] px-6 py-6 shadow-[0_24px_52px_rgba(15,23,42,0.12)] md:flex-row md:items-end md:justify-between md:px-8;
   }
 
   .page-header-copy {
@@ -243,7 +243,7 @@ body {
   }
 
   .metric-card {
-    @apply rounded-[24px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,250,253,0.98)_100%)] p-5 shadow-[0_16px_36px_rgba(15,23,42,0.08)];
+    @apply rounded-[24px] border border-slate-200/95 bg-[linear-gradient(180deg,rgba(255,255,255,0.99)_0%,rgba(244,248,252,0.99)_100%)] p-5 shadow-[0_18px_38px_rgba(15,23,42,0.10)];
   }
 
   .card-stack {
@@ -251,21 +251,21 @@ body {
   }
 
   .empty-state {
-    @apply rounded-[24px] border border-dashed border-slate-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(243,248,253,0.96)_100%)] px-6 py-10 text-center text-sm text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.7)];
+    @apply rounded-[24px] border border-dashed border-slate-300/95 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(240,246,252,0.98)_100%)] px-6 py-10 text-center text-sm text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)];
   }
 
   .data-toolbar {
-    background-color: rgba(255, 255, 255, 0.92);
-    @apply rounded-[24px] border border-slate-200/90 p-5 shadow-[0_16px_36px_rgba(15,23,42,0.08)];
+    background-color: rgba(255, 255, 255, 0.97);
+    @apply rounded-[24px] border border-slate-200/95 p-5 shadow-[0_18px_38px_rgba(15,23,42,0.10)];
   }
 
   .table-shell {
-    background-color: rgba(255, 255, 255, 0.96);
-    @apply overflow-hidden rounded-[24px] border border-slate-200/90 shadow-[0_18px_38px_rgba(15,23,42,0.08)];
+    background-color: rgba(255, 255, 255, 0.985);
+    @apply overflow-hidden rounded-[24px] border border-slate-200/95 shadow-[0_20px_42px_rgba(15,23,42,0.10)];
   }
 
   .app-portal-shell {
-    @apply relative overflow-hidden rounded-[36px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(245,249,255,0.92)_42%,rgba(236,244,252,0.96)_100%)] p-3 shadow-[0_28px_90px_rgba(15,23,42,0.12)] backdrop-blur-sm sm:p-4;
+    @apply relative overflow-hidden rounded-[36px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.90)_0%,rgba(242,247,254,0.98)_42%,rgba(231,240,250,0.99)_100%)] p-3 shadow-[0_28px_90px_rgba(15,23,42,0.14)] backdrop-blur-sm sm:p-4;
   }
 
   .app-portal-shell::before {
@@ -279,12 +279,12 @@ body {
   }
 
   .app-sidebar-shell {
-    @apply relative h-fit rounded-[30px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(242,247,252,0.96)_100%)] p-4 shadow-[0_22px_48px_rgba(15,23,42,0.10)];
+    @apply relative h-fit rounded-[30px] border border-slate-200/95 bg-[linear-gradient(180deg,rgba(255,255,255,0.985)_0%,rgba(239,245,252,0.98)_100%)] p-4 shadow-[0_24px_50px_rgba(15,23,42,0.12)];
   }
 
   .app-main-shell {
-    background-color: rgba(255, 255, 255, 0.55);
-    @apply min-w-0 space-y-5 rounded-[30px] border border-white/60 p-2 backdrop-blur-[2px] sm:p-3;
+    background-color: rgba(255, 255, 255, 0.72);
+    @apply min-w-0 space-y-5 rounded-[30px] border border-white/80 p-2 backdrop-blur-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] sm:p-3;
   }
 
   .app-banner {
