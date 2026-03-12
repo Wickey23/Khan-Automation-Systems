@@ -6,6 +6,8 @@ import { fetchCustomerBase, getBillingStatus, importCustomerBase } from "@/lib/a
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { InfoHint } from "@/components/ui/info-hint";
+import { PageHeader } from "@/components/ui/page";
+import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 
 function formatOutcome(value: string | null | undefined) {
@@ -137,26 +139,25 @@ export default function CustomerBasePage() {
   }, [customers, query]);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold">Customer Base</h1>
-        <p className="text-sm text-muted-foreground">
-          Returning caller memory, lead linkage, and recent interaction context for your assistant.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Customer memory"
+        title="Customer Base"
+        description="Review returning caller memory, linked lead context, and recent request history so your team can recognize repeat customers quickly."
+      />
 
       {canAccess === false ? (
-        <div className="rounded-lg border bg-white p-5">
+        <div className={`${frontDeskWorkspaceCardClass("subtle")} p-6`}>
           <h2 className="text-lg font-semibold">Customer Base is a Pro workspace</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Standard focuses on lead pipeline management. Pro unlocks caller memory, repeat-caller context, and bulk customer-base
             imports.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/app/leads" className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+            <Link href="/app/leads" className="rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium shadow-[0_10px_22px_rgba(15,23,42,0.05)] transition hover:bg-slate-50">
               Open Leads (Standard)
             </Link>
-            <Link href="/app/billing" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+            <Link href="/app/billing" className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-[0_12px_24px_rgba(15,23,42,0.12)]">
               Upgrade to Pro
             </Link>
           </div>
@@ -166,29 +167,29 @@ export default function CustomerBasePage() {
       {canAccess === false ? null : (
         <>
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border bg-white p-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`${frontDeskMetricCardClass()} p-4`}>
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
             Total People
             <InfoHint text="Unique caller records detected for this organization by normalized phone number." />
           </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.total ?? "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-3">
+        <div className={`${frontDeskMetricCardClass()} p-4`}>
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
             Repeat Callers
             <InfoHint text="Callers with more than one recorded call in caller profiles." />
           </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.repeatCallers ?? "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-3">
+        <div className={`${frontDeskMetricCardClass()} p-4`}>
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
             With Lead Profile
             <InfoHint text="Caller records currently linked to a CRM lead profile." />
           </p>
           <p className="mt-1 text-2xl font-semibold">{summary?.withLead ?? "-"}</p>
         </div>
-        <div className="rounded-lg border bg-white p-3">
+        <div className={`${frontDeskMetricCardClass()} p-4`}>
           <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
             VIP Flagged
             <InfoHint text="Caller profiles flagged as VIP for priority handling logic." />
@@ -197,7 +198,7 @@ export default function CustomerBasePage() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-white p-4">
+      <div className={`${frontDeskWorkspaceCardClass("subtle")} p-5`}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="inline-flex items-center gap-1 font-semibold">
@@ -219,23 +220,41 @@ export default function CustomerBasePage() {
           Search
           <InfoHint text="Search matches phone, name, business, email, outcome, and recent summary text." />
         </label>
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          className="mt-1 h-10 w-full rounded-md border border-input px-3 text-sm"
-          placeholder="Phone, name, business, email, outcome..."
-        />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border border-input bg-white px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+            placeholder="Phone, name, business, email, outcome..."
+          />
       </div>
 
-      <div className="rounded-lg border bg-white p-4">
+      <div className={`${frontDeskWorkspaceCardClass("default")} p-4`}>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading customer base...</p>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className={frontDeskLoadingCardClass()}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-2">
+                    <div className={frontDeskSkeletonLineClass("md")} />
+                    <div className={frontDeskSkeletonLineClass("sm")} />
+                  </div>
+                  <div className={frontDeskSkeletonLineClass("sm")} />
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className={frontDeskSkeletonLineClass("full")} />
+                  <div className={frontDeskSkeletonLineClass("lg")} />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No customer records found yet.</p>
+          <div className={frontDeskEmptyStateClass()}>
+            No customer records yet. Returning callers, imported customer history, and lead-linked memory will appear here once your office starts using caller memory.
+          </div>
         ) : (
           <div className="space-y-3">
             {filtered.map((customer) => (
-              <div key={customer.phoneNumber} className="rounded-md border p-3">
+              <div key={customer.phoneNumber} className={`${frontDeskWorkspaceCardClass("subtle")} p-4`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold">{customer.displayName || "Unknown contact"}</p>
                   <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
