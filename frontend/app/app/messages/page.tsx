@@ -624,6 +624,14 @@ export default function AppMessagesPage() {
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Latest movement</p>
                         <p className="mt-1 text-sm text-foreground">{latestThreadDirection(selected)}</p>
                       </div>
+                      {selected.latestAppointmentRequestId ? (
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Booking context</p>
+                          <p className="mt-1 text-sm text-foreground">
+                            {latestThreadDirection(selected) === "Customer replied" ? "Booking reply in progress" : "Booking follow-up linked"}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {selected.leadId ? (
