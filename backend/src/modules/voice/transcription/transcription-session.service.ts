@@ -38,6 +38,7 @@ type SummaryExtraction = {
   customerName?: string | null;
   serviceRequested?: string | null;
   urgency?: string | null;
+  serviceAddress?: string | null;
   appointmentRequested?: boolean;
   notes?: string | null;
 };
@@ -197,6 +198,20 @@ function inferCustomerName(transcript: string) {
   return match?.[1]?.trim() || null;
 }
 
+function inferServiceAddress(transcript: string) {
+  const patterns = [
+    /address is ([^\n.]+)/i,
+    /located at ([^\n.]+)/i,
+    /service address[:\s-]+([^\n.]+)/i,
+    /come to ([0-9][^\n.]+)/i
+  ];
+  for (const pattern of patterns) {
+    const match = transcript.match(pattern);
+    if (match?.[1]?.trim()) return match[1].trim();
+  }
+  return null;
+}
+
 function inferAppointmentRequested(transcript: string) {
   const text = transcript.toLowerCase().replace(/\s+/g, " ").trim();
   if (!text) return false;
@@ -287,6 +302,7 @@ async function generateSummary(input: {
     customerName: inferCustomerName(input.transcript),
     serviceRequested: inferServiceRequested(input.transcript),
     urgency: inferUrgency(input.transcript),
+    serviceAddress: inferServiceAddress(input.transcript),
     appointmentRequested: inferAppointmentRequested(input.transcript),
     notes: input.transcript.split("\n").slice(0, 6).join(" ").slice(0, 1000)
   };
@@ -308,7 +324,7 @@ async function generateSummary(input: {
           {
             role: "system",
             content:
-              "Summarize service-business call transcripts. Return JSON with keys: summary, customerName, serviceRequested, urgency, appointmentRequested, notes."
+              "Summarize service-business call transcripts. Return JSON with keys: summary, customerName, serviceRequested, urgency, serviceAddress, appointmentRequested, notes."
           },
           {
             role: "user",
@@ -327,6 +343,7 @@ async function generateSummary(input: {
       customerName: parsed.customerName ? String(parsed.customerName) : fallback.customerName,
       serviceRequested: parsed.serviceRequested ? String(parsed.serviceRequested) : fallback.serviceRequested,
       urgency: parsed.urgency ? String(parsed.urgency) : fallback.urgency,
+      serviceAddress: parsed.serviceAddress ? String(parsed.serviceAddress) : fallback.serviceAddress,
       appointmentRequested:
         typeof parsed.appointmentRequested === "boolean" ? parsed.appointmentRequested : fallback.appointmentRequested,
       notes: parsed.notes ? String(parsed.notes) : fallback.notes
@@ -342,7 +359,7 @@ async function upsertLeadFromSummary(input: {
   extraction: SummaryExtraction;
 }) {
   const hasMeaningfulBusinessField = Boolean(
-    input.extraction.serviceRequested || input.extraction.notes || input.extraction.customerName
+    input.extraction.serviceRequested || input.extraction.notes || input.extraction.customerName || input.extraction.serviceAddress
   );
   if (!input.call.fromNumber || !hasMeaningfulBusinessField) {
     logTranscriptionEvent({
@@ -372,6 +389,7 @@ async function upsertLeadFromSummary(input: {
     urgency: input.extraction.urgency || lead?.urgency || undefined,
     notes: input.extraction.notes || input.extraction.summary || lead?.notes || undefined,
     serviceRequested: input.extraction.serviceRequested || lead?.serviceRequested || undefined,
+    serviceAddress: input.extraction.serviceAddress || lead?.serviceAddress || undefined,
     appointmentRequested: input.extraction.appointmentRequested === true,
     sourceCallLogId: input.call.id,
     source: LeadSource.PHONE_CALL
