@@ -411,7 +411,7 @@ export default function AppLeadsPage() {
             <div className="space-y-3">
               {[0, 1, 2].map((item) => (
                 <div key={item} className={frontDeskLoadingCardClass()}>
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_220px_220px] xl:items-start">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1 space-y-2">
@@ -455,7 +455,7 @@ export default function AppLeadsPage() {
                         ? frontDeskOutcomeSurfaceClass("saved")
                         : frontDeskOutcomeSurfaceClass("active")
                 } ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
-                <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.2fr)_220px_220px] xl:items-start">
+                <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start">
                   <div className="space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                       <div className="space-y-1">
@@ -506,22 +506,6 @@ export default function AppLeadsPage() {
                     ) : null}
                   </div>
 
-                  <div className={`${frontDeskContextPanelClass()} space-y-2`}>
-                    <p className="page-eyebrow">Next stage</p>
-                    <select
-                      value={lead.pipelineStage || "NEW_LEAD"}
-                      onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
-                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                      disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
-                    >
-                      {pipelineStages.map((stage) => (
-                        <option key={stage} value={stage}>
-                          {prettyStage(stage)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
                   <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
                     <p className="page-eyebrow">Customer context</p>
                     <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
@@ -531,6 +515,21 @@ export default function AppLeadsPage() {
                     <p className="text-muted-foreground">Latest movement: {latestLeadMovementLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                    <div className="space-y-2 pt-1">
+                      <p className="page-eyebrow">Next stage</p>
+                      <select
+                        value={lead.pipelineStage || "NEW_LEAD"}
+                        onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
+                        className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                        disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
+                      >
+                        {pipelineStages.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {prettyStage(stage)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <p className={`${frontDeskContextPanelClass()} text-muted-foreground`}>
                       Why this matters now: {leadNextActionLabel(lead)}. Use Lead Queue when the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
                     </p>
