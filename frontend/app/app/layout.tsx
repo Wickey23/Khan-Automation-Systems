@@ -178,7 +178,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 ? "Role does not have access"
                 : "Feature is not enabled for this workspace"
           }
-          className="flex items-center justify-between rounded-2xl border border-transparent px-3 py-2.5 text-sm text-slate-500/95"
+          className="flex items-center justify-between rounded-2xl border border-transparent px-3 py-2.5 text-sm text-slate-600"
         >
           <span className="flex items-center gap-3">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/90 bg-white/80 text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
@@ -241,21 +241,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="px-3 pb-1 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Workspace navigation</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">Workspace navigation</p>
             </div>
             <nav className="mt-2 space-y-4">
               <div className="grid gap-1">
                 {primaryNavItems.map(renderNavItem)}
               </div>
               <div className="border-t pt-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Setup & management</p>
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">Setup & management</p>
                 <div className="grid gap-1">
                   {secondaryNavItems.map(renderNavItem)}
                 </div>
               </div>
             </nav>
             <div className="mt-5 rounded-[22px] border border-slate-200/95 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(240,246,252,0.98)_100%)] px-4 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">How work flows</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">How work flows</p>
               <p className="mt-2 text-sm font-medium text-slate-950">Calls and texts create front-desk work.</p>
               <p className="mt-1 text-sm leading-6 text-slate-700">
                 Start in Front Desk, work the Call Queue or Inbox, move booking-ready requests into the Booking Queue, then finish them as booked or resolved.

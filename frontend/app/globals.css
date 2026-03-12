@@ -20,9 +20,9 @@
   --secondary: 210 20% 95%;
   --secondary-foreground: 221 39% 11%;
   --muted: 210 20% 95%;
-  --muted-foreground: 215 18% 29%;
-  --border: 220 16% 86%;
-  --input: 220 16% 86%;
+  --muted-foreground: 218 18% 24%;
+  --border: 220 14% 82%;
+  --input: 220 14% 82%;
   --accent: 224 64% 33%;
   --accent-foreground: 0 0% 100%;
   --ring: 224 64% 33%;
@@ -112,9 +112,9 @@ html[data-theme="enterprise-light"] {
   --secondary: 210 20% 96%;
   --secondary-foreground: 221 39% 11%;
   --muted: 210 20% 96%;
-  --muted-foreground: 215 16% 35%;
-  --border: 220 14% 87%;
-  --input: 220 14% 87%;
+  --muted-foreground: 218 16% 30%;
+  --border: 220 14% 84%;
+  --input: 220 14% 84%;
   --accent: 224 64% 33%;
   --accent-foreground: 0 0% 100%;
 }
