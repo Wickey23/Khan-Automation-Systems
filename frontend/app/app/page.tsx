@@ -557,6 +557,16 @@ export default function AppOverviewPage() {
       .slice(0, 4);
   }, [state.calls, state.health, state.leads, state.messagingReadiness, state.notifications, state.requests, state.threads]);
 
+  const customerActionCount = useMemo(
+    () => actionItems.filter((item) => item.sourceModule !== "system").length,
+    [actionItems]
+  );
+
+  const systemActionCount = useMemo(
+    () => actionItems.filter((item) => item.sourceModule === "system").length,
+    [actionItems]
+  );
+
   const frontDeskLeadQueue = useMemo(
     () =>
       [...state.leads]
@@ -733,7 +743,9 @@ export default function AppOverviewPage() {
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Needs attention now</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Checking follow-up queue..." : `${actionItems.length} requests need action right now`}</p>
+            <p className="mt-2 text-sm text-slate-100">
+              {loading ? "Checking follow-up queue..." : `${customerActionCount} customer items need action now`}
+            </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Callbacks and missed-call rescue</p>
@@ -1078,8 +1090,19 @@ export default function AppOverviewPage() {
           <Card>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Open Requests</p>
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{actionItems.length}</p>
-              <p className="text-sm text-muted-foreground">{loading ? "Loading requests..." : actionItems.length === 0 ? "Nothing waiting for review" : "Needs attention now"}</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{customerActionCount}</p>
+              <p className="text-sm text-muted-foreground">
+                {loading ? "Loading requests..." : customerActionCount === 0 ? "Nothing waiting for review" : "Customer work waiting now"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-2 pt-5 sm:pt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Alerts</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{systemActionCount}</p>
+              <p className="text-sm text-muted-foreground">
+                {loading ? "Loading alerts..." : systemActionCount === 0 ? "No active system blockers" : "Configuration or runtime items to review"}
+              </p>
             </CardContent>
           </Card>
           <Card>
