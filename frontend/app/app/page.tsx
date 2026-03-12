@@ -98,35 +98,6 @@ function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-function healthCheckLabel(key: string) {
-  switch (key) {
-    case "callSuccessScore":
-      return "Call outcomes need review";
-    case "recentActivity":
-      return "Recent activity looks low";
-    case "callQualityAverage":
-      return "Call quality needs review";
-    case "slaDegradation":
-      return "Response-time monitoring issue";
-    default:
-      return key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
-  }
-}
-
-function healthFixPathLabel(path: string | undefined) {
-  if (!path) return "Open the related workspace";
-  switch (path) {
-    case "/app/calls":
-      return "Review recent calls";
-    case "/app":
-      return "Review the dashboard";
-    case "/admin/events":
-      return "Review system events";
-    default:
-      return `Open ${path}`;
-  }
-}
-
 function notificationDetail(notification: OrgNotification) {
   const metadata =
     notification.metadataJson && typeof notification.metadataJson === "object" ? notification.metadataJson : null;
@@ -681,11 +652,6 @@ export default function AppOverviewPage() {
     [state.requests]
   );
 
-  const todayAppointmentsCount = useMemo(() => {
-    const explicitlyToday = scheduledWithConfidence.filter((request) => isToday(request.requestedStartAt)).length;
-    return explicitlyToday || scheduledWithConfidence.length;
-  }, [scheduledWithConfidence]);
-
   const newLeadsToday = useMemo(() => state.leads.filter((lead) => isToday(lead.createdAt)).length, [state.leads]);
   const callsToday = useMemo(() => state.calls.filter((call) => isToday(call.startedAt)).length, [state.calls]);
 
@@ -796,14 +762,9 @@ export default function AppOverviewPage() {
   );
 
   const runtimeHealth = state.health?.runtimeHealth || state.health;
-  const readiness = state.health?.readiness || null;
   const healthStateFromRuntime = healthTone(runtimeHealth?.level);
   const systemHealthMessage =
     runtimeHealth?.level === "GREEN" ? "All services operational" : runtimeHealth?.summary || "Review the system health details.";
-  const failingHealthChecks = useMemo(
-    () => Object.entries(runtimeHealth?.checks || {}).filter(([, check]) => !check.ok),
-    [runtimeHealth]
-  );
 
   const answerRate = state.analytics?.kpis.answerRate ?? 0;
 
@@ -853,36 +814,129 @@ export default function AppOverviewPage() {
         }
       />
 
-      <div className={`${frontDeskContextPanelClass()} flex flex-col gap-2 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between`}>
-        <div>
-          <p className="page-eyebrow">Workflow guide</p>
-          <p className="mt-2 font-medium text-slate-950">Start here for triage, then jump into the right queue.</p>
-          <p className="mt-1 leading-6 text-slate-600">
-            Use Front Desk to spot what changed, then move into Call Queue, Inbox, or Booking Queue depending on where the next office action lives.
-          </p>
-        </div>
-      </div>
+      <section className="grid gap-6 2xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.85fr)]">
+        <Card className={frontDeskWorkspaceCardClass("hero")}>
+          <CardContent className="space-y-5 p-6 sm:p-7">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Front-desk command center</p>
+              <p className="mt-2 text-[28px] font-semibold tracking-[-0.03em] text-slate-950">
+                {loading
+                  ? "Reviewing today's front-desk activity"
+                  : customerActionCount
+                    ? `${customerActionCount} customer items need action now`
+                    : "No live customer work is waiting right now"}
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Start here to understand what happened, what matters next, and which queue should handle the next office action. Use Call Queue for callback work, Inbox for live replies, and Booking Queue for schedule decisions.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskMetricCardClass()}>
+                <div className="p-5">
+                  <p className="page-eyebrow">Active follow-up</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{customerActionCount}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Customer work that still needs office action.</p>
+                </div>
+              </div>
+              <div className={frontDeskMetricCardClass()}>
+                <div className="p-5">
+                  <p className="page-eyebrow">Callbacks pending</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{callbackCount}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Missed or transfer-driven callback work still waiting.</p>
+                </div>
+              </div>
+              <div className={frontDeskMetricCardClass()}>
+                <div className="p-5">
+                  <p className="page-eyebrow">Booked outcomes</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{bookedOutcomeCount}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Requests already converted into booked work.</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">1. Triage</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Use Needs Attention to catch anything at risk of falling through.</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">2. Work the right queue</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Move into Call Queue, Inbox, or Booking Queue depending on where the next action lives.</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">3. Confirm outcomes</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Watch saved missed calls, booked work, and resolution so the office knows what actually converted.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      <section className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#172554_52%,#0f172a_100%)] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Today at a glance</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Loading today's schedule..." : `${todayAppointmentsCount} appointments on the board today`}</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Needs attention now</p>
-            <p className="mt-2 text-sm text-slate-100">
-              {loading ? "Checking follow-up queue..." : `${customerActionCount} active customer items need action now`}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Callbacks and missed-call rescue</p>
-            <p className="mt-2 text-sm text-slate-100">{loading ? "Reviewing callback and rescue work..." : `${callbackCount} callbacks pending, ${savedMissedCallCount} saved missed calls`}</p>
-          </div>
-        </div>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
+          <CardContent className="space-y-4 p-5">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Operational status</p>
+              <p className="text-base font-semibold text-slate-900">Live runtime context for the front desk and booking workflow.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">System status</p>
+                <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <span className={`status-dot ${healthStateFromRuntime.dot}`} />
+                  {healthStateFromRuntime.label}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{systemHealthMessage}</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Messaging</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  {state.messagingReadiness?.state === "A2P_REGISTERED" ? "A2P registered" : state.messagingReadiness?.state === "A2P_PENDING" ? "Registration pending" : "Needs setup"}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {state.messagingReadiness?.state === "A2P_REGISTERED" ? "No active blockers on customer texting." : "Review setup before follow-up texting is affected."}
+                </p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Phone line</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">{state.assignedPhoneNumber || "Not assigned"}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{state.assignedNumberProvider || "Phone setup pending"}</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Answer rate</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{formatPercent(answerRate)}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Answered calls divided by total calls in the current reporting window.</p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button asChild>
+                <Link href="/app/appointments">Open booking queue</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/app/settings">Open receptionist setup</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="grid gap-6 2xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.9fr)]">
+      <section className="grid gap-6 2xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.25fr)]">
+        {loading ? (
+          <Card className={frontDeskWorkspaceCardClass("subtle")}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg text-slate-950">Needs attention</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("lg")} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <ActionNeededPanel items={actionItems} className={frontDeskWorkspaceCardClass("subtle")} />
+        )}
+
         <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardHeader>
             <CardTitle className="text-slate-950">{scheduleTitle}</CardTitle>
@@ -967,27 +1021,9 @@ export default function AppOverviewPage() {
           </CardContent>
         </Card>
 
-        {loading ? (
-          <Card className={frontDeskWorkspaceCardClass("subtle")}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-slate-950">Needs attention</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className={frontDeskLoadingCardClass()}>
-                <div className="space-y-3">
-                  <div className={frontDeskSkeletonLineClass("md")} />
-                  <div className={frontDeskSkeletonLineClass()} />
-                  <div className={frontDeskSkeletonLineClass("lg")} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <ActionNeededPanel items={actionItems} className={frontDeskWorkspaceCardClass("subtle")} />
-        )}
       </section>
 
-      <section className="grid gap-6 2xl:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-3">
         <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
@@ -1144,8 +1180,89 @@ export default function AppOverviewPage() {
         <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
-              <CardTitle>Missed calls and recent conversations</CardTitle>
-              <CardDescription>Structured intake first, then the next action your office should take.</CardDescription>
+              <CardTitle>Recent customer messages</CardTitle>
+              <CardDescription>Live SMS replies and follow-up threads tied to active customer work.</CardDescription>
+            </div>
+            <Button asChild variant="ghost" className="shrink-0 self-start">
+              <Link href="/app/messages">Open inbox</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loading ? (
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("sm")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                </div>
+              </div>
+            ) : recentMessageThreads.length ? (
+              recentMessageThreads.map((thread) => {
+                const badge = threadStateBadge(thread);
+                const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
+                const priority = priorityBadge(frontDesk?.frontDeskPriority);
+                const latestMessage = thread.messages?.[0]?.body || "Open the thread to review the latest message.";
+                return (
+                  <Link
+                    key={thread.id}
+                    href={`/app/messages?threadId=${encodeURIComponent(thread.id)}`}
+                    className={`block px-4 py-3 ${frontDeskCardClass("muted")} ${
+                      overviewThreadOutcomeBadge(thread)?.label === "Resolved"
+                        ? frontDeskOutcomeSurfaceClass("resolved")
+                        : overviewThreadOutcomeBadge(thread)?.label === "Booked outcome"
+                          ? frontDeskOutcomeSurfaceClass("booked")
+                          : overviewThreadOutcomeBadge(thread)?.label === "Saved lead"
+                            ? frontDeskOutcomeSurfaceClass("saved")
+                            : frontDeskOutcomeSurfaceClass("active")
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
+                        <p className="text-xs text-muted-foreground">{formatShortDateTime(thread.lastMessageAt)}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={frontDeskPriorityBadgeClass(frontDesk?.frontDeskPriority)}>{priority.label}</Badge>
+                        <Badge className={clientBadgeClass(badge.tone)}>{badge.label}</Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(overviewThreadActionLabel(thread))}`}>
+                        {overviewThreadActionLabel(thread)}
+                      </span>
+                      {overviewThreadOutcomeBadge(thread) ? (
+                        <Badge className={clientBadgeClass(overviewThreadOutcomeBadge(thread)!.tone)}>{overviewThreadOutcomeBadge(thread)!.label}</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/80">
+                      {frontDesk?.summary || latestMessage}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{latestThreadDirection(thread)}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{thread.contactPhone}</span>
+                    </div>
+                    {overviewThreadOutcomeNote(thread) ? (
+                      <p className="mt-2 rounded-xl border bg-white/60 px-3 py-2 text-xs text-muted-foreground">{overviewThreadOutcomeNote(thread)}</p>
+                    ) : null}
+                  </Link>
+                );
+              })
+            ) : (
+              <div className={frontDeskEmptyStateClass()}>
+                No customer replies are waiting right now. Recovery texts and live SMS conversations will appear here when the office needs to respond.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className={frontDeskWorkspaceCardClass("default")}>
+          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+            <div className="space-y-1">
+              <CardTitle>Recent calls</CardTitle>
+              <CardDescription>Structured call summaries, urgency, and the next office action from the latest conversations.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="shrink-0 self-start">
               <Link href="/app/calls">View all</Link>
@@ -1232,95 +1349,12 @@ export default function AppOverviewPage() {
         </Card>
       </section>
 
-      <section>
-        <Card className={frontDeskWorkspaceCardClass("default")}>
-          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-            <div className="space-y-1">
-              <CardTitle>Recent customer messages</CardTitle>
-              <CardDescription>Live SMS replies and follow-up threads tied to active customer work.</CardDescription>
-            </div>
-            <Button asChild variant="ghost" className="shrink-0 self-start">
-              <Link href="/app/messages">Open inbox</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? (
-              <div className={frontDeskLoadingCardClass()}>
-                <div className="space-y-3">
-                  <div className={frontDeskSkeletonLineClass("sm")} />
-                  <div className={frontDeskSkeletonLineClass()} />
-                  <div className={frontDeskSkeletonLineClass("md")} />
-                </div>
-              </div>
-            ) : recentMessageThreads.length ? (
-              recentMessageThreads.map((thread) => {
-                const badge = threadStateBadge(thread);
-                const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
-                const priority = priorityBadge(frontDesk?.frontDeskPriority);
-                const latestMessage = thread.messages?.[0]?.body || "Open the thread to review the latest message.";
-                return (
-                  <Link
-                    key={thread.id}
-                    href={`/app/messages?threadId=${encodeURIComponent(thread.id)}`}
-                  className={`block px-4 py-3 ${frontDeskCardClass("muted")} ${
-                    overviewThreadOutcomeBadge(thread)?.label === "Resolved"
-                      ? frontDeskOutcomeSurfaceClass("resolved")
-                      : overviewThreadOutcomeBadge(thread)?.label === "Booked outcome"
-                        ? frontDeskOutcomeSurfaceClass("booked")
-                        : overviewThreadOutcomeBadge(thread)?.label === "Saved lead"
-                          ? frontDeskOutcomeSurfaceClass("saved")
-                          : frontDeskOutcomeSurfaceClass("active")
-                  }`}
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-                      <div className="min-w-0 space-y-1">
-                        <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
-                        <p className="text-xs text-muted-foreground">{formatShortDateTime(thread.lastMessageAt)}</p>
-                      </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={frontDeskPriorityBadgeClass(frontDesk?.frontDeskPriority)}>{priority.label}</Badge>
-                        <Badge className={clientBadgeClass(badge.tone)}>{badge.label}</Badge>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(overviewThreadActionLabel(thread))}`}>
-                        {overviewThreadActionLabel(thread)}
-                      </span>
-                      {overviewThreadOutcomeBadge(thread) ? (
-                        <Badge className={clientBadgeClass(overviewThreadOutcomeBadge(thread)!.tone)}>{overviewThreadOutcomeBadge(thread)!.label}</Badge>
-                      ) : null}
-                    </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/80">
-                      {frontDesk?.summary || latestMessage}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{latestThreadDirection(thread)}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{thread.contactPhone}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{formatShortDateTime(thread.lastMessageAt)}</span>
-                    </div>
-                    {overviewThreadOutcomeNote(thread) ? (
-                      <p className="mt-2 rounded-xl border bg-white/60 px-3 py-2 text-xs text-muted-foreground">{overviewThreadOutcomeNote(thread)}</p>
-                    ) : null}
-                  </Link>
-                );
-              })
-            ) : (
-              <div className={frontDeskEmptyStateClass()}>
-                No customer replies are waiting right now. Recovery texts and live SMS conversations will appear here when the office needs to respond.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
       <section className="space-y-4">
         <div className="space-y-1">
-          <p className="page-eyebrow">Business snapshot</p>
-          <p className="text-sm text-muted-foreground">Supportive context for the day. These numbers should not compete with the booking board.</p>
+          <p className="page-eyebrow">Operational snapshot</p>
+          <p className="text-sm text-muted-foreground">Supportive business context for the day that should stay secondary to live queue work.</p>
         </div>
-        <div className="metric-grid">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
           <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Calls Today</p>
@@ -1381,80 +1415,6 @@ export default function AppOverviewPage() {
             </CardContent>
           </Card>
         </div>
-      </section>
-
-      <section>
-        <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardHeader>
-            <CardTitle>System health</CardTitle>
-            <CardDescription>Support information for the front desk and booking workflow.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge className={clientBadgeClass(healthStateFromRuntime.badge)}>
-                <span className={`status-dot ${healthStateFromRuntime.dot}`} />
-                {healthStateFromRuntime.label}
-              </Badge>
-              <p className="text-sm text-muted-foreground">{systemHealthMessage}</p>
-            </div>
-            {failingHealthChecks.length ? (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-700">Checks needing review</p>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {failingHealthChecks.slice(0, 6).map(([key, check]) => (
-                    <div key={key} className="rounded-lg border border-rose-200 bg-white px-3 py-3">
-                      <p className="text-sm font-semibold text-rose-950">{healthCheckLabel(key)}</p>
-                      <p className="mt-1 text-sm text-rose-900">{check.reason}</p>
-                      <p className="mt-1 text-xs text-rose-700">{healthFixPathLabel(check.fixHint)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Status</p>
-                <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <span className={`status-dot ${healthStateFromRuntime.dot}`} />
-                  {healthStateFromRuntime.label}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">{systemHealthMessage}</p>
-              </div>
-              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Phone Number</p>
-                <p className="mt-3 text-sm font-semibold text-foreground">{state.assignedPhoneNumber || "Not assigned"}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{state.assignedNumberProvider || "Phone setup pending"}</p>
-              </div>
-              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Messaging</p>
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  {state.messagingReadiness?.state === "A2P_REGISTERED" ? "A2P registered" : state.messagingReadiness?.state === "A2P_PENDING" ? "Registration pending" : "Needs setup"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {state.messagingReadiness?.state === "A2P_REGISTERED" ? "No blockers" : "Review messaging setup"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Readiness</p>
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  {readiness?.level === "READY" ? "Ready" : readiness?.level === "NEEDS_ACTION" ? "Minor follow-up" : "Setup incomplete"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {readiness?.summary || "Setup status unavailable"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border/90 bg-background px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Last Synced</p>
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  {runtimeHealth?.metrics.recentActivityAt ? formatShortTime(runtimeHealth.metrics.recentActivityAt) : "Awaiting sync"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {runtimeHealth?.metrics.recentActivityAt ? formatShortDate(runtimeHealth.metrics.recentActivityAt) : loading ? "Checking now" : "No recent activity"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </section>
     </div>
   );
