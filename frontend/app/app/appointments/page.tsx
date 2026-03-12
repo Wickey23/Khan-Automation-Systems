@@ -874,7 +874,7 @@ export default function AppAppointmentsPage() {
                 { key: "approved", title: "Approved", items: approvedAppointmentRequests },
                 { key: "offered", title: "Slot offered", items: offeredAppointmentRequests },
                 { key: "scheduled", title: "Booked", items: scheduledAppointmentRequests },
-                { key: "closed", title: "Closed", items: closedAppointmentRequests },
+                { key: "closed", title: "Resolved", items: closedAppointmentRequests },
                 { key: "denied", title: "Denied", items: deniedAppointmentRequests }
               ] as const).map((section) =>
                 section.items.filter((request) => requestQueueFilter === "ALL" || requestQueueState(request) === requestQueueFilter).length ? (
@@ -979,8 +979,8 @@ export default function AppAppointmentsPage() {
                                         : request.status === "SLOT_OFFERED"
                                           ? "The customer has a slot offer. Follow up if they do not reply."
                                           : request.status === "SCHEDULED"
-                                            ? "The request is already booked."
-                                            : "No immediate action required."}
+                                            ? "This request is already booked. Use the linked records only if the office needs to confirm the appointment details."
+                                            : "This request is already resolved. No additional booking action is needed."}
                                   </p>
                                 </div>
                                 <div className="text-xs text-muted-foreground">

@@ -238,6 +238,17 @@ function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
   }
 }
 
+function callOutcomeNote(call: OrgCallRecord | null) {
+  if (!call) return null;
+  if (call.frontDesk?.followUpState === "booked") {
+    return "This call already led to booked work. Use the linked booking or inbox thread only if the office needs to confirm the schedule.";
+  }
+  if (call.frontDesk?.followUpState === "closed") {
+    return "This call is already resolved. Review the transcript or linked records only if the office needs to revisit the outcome.";
+  }
+  return null;
+}
+
 export default function AppCallsPage() {
   const searchParams = useSearchParams();
   const deepLinkedCallId = searchParams.get("callId") || "";
@@ -819,6 +830,9 @@ export default function AppCallsPage() {
                           </Button>
                         ))}
                       </div>
+                    ) : null}
+                    {callOutcomeNote(selectedCall) ? (
+                      <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{callOutcomeNote(selectedCall)}</p>
                     ) : null}
                   </div>
 

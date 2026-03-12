@@ -166,6 +166,18 @@ function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: str
   ];
 }
 
+function threadOutcomeNote(thread: OrgMessageThread | null) {
+  if (!thread) return null;
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "booked") {
+    return "This conversation is already tied to booked work. Review the thread only if the office needs to confirm the appointment details.";
+  }
+  if (state === "closed") {
+    return "This conversation is already resolved. Review it only if the office needs to revisit the outcome.";
+  }
+  return null;
+}
+
 export default function AppMessagesPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -679,6 +691,9 @@ export default function AppMessagesPage() {
                         </Button>
                       ) : null}
                     </div>
+                    {threadOutcomeNote(selected) ? (
+                      <p className="rounded-xl border bg-white/70 px-3 py-2 text-xs text-muted-foreground">{threadOutcomeNote(selected)}</p>
+                    ) : null}
                   </div>
                 ) : null}
                 {[...selected.messages]

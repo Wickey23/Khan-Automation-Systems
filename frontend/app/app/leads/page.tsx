@@ -170,6 +170,16 @@ function leadQuickActions(lead: Lead): Array<{ label: string; stage: PipelineSta
   ];
 }
 
+function leadOutcomeNote(lead: Lead) {
+  if (lead.frontDesk?.state === "booked") {
+    return "This request is already booked. Use the linked booking or inbox thread only if the office needs to confirm details.";
+  }
+  if (lead.frontDesk?.state === "closed") {
+    return "This request is already resolved. Review the linked records only if the office needs to double-check the outcome.";
+  }
+  return null;
+}
+
 export default function AppLeadsPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -429,6 +439,9 @@ export default function AppLeadsPage() {
                     <p className="text-muted-foreground">Latest movement: {latestLeadMovementLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                    {leadOutcomeNote(lead) ? (
+                      <p className="rounded-xl border bg-muted/30 px-3 py-2 text-muted-foreground">{leadOutcomeNote(lead)}</p>
+                    ) : null}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
                         <Button asChild size="sm" variant="outline">
