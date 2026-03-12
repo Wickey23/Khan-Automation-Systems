@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { frontDeskContextPanelClass, frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function toRoleInput(role: TeamMember["role"]): "admin" | "manager" | "viewer" {
   if (role === "ADMIN") return "admin";
@@ -227,6 +227,14 @@ export default function TeamPage() {
           </Button>
         }
       />
+
+      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
+        <p className="page-eyebrow">When to use this page</p>
+        <p className="mt-2 font-medium text-slate-950">Use Team & Routing when the right person needs to receive the right work.</p>
+        <p className="mt-1 leading-6 text-slate-600">
+          The live queues show requests in motion. Team & Routing is where you decide who gets alerts, who can manage the workspace, and how urgent handoffs should reach the office.
+        </p>
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
         <Card className={frontDeskWorkspaceCardClass("hero")}>
