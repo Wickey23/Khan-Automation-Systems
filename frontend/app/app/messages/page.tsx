@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lock, Search, SendHorizontal } from "lucide-react";
 import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, sendOrgMessage } from "@/lib/api";
@@ -86,6 +87,8 @@ function getLatestMessagePreview(thread: OrgMessageThread) {
 
 export default function AppMessagesPage() {
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const deepLinkedThreadId = searchParams.get("threadId") || "";
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
   const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
@@ -121,7 +124,12 @@ export default function AppMessagesPage() {
       setThreads(data.threads);
       setAssignedPhoneNumber(data.assignedPhoneNumber);
       setAssignedNumberProvider(data.assignedNumberProvider);
-      setSelectedId((current) => current || data.threads[0]?.id || "");
+      setSelectedId((current) => {
+        if (deepLinkedThreadId) {
+          return data.threads.some((thread) => thread.id === deepLinkedThreadId) ? deepLinkedThreadId : current || data.threads[0]?.id || "";
+        }
+        return current || data.threads[0]?.id || "";
+      });
     } catch {
       setThreads([]);
       setAssignedPhoneNumber(null);
@@ -131,7 +139,12 @@ export default function AppMessagesPage() {
       setCanSendMessages(false);
       setMessagingReadiness(null);
     }
-  }, []);
+  }, [deepLinkedThreadId]);
+
+  useEffect(() => {
+    if (!deepLinkedThreadId) return;
+    setSelectedId(deepLinkedThreadId);
+  }, [deepLinkedThreadId]);
 
   useEffect(() => {
     void load();

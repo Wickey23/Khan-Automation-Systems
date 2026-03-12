@@ -858,7 +858,11 @@ export default function AppOverviewPage() {
                 const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
                 const latestMessage = thread.messages?.[0]?.body || "Open the thread to review the latest message.";
                 return (
-                  <div key={thread.id} className="rounded-xl border border-border/90 bg-muted/18 px-4 py-3">
+                  <Link
+                    key={thread.id}
+                    href={`/app/messages?threadId=${encodeURIComponent(thread.id)}`}
+                    className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
                         <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
@@ -874,7 +878,7 @@ export default function AppOverviewPage() {
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{thread.contactPhone}</span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })
             ) : (
