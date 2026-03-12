@@ -13,7 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import {
+  frontDeskActionBadgeClass,
+  frontDeskCardClass,
+  frontDeskContextPanelClass,
+  frontDeskEmptyStateClass,
+  frontDeskOutcomeBadgeMeta,
+  frontDeskPriorityBadgeClass,
+  frontDeskPriorityMeta
+} from "@/lib/front-desk-ui";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
 const queueStates = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
@@ -384,7 +392,7 @@ export default function AppLeadsPage() {
         <div className="space-y-3">
           {filtered.length ? (
             filtered.map((lead) => (
-                <Card key={lead.id} className={lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}>
+                <Card key={lead.id} className={`${frontDeskCardClass("default")} ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
                 <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_220px_220px] lg:items-center">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -431,7 +439,7 @@ export default function AppLeadsPage() {
                       </div>
                     ) : null}
                     {leadOutcomeListNote(lead) ? (
-                      <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{leadOutcomeListNote(lead)}</p>
+                      <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{leadOutcomeListNote(lead)}</p>
                     ) : null}
                   </div>
 
@@ -461,7 +469,7 @@ export default function AppLeadsPage() {
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
                     {leadOutcomeNote(lead) ? (
-                      <p className="rounded-xl border bg-muted/30 px-3 py-2 text-muted-foreground">{leadOutcomeNote(lead)}</p>
+                      <p className={`${frontDeskContextPanelClass()} text-muted-foreground`}>{leadOutcomeNote(lead)}</p>
                     ) : null}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
@@ -495,7 +503,7 @@ export default function AppLeadsPage() {
               </Card>
             ))
           ) : (
-            <div className="empty-state">
+            <div className={frontDeskEmptyStateClass()}>
               No open requests are waiting right now. Missed calls, SMS replies, and new inquiries will appear here so the office can follow up.
             </div>
           )}
@@ -531,7 +539,7 @@ export default function AppLeadsPage() {
               </Card>
             ))
           ) : (
-            <div className="empty-state">No known customers yet. Customer memory appears here after repeat calls and follow-up activity.</div>
+            <div className={frontDeskEmptyStateClass()}>No known customers yet. Customer memory appears here after repeat calls and follow-up activity.</div>
           )}
         </div>
       )}

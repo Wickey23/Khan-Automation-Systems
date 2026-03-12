@@ -6,7 +6,7 @@ import type { ActionNeededItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { clientBadgeClass } from "@/lib/client-badges";
-import { frontDeskActionBadgeClass } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskCardClass, frontDeskEmptyStateClass } from "@/lib/front-desk-ui";
 
 function severityTone(severity: ActionNeededItem["severity"]) {
   if (severity === "critical") return "critical";
@@ -88,7 +88,7 @@ export function ActionNeededPanel({
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 transition-colors duration-150 ${dark ? itemSurfaceDark(item.severity) : itemSurface(item.severity)}`}
+                  className={`flex items-start justify-between gap-3 px-4 py-3 transition-colors duration-150 ${dark ? `rounded-2xl ${itemSurfaceDark(item.severity)}` : `${frontDeskCardClass("muted")} ${itemSurface(item.severity)}`}`}
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <div className={`mt-0.5 rounded-lg p-2 shadow-sm ${dark ? "bg-white/10 text-slate-200" : "bg-white/80 text-muted-foreground"}`}>
@@ -115,7 +115,7 @@ export function ActionNeededPanel({
             })()
           ))
         ) : (
-          <div className={`py-8 text-sm ${dark ? "rounded-xl border border-white/10 bg-white/5 text-slate-300" : "empty-state"}`}>
+          <div className={`py-8 text-sm ${dark ? "rounded-xl border border-white/10 bg-white/5 text-slate-300" : frontDeskEmptyStateClass()}`}>
             Nothing needs attention right now. New calls, replies, and booking issues will show up here when the office needs to act.
           </div>
         )}

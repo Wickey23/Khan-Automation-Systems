@@ -34,7 +34,7 @@ import type {
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta } from "@/lib/front-desk-ui";
+import { frontDeskActionBadgeClass, frontDeskCardClass, frontDeskContextPanelClass, frontDeskEmptyStateClass, frontDeskOutcomeBadgeMeta } from "@/lib/front-desk-ui";
 
 const requestQueueFilters = ["ALL", "needs_review", "ready_to_book", "awaiting_reply", "booked", "closed"] as const;
 
@@ -916,7 +916,7 @@ export default function AppAppointmentsPage() {
                           return (
                           <div
                             key={request.id}
-                            className={`rounded-xl border bg-white p-4 shadow-sm ${
+                            className={`${frontDeskCardClass("default")} p-4 ${
                               request.id === highlightedRequestId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""
                             }`}
                           >
@@ -981,10 +981,10 @@ export default function AppAppointmentsPage() {
                                   </div>
                                 ) : null}
                                 {requestOutcomeListNote(request) ? (
-                                  <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{requestOutcomeListNote(request)}</p>
+                                  <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{requestOutcomeListNote(request)}</p>
                                 ) : null}
                               </div>
-                              <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
+                              <div className={`${frontDeskContextPanelClass()} space-y-3`}>
                                 <div>
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Next office action</span>
                                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1145,7 +1145,7 @@ export default function AppAppointmentsPage() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className={frontDeskEmptyStateClass()}>
               No booking requests are waiting yet. When a caller asks for an appointment, the request will appear here for review, slot offers, and confirmation.
             </p>
           )}

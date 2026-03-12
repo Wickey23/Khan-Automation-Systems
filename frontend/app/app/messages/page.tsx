@@ -13,7 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import {
+  frontDeskActionBadgeClass,
+  frontDeskContextPanelClass,
+  frontDeskEmptyStateClass,
+  frontDeskOutcomeBadgeMeta,
+  frontDeskPriorityBadgeClass,
+  frontDeskPriorityMeta
+} from "@/lib/front-desk-ui";
 
 const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -488,7 +495,7 @@ export default function AppMessagesPage() {
           <CardContent className="p-0">
             <div className="max-h-[620px] overflow-auto">
             {!filteredThreads.length ? (
-              <div className="empty-state m-5">
+              <div className={`${frontDeskEmptyStateClass()} m-5`}>
                 No SMS conversations are active yet. Missed-call recovery texts, booking replies, and customer follow-up threads will appear here when the office needs to respond.
               </div>
             ) : (
@@ -506,7 +513,7 @@ export default function AppMessagesPage() {
                       }}
                       className={`w-full border-t px-5 py-4 text-left transition-colors first:border-t-0 hover:bg-muted/30 ${
                         selectedId === thread.id ? "bg-primary/[0.06]" : ""
-                      }`}
+                      } ${selectedId === thread.id ? "shadow-[inset_0_0_0_1px_rgba(31,58,138,0.14)]" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -558,7 +565,7 @@ export default function AppMessagesPage() {
                         </div>
                       ) : null}
                       {threadOutcomeListNote(thread) ? (
-                        <p className="mt-2 rounded-xl border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">{threadOutcomeListNote(thread)}</p>
+                        <p className={`${frontDeskContextPanelClass()} text-[11px] text-muted-foreground`}>{threadOutcomeListNote(thread)}</p>
                       ) : null}
                     </button>
                   );
@@ -645,13 +652,13 @@ export default function AppMessagesPage() {
             <CardContent className="pt-0">
               <div className="max-h-[620px] space-y-3 overflow-auto pr-1">
               {!selected ? (
-                <div className="empty-state">Select a thread to review the customer context first, then decide whether the office should reply, schedule, or resolve the request.</div>
+                <div className={frontDeskEmptyStateClass()}>Select a thread to review the customer context first, then decide whether the office should reply, schedule, or resolve the request.</div>
               ) : !selected.messages.length ? (
-                <div className="empty-state">This thread has no messages yet. New inbound replies and outbound follow-up will appear here when the conversation starts.</div>
+                <div className={frontDeskEmptyStateClass()}>This thread has no messages yet. New inbound replies and outbound follow-up will appear here when the conversation starts.</div>
               ) : (
                 <>
                 {threadFrontDesk(selected) ? (
-                  <div className="rounded-2xl border bg-slate-50/80 p-4">
+                  <div className={frontDeskContextPanelClass()}>
                     <p className="page-eyebrow">Front-desk summary</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadNextActionLabel(selected))}`}>
@@ -717,7 +724,7 @@ export default function AppMessagesPage() {
                       ) : null}
                     </div>
                     {threadOutcomeNote(selected) ? (
-                      <p className="rounded-xl border bg-white/70 px-3 py-2 text-xs text-muted-foreground">{threadOutcomeNote(selected)}</p>
+                      <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{threadOutcomeNote(selected)}</p>
                     ) : null}
                   </div>
                 ) : null}

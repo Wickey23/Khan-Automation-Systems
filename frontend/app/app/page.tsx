@@ -33,7 +33,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
-import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import {
+  frontDeskActionBadgeClass,
+  frontDeskCardClass,
+  frontDeskEmptyStateClass,
+  frontDeskOutcomeBadgeMeta,
+  frontDeskPriorityBadgeClass,
+  frontDeskPriorityMeta
+} from "@/lib/front-desk-ui";
 
 type DashboardState = {
   assignedPhoneNumber: string | null;
@@ -885,7 +892,7 @@ export default function AppOverviewPage() {
                           ? `/app/messages?threadId=${encodeURIComponent(item.latestMessageThreadId)}`
                           : `/app/appointments?requestId=${encodeURIComponent(item.id)}`
                       }
-                      className="block rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-slate-50"
+                      className={`block px-4 py-3 ${frontDeskCardClass("focus")}`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
@@ -933,7 +940,7 @@ export default function AppOverviewPage() {
                 </div>
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+              <div className={frontDeskEmptyStateClass()}>
                 No booking work is scheduled yet. Confirmed appointments and near-ready booking requests will appear here for the office to act on.
               </div>
             )}
@@ -981,7 +988,7 @@ export default function AppOverviewPage() {
                       ? `/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId)}`
                       : `/app/calls?callId=${encodeURIComponent(call.id)}`
                   }
-                  className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -1032,7 +1039,7 @@ export default function AppOverviewPage() {
                 </Link>
               ))
             ) : (
-              <div className="empty-state">
+              <div className={frontDeskEmptyStateClass()}>
                 No callback work is waiting right now. Missed calls and urgent requests will appear here when the office needs to respond quickly.
               </div>
             )}
@@ -1059,7 +1066,7 @@ export default function AppOverviewPage() {
                 <Link
                   key={item.id}
                   href={item.href}
-                  className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -1081,7 +1088,7 @@ export default function AppOverviewPage() {
                 </Link>
               ))
             ) : (
-              <div className="empty-state">
+              <div className={frontDeskEmptyStateClass()}>
                 No new requests are waiting right now. Fresh web leads, missed-call recoveries, and open callback work will appear here as they come in.
               </div>
             )}
@@ -1111,7 +1118,7 @@ export default function AppOverviewPage() {
                 <Link
                   key={call.id}
                   href={`/app/calls?callId=${encodeURIComponent(call.id)}`}
-                  className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -1159,7 +1166,7 @@ export default function AppOverviewPage() {
                 })()
               ))
             ) : (
-              <div className="empty-state">
+              <div className={frontDeskEmptyStateClass()}>
                 When a call is handled or missed, this area shows the structured summary, urgency, and the next office action.
               </div>
             )}
@@ -1193,7 +1200,7 @@ export default function AppOverviewPage() {
                   <Link
                     key={thread.id}
                     href={`/app/messages?threadId=${encodeURIComponent(thread.id)}`}
-                    className="block rounded-xl border border-border/90 bg-muted/18 px-4 py-3 transition-colors hover:bg-muted/28"
+                  className={`block px-4 py-3 ${frontDeskCardClass("muted")}`}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
@@ -1230,7 +1237,7 @@ export default function AppOverviewPage() {
                 );
               })
             ) : (
-              <div className="empty-state">
+              <div className={frontDeskEmptyStateClass()}>
                 No customer replies are waiting right now. Recovery texts and live SMS conversations will appear here when the office needs to respond.
               </div>
             )}

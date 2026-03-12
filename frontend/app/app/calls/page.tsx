@@ -11,7 +11,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
-import { frontDeskActionBadgeClass, frontDeskOutcomeBadgeMeta, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
+import {
+  frontDeskActionBadgeClass,
+  frontDeskCardClass,
+  frontDeskContextPanelClass,
+  frontDeskEmptyStateClass,
+  frontDeskOutcomeBadgeMeta,
+  frontDeskPriorityBadgeClass,
+  frontDeskPriorityMeta
+} from "@/lib/front-desk-ui";
 
 const callStateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -554,7 +562,7 @@ export default function AppCallsPage() {
                   })}
                 </div>
               </div>
-              <div className="rounded-xl border bg-slate-50 px-4 py-4 text-sm">
+              <div className={`${frontDeskContextPanelClass()} text-sm`}>
                 <p className="font-medium text-foreground">Queue summary</p>
                 <div className="mt-3 space-y-2 text-muted-foreground">
                   <p>{metrics.totalVisible} visible calls on {formatDayHeading(selectedDay)}.</p>
@@ -586,7 +594,7 @@ export default function AppCallsPage() {
                       shouldScrollToDetailsRef.current = selectedCall?.id !== call.id;
                       setSelectedCall(call);
                     }}
-                    className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-all ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
+                    className={`w-full p-5 text-left transition-all ${frontDeskCardClass("default")} ${prioritySurface(call.frontDesk?.frontDeskPriority, selected || call.id === deepLinkedCallId)}`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
@@ -641,7 +649,7 @@ export default function AppCallsPage() {
                 );
               })
             ) : (
-              <div className="empty-state">
+              <div className={frontDeskEmptyStateClass()}>
                 No calls match this queue yet. When customers call or miss the business line, their request will appear here with a summary and the next office action.
               </div>
             )}
@@ -736,7 +744,7 @@ export default function AppCallsPage() {
                         ["Priority", formatPriorityLabel(selectedCall.frontDesk?.frontDeskPriority)],
                         ["Next step", getNextAction(selectedCall)]
                       ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border bg-slate-50 p-4">
+                      <div key={label} className={frontDeskContextPanelClass()}>
                         <p className="page-eyebrow">{label}</p>
                         <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
                       </div>
@@ -747,11 +755,11 @@ export default function AppCallsPage() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       {selectedCall.outcome === "TRANSFERRED" ? (
                         <>
-                          <div className="rounded-xl border bg-slate-50 p-4">
+                          <div className={frontDeskContextPanelClass()}>
                             <p className="page-eyebrow">Transfer reason</p>
                             <p className="mt-2 text-sm font-medium text-foreground">{formatTransferReason(selectedCall.transferReason)}</p>
                           </div>
-                          <div className="rounded-xl border bg-slate-50 p-4">
+                          <div className={frontDeskContextPanelClass()}>
                             <p className="page-eyebrow">Transfer target</p>
                             <p className="mt-2 text-sm font-medium text-foreground">
                               {selectedCall.transferTarget || "Office routing"}
@@ -762,14 +770,14 @@ export default function AppCallsPage() {
                       ) : null}
                       {selectedCall.recoverySmsSentAt ? (
                         <>
-                          <div className="rounded-xl border bg-slate-50 p-4">
+                          <div className={frontDeskContextPanelClass()}>
                             <p className="page-eyebrow">Recovery SMS</p>
                             <p className="mt-2 text-sm font-medium text-foreground">
                               Sent {new Date(selectedCall.recoverySmsSentAt).toLocaleString()}
                             </p>
                             <p className="mt-2 text-xs text-muted-foreground">{recoveryStatus(selectedCall)?.label}</p>
                           </div>
-                          <div className="rounded-xl border bg-slate-50 p-4">
+                          <div className={frontDeskContextPanelClass()}>
                             <p className="page-eyebrow">Recovery response</p>
                             <p className="mt-2 text-sm font-medium text-foreground">
                               {selectedCall.recoverySmsResponse || "No reply yet"}
@@ -808,7 +816,7 @@ export default function AppCallsPage() {
                         ["Follow-up state", getDispositionLabel(selectedCall)],
                         ["Latest movement", latestCallMovementLabel(selectedCall)]
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-xl border bg-slate-50 p-4">
+                        <div key={label} className={frontDeskContextPanelClass()}>
                           <p className="page-eyebrow">{label}</p>
                           <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
                         </div>
@@ -881,7 +889,7 @@ export default function AppCallsPage() {
                       ["Confirm next action", "See whether the office should call back, schedule, or just document the result."],
                       ["Open recording", "Jump to the recording only when quality or handoff review is needed."]
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border bg-slate-50 p-4">
+                      <div key={label} className={frontDeskContextPanelClass()}>
                         <p className="page-eyebrow">{label}</p>
                         <p className="mt-2 text-sm text-muted-foreground">{value}</p>
                       </div>

@@ -48,3 +48,21 @@ export function frontDeskOutcomeBadgeMeta(kind: "saved" | "booked" | "resolved")
       return { label: "Resolved", tone: "success" as const };
   }
 }
+
+export function frontDeskCardClass(kind: "default" | "muted" | "focus" = "default") {
+  if (kind === "focus") {
+    return "rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-px hover:shadow-[0_18px_36px_rgba(15,23,42,0.10)]";
+  }
+  if (kind === "muted") {
+    return "rounded-2xl border border-border/80 bg-muted/[0.16] shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/[0.24]";
+  }
+  return "rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-px hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)]";
+}
+
+export function frontDeskContextPanelClass() {
+  return "rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]";
+}
+
+export function frontDeskEmptyStateClass() {
+  return "rounded-2xl border border-dashed border-slate-300 bg-slate-50/90 px-4 py-6 text-sm text-slate-600";
+}
