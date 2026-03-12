@@ -325,6 +325,20 @@ function latestCallDirection(call: OrgCallRecord) {
   return "No follow-up movement yet";
 }
 
+function overviewLeadActionLabel(lead: Lead) {
+  if (lead.latestAppointmentRequestId && lead.latestMessageThreadId && lead.frontDesk?.needsFollowUp) {
+    return "Review reply";
+  }
+  return lead.frontDesk?.recommendedAction || "Review request";
+}
+
+function overviewThreadActionLabel(thread: OrgMessageThread) {
+  if (thread.latestAppointmentRequestId && latestThreadDirection(thread) === "Customer replied") {
+    return "Review reply";
+  }
+  return (thread.frontDesk || thread.lead?.frontDesk)?.recommendedAction || "Review thread";
+}
+
 export default function AppOverviewPage() {
   const [state, setState] = useState<DashboardState>({
     assignedPhoneNumber: null,
@@ -449,7 +463,7 @@ export default function AppOverviewPage() {
         id: `lead-${lead.id}`,
         type: "NEEDS_FOLLOW_UP",
         severity: frontDeskSeverity(lead.frontDesk?.frontDeskPriority),
-        label: `${lead.frontDesk?.recommendedAction}: ${lead.name || lead.phone || "New lead"}`,
+        label: `${overviewLeadActionLabel(lead)}: ${lead.name || lead.phone || "New lead"}`,
         detail: summarizeLead(lead),
         href: `/app/leads?leadId=${encodeURIComponent(lead.id)}`,
         ctaLabel: "Open lead",
@@ -464,7 +478,7 @@ export default function AppOverviewPage() {
         id: `thread-${thread.id}`,
         type: "NEEDS_FOLLOW_UP",
         severity: frontDeskSeverity(frontDesk?.frontDeskPriority),
-        label: `${frontDesk?.recommendedAction || "Review thread"}: ${thread.contactName || thread.lead?.name || thread.contactPhone}`,
+        label: `${overviewThreadActionLabel(thread)}: ${thread.contactName || thread.lead?.name || thread.contactPhone}`,
         detail: frontDesk?.summary || thread.messages?.[0]?.body || "Customer reply needs review.",
         href: `/app/messages?threadId=${encodeURIComponent(thread.id)}`,
         ctaLabel: "Open thread",
