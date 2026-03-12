@@ -749,46 +749,20 @@ export default function AppAppointmentsPage() {
         eyebrow="Scheduling workspace"
         title="Booking Queue"
         description="Use this page to turn captured requests into scheduled work. Review new booking requests first, then manage the appointments already confirmed on the calendar."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant={viewMode === "CALENDAR" ? "default" : "outline"}
-              onClick={() => setViewMode("CALENDAR")}
-            >
-              Calendar
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === "LIST" ? "default" : "outline"}
-              onClick={() => setViewMode("LIST")}
-            >
-              List
-            </Button>
-          </div>
-        }
       />
 
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">When to work this queue</p>
-        <p className="mt-2 font-medium text-slate-950">Use Booking Queue when a request is ready for a scheduling decision.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          Review fresh requests first, answer booking replies from Inbox when needed, then confirm the appointments already placed on the calendar.
-        </p>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-        <div className={`${frontDeskWorkspaceCardClass("hero")} p-5 sm:p-6`}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
+        <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workspace focus</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">{nextFocusLabel}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Start with requests that need a decision, then switch to calendar or list view for schedule management.
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Booking workflow</p>
+              <p className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-slate-900">{nextFocusLabel}</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Start with new requests, move reply-driven work through Inbox when needed, then use calendar or list view to confirm jobs already placed on the schedule.
               </p>
             </div>
             {!featureDisabled ? (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className={frontDeskMetricCardClass()}>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs review</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
@@ -803,11 +777,47 @@ export default function AppAppointmentsPage() {
                 </div>
               </div>
             ) : null}
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">1. Review intake</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Check new requests first and decide whether they are ready for scheduling.</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">2. Work live replies</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">If the customer already replied by text, switch to Inbox to finish the booking handoff.</p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">3. Confirm the job</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">Use calendar or list view to confirm what is booked, assigned, and ready for the team.</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className={frontDeskContextPanelClass()}>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">View filters</p>
-          <div className="mt-3 grid gap-3">
+        <div className={`${frontDeskWorkspaceCardClass("default")} p-5`}>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workspace controls</p>
+              <p className="text-base font-semibold text-slate-900">Change the view, filter the schedule, and keep manual booking close at hand.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button
+                size="sm"
+                variant={viewMode === "CALENDAR" ? "default" : "outline"}
+                onClick={() => setViewMode("CALENDAR")}
+                className="w-full"
+              >
+                Calendar view
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === "LIST" ? "default" : "outline"}
+                onClick={() => setViewMode("LIST")}
+                className="w-full"
+              >
+                List view
+              </Button>
+            </div>
+            <div className="grid gap-3">
             <label className="text-sm">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
               <select
@@ -854,6 +864,23 @@ export default function AppAppointmentsPage() {
               />
             </label>
           </div>
+            <div className="rounded-2xl border border-slate-200/90 bg-white/70 px-4 py-4 text-sm text-slate-700">
+              <p className="page-eyebrow">Direct booking</p>
+              <p className="mt-2 leading-6">
+                Use manual booking when the office already has the customer details and only needs to place the job on the calendar.
+              </p>
+              {canWrite && !featureDisabled ? (
+                <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)} className="mt-3">
+                  {showDirectBooking ? "Hide booking form" : "Open booking form"}
+                </Button>
+              ) : null}
+            </div>
+            {!canManageCalendar ? (
+              <div className="rounded-2xl border border-slate-200/90 bg-white/60 px-4 py-3 text-xs leading-6 text-muted-foreground">
+                Google and Outlook booking connections are managed in Receptionist Setup.
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -864,21 +891,34 @@ export default function AppAppointmentsPage() {
       ) : null}
 
       {!featureDisabled ? (
-        <div className={frontDeskWorkspaceCardClass("default")}>
-          <div className="mb-4 flex items-start justify-between gap-3">
+        <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
+          <div className="flex flex-col gap-4 border-b border-border/60 pb-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Appointment Requests</h2>
-              <p className="text-sm text-muted-foreground">
-                Review requests the assistant captured, offer times, and decide which ones need office follow-up.
+              <p className="page-eyebrow">Request board</p>
+              <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-slate-950">Appointment Requests</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Review what the assistant captured, decide who is ready for scheduling, and keep reply-driven booking work moving toward a confirmed job.
               </p>
             </div>
-            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
-            </span>
+            <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px]">
+              <div className={frontDeskMetricCardClass()}>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Needs review</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">{pendingAppointmentRequests.length}</p>
+              </div>
+              <div className={frontDeskMetricCardClass()}>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Ready to book</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">{approvedAppointmentRequests.length}</p>
+              </div>
+              <div className={frontDeskMetricCardClass()}>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting reply</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">{offeredAppointmentRequests.length}</p>
+              </div>
+            </div>
           </div>
           {sortedAppointmentRequests.length ? (
-            <div className="space-y-6">
-              <div className="flex flex-wrap gap-2">
+            <div className="space-y-6 pt-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2">
                 {requestQueueFilters.map((filter) => {
                   const count =
                     filter === "ALL"
@@ -898,8 +938,12 @@ export default function AppAppointmentsPage() {
                       {requestQueueFilterLabel(filter)}{" "}
                       <span className="text-xs text-muted-foreground">{count}</span>
                     </button>
-                  );
+                    );
                 })}
+                </div>
+                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {filteredAppointmentRequests.length} request{filteredAppointmentRequests.length === 1 ? "" : "s"}
+                </span>
               </div>
               {([
                 { key: "pending", title: "Pending review", items: pendingAppointmentRequests },
@@ -1201,11 +1245,12 @@ export default function AppAppointmentsPage() {
       ) : null}
 
       {viewMode === "CALENDAR" ? (
-        <div className={frontDeskWorkspaceCardClass("default")}>
-          <div className="mb-3 flex items-center justify-between gap-2">
+        <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold">Appointments Calendar</h2>
-              <p className="text-xs text-muted-foreground">Review scheduled work and outside calendar conflicts.</p>
+              <p className="page-eyebrow">Calendar view</p>
+              <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-slate-950">Appointments Calendar</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Review scheduled work and outside calendar conflicts in one place.</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Button
@@ -1325,13 +1370,14 @@ export default function AppAppointmentsPage() {
               </div>
             </div>
           ) : null}
-          {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments are on the schedule yet. Confirmed bookings will appear here once the office starts placing jobs.</p> : null}
+          {!loading && appointments.length === 0 ? <p className={`${frontDeskEmptyStateClass()} mt-4`}>No appointments are on the schedule yet. Confirmed bookings will appear here once the office starts placing jobs.</p> : null}
         </div>
       ) : (
-        <div className={frontDeskWorkspaceCardClass("default")}>
-          <div className="mb-3">
-            <h2 className="text-base font-semibold">Appointments List</h2>
-            <p className="text-xs text-muted-foreground">Review upcoming, completed, and canceled appointments in one list.</p>
+        <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
+          <div className="mb-4">
+            <p className="page-eyebrow">List view</p>
+            <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-slate-950">Appointments List</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Review upcoming, completed, and canceled appointments in one list.</p>
           </div>
           <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-sm">
@@ -1445,12 +1491,12 @@ export default function AppAppointmentsPage() {
       )}
 
       {canWrite && !featureDisabled ? (
-        <div className={frontDeskWorkspaceCardClass("subtle")}>
+        <div className={`${frontDeskWorkspaceCardClass("subtle")} p-5 sm:p-6`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Office Booking</p>
-              <h2 className="mt-2 text-xl font-semibold">Book directly when you already have the details</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="page-eyebrow">Office booking</p>
+              <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-slate-950">Book directly when you already have the details</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Use this when the office already knows the customer and just needs to place the appointment on the calendar.
               </p>
             </div>
@@ -1541,9 +1587,6 @@ export default function AppAppointmentsPage() {
               {loadingSlots ? "Loading slots..." : "Find available slots"}
             </Button>
             <span className="text-xs text-muted-foreground">Timezone: {slotTimezone}</span>
-            {!canManageCalendar ? (
-              <span className="text-xs text-muted-foreground">Google/Outlook booking is admin-managed in Assistant Settings.</span>
-            ) : null}
           </div>
           {availableSlots.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
