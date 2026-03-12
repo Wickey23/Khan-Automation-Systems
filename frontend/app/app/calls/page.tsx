@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
 
+const callStateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
+
 function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "-";
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -143,6 +145,23 @@ function callQueueStateLabel(call: OrgCallRecord) {
   return outcomeLabel(call.outcome);
 }
 
+function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
+  switch (value) {
+    case "needs_follow_up":
+      return "Needs follow-up";
+    case "contacted":
+      return "Contacted";
+    case "booked":
+      return "Booked";
+    case "closed":
+      return "Closed";
+    case "spam":
+      return "Spam";
+    default:
+      return "All";
+  }
+}
+
 export default function AppCallsPage() {
   const searchParams = useSearchParams();
   const deepLinkedCallId = searchParams.get("callId") || "";
@@ -158,6 +177,7 @@ export default function AppCallsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | OrgCallRecord["outcome"]>("ALL");
+  const [stateFilter, setStateFilter] = useState<(typeof callStateFilters)[number]>("ALL");
   const detailsRef = useRef<HTMLElement | null>(null);
   const shouldScrollToDetailsRef = useRef(false);
   const selectedCallIdRef = useRef<string | null>(null);
@@ -259,18 +279,27 @@ export default function AppCallsPage() {
     detailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedCall]);
 
+  const visibleCalls = useMemo(
+    () =>
+      calls.filter((call) => {
+        if (stateFilter === "ALL") return true;
+        return (call.frontDesk?.followUpState || "closed") === stateFilter;
+      }),
+    [calls, stateFilter]
+  );
+
   const metrics = useMemo(() => {
-    const totalVisible = calls.length;
+    const totalVisible = visibleCalls.length;
     if (!totalVisible) {
       return { totalVisible, needsReview: 0, requestCount: 0, urgentCount: 0 };
     }
     return {
       totalVisible,
-      needsReview: calls.filter((call) => call.frontDesk?.needsFollowUp || call.outcome === "MISSED" || call.outcome === "ABANDONED" || Boolean(call.unansweredTransfer)).length,
-      requestCount: calls.filter((call) => call.outcome === "APPOINTMENT_REQUEST").length,
-      urgentCount: calls.filter((call) => call.frontDesk?.frontDeskPriority === "urgent").length
+      needsReview: visibleCalls.filter((call) => call.frontDesk?.needsFollowUp || call.outcome === "MISSED" || call.outcome === "ABANDONED" || Boolean(call.unansweredTransfer)).length,
+      requestCount: visibleCalls.filter((call) => call.outcome === "APPOINTMENT_REQUEST").length,
+      urgentCount: visibleCalls.filter((call) => call.frontDesk?.frontDeskPriority === "urgent").length
     };
-  }, [calls]);
+  }, [visibleCalls]);
 
   const filteredLabel = outcomeFilter === "ALL" ? "All calls" : outcomeFilter.replaceAll("_", " ").toLowerCase();
 
@@ -374,12 +403,34 @@ export default function AppCallsPage() {
                     placeholder="Search by caller name, phone number, summary, or call ID"
                   />
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  {callStateFilters.map((filter) => {
+                    const count =
+                      filter === "ALL"
+                        ? calls.length
+                        : calls.filter((call) => (call.frontDesk?.followUpState || "closed") === filter).length;
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setStateFilter(filter)}
+                        className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                          stateFilter === filter
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {callStateFilterLabel(filter)} <span className="text-xs text-muted-foreground">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="rounded-xl border bg-slate-50 px-4 py-4 text-sm">
                 <p className="font-medium text-foreground">Queue summary</p>
                 <div className="mt-3 space-y-2 text-muted-foreground">
-                  <p>{totalVisible} matching calls on {formatDayHeading(selectedDay)}.</p>
-                  <p>{calls.length} calls currently loaded on page {page}.</p>
+                  <p>{metrics.totalVisible} visible calls on {formatDayHeading(selectedDay)}.</p>
+                  <p>{calls.length} calls currently loaded on page {page} before queue-state filtering.</p>
                   <p>Use the day selector or day navigation to move the review queue backward or forward.</p>
                 </div>
               </div>
@@ -393,11 +444,11 @@ export default function AppCallsPage() {
                 <p className="text-sm text-muted-foreground">Open a call to inspect the structured intake result, follow-up state, and next step.</p>
               </div>
               <span className="rounded-full border bg-slate-50 px-3 py-1 text-xs font-medium text-muted-foreground">
-                {calls.length} loaded on this page
+                {visibleCalls.length} visible on this page
               </span>
             </div>
-            {calls.length ? (
-              calls.map((call) => {
+            {visibleCalls.length ? (
+              visibleCalls.map((call) => {
                 const selected = selectedCall?.id === call.id;
                 return (
                   <button
@@ -442,7 +493,7 @@ export default function AppCallsPage() {
               })
             ) : (
               <div className="empty-state">
-                Calls that match this filter will appear here with structured intake details and a recommended next step for the office.
+                Calls that match this queue state will appear here with structured intake details and a recommended next step for the office.
               </div>
             )}
           </div>
