@@ -249,6 +249,12 @@ function callOutcomeNote(call: OrgCallRecord | null) {
   return null;
 }
 
+function callOutcomeListNote(call: OrgCallRecord) {
+  if (call.frontDesk?.followUpState === "booked") return "Booked work already confirmed.";
+  if (call.frontDesk?.followUpState === "closed") return "Handled and resolved by the office.";
+  return null;
+}
+
 export default function AppCallsPage() {
   const searchParams = useSearchParams();
   const deepLinkedCallId = searchParams.get("callId") || "";
@@ -615,6 +621,9 @@ export default function AppCallsPage() {
                         </>
                       ) : null}
                     </div>
+                    {callOutcomeListNote(call) ? (
+                      <p className="mt-3 rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{callOutcomeListNote(call)}</p>
+                    ) : null}
                   </button>
                 );
               })

@@ -178,6 +178,13 @@ function threadOutcomeNote(thread: OrgMessageThread | null) {
   return null;
 }
 
+function threadOutcomeListNote(thread: OrgMessageThread) {
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "booked") return "Booked work already confirmed.";
+  if (state === "closed") return "Handled and resolved by the office.";
+  return null;
+}
+
 export default function AppMessagesPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -535,6 +542,9 @@ export default function AppMessagesPage() {
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>Last update {formatWhen(thread.lastMessageAt)}</span>
                       </div>
+                      {threadOutcomeListNote(thread) ? (
+                        <p className="mt-2 rounded-xl border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">{threadOutcomeListNote(thread)}</p>
+                      ) : null}
                     </button>
                   );
                 })()

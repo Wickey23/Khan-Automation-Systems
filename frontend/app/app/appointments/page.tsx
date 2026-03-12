@@ -111,6 +111,12 @@ function requestReplyWeight(request: AppointmentRequest) {
   return 2;
 }
 
+function requestOutcomeListNote(request: AppointmentRequest) {
+  if (request.status === "SCHEDULED") return "Booked work already confirmed.";
+  if (request.status === "CLOSED" || request.status === "DENIED") return "Handled and resolved by the office.";
+  return null;
+}
+
 export default function AppAppointmentsPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -960,6 +966,9 @@ export default function AppAppointmentsPage() {
                                   <span>Next action: {requestActionLabel(request)}</span>
                                   <span>{requestLatestMessageLabel(request)}</span>
                                 </div>
+                                {requestOutcomeListNote(request) ? (
+                                  <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{requestOutcomeListNote(request)}</p>
+                                ) : null}
                               </div>
                               <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
                                 <div>

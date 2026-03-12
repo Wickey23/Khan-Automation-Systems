@@ -180,6 +180,12 @@ function leadOutcomeNote(lead: Lead) {
   return null;
 }
 
+function leadOutcomeListNote(lead: Lead) {
+  if (lead.frontDesk?.state === "booked") return "Booked work already confirmed.";
+  if (lead.frontDesk?.state === "closed") return "Handled and resolved by the office.";
+  return null;
+}
+
 export default function AppLeadsPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -412,6 +418,9 @@ export default function AppLeadsPage() {
                         </Button>
                       ))}
                     </div>
+                    {leadOutcomeListNote(lead) ? (
+                      <p className="rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">{leadOutcomeListNote(lead)}</p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2">
