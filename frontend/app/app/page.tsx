@@ -410,6 +410,20 @@ export default function AppOverviewPage() {
       });
     }
 
+    for (const thread of state.threads.filter((item) => (item.frontDesk || item.lead?.frontDesk)?.needsFollowUp)) {
+      const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
+      items.push({
+        id: `thread-${thread.id}`,
+        type: "NEEDS_FOLLOW_UP",
+        severity: frontDeskSeverity(frontDesk?.frontDeskPriority),
+        label: `${frontDesk?.recommendedAction || "Review thread"}: ${thread.contactName || thread.lead?.name || thread.contactPhone}`,
+        detail: frontDesk?.summary || thread.messages?.[0]?.body || "Customer reply needs review.",
+        href: `/app/messages?threadId=${encodeURIComponent(thread.id)}`,
+        timestamp: thread.lastMessageAt,
+        sourceModule: "messages"
+      });
+    }
+
     for (const request of state.requests
       .filter((item) => item.status === "SLOT_OFFERED")
       .sort((a, b) => new Date(a.lastEventAt).getTime() - new Date(b.lastEventAt).getTime())) {
@@ -500,7 +514,7 @@ export default function AppOverviewPage() {
         return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
       })
       .slice(0, 4);
-  }, [state.calls, state.health, state.leads, state.messagingReadiness, state.notifications, state.requests]);
+  }, [state.calls, state.health, state.leads, state.messagingReadiness, state.notifications, state.requests, state.threads]);
 
   const frontDeskLeadQueue = useMemo(
     () =>
