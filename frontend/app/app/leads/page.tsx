@@ -559,50 +559,35 @@ export default function AppLeadsPage() {
                           <p className="text-sm text-foreground">{latestLeadMovementLabel(lead)}</p>
                         </div>
                     </div>
-                    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,360px)] 2xl:items-start">
-                      <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1">
-                            <p className="page-eyebrow">Customer context</p>
-                            <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
-                            <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
-                            <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,320px)] xl:items-start">
+                      <div className="grid gap-4">
+                        <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1">
+                              <p className="page-eyebrow">Customer context</p>
+                              <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
+                              <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
+                              <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="page-eyebrow">Why this matters now</p>
+                              <p className="text-muted-foreground">
+                                {leadNextActionLabel(lead)}. Stay in Lead Queue while the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
+                              </p>
+                            </div>
                           </div>
-                          <div className="space-y-1">
-                            <p className="page-eyebrow">Why this matters now</p>
-                            <p className="text-muted-foreground">
-                              {leadNextActionLabel(lead)}. Stay in Lead Queue while the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
-                            </p>
-                          </div>
+                          {leadOutcomeListNote(lead) ? (
+                            <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
+                              {leadOutcomeListNote(lead)}
+                            </div>
+                          ) : null}
+                          {leadOutcomeNote(lead) ? <p className="text-sm text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
                         </div>
-                        {leadOutcomeListNote(lead) ? (
-                          <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
-                            {leadOutcomeListNote(lead)}
-                          </div>
-                        ) : null}
-                        {leadOutcomeNote(lead) ? <p className="text-sm text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
-                      </div>
 
-                      <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
-                        <div className="space-y-2">
-                          <p className="page-eyebrow">Next stage</p>
-                          <select
-                            value={lead.pipelineStage || "NEW_LEAD"}
-                            onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
-                            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                            disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
-                          >
-                            {pipelineStages.map((stage) => (
-                              <option key={stage} value={stage}>
-                                {prettyStage(stage)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
                         {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
-                          <div className="space-y-2 border-t border-border/60 pt-3">
+                          <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
                             <p className="page-eyebrow">Related workspaces</p>
-                            <div className="grid gap-2">
+                            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                               {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
                                 <Button asChild size="sm" className="w-full justify-start">
                                   <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
@@ -642,6 +627,24 @@ export default function AppLeadsPage() {
                             </div>
                           </div>
                         ) : null}
+                      </div>
+
+                      <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
+                        <div className="space-y-2">
+                          <p className="page-eyebrow">Next stage</p>
+                          <select
+                            value={lead.pipelineStage || "NEW_LEAD"}
+                            onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
+                            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                            disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
+                          >
+                            {pipelineStages.map((stage) => (
+                              <option key={stage} value={stage}>
+                                {prettyStage(stage)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         {lead.classification ? (
                           <p className="text-xs text-muted-foreground">
                             Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}

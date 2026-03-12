@@ -1034,43 +1034,72 @@ export default function AppAppointmentsPage() {
                                   <p className="text-sm text-foreground">{request.assignedUserLabel || "Unassigned"}</p>
                                 </div>
                               </div>
-                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:items-start">
-                                <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
-                                  <div className="grid gap-3 md:grid-cols-2">
-                                    <div className="space-y-1">
-                                      <span className="page-eyebrow">Requested on</span>
-                                      <p className="text-sm text-foreground">{new Date(request.startedAt).toLocaleString()}</p>
+                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,320px)] xl:items-start">
+                                <div className="grid gap-4">
+                                  <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
+                                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                      <div className="space-y-1">
+                                        <span className="page-eyebrow">Requested on</span>
+                                        <p className="text-sm text-foreground">{new Date(request.startedAt).toLocaleString()}</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <span className="page-eyebrow">Queue state</span>
+                                        <p className="text-sm text-foreground">{request.requestState}</p>
+                                        <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <span className="page-eyebrow">Queue status</span>
+                                        <div className="flex flex-wrap gap-2">
+                                          {requestOutcomeBadge(request) ? (
+                                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
+                                              {requestOutcomeBadge(request)!.label}
+                                            </span>
+                                          ) : null}
+                                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
+                                            {requestStatusLabel(request)}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                     <div className="space-y-1">
-                                      <span className="page-eyebrow">Queue state</span>
-                                      <p className="text-sm text-foreground">{request.requestState}</p>
-                                      <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
+                                      <span className="page-eyebrow">Why this matters now</span>
+                                      <p className="text-muted-foreground">
+                                        {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
+                                      </p>
                                     </div>
+                                    {requestOutcomeListNote(request) ? (
+                                      <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
+                                        {requestOutcomeListNote(request)}
+                                      </div>
+                                    ) : null}
                                   </div>
-                                  <div className="space-y-2">
-                                    <span className="page-eyebrow">Queue status</span>
-                                    <div className="flex flex-wrap gap-2">
-                                      {requestOutcomeBadge(request) ? (
-                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
-                                          {requestOutcomeBadge(request)!.label}
-                                        </span>
+
+                                  <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
+                                    <p className="page-eyebrow">Related workspaces</p>
+                                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                      {request.effectiveSmsPhone ? (
+                                        <Button asChild size="sm" variant={request.latestMessageDirection === "INBOUND" ? "default" : "outline"} className="w-full justify-start">
+                                          <Link
+                                            href={
+                                              request.latestMessageThreadId
+                                                ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
+                                                : `/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`
+                                            }
+                                          >
+                                            Open inbox
+                                          </Link>
+                                        </Button>
                                       ) : null}
-                                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
-                                        {requestStatusLabel(request)}
-                                      </span>
+                                      {request.leadId ? (
+                                        <Button asChild size="sm" variant={!request.effectiveSmsPhone ? "default" : "outline"} className="w-full justify-start">
+                                          <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
+                                        </Button>
+                                      ) : null}
+                                      <Button asChild size="sm" variant={request.effectiveSmsPhone || request.leadId ? "outline" : "default"} className="w-full justify-start">
+                                        <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
+                                      </Button>
                                     </div>
                                   </div>
-                                  <div className="space-y-1">
-                                    <span className="page-eyebrow">Why this matters now</span>
-                                    <p className="text-muted-foreground">
-                                      {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
-                                    </p>
-                                  </div>
-                                  {requestOutcomeListNote(request) ? (
-                                    <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
-                                      {requestOutcomeListNote(request)}
-                                    </div>
-                                  ) : null}
                                 </div>
                                 <div className={`${frontDeskContextPanelClass()} space-y-3`}>
                                 <div>
@@ -1097,32 +1126,6 @@ export default function AppAppointmentsPage() {
                                 <div className="space-y-2 text-xs text-muted-foreground">
                                   SMS: {request.effectiveSmsPhone}
                                   {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
-                                </div>
-                                <div className="space-y-2 border-t border-border/60 pt-3">
-                                  <p className="page-eyebrow">Related workspaces</p>
-                                  <div className="grid gap-2 sm:flex sm:flex-wrap">
-                                    {request.effectiveSmsPhone ? (
-                                      <Button asChild size="sm" variant={request.latestMessageDirection === "INBOUND" ? "default" : "outline"} className="w-full sm:w-auto">
-                                        <Link
-                                          href={
-                                            request.latestMessageThreadId
-                                              ? `/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`
-                                              : `/app/messages?contactPhone=${encodeURIComponent(request.effectiveSmsPhone)}`
-                                          }
-                                        >
-                                          Open inbox
-                                        </Link>
-                                      </Button>
-                                    ) : null}
-                                    {request.leadId ? (
-                                      <Button asChild size="sm" variant={!request.effectiveSmsPhone ? "default" : "outline"} className="w-full sm:w-auto">
-                                        <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
-                                      </Button>
-                                    ) : null}
-                                    <Button asChild size="sm" variant={request.effectiveSmsPhone || request.leadId ? "outline" : "default"} className="w-full sm:w-auto">
-                                      <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
-                                    </Button>
-                                  </div>
                                 </div>
                               </div>
                             </div>
