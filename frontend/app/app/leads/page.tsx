@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
+const queueStates = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 
 function prettyStage(value: string) {
   return value.replaceAll("_", " ").toLowerCase();
@@ -54,6 +55,23 @@ function frontDeskStateLabel(lead: Lead) {
   }
 }
 
+function queueStateLabel(value: (typeof queueStates)[number]) {
+  switch (value) {
+    case "needs_follow_up":
+      return "Needs follow-up";
+    case "contacted":
+      return "Contacted";
+    case "booked":
+      return "Booked";
+    case "closed":
+      return "Closed";
+    case "spam":
+      return "Spam";
+    default:
+      return "All queue states";
+  }
+}
+
 function formatActivityLabel(lead: Lead) {
   if (!lead.frontDesk?.lastActivityAt) return `Created ${new Date(lead.createdAt).toLocaleDateString()}`;
   const kind = lead.frontDesk.lastActivityType ? lead.frontDesk.lastActivityType.replaceAll("_", " ") : "activity";
@@ -89,7 +107,7 @@ export default function AppLeadsPage() {
   const [plan, setPlan] = useState<"NONE" | "STARTER" | "PRO">("NONE");
   const [role, setRole] = useState<"CLIENT" | "CLIENT_STAFF" | "CLIENT_ADMIN" | "ADMIN" | "SUPER_ADMIN" | null>(null);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Lead["status"] | "ALL">("ALL");
+  const [queueFilter, setQueueFilter] = useState<(typeof queueStates)[number]>("ALL");
   const [pipelineAvailable, setPipelineAvailable] = useState(true);
   const [savingPipelineLeadId, setSavingPipelineLeadId] = useState<string | null>(null);
   const [view, setView] = useState<"OPEN_LEADS" | "CUSTOMERS">("OPEN_LEADS");
@@ -122,7 +140,7 @@ export default function AppLeadsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return leads.filter((lead) => {
-      if (statusFilter !== "ALL" && lead.status !== statusFilter) return false;
+      if (queueFilter !== "ALL" && lead.frontDesk?.state !== queueFilter) return false;
       if (!q) return true;
       return [lead.id, lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), lead.frontDesk?.recommendedAction || "", lead.frontDesk?.state || ""]
         .join(" ")
@@ -133,7 +151,7 @@ export default function AppLeadsPage() {
       if (priorityDelta !== 0) return priorityDelta;
       return new Date(b.frontDesk?.lastActivityAt || b.updatedAt).getTime() - new Date(a.frontDesk?.lastActivityAt || a.updatedAt).getTime();
     });
-  }, [leads, query, statusFilter]);
+  }, [leads, query, queueFilter]);
 
   const customerFiltered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -224,16 +242,15 @@ export default function AppLeadsPage() {
           />
           {view === "OPEN_LEADS" ? (
             <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as Lead["status"] | "ALL")}
+              value={queueFilter}
+              onChange={(event) => setQueueFilter(event.target.value as (typeof queueStates)[number])}
               className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
             >
-              <option value="ALL">All statuses</option>
-              <option value="NEW">NEW</option>
-              <option value="CONTACTED">CONTACTED</option>
-              <option value="QUALIFIED">QUALIFIED</option>
-              <option value="WON">WON</option>
-              <option value="LOST">LOST</option>
+              {queueStates.map((state) => (
+                <option key={state} value={state}>
+                  {queueStateLabel(state)}
+                </option>
+              ))}
             </select>
           ) : (
             <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
