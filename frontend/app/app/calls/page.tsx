@@ -166,6 +166,22 @@ function callQuickActions(call: OrgCallRecord | null): Array<{ label: string; st
   ];
 }
 
+function recoveryStatus(call: OrgCallRecord) {
+  if (!call.recoverySmsSentAt) return null;
+  if (String(call.recoverySmsResponse || "").trim()) {
+    return {
+      label: "Recovery reply received",
+      detail: call.recoverySmsResponse || "Customer replied to the recovery text.",
+      tone: "success" as const
+    };
+  }
+  return {
+    label: "Recovery text sent",
+    detail: "No reply yet. Call back if the customer still needs help.",
+    tone: "warning" as const
+  };
+}
+
 function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
   switch (value) {
     case "needs_follow_up":
@@ -527,6 +543,12 @@ export default function AppCallsPage() {
                       <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{formatDuration(call.durationSec || 0)}</span>
+                      {recoveryStatus(call) ? (
+                        <>
+                          <span className="h-1 w-1 rounded-full bg-slate-300" />
+                          <span>{recoveryStatus(call)?.label}</span>
+                        </>
+                      ) : null}
                     </div>
                   </button>
                 );
@@ -658,11 +680,15 @@ export default function AppCallsPage() {
                             <p className="mt-2 text-sm font-medium text-foreground">
                               Sent {new Date(selectedCall.recoverySmsSentAt).toLocaleString()}
                             </p>
+                            <p className="mt-2 text-xs text-muted-foreground">{recoveryStatus(selectedCall)?.label}</p>
                           </div>
                           <div className="rounded-xl border bg-slate-50 p-4">
                             <p className="page-eyebrow">Recovery response</p>
                             <p className="mt-2 text-sm font-medium text-foreground">
                               {selectedCall.recoverySmsResponse || "No reply yet"}
+                            </p>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {recoveryStatus(selectedCall)?.detail || "Review the missed-call recovery path."}
                             </p>
                           </div>
                         </>
