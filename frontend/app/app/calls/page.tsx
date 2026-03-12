@@ -164,6 +164,15 @@ function callStateWeight(call: OrgCallRecord) {
   return 1;
 }
 
+function callWorkTypeLabel(call: OrgCallRecord) {
+  if (call.frontDesk?.recommendedAction === "Call back now") return "Callback";
+  if (call.frontDesk?.recommendedAction === "Offer times") return "Scheduling";
+  if (call.frontDesk?.followUpState === "booked") return "Booked work";
+  if (call.frontDesk?.followUpState === "closed") return "Closed";
+  if (call.frontDesk?.followUpState === "spam") return "Spam";
+  return "General review";
+}
+
 function callQuickActions(call: OrgCallRecord | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
   if (!call?.leadId) return [];
   if (call.frontDesk?.followUpState === "booked") {
@@ -549,6 +558,7 @@ export default function AppCallsPage() {
                         <p className="text-xs text-muted-foreground">{new Date(call.startedAt).toLocaleString()}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={clientBadgeClass(getDispositionTone(call))}>{callWorkTypeLabel(call)}</Badge>
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
                         <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
                           {callQueueStateLabel(call)}
