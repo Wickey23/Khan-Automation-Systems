@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
+import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 type DashboardState = {
   assignedPhoneNumber: string | null;
@@ -259,10 +260,7 @@ function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
 }
 
 function priorityBadge(priority: FrontDeskPriority | undefined) {
-  if (priority === "urgent") return { label: "Urgent", tone: "critical" as const };
-  if (priority === "high") return { label: "High priority", tone: "warning" as const };
-  if (priority === "low") return { label: "Low priority", tone: "neutral" as const };
-  return { label: "Normal priority", tone: "neutral" as const };
+  return frontDeskPriorityMeta(priority);
 }
 
 function frontDeskStateWeight(state: "needs_follow_up" | "contacted" | "booked" | "closed" | "spam" | undefined | null) {
@@ -843,7 +841,11 @@ export default function AppOverviewPage() {
                           <p className="text-xs text-slate-500">
                             {item.requestedTimeLabel || item.requestedPreference || `Updated ${formatShortDateTime(item.lastEventAt)}`}
                           </p>
-                          <p className="text-xs font-medium text-slate-900">Next action: {bookingActionLabel(item)}</p>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(bookingActionLabel(item))}`}>
+                              {bookingActionLabel(item)}
+                            </span>
+                          </div>
                           {item.latestMessageDirection === "INBOUND" ? (
                             <p className="text-xs text-slate-500">Customer replied in text</p>
                           ) : null}
@@ -869,7 +871,7 @@ export default function AppOverviewPage() {
               </>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-                No appointments scheduled today yet. New booking requests will appear here.
+                No booking work is scheduled yet. Confirmed appointments and near-ready booking requests will appear here for the office to act on.
               </div>
             )}
           </CardContent>
@@ -923,9 +925,19 @@ export default function AppOverviewPage() {
                       <p className="text-sm font-semibold text-foreground">{call.frontDesk?.callerName || call.displayName || call.fromNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
                     </div>
-                    <Badge className={clientBadgeClass(call.frontDesk?.frontDeskPriority === "urgent" ? "critical" : "warning")}>
-                      {call.frontDesk?.frontDeskPriority === "urgent" ? "Urgent callback" : "Callback needed"}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>
+                        {priorityBadge(call.frontDesk?.frontDeskPriority).label}
+                      </Badge>
+                      <Badge className={clientBadgeClass(call.frontDesk?.frontDeskPriority === "urgent" ? "critical" : "warning")}>
+                        {call.frontDesk?.frontDeskPriority === "urgent" ? "Urgent callback" : "Callback needed"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(call.recoverySmsThreadId && call.recoverySmsResponse ? "Review reply" : "Call back now")}`}>
+                      {call.recoverySmsThreadId && call.recoverySmsResponse ? "Review reply" : "Call back now"}
+                    </span>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                     {call.frontDesk?.summary || "Customer request still needs a callback."}
@@ -952,7 +964,7 @@ export default function AppOverviewPage() {
               ))
             ) : (
               <div className="empty-state">
-                Calls that still need a live callback will appear here once the front desk starts capturing missed or urgent requests.
+                No callback work is waiting right now. Missed calls and urgent requests will appear here when the office needs to respond quickly.
               </div>
             )}
           </CardContent>
@@ -987,6 +999,11 @@ export default function AppOverviewPage() {
                     </div>
                     <Badge className={clientBadgeClass(item.badgeTone)}>{item.badge}</Badge>
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(item.ctaLabel === "Open booking" ? "Review request" : item.ctaLabel === "Open inbox" ? "Review reply" : "Review request")}`}>
+                      {item.ctaLabel === "Open booking" ? "Review request" : item.ctaLabel === "Open inbox" ? "Review reply" : "Review request"}
+                    </span>
+                  </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">{item.summary}</p>
                   <p className="mt-2 text-xs text-muted-foreground">{item.sourceLabel}</p>
                   <p className="mt-2 text-xs font-medium text-foreground/80">
@@ -996,7 +1013,7 @@ export default function AppOverviewPage() {
               ))
             ) : (
               <div className="empty-state">
-                New inbound requests, missed-call recoveries, and callback work will appear here once the front desk starts capturing activity.
+                No new requests are waiting right now. Fresh web leads, missed-call recoveries, and open callback work will appear here as they come in.
               </div>
             )}
           </CardContent>
@@ -1033,7 +1050,7 @@ export default function AppOverviewPage() {
                       <p className="text-xs text-muted-foreground">{formatShortDateTime(call.startedAt)}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge className={clientBadgeClass(priority.tone)}>{priority.label}</Badge>
+                      <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>{priority.label}</Badge>
                       <Badge
                         className={clientBadgeClass(
                           call.frontDesk?.frontDeskPriority === "urgent"
@@ -1047,6 +1064,11 @@ export default function AppOverviewPage() {
                       </Badge>
                     </div>
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(overviewCallActionLabel(call))}`}>
+                      {overviewCallActionLabel(call)}
+                    </span>
+                  </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                     {call.frontDesk?.summary || call.aiSummary || call.summary || "Conversation summary will appear here after the call is processed."}
                   </p>
@@ -1054,8 +1076,6 @@ export default function AppOverviewPage() {
                     <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{call.frontDesk?.urgency || "Standard priority"}</span>
-                    <span className="h-1 w-1 rounded-full bg-slate-300" />
-                    <span>{overviewCallActionLabel(call)}</span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{latestCallDirection(call)}</span>
                   </div>
@@ -1105,18 +1125,21 @@ export default function AppOverviewPage() {
                         <p className="text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || thread.contactPhone}</p>
                         <p className="text-xs text-muted-foreground">{formatShortDateTime(thread.lastMessageAt)}</p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={clientBadgeClass(priority.tone)}>{priority.label}</Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={frontDeskPriorityBadgeClass(frontDesk?.frontDeskPriority)}>{priority.label}</Badge>
                         <Badge className={clientBadgeClass(badge.tone)}>{badge.label}</Badge>
                       </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(overviewThreadActionLabel(thread))}`}>
+                        {overviewThreadActionLabel(thread)}
+                      </span>
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground/85">
                       {frontDesk?.summary || latestMessage}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{latestThreadDirection(thread)}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{overviewThreadActionLabel(thread)}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{thread.contactPhone}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -1127,7 +1150,7 @@ export default function AppOverviewPage() {
               })
             ) : (
               <div className="empty-state">
-                Customer replies and missed-call SMS conversations will appear here once follow-up texting starts.
+                No customer replies are waiting right now. Recovery texts and live SMS conversations will appear here when the office needs to respond.
               </div>
             )}
           </CardContent>

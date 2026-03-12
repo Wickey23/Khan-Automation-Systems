@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
+import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
 const queueStates = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
@@ -66,10 +67,7 @@ function frontDeskStateLabel(lead: Lead) {
 }
 
 function frontDeskPriorityLabel(lead: Lead) {
-  if (lead.frontDesk?.frontDeskPriority === "urgent") return "Urgent";
-  if (lead.frontDesk?.frontDeskPriority === "high") return "High priority";
-  if (lead.frontDesk?.frontDeskPriority === "low") return "Low priority";
-  return "Normal priority";
+  return frontDeskPriorityMeta(lead.frontDesk?.frontDeskPriority).label;
 }
 
 function leadWorkTypeLabel(lead: Lead) {
@@ -374,15 +372,18 @@ export default function AppLeadsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge className={clientBadgeClass(frontDeskTone(lead))}>{leadWorkTypeLabel(lead)}</Badge>
                         <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
-                        <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskPriorityLabel(lead)}</Badge>
+                        <Badge className={frontDeskPriorityBadgeClass(lead.frontDesk?.frontDeskPriority)}>{frontDeskPriorityLabel(lead)}</Badge>
                       </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(leadNextActionLabel(lead))}`}>
+                        {leadNextActionLabel(lead)}
+                      </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       <p>{lead.phone || lead.email || "No contact info"}</p>
                       <p className="mt-1 line-clamp-2">{summarizeLead(lead)}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span>{leadNextActionLabel(lead)}</span>
-                        <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>{latestLeadMovementLabel(lead)}</span>
@@ -420,10 +421,13 @@ export default function AppLeadsPage() {
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    <p className="page-eyebrow">Follow-up brief</p>
-                    <p className="text-muted-foreground">{latestLeadMovementLabel(lead)}</p>
+                    <p className="page-eyebrow">Customer context</p>
+                    <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
+                    <p className="text-muted-foreground">{lead.phone || lead.email || "No contact info"}</p>
+                    <p className="text-muted-foreground">{summarizeLead(lead)}</p>
+                    <p className="text-muted-foreground">Urgency: {lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</p>
+                    <p className="text-muted-foreground">Latest movement: {latestLeadMovementLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
-                    <p className="text-muted-foreground">Next action: {leadNextActionLabel(lead)}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
                     <div className="flex flex-wrap gap-2 pt-1">
                       {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
@@ -458,7 +462,7 @@ export default function AppLeadsPage() {
             ))
           ) : (
             <div className="empty-state">
-              Captured calls, SMS replies, and web inquiries that still need follow-up will appear here as an operator queue.
+              No open requests are waiting right now. Missed calls, SMS replies, and new inquiries will appear here so the office can follow up.
             </div>
           )}
         </div>

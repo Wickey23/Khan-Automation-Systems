@@ -34,6 +34,7 @@ import type {
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page";
+import { frontDeskActionBadgeClass } from "@/lib/front-desk-ui";
 
 const requestQueueFilters = ["ALL", "needs_review", "ready_to_book", "awaiting_reply", "booked", "closed"] as const;
 
@@ -909,6 +910,11 @@ export default function AppAppointmentsPage() {
                               <div>
                                 <h3 className="text-base font-semibold">{request.customerName}</h3>
                                 <p className="text-sm text-muted-foreground">{request.effectiveSmsPhone}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(requestActionLabel(request))}`}>
+                                    {requestActionLabel(request)}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
@@ -921,9 +927,6 @@ export default function AppAppointmentsPage() {
                                 ) : null}
                                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(reviewTone)}`}>
                                   {requestStatusLabel(request)}
-                                </span>
-                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestActionTone(request))}`}>
-                                  {requestActionLabel(request)}
                                 </span>
                               </div>
                             </div>
@@ -960,7 +963,11 @@ export default function AppAppointmentsPage() {
                               <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
                                 <div>
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Next office action</span>
-                                  <p className="mt-1 text-sm text-slate-900">{requestActionLabel(request)}</p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(requestActionLabel(request))}`}>
+                                      {requestActionLabel(request)}
+                                    </span>
+                                  </div>
                                   <p className="mt-1 text-xs text-muted-foreground">
                                     {request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId
                                       ? "The customer already replied in text. Review the thread first, then finish the booking handoff."
@@ -993,6 +1000,9 @@ export default function AppAppointmentsPage() {
                                       </Link>
                                     </Button>
                                   ) : null}
+                                  <Button asChild size="sm" variant="outline">
+                                    <Link href={`/app/appointments?requestId=${encodeURIComponent(request.id)}`}>Review request</Link>
+                                  </Button>
                                   {request.leadId ? (
                                     <Button asChild size="sm" variant="outline">
                                       <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
@@ -1112,7 +1122,7 @@ export default function AppAppointmentsPage() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Appointment requests captured from calls will appear here so the office can review, offer times, and confirm bookings.
+              No booking requests are waiting yet. When a caller asks for an appointment, the request will appear here for review, slot offers, and confirmation.
             </p>
           )}
         </div>
@@ -1229,7 +1239,7 @@ export default function AppAppointmentsPage() {
           </div>
           {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading appointments...</p> : null}
           {loadingCalendarEvents ? <p className="mt-1 text-sm text-muted-foreground">Loading provider calendar events...</p> : null}
-          {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments yet.</p> : null}
+          {!loading && appointments.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No appointments are on the schedule yet. Confirmed bookings will appear here once the office starts placing jobs.</p> : null}
         </div>
       ) : (
         <div className="rounded-lg border bg-white p-4">
@@ -1331,7 +1341,7 @@ export default function AppAppointmentsPage() {
                 ))
               ) : (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={9}>No appointments yet.</td>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>No appointments yet. Confirmed bookings will appear here once the office schedules work.</td>
                 </tr>
               )}
             </tbody>

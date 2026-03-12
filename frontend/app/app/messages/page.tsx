@@ -12,6 +12,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
+import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -459,7 +460,7 @@ export default function AppMessagesPage() {
             <div className="max-h-[620px] overflow-auto">
             {!filteredThreads.length ? (
               <div className="empty-state m-5">
-                SMS follow-up threads will appear here after missed-call recovery, appointment offers, or customer replies.
+                No SMS conversations are active yet. Missed-call recovery texts, booking replies, and customer follow-up threads will appear here when the office needs to respond.
               </div>
             ) : (
               filteredThreads.map((thread) => (
@@ -482,11 +483,21 @@ export default function AppMessagesPage() {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground">{thread.contactName || thread.lead?.name || "Unknown contact"}</p>
                           <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
-                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{getLatestMessagePreview(thread)}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadNextActionLabel(thread))}`}>
+                              {threadNextActionLabel(thread)}
+                            </span>
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskPriorityBadgeClass(threadFrontDesk(thread)?.frontDeskPriority)}`}>
+                              {frontDeskPriorityMeta(threadFrontDesk(thread)?.frontDeskPriority).label}
+                            </span>
+                          </div>
                           {threadFrontDesk(thread)?.summary ? (
                             <p className="mt-2 line-clamp-2 text-xs text-foreground/80">{threadFrontDesk(thread)?.summary}</p>
                           ) : null}
-                          <p className="mt-2 text-[11px] text-muted-foreground">Last update {formatWhen(thread.lastMessageAt)}</p>
+                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{getLatestMessagePreview(thread)}</p>
+                          {threadFrontDesk(thread)?.summary ? (
+                            null
+                          ) : null}
                         </div>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
@@ -507,11 +518,6 @@ export default function AppMessagesPage() {
                           ) : null}
                         </div>
                       </div>
-                      {threadFrontDesk(thread)?.recommendedAction ? (
-                        <p className="mt-2 text-[11px] font-medium text-muted-foreground">
-                          Next action: {threadNextActionLabel(thread)}
-                        </p>
-                      ) : null}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                         <span>{latestThreadDirection(thread)}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -602,30 +608,46 @@ export default function AppMessagesPage() {
             <CardContent className="pt-0">
               <div className="max-h-[620px] space-y-3 overflow-auto pr-1">
               {!selected ? (
-                <div className="empty-state">Select a thread to review the conversation and decide the next follow-up action.</div>
+                <div className="empty-state">Select a thread to review the customer context first, then decide whether the office should reply, schedule, or resolve the request.</div>
               ) : !selected.messages.length ? (
-                <div className="empty-state">This thread has no messages yet. New inbound replies or outbound follow-up will appear here.</div>
+                <div className="empty-state">This thread has no messages yet. New inbound replies and outbound follow-up will appear here when the conversation starts.</div>
               ) : (
                 <>
                 {threadFrontDesk(selected) ? (
                   <div className="rounded-2xl border bg-slate-50/80 p-4">
                     <p className="page-eyebrow">Front-desk summary</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadNextActionLabel(selected))}`}>
+                        {threadNextActionLabel(selected)}
+                      </span>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskPriorityBadgeClass(threadFrontDesk(selected)?.frontDeskPriority)}`}>
+                        {frontDeskPriorityMeta(threadFrontDesk(selected)?.frontDeskPriority).label}
+                      </span>
+                    </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Request</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
+                        <p className="mt-1 text-sm text-foreground">{selected.contactName || selected.lead?.name || "Unknown contact"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Phone number</p>
+                        <p className="mt-1 text-sm text-foreground">{selected.contactPhone}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Service request</p>
                         <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.summary || "No structured summary yet."}</p>
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Next action</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Urgency</p>
+                        <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.frontDeskPriority || "normal"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Recommended action</p>
                         <p className="mt-1 text-sm text-foreground">{threadNextActionLabel(selected)}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Follow-up state</p>
                         <p className="mt-1 text-sm text-foreground">{getThreadStateBadge(selected)?.label || "Open"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Priority</p>
-                        <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.frontDeskPriority || "normal"}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Latest movement</p>
@@ -641,6 +663,11 @@ export default function AppMessagesPage() {
                       ) : null}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
+                      {selected.latestAppointmentRequestId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
+                        </Button>
+                      ) : null}
                       {selected.leadId ? (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead</Link>
@@ -649,11 +676,6 @@ export default function AppMessagesPage() {
                       {selected.latestCallId ? (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call</Link>
-                        </Button>
-                      ) : null}
-                      {selected.latestAppointmentRequestId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
                         </Button>
                       ) : null}
                     </div>

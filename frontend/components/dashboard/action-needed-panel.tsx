@@ -6,6 +6,7 @@ import type { ActionNeededItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { clientBadgeClass } from "@/lib/client-badges";
+import { frontDeskActionBadgeClass } from "@/lib/front-desk-ui";
 
 function severityTone(severity: ActionNeededItem["severity"]) {
   if (severity === "critical") return "critical";
@@ -101,7 +102,11 @@ export function ActionNeededPanel({
                         <span>{sourceLabel(item.sourceModule)}</span>
                         {item.timestamp ? <span>{new Date(item.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span> : null}
                       </div>
-                      <p className={`text-xs font-medium ${dark ? "text-slate-200" : "text-foreground/80"}`}>{itemActionLabel(item)}</p>
+                      <div className="flex flex-wrap gap-2 pt-0.5">
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(itemActionLabel(item))}`}>
+                          {itemActionLabel(item)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <ArrowRight className={`mt-1 h-4 w-4 shrink-0 ${dark ? "text-slate-400" : "text-muted-foreground"}`} />
@@ -110,7 +115,9 @@ export function ActionNeededPanel({
             })()
           ))
         ) : (
-          <div className={`py-8 text-sm ${dark ? "rounded-xl border border-white/10 bg-white/5 text-slate-300" : "empty-state"}`}>Nothing needs attention right now.</div>
+          <div className={`py-8 text-sm ${dark ? "rounded-xl border border-white/10 bg-white/5 text-slate-300" : "empty-state"}`}>
+            Nothing needs attention right now. New calls, replies, and booking issues will show up here when the office needs to act.
+          </div>
         )}
       </CardContent>
     </Card>

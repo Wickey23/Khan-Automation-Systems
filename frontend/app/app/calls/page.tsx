@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
+import { frontDeskActionBadgeClass, frontDeskPriorityBadgeClass, frontDeskPriorityMeta } from "@/lib/front-desk-ui";
 
 const callStateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -134,8 +135,7 @@ function prioritySurface(priority: FrontDeskPriority | undefined, selected: bool
 }
 
 function formatPriorityLabel(priority: FrontDeskPriority | undefined) {
-  if (!priority) return "normal";
-  return priority;
+  return frontDeskPriorityMeta(priority).label;
 }
 
 function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
@@ -570,12 +570,18 @@ export default function AppCallsPage() {
                         <p className="text-xs text-muted-foreground">{new Date(call.startedAt).toLocaleString()}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={frontDeskPriorityBadgeClass(call.frontDesk?.frontDeskPriority)}>{frontDeskPriorityMeta(call.frontDesk?.frontDeskPriority).label}</Badge>
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{callWorkTypeLabel(call)}</Badge>
                         <Badge className={clientBadgeClass(getDispositionTone(call))}>{getDispositionLabel(call)}</Badge>
-                        <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                          {callQueueStateLabel(call)}
-                        </span>
                       </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(callPrimaryActionLabel(call))}`}>
+                        {callPrimaryActionLabel(call)}
+                      </span>
+                      <span className="rounded-full border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                        {callQueueStateLabel(call)}
+                      </span>
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
                       {call.frontDesk?.summary || call.aiSummary || call.summary || "No summary available yet."}
@@ -584,8 +590,6 @@ export default function AppCallsPage() {
                       <span>{call.frontDesk?.serviceRequested || outcomeLabel(call.outcome)}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{call.frontDesk?.urgency || "Standard priority"}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{callPrimaryActionLabel(call)}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{call.frontDesk?.appointmentRequested ? "Appointment requested" : "No appointment requested"}</span>
@@ -605,7 +609,7 @@ export default function AppCallsPage() {
               })
             ) : (
               <div className="empty-state">
-                Calls that match this queue state will appear here with structured intake details and a recommended next step for the office.
+                No calls match this queue yet. When customers call or miss the business line, their request will appear here with a summary and the next office action.
               </div>
             )}
           </div>
@@ -748,9 +752,21 @@ export default function AppCallsPage() {
 
                   <div className="space-y-3">
                     <p className="page-eyebrow">Front-desk summary</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(callPrimaryActionLabel(selectedCall))}`}>
+                        {callPrimaryActionLabel(selectedCall)}
+                      </span>
+                      <Badge className={frontDeskPriorityBadgeClass(selectedCall.frontDesk?.frontDeskPriority)}>
+                        {frontDeskPriorityMeta(selectedCall.frontDesk?.frontDeskPriority).label}
+                      </Badge>
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
+                    </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {[
                         ["Caller", extractCallerName(selectedCall)],
+                        ["Phone number", selectedCall.fromNumber],
                         ["Service requested", selectedCall.frontDesk?.serviceRequested || "Not captured"],
                         ["Urgency", selectedCall.frontDesk?.urgency || "Standard priority"],
                         ["Service location", selectedCall.frontDesk?.serviceLocation || "Not captured"],
@@ -765,13 +781,17 @@ export default function AppCallsPage() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
-                    </p>
                     <div className="flex flex-wrap gap-2">
                       {selectedCall.recoverySmsThreadId ? (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`}>Open inbox</Link>
+                        </Button>
+                      ) : null}
+                      {selectedCall.recordingUrl ? (
+                        <Button asChild size="sm" variant="outline">
+                          <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer">
+                            Open recording
+                          </a>
                         </Button>
                       ) : null}
                       {selectedCall.leadId ? (
@@ -808,14 +828,6 @@ export default function AppCallsPage() {
                       {selectedCall.transcript || "No transcript available."}
                     </div>
                   </div>
-
-                  {selectedCall.recordingUrl ? (
-                    <Button asChild variant="outline">
-                      <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer">
-                        Open recording
-                      </a>
-                    </Button>
-                  ) : null}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -823,7 +835,7 @@ export default function AppCallsPage() {
                     <p className="page-eyebrow">Call details</p>
                     <h2 className="text-2xl">Select a call</h2>
                     <p className="text-sm leading-6 text-muted-foreground">
-                      This panel stays fixed so your review workflow is stable. Open any call from the queue to inspect the structured intake result first, then review transcript or recording only if needed.
+                      Open any call from the queue to review who called, what they need, and the next office action before you read the transcript or recording.
                     </p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
