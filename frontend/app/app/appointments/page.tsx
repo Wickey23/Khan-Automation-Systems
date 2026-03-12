@@ -38,6 +38,7 @@ import { PageHeader } from "@/components/ui/page";
 const requestQueueFilters = ["ALL", "needs_review", "ready_to_book", "awaiting_reply", "booked", "closed"] as const;
 
 function requestActionLabel(request: AppointmentRequest) {
+  if (request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId) return "Review reply";
   if (request.status === "PENDING_REVIEW") return "Review request";
   if (request.status === "APPROVED") return "Offer times";
   if (request.status === "SLOT_OFFERED") return "Wait for reply";
@@ -961,7 +962,9 @@ export default function AppAppointmentsPage() {
                                   <span className="text-xs uppercase tracking-wide text-muted-foreground">Next office action</span>
                                   <p className="mt-1 text-sm text-slate-900">{requestActionLabel(request)}</p>
                                   <p className="mt-1 text-xs text-muted-foreground">
-                                    {request.status === "PENDING_REVIEW"
+                                    {request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId
+                                      ? "The customer already replied in text. Review the thread first, then finish the booking handoff."
+                                      : request.status === "PENDING_REVIEW"
                                       ? "Review the request, assign the right technician, and decide whether to offer times."
                                       : request.status === "APPROVED"
                                         ? "Send slots or book directly while the request is still fresh."
@@ -977,11 +980,6 @@ export default function AppAppointmentsPage() {
                                   {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  {request.leadId ? (
-                                    <Button asChild size="sm" variant="outline">
-                                      <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
-                                    </Button>
-                                  ) : null}
                                   {request.effectiveSmsPhone ? (
                                     <Button asChild size="sm" variant="outline">
                                       <Link
@@ -993,6 +991,11 @@ export default function AppAppointmentsPage() {
                                       >
                                         Open inbox
                                       </Link>
+                                    </Button>
+                                  ) : null}
+                                  {request.leadId ? (
+                                    <Button asChild size="sm" variant="outline">
+                                      <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
                                     </Button>
                                   ) : null}
                                   <Button asChild size="sm" variant="outline">
