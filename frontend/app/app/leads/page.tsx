@@ -426,12 +426,17 @@ export default function AppLeadsPage() {
                     <p className="text-muted-foreground">Next action: {leadNextActionLabel(lead)}</p>
                     <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
                     <div className="flex flex-wrap gap-2 pt-1">
+                      {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
+                        </Button>
+                      ) : null}
                       {lead.latestCallId ? (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
                         </Button>
                       ) : null}
-                      {lead.latestMessageThreadId ? (
+                      {lead.latestMessageThreadId && latestLeadMovementLabel(lead) !== "Customer replied" ? (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
                         </Button>
