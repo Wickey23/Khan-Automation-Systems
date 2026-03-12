@@ -455,34 +455,26 @@ export default function AppLeadsPage() {
                         ? frontDeskOutcomeSurfaceClass("saved")
                         : frontDeskOutcomeSurfaceClass("active")
                 } ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
-                <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start">
-                  <div className="space-y-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                <CardContent className="space-y-4 p-5">
+                  <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-2">
                       <div className="space-y-1">
                         <p className="text-base font-semibold text-foreground">{lead.name}</p>
                         <p className="text-sm text-muted-foreground">{lead.business}</p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(leadNextActionLabel(lead))}`}>
+                          {leadNextActionLabel(lead)}
+                        </span>
                         <Badge className={clientBadgeClass(frontDeskTone(lead))}>{leadWorkTypeLabel(lead)}</Badge>
                         <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
                         <Badge className={frontDeskPriorityBadgeClass(lead.frontDesk?.frontDeskPriority)}>{frontDeskPriorityLabel(lead)}</Badge>
+                        {leadOutcomeBadge(lead) ? (
+                          <Badge className={clientBadgeClass(leadOutcomeBadge(lead)!.tone)}>{leadOutcomeBadge(lead)!.label}</Badge>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(leadNextActionLabel(lead))}`}>
-                        {leadNextActionLabel(lead)}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      <p>{lead.phone || lead.email || "No contact info"}</p>
-                      <p className="mt-1 line-clamp-2">{summarizeLead(lead)}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span>{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</span>
-                        <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{latestLeadMovementLabel(lead)}</span>
-                      </div>
-                    </div>
-                    <div className="grid gap-2 sm:flex sm:flex-wrap">
+                    <div className="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
                       {leadQuickActions(lead).map((action) => (
                         <Button
                           key={`${lead.id}-${action.stage}`}
@@ -496,94 +488,108 @@ export default function AppLeadsPage() {
                         </Button>
                       ))}
                     </div>
-                    {leadOutcomeBadge(lead) ? (
-                      <div className="flex flex-wrap gap-2">
-                        <Badge className={clientBadgeClass(leadOutcomeBadge(lead)!.tone)}>{leadOutcomeBadge(lead)!.label}</Badge>
-                      </div>
-                    ) : null}
-                    {leadOutcomeListNote(lead) ? (
-                      <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{leadOutcomeListNote(lead)}</p>
-                    ) : null}
                   </div>
 
-                  <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
-                    <p className="page-eyebrow">Customer context</p>
-                    <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
-                    <p className="text-muted-foreground">{lead.phone || lead.email || "No contact info"}</p>
-                    <p className="text-muted-foreground">{summarizeLead(lead)}</p>
-                    <p className="text-muted-foreground">Urgency: {lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</p>
-                    <p className="text-muted-foreground">Latest movement: {latestLeadMovementLabel(lead)}</p>
-                    <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
-                    <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
-                    <div className="space-y-2 pt-1">
-                      <p className="page-eyebrow">Next stage</p>
-                      <select
-                        value={lead.pipelineStage || "NEW_LEAD"}
-                        onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
-                        className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                        disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
-                      >
-                        {pipelineStages.map((stage) => (
-                          <option key={stage} value={stage}>
-                            {prettyStage(stage)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <p className={`${frontDeskContextPanelClass()} text-muted-foreground`}>
-                      Why this matters now: {leadNextActionLabel(lead)}. Use Lead Queue when the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
-                    </p>
-                    {leadOutcomeNote(lead) ? (
-                      <p className={`${frontDeskContextPanelClass()} text-muted-foreground`}>{leadOutcomeNote(lead)}</p>
-                    ) : null}
-                    {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
-                      <div className="space-y-2 pt-1">
-                        <p className="page-eyebrow">Related workspaces</p>
-                        <div className="grid gap-2 sm:flex sm:flex-wrap">
-                          {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
-                            <Button asChild size="sm" className="w-full sm:w-auto">
-                              <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
-                            </Button>
-                          ) : null}
-                          {lead.latestAppointmentRequestId ? (
-                            <Button
-                              asChild
-                              size="sm"
-                              variant={lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? "outline" : "default"}
-                              className="w-full sm:w-auto"
-                            >
-                              <Link href={`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`}>Open booking</Link>
-                            </Button>
-                          ) : null}
-                          {lead.latestCallId ? (
-                            <Button
-                              asChild
-                              size="sm"
-                              variant={
-                                lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied"
-                                  ? "outline"
-                                  : !lead.latestAppointmentRequestId && lead.frontDesk?.recommendedAction === "Call back now"
-                                    ? "default"
-                                    : "outline"
-                              }
-                              className="w-full sm:w-auto"
-                            >
-                              <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
-                            </Button>
-                          ) : null}
-                          {lead.latestMessageThreadId && latestLeadMovementLabel(lead) !== "Customer replied" ? (
-                            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-                              <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
-                            </Button>
-                          ) : null}
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,340px)] xl:items-start">
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                          <p className="page-eyebrow">Contact</p>
+                          <p className="text-sm font-medium text-foreground">{lead.phone || lead.email || "No contact info"}</p>
+                        </div>
+                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                          <p className="page-eyebrow">Service request</p>
+                          <p className="text-sm text-foreground">{summarizeLead(lead)}</p>
+                        </div>
+                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                          <p className="page-eyebrow">Urgency</p>
+                          <p className="text-sm text-foreground">{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</p>
+                        </div>
+                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                          <p className="page-eyebrow">Latest movement</p>
+                          <p className="text-sm text-foreground">{latestLeadMovementLabel(lead)}</p>
                         </div>
                       </div>
-                    ) : null}
-                    {lead.classification ? (
-                      <p className="text-muted-foreground">
-                        Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}
+                      {leadOutcomeListNote(lead) ? (
+                        <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{leadOutcomeListNote(lead)}</p>
+                      ) : null}
+                    </div>
+
+                    <div className={`${frontDeskContextPanelClass()} space-y-3 text-sm`}>
+                      <div className="space-y-1">
+                        <p className="page-eyebrow">Customer context</p>
+                        <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
+                        <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
+                        <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
+                      </div>
+                      <div className="space-y-2 border-t border-border/60 pt-3">
+                        <p className="page-eyebrow">Next stage</p>
+                        <select
+                          value={lead.pipelineStage || "NEW_LEAD"}
+                          onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
+                          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                          disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
+                        >
+                          {pipelineStages.map((stage) => (
+                            <option key={stage} value={stage}>
+                              {prettyStage(stage)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Why this matters now: {leadNextActionLabel(lead)}. Use Lead Queue when the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
                       </p>
-                    ) : null}
+                      {leadOutcomeNote(lead) ? <p className="text-sm text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
+                      {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
+                        <div className="space-y-2 border-t border-border/60 pt-3">
+                          <p className="page-eyebrow">Related workspaces</p>
+                          <div className="grid gap-2 sm:flex sm:flex-wrap">
+                            {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
+                              <Button asChild size="sm" className="w-full sm:w-auto">
+                                <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
+                              </Button>
+                            ) : null}
+                            {lead.latestAppointmentRequestId ? (
+                              <Button
+                                asChild
+                                size="sm"
+                                variant={lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? "outline" : "default"}
+                                className="w-full sm:w-auto"
+                              >
+                                <Link href={`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`}>Open booking</Link>
+                              </Button>
+                            ) : null}
+                            {lead.latestCallId ? (
+                              <Button
+                                asChild
+                                size="sm"
+                                variant={
+                                  lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied"
+                                    ? "outline"
+                                    : !lead.latestAppointmentRequestId && lead.frontDesk?.recommendedAction === "Call back now"
+                                      ? "default"
+                                      : "outline"
+                                }
+                                className="w-full sm:w-auto"
+                              >
+                                <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
+                              </Button>
+                            ) : null}
+                            {lead.latestMessageThreadId && latestLeadMovementLabel(lead) !== "Customer replied" ? (
+                              <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                                <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      {lead.classification ? (
+                        <p className="text-xs text-muted-foreground">
+                          Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

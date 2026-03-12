@@ -971,55 +971,58 @@ export default function AppAppointmentsPage() {
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-3 grid gap-4 2xl:grid-cols-[1.5fr_0.9fr]">
-                              <div className="space-y-3 text-sm">
-                                <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Issue</span>
-                                  <p className="mt-1 line-clamp-3 text-slate-900">{request.issueSummary}</p>
+                            <div className="mt-3 space-y-4">
+                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                  <span className="page-eyebrow">Issue</span>
+                                  <p className="text-sm text-foreground">{request.issueSummary}</p>
                                 </div>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  <div>
-                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested On</span>
-                                    <p className="mt-1">{new Date(request.startedAt).toLocaleString()}</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Requested For</span>
-                                    <p className="mt-1">{request.requestedTimeLabel || "Not captured yet"}</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Address</span>
-                                    <p className="mt-1">{request.serviceAddress || "Not captured yet"}</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Assigned</span>
-                                    <p className="mt-1">{request.assignedUserLabel || "Unassigned"}</p>
-                                  </div>
+                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                  <span className="page-eyebrow">Requested for</span>
+                                  <p className="text-sm text-foreground">{request.requestedTimeLabel || "Not captured yet"}</p>
                                 </div>
-                                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                                  <span>State: {request.requestState}</span>
-                                  <span>Next action: {requestActionLabel(request)}</span>
-                                  <span>{requestLatestMessageLabel(request)}</span>
+                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                  <span className="page-eyebrow">Address</span>
+                                  <p className="text-sm text-foreground">{request.serviceAddress || "Not captured yet"}</p>
                                 </div>
-                                {requestOutcomeBadge(request) ? (
-                                  <div className="flex flex-wrap gap-2">
-                                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
-                                      {requestOutcomeBadge(request)!.label}
-                                    </span>
-                                  </div>
-                                ) : null}
-                                {requestOutcomeListNote(request) ? (
-                                  <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{requestOutcomeListNote(request)}</p>
-                                ) : null}
+                                <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                  <span className="page-eyebrow">Assigned</span>
+                                  <p className="text-sm text-foreground">{request.assignedUserLabel || "Unassigned"}</p>
+                                </div>
                               </div>
-                              <div className={`${frontDeskContextPanelClass()} space-y-3`}>
+                              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,340px)] xl:items-start">
+                                <div className="space-y-3 text-sm">
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                      <span className="page-eyebrow">Requested on</span>
+                                      <p className="text-sm text-foreground">{new Date(request.startedAt).toLocaleString()}</p>
+                                    </div>
+                                    <div className={`${frontDeskContextPanelClass()} space-y-1`}>
+                                      <span className="page-eyebrow">Queue state</span>
+                                      <p className="text-sm text-foreground">{request.requestState}</p>
+                                      <p className="text-xs text-muted-foreground">{requestLatestMessageLabel(request)}</p>
+                                    </div>
+                                  </div>
+                                  {requestOutcomeBadge(request) ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(requestOutcomeBadge(request)!.tone)}`}>
+                                        {requestOutcomeBadge(request)!.label}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {requestOutcomeListNote(request) ? (
+                                    <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{requestOutcomeListNote(request)}</p>
+                                  ) : null}
+                                </div>
+                                <div className={`${frontDeskContextPanelClass()} space-y-3`}>
                                 <div>
-                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Next office action</span>
+                                  <span className="page-eyebrow">Next office action</span>
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(requestActionLabel(request))}`}>
                                       {requestActionLabel(request)}
                                     </span>
                                   </div>
-                                  <p className="mt-1 text-xs text-muted-foreground">
+                                  <p className="mt-2 text-sm text-muted-foreground">
                                     {request.latestMessageDirection === "INBOUND" && request.latestMessageThreadId
                                       ? "The customer already replied in text. Review the thread first, then finish the booking handoff."
                                       : request.status === "PENDING_REVIEW"
@@ -1033,14 +1036,14 @@ export default function AppAppointmentsPage() {
                                             : "This request is already resolved. No additional booking action is needed."}
                                   </p>
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                  <p className={`${frontDeskContextPanelClass()} mb-3 text-sm text-muted-foreground`}>
+                                <div className="space-y-2 text-xs text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     Why this matters now: {requestActionLabel(request)}. Use Booking Queue when the request is ready for a scheduling decision or needs confirmation on the path to a booked appointment.
                                   </p>
                                   SMS: {request.effectiveSmsPhone}
                                   {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 border-t border-border/60 pt-3">
                                   <p className="page-eyebrow">Related workspaces</p>
                                   <div className="grid gap-2 sm:flex sm:flex-wrap">
                                     {request.effectiveSmsPhone ? (
@@ -1067,6 +1070,7 @@ export default function AppAppointmentsPage() {
                                   </div>
                                 </div>
                               </div>
+                            </div>
                             </div>
                             {canWrite && request.status !== "DENIED" && request.status !== "SCHEDULED" && request.status !== "CLOSED" ? (
                               <div className="mt-4 rounded-xl border bg-slate-50 p-4">
