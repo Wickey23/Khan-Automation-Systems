@@ -1116,7 +1116,7 @@ export default function AppOverviewPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{latestThreadDirection(thread)}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>{frontDesk?.recommendedAction || "Review thread"}</span>
+                      <span>{overviewThreadActionLabel(thread)}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{thread.contactPhone}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
