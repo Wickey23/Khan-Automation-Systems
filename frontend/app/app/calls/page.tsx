@@ -216,6 +216,11 @@ function latestCallMovementLabel(call: OrgCallRecord) {
   return "No follow-up movement yet";
 }
 
+function callPrimaryActionLabel(call: OrgCallRecord) {
+  if (String(call.recoverySmsResponse || "").trim() && call.recoverySmsThreadId) return "Review reply";
+  return call.frontDesk?.recommendedAction || getNextAction(call);
+}
+
 function callStateFilterLabel(value: (typeof callStateFilters)[number]) {
   switch (value) {
     case "needs_follow_up":
@@ -750,7 +755,7 @@ export default function AppCallsPage() {
                         ["Urgency", selectedCall.frontDesk?.urgency || "Standard priority"],
                         ["Service location", selectedCall.frontDesk?.serviceLocation || "Not captured"],
                         ["Appointment requested", selectedCall.frontDesk?.appointmentRequested ? "Yes" : "No"],
-                        ["Recommended action", selectedCall.frontDesk?.recommendedAction || getNextAction(selectedCall)],
+                        ["Recommended action", callPrimaryActionLabel(selectedCall)],
                         ["Follow-up state", getDispositionLabel(selectedCall)],
                         ["Latest movement", latestCallMovementLabel(selectedCall)]
                       ].map(([label, value]) => (
@@ -764,14 +769,14 @@ export default function AppCallsPage() {
                       {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "No summary available yet."}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {selectedCall.leadId ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/app/leads?leadId=${encodeURIComponent(selectedCall.leadId)}`}>Open lead</Link>
-                        </Button>
-                      ) : null}
                       {selectedCall.recoverySmsThreadId ? (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`}>Open inbox</Link>
+                        </Button>
+                      ) : null}
+                      {selectedCall.leadId ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/app/leads?leadId=${encodeURIComponent(selectedCall.leadId)}`}>Open lead</Link>
                         </Button>
                       ) : null}
                       {selectedCall.appointmentRequestId ? (
