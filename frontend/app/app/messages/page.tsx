@@ -505,7 +505,11 @@ export default function AppMessagesPage() {
                           Next action: {threadFrontDesk(thread)?.recommendedAction}
                         </p>
                       ) : null}
-                      <p className="mt-1 text-[11px] text-muted-foreground">{latestThreadDirection(thread)}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{latestThreadDirection(thread)}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>Last update {formatWhen(thread.lastMessageAt)}</span>
+                      </div>
                     </button>
                   );
                 })()
