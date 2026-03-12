@@ -105,6 +105,12 @@ function getLatestMessagePreview(thread: OrgMessageThread) {
   return latest.body.length > 88 ? `${latest.body.slice(0, 88).trim()}...` : latest.body;
 }
 
+function latestThreadDirection(thread: OrgMessageThread) {
+  const latest = [...thread.messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  if (!latest) return "No recent messages";
+  return latest.direction === "INBOUND" ? "Customer replied" : "Office sent follow-up";
+}
+
 function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
   if (!thread?.leadId) return [];
   const state = threadFrontDesk(thread)?.state;
@@ -453,6 +459,7 @@ export default function AppMessagesPage() {
                           Next action: {threadFrontDesk(thread)?.recommendedAction}
                         </p>
                       ) : null}
+                      <p className="mt-1 text-[11px] text-muted-foreground">{latestThreadDirection(thread)}</p>
                     </button>
                   );
                 })()
@@ -562,6 +569,10 @@ export default function AppMessagesPage() {
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Priority</p>
                         <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.frontDeskPriority || "normal"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Latest movement</p>
+                        <p className="mt-1 text-sm text-foreground">{latestThreadDirection(selected)}</p>
                       </div>
                     </div>
                   </div>

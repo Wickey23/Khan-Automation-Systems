@@ -301,6 +301,14 @@ function threadStateBadge(thread: OrgMessageThread) {
   }
 }
 
+function latestThreadDirection(thread: OrgMessageThread) {
+  const latestMessage = [...(thread.messages || [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )[0];
+  if (!latestMessage) return "No recent messages";
+  return latestMessage.direction === "INBOUND" ? "Customer replied" : "Office sent follow-up";
+}
+
 export default function AppOverviewPage() {
   const [state, setState] = useState<DashboardState>({
     assignedPhoneNumber: null,
@@ -944,6 +952,8 @@ export default function AppOverviewPage() {
                       {frontDesk?.summary || latestMessage}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{latestThreadDirection(thread)}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{frontDesk?.recommendedAction || "Review thread"}</span>
                       <span className="h-1 w-1 rounded-full bg-slate-300" />
                       <span>{thread.contactPhone}</span>
