@@ -914,14 +914,6 @@ export default function AppAppointmentsPage() {
                                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                                   <span>State: {request.requestState}</span>
                                   <span>Next action: {requestActionLabel(request)}</span>
-                                  {request.leadId ? (
-                                    <Link className="underline" href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>
-                                      Open lead
-                                    </Link>
-                                  ) : null}
-                                  <Link className="underline" href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>
-                                    Open conversation
-                                  </Link>
                                 </div>
                               </div>
                               <div className="space-y-3 rounded-xl border bg-slate-50 p-3">
@@ -941,6 +933,16 @@ export default function AppAppointmentsPage() {
                                   </p>
                                 </div>
                                 <div className="text-xs text-muted-foreground">SMS: {request.effectiveSmsPhone}</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {request.leadId ? (
+                                    <Button asChild size="sm" variant="outline">
+                                      <Link href={`/app/leads?leadId=${encodeURIComponent(request.leadId)}`}>Open lead</Link>
+                                    </Button>
+                                  ) : null}
+                                  <Button asChild size="sm" variant="outline">
+                                    <Link href={`/app/calls?callId=${encodeURIComponent(request.callLogId)}`}>Open call</Link>
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                             {canWrite && request.status !== "DENIED" && request.status !== "SCHEDULED" && request.status !== "CLOSED" ? (
