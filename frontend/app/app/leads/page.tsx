@@ -108,6 +108,19 @@ function summarizeLead(lead: Lead) {
   return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "No service details yet.";
 }
 
+function latestLeadMovementLabel(lead: Lead) {
+  if (lead.latestAppointmentRequestId && lead.frontDesk?.recommendedAction === "Offer times") {
+    return "Booking follow-up in progress";
+  }
+  if (lead.latestMessageThreadId && lead.frontDesk?.state === "needs_follow_up") {
+    return "Customer replied";
+  }
+  if (lead.frontDesk?.state === "contacted") {
+    return "Office sent follow-up";
+  }
+  return formatActivityLabel(lead);
+}
+
 function leadStatusTone(status: Lead["status"]) {
   switch (status) {
     case "NEW":
@@ -365,7 +378,7 @@ export default function AppLeadsPage() {
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
                         <span>{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{formatActivityLabel(lead)}</span>
+                        <span>{latestLeadMovementLabel(lead)}</span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -401,7 +414,7 @@ export default function AppLeadsPage() {
 
                   <div className="space-y-2 text-sm">
                     <p className="page-eyebrow">Follow-up brief</p>
-                    <p className="text-muted-foreground">{formatActivityLabel(lead)}</p>
+                    <p className="text-muted-foreground">{latestLeadMovementLabel(lead)}</p>
                     <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
                     {lead.frontDesk?.recommendedAction ? (
                       <p className="text-muted-foreground">Next action: {lead.frontDesk.recommendedAction}</p>
