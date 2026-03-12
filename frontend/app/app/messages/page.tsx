@@ -48,7 +48,7 @@ function getThreadStateBadge(thread: OrgMessageThread) {
   if (frontDesk?.state === "needs_follow_up") return { label: "Needs follow-up", tone: "warning" as const };
   if (frontDesk?.state === "contacted") return { label: "Contacted", tone: "pending" as const };
   if (frontDesk?.state === "booked") return { label: "Booked", tone: "booking" as const };
-  if (frontDesk?.state === "closed") return { label: "Closed", tone: "success" as const };
+  if (frontDesk?.state === "closed") return { label: "Resolved", tone: "success" as const };
   if (frontDesk?.state === "spam") return { label: "Spam", tone: "neutral" as const };
   return null;
 }
@@ -151,18 +151,18 @@ function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: str
   if (state === "booked") {
     return [
       { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
-      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
     ];
   }
   if (state === "contacted" || action === "Offer times") {
     return [
-      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
       { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
     ];
   }
   return [
-    { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
-    { label: "Close request", stage: "COMPLETED", tone: "outline" }
+    { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
+    { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
   ];
 }
 

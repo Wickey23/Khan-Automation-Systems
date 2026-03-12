@@ -727,6 +727,23 @@ export default function AppOverviewPage() {
     [state.calls]
   );
 
+  const savedMissedCallCount = useMemo(
+    () =>
+      state.calls.filter(
+        (call) =>
+          (call.outcome === "MISSED" || call.outcome === "ABANDONED" || Boolean(call.unansweredTransfer)) &&
+          Boolean(call.recoverySmsSentAt || call.recoverySmsResponse || call.frontDesk?.followUpState === "contacted" || call.frontDesk?.followUpState === "booked")
+      ).length,
+    [state.calls]
+  );
+
+  const bookedOutcomeCount = useMemo(
+    () =>
+      state.requests.filter((request) => request.status === "SCHEDULED").length +
+      state.leads.filter((lead) => lead.frontDesk?.state === "booked").length,
+    [state.leads, state.requests]
+  );
+
   const runtimeHealth = state.health?.runtimeHealth || state.health;
   const readiness = state.health?.readiness || null;
   const healthStateFromRuntime = healthTone(runtimeHealth?.level);
@@ -1204,12 +1221,21 @@ export default function AppOverviewPage() {
           </Card>
           <Card>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">AI Rescue Rate</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Saved Missed Calls</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">
-                {loading ? "-" : `${state.analytics?.kpis.rescuedCalls ?? 0}`}
+                {loading ? "-" : `${savedMissedCallCount}`}
               </p>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Loading rescue rate..." : `${formatPercent(state.analytics?.kpis.aiRescueRate ?? 0)} of AI-handled calls produced follow-up value`}
+                {loading ? "Loading recovery..." : savedMissedCallCount === 0 ? "No missed-call recoveries yet" : "Missed or abandoned calls that still produced follow-up value"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-2 pt-5 sm:pt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Booked Outcomes</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "-" : `${bookedOutcomeCount}`}</p>
+              <p className="text-sm text-muted-foreground">
+                {loading ? "Loading bookings..." : bookedOutcomeCount === 0 ? "No booked work yet" : "Requests and leads already moved into booked work"}
               </p>
             </CardContent>
           </Card>

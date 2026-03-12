@@ -74,7 +74,7 @@ function getDispositionLabel(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "needs_follow_up") return "Needs follow-up";
   if (call.frontDesk?.followUpState === "contacted") return "Contacted";
   if (call.frontDesk?.followUpState === "booked") return "Booked";
-  if (call.frontDesk?.followUpState === "closed") return "Closed";
+  if (call.frontDesk?.followUpState === "closed") return "Resolved";
   if (call.frontDesk?.followUpState === "spam") return "Spam";
   if (call.outcome === "APPOINTMENT_REQUEST") return "Request captured";
   if (call.outcome === "TRANSFERRED") return "Transferred";
@@ -149,7 +149,7 @@ function callQueueStateLabel(call: OrgCallRecord) {
   if (call.frontDesk?.followUpState === "needs_follow_up") return "Needs follow-up";
   if (call.frontDesk?.followUpState === "contacted") return "Contacted";
   if (call.frontDesk?.followUpState === "booked") return "Booked";
-  if (call.frontDesk?.followUpState === "closed") return "Closed";
+  if (call.frontDesk?.followUpState === "closed") return "Resolved";
   if (call.frontDesk?.followUpState === "spam") return "Spam";
   return outcomeLabel(call.outcome);
 }
@@ -178,18 +178,18 @@ function callQuickActions(call: OrgCallRecord | null): Array<{ label: string; st
   if (call.frontDesk?.followUpState === "booked") {
     return [
       { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
-      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
     ];
   }
   if (call.frontDesk?.recommendedAction === "Offer times" || call.frontDesk?.followUpState === "contacted") {
     return [
-      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
       { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
     ];
   }
   return [
-    { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
-    { label: "Close request", stage: "COMPLETED", tone: "outline" }
+    { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
+    { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
   ];
 }
 

@@ -58,7 +58,7 @@ function frontDeskStateLabel(lead: Lead) {
     case "booked":
       return "Booked";
     case "closed":
-      return "Closed";
+      return "Resolved";
     case "spam":
       return "Spam";
     default:
@@ -74,7 +74,7 @@ function leadWorkTypeLabel(lead: Lead) {
   if (lead.frontDesk?.recommendedAction === "Call back now") return "Callback";
   if (lead.frontDesk?.recommendedAction === "Offer times" || lead.pipelineStage === "NEEDS_SCHEDULING") return "Scheduling";
   if (lead.frontDesk?.state === "booked") return "Booked work";
-  if (lead.frontDesk?.state === "closed") return "Closed";
+  if (lead.frontDesk?.state === "closed") return "Resolved";
   if (lead.frontDesk?.state === "spam") return "Spam";
   return "General follow-up";
 }
@@ -144,29 +144,29 @@ function leadStatusTone(status: Lead["status"]) {
 
 function leadQuickActions(lead: Lead): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
   if (lead.frontDesk?.state === "spam") {
-    return [{ label: "Close request", stage: "COMPLETED", tone: "outline" }];
+    return [{ label: "Mark resolved", stage: "COMPLETED", tone: "outline" }];
   }
   if (lead.frontDesk?.state === "booked" || lead.pipelineStage === "SCHEDULED") {
     return [
       { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
-      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
     ];
   }
   if (lead.frontDesk?.recommendedAction === "Offer times" || lead.pipelineStage === "NEEDS_SCHEDULING") {
     return [
-      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
       { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
     ];
   }
   if (lead.frontDesk?.state === "contacted") {
     return [
-      { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" },
-      { label: "Close request", stage: "COMPLETED", tone: "outline" }
+      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
     ];
   }
   return [
     { label: "Keep open", stage: "NEW_LEAD", tone: "outline" },
-    { label: "Needs scheduling", stage: "NEEDS_SCHEDULING", tone: "default" }
+    { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" }
   ];
 }
 
