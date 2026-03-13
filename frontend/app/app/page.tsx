@@ -842,7 +842,7 @@ export default function AppOverviewPage() {
       <PageHeader
         eyebrow="Front desk"
         title="Front Desk"
-        description={`Use this page to see what just happened, what needs attention now, and which requests are already moving toward booked work.${lastUpdatedAt ? ` Updated ${formatShortDateTime(lastUpdatedAt)}.` : ""}${refreshing ? " Refreshing..." : ""}`}
+        description={`See what happened, what needs attention now, and which requests are moving toward booked work.${lastUpdatedAt ? ` Updated ${formatShortDateTime(lastUpdatedAt)}.` : ""}${refreshing ? " Refreshing..." : ""}`}
         actions={
           <>
             <Button asChild>
@@ -862,7 +862,7 @@ export default function AppOverviewPage() {
         <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardContent className="space-y-5 p-6 sm:p-7">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Front-desk command center</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Front-desk command center</p>
               <p className="mt-2 text-[28px] font-semibold tracking-[-0.03em] text-slate-950">
                 {loading
                   ? "Reviewing today's front-desk activity"
@@ -870,8 +870,8 @@ export default function AppOverviewPage() {
                     ? `${customerActionCount} customer items need action now`
                     : "No live customer work is waiting right now"}
               </p>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                Start here to understand what happened, what matters next, and which queue should handle the next office action. Use Call Queue for callback work, Inbox for live replies, and Booking Queue for schedule decisions.
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Start here, then move into Call Queue, Inbox, or Booking Queue based on where the next office action lives.
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
@@ -897,19 +897,13 @@ export default function AppOverviewPage() {
                 </div>
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className={frontDeskContextPanelClass()}>
-                <p className="page-eyebrow">1. Triage</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Use Needs Attention to catch anything at risk of falling through.</p>
-              </div>
-              <div className={frontDeskContextPanelClass()}>
-                <p className="page-eyebrow">2. Work the right queue</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Move into Call Queue, Inbox, or Booking Queue depending on where the next action lives.</p>
-              </div>
-              <div className={frontDeskContextPanelClass()}>
-                <p className="page-eyebrow">3. Confirm outcomes</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Watch saved missed calls, booked work, and resolution so the office knows what actually converted.</p>
-              </div>
+            <div className={`${frontDeskContextPanelClass()} flex flex-wrap items-center gap-3 text-sm text-slate-700`}>
+              <span className="font-medium text-slate-950">Workflow:</span>
+              <span>Triage active work</span>
+              <span aria-hidden="true">•</span>
+              <span>Work the right queue</span>
+              <span aria-hidden="true">•</span>
+              <span>Confirm booked or resolved outcomes</span>
             </div>
           </CardContent>
         </Card>

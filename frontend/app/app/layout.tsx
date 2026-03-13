@@ -203,18 +203,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all duration-200",
+          "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors duration-150",
           pathname === item.href
-            ? "border-blue-300/80 bg-[linear-gradient(135deg,rgba(30,64,175,0.97)_0%,rgba(37,99,235,0.95)_64%,rgba(14,165,233,0.90)_100%)] text-primary-foreground shadow-[0_18px_34px_rgba(37,99,235,0.26)]"
-            : "border-slate-200/70 bg-white/[0.88] text-slate-800 shadow-[0_8px_18px_rgba(15,23,42,0.05)] hover:border-slate-300/90 hover:bg-white hover:text-slate-950 hover:shadow-[0_14px_26px_rgba(15,23,42,0.09)]"
+            ? "border-blue-200 bg-blue-50 text-blue-950 shadow-[inset_3px_0_0_0_rgb(30,64,175)]"
+            : "border-slate-200 bg-slate-50 text-slate-800 shadow-none hover:border-slate-300 hover:bg-white hover:text-slate-950"
         )}
       >
         <span
           className={cn(
-            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors",
             pathname === item.href
-              ? "border-white/20 bg-white/[0.12] text-primary-foreground"
-              : "border-slate-200/95 bg-white text-slate-600"
+              ? "border-blue-200 bg-white text-blue-700"
+              : "border-slate-200 bg-white text-slate-500"
           )}
         >
           <Icon className={cn("h-4 w-4", pathname === item.href && item.href === "/app/messages" ? "scale-110" : "")} />
@@ -233,36 +233,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="app-portal-shell">
           <div className="relative grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
           <aside className="app-sidebar-shell xl:sticky xl:top-24">
-            <div className="rounded-[24px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(30,64,175,0.96)_0%,rgba(37,99,235,0.94)_55%,rgba(14,165,233,0.90)_100%)] px-4 py-4 text-white shadow-[0_18px_38px_rgba(30,64,175,0.28)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-100/90">Client Portal</p>
+            <div className="rounded-[16px] border border-slate-200 bg-slate-950 px-4 py-4 text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Client portal</p>
               <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-white">Front Desk OS</h2>
-              <p className="mt-2 text-sm leading-6 text-blue-50/90">
-                Calls, texts, bookings, and follow-up work in one operator workspace.
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Calls, texts, bookings, and follow-up work in one workspace.
               </p>
             </div>
             <div className="px-3 pb-1 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">Workspace navigation</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Workspace navigation</p>
             </div>
             <nav className="mt-2 space-y-4">
               <div className="grid gap-1">
                 {primaryNavItems.map(renderNavItem)}
               </div>
               <div className="border-t pt-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">Setup & management</p>
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Setup & management</p>
                 <div className="grid gap-1">
                   {secondaryNavItems.map(renderNavItem)}
                 </div>
               </div>
             </nav>
-            <div className="mt-5 rounded-[22px] border border-slate-200/95 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(240,246,252,0.98)_100%)] px-4 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">How work flows</p>
+            <div className="mt-5 rounded-[16px] border border-slate-200 bg-slate-50 px-4 py-4 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">How work flows</p>
               <p className="mt-2 text-sm font-medium text-slate-950">Calls and texts create front-desk work.</p>
               <p className="mt-1 text-sm leading-6 text-slate-700">
-                Start in Front Desk, work the Call Queue or Inbox, move booking-ready requests into the Booking Queue, then finish them as booked or resolved.
+                Start in Front Desk, work the queue that owns the next step, then finish the request as booked or resolved.
               </p>
             </div>
             <div className="mt-5 border-t border-slate-200/80 pt-4">
-              <Link href="/auth/logout" className="inline-flex w-full rounded-2xl border border-slate-200/95 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-[0_10px_20px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50 hover:text-slate-950">
+              <Link href="/auth/logout" className="inline-flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50 hover:text-slate-950">
                 Logout
               </Link>
             </div>

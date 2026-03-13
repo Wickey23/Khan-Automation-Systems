@@ -19,10 +19,10 @@ export function PageHeader({
       <div className="page-header-copy">
         {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
         <div className="space-y-2">
-          <h1 className="max-w-3xl text-[34px] font-semibold leading-[1.02] tracking-[-0.04em] text-slate-950 sm:text-[42px]">
+          <h1 className="max-w-3xl text-[32px] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-950 sm:text-[38px]">
             {title}
           </h1>
-          {description ? <p className="max-w-2xl text-[15px] leading-7 text-slate-600">{description}</p> : null}
+          {description ? <p className="max-w-2xl text-[15px] leading-6 text-slate-600">{description}</p> : null}
         </div>
       </div>
       {actions ? <div className="page-header-actions self-start md:self-end">{actions}</div> : null}
@@ -48,8 +48,8 @@ export function SectionHeading({
       <div className="space-y-2">
         {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
         <div className="space-y-1.5">
-          <h2 className="text-[28px] tracking-[-0.03em] text-slate-950 sm:text-[34px]">{title}</h2>
-          {description ? <p className="max-w-2xl text-[15px] leading-7 text-slate-600">{description}</p> : null}
+          <h2 className="text-[26px] tracking-[-0.03em] text-slate-950 sm:text-[32px]">{title}</h2>
+          {description ? <p className="max-w-2xl text-[15px] leading-6 text-slate-600">{description}</p> : null}
         </div>
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}

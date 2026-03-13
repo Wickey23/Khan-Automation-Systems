@@ -3,16 +3,8 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Siren } from "lucide-react";
 import type { ActionNeededItem } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { clientBadgeClass } from "@/lib/client-badges";
 import { frontDeskActionBadgeClass, frontDeskCardClass, frontDeskEmptyStateClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
-
-function severityTone(severity: ActionNeededItem["severity"]) {
-  if (severity === "critical") return "critical";
-  if (severity === "warning") return "warning";
-  return "neutral";
-}
 
 function sourceLabel(source: ActionNeededItem["sourceModule"]) {
   switch (source) {
@@ -36,9 +28,9 @@ function severityIcon(severity: ActionNeededItem["severity"]) {
 }
 
 function itemSurface(severity: ActionNeededItem["severity"]) {
-  if (severity === "critical") return "border-rose-200 bg-rose-50/70 hover:bg-rose-50";
-  if (severity === "warning") return "border-amber-200 bg-amber-50/70 hover:bg-amber-50";
-  return "border-border bg-muted/20 hover:bg-muted/35";
+  if (severity === "critical") return "border-rose-200 bg-white hover:border-rose-300";
+  if (severity === "warning") return "border-amber-200 bg-white hover:border-amber-300";
+  return "border-border bg-white hover:border-slate-300";
 }
 
 function itemSurfaceDark(severity: ActionNeededItem["severity"]) {
@@ -98,8 +90,9 @@ export function ActionNeededPanel({
                       <p className={`text-sm font-medium leading-5 ${dark ? "text-white" : "text-foreground"}`}>{item.label}</p>
                       {item.detail ? <p className={`text-sm leading-5 ${dark ? "text-slate-300" : "text-muted-foreground"}`}>{item.detail}</p> : null}
                       <div className={`flex flex-wrap items-center gap-2 text-xs ${dark ? "text-slate-400" : "text-muted-foreground"}`}>
-                        <Badge className={clientBadgeClass(severityTone(item.severity))}>{item.severity}</Badge>
-                        <span>{sourceLabel(item.sourceModule)}</span>
+                        <span className="font-medium text-slate-700">{sourceLabel(item.sourceModule)}</span>
+                        <span aria-hidden="true">•</span>
+                        <span className={dark ? "" : "text-slate-500"}>{item.severity}</span>
                         {item.timestamp ? <span>{new Date(item.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span> : null}
                       </div>
                       <div className="flex flex-wrap gap-2 pt-0.5">
