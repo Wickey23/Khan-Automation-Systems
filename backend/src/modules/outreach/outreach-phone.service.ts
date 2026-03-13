@@ -63,6 +63,37 @@ function buildOutreachPhonePrompt(input: {
   return base.join("\n");
 }
 
+function buildOutreachVariableValues(input: {
+  orgName: string;
+  companyName: string;
+  contactName: string;
+  industry: string;
+  city: string;
+  state: string;
+  notes: string;
+  phone: string;
+}) {
+  return {
+    orgName: input.orgName || "",
+    companyName: input.companyName || "",
+    contactName: input.contactName || "",
+    industry: input.industry || "",
+    city: input.city || "",
+    state: input.state || "",
+    notes: input.notes || "",
+    phone: input.phone || "",
+    location: [input.city, input.state].filter(Boolean).join(", "),
+    prospectSummary: [
+      input.companyName || input.contactName || "Prospect",
+      input.industry || null,
+      [input.city, input.state].filter(Boolean).join(", ") || null,
+      input.notes || null
+    ]
+      .filter(Boolean)
+      .join(" • ")
+  };
+}
+
 function sanitizeProspectName(value: string | null | undefined) {
   const text = cleanText(value);
   if (!text) return "";
@@ -173,25 +204,45 @@ export async function startOutreachAiCall(input: {
   const assistantId = cleanText(callerConfig?.vapiAssistantId);
 
   const prospectName = sanitizeProspectName(lead.contactName) || sanitizeProspectName(lead.companyName);
+  const variableValues = buildOutreachVariableValues({
+    orgName: cleanText(lead.organization?.name) || "Khan Automation Systems",
+    companyName: cleanText(lead.companyName),
+    contactName: prospectName,
+    industry: cleanText(lead.industry),
+    city: cleanText(lead.city),
+    state: cleanText(lead.state),
+    notes: cleanText(lead.notes),
+    phone: customerNumber
+  });
+  const contextualPrompt = buildOutreachPhonePrompt({
+    orgName: cleanText(lead.organization?.name) || "Khan Automation Systems",
+    companyName: cleanText(lead.companyName),
+    contactName: prospectName,
+    industry: cleanText(lead.industry),
+    city: cleanText(lead.city),
+    state: cleanText(lead.state),
+    notes: cleanText(lead.notes),
+    customPrompt: cleanText(callerConfig?.prompt)
+  });
 
   const assistantPayload = assistantId
-    ? { assistantId }
+    ? {
+        assistantId,
+        assistantOverrides: {
+          variableValues,
+          metadata: {
+            source: "admin-outreach",
+            prospectSummary: variableValues.prospectSummary
+          }
+        }
+      }
     : {
         assistant: {
           name: `Khan Outreach - ${cleanText(lead.companyName) || prospectName || "Prospect"}`,
           model: cleanText(aiConfig?.model) || "gpt-4o-mini",
           voice: cleanText(aiConfig?.voice) || "alloy",
           temperature: typeof aiConfig?.temperature === "number" ? aiConfig.temperature : 0.3,
-          systemPrompt: buildOutreachPhonePrompt({
-            orgName: cleanText(lead.organization?.name) || "Khan Automation Systems",
-            companyName: cleanText(lead.companyName),
-            contactName: prospectName,
-            industry: cleanText(lead.industry),
-            city: cleanText(lead.city),
-            state: cleanText(lead.state),
-            notes: cleanText(lead.notes),
-            customPrompt: cleanText(callerConfig?.prompt)
-          })
+          systemPrompt: contextualPrompt
         }
       };
 
@@ -215,7 +266,8 @@ export async function startOutreachAiCall(input: {
         outreachCallerConfigId: callerConfig?.id || null,
         orgId: lead.orgId,
         companyName: cleanText(lead.companyName) || null,
-        contactName: cleanText(lead.contactName) || null
+        contactName: cleanText(lead.contactName) || null,
+        variableValues
       }
     })
   });

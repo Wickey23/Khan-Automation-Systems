@@ -261,6 +261,30 @@ export default function AdminOutreachCallerPage() {
                   Vapi API key is not configured on the backend, so assistants and phone numbers cannot be listed automatically yet.
                 </div>
               ) : null}
+              <div className="md:col-span-2 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-muted-foreground">
+                <div className="font-medium text-foreground">Available dynamic variables for your Vapi assistant</div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {[
+                    "{{orgName}}",
+                    "{{companyName}}",
+                    "{{contactName}}",
+                    "{{industry}}",
+                    "{{city}}",
+                    "{{state}}",
+                    "{{location}}",
+                    "{{phone}}",
+                    "{{notes}}",
+                    "{{prospectSummary}}"
+                  ].map((item) => (
+                    <div key={item} className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-700">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3">
+                  If you choose a saved Vapi assistant, these values are now passed into the call so the assistant can speak naturally about who it is calling and what business it is reaching.
+                </p>
+              </div>
               <div className="md:col-span-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-muted-foreground">
                 Leads enrolled into this caller profile will be called only during the configured daily window. Choose a saved Vapi assistant if you want a managed outreach caller, or leave it blank to use the built-in outreach caller with the custom script below. Use the outreach runner to process both email and AI phone enrollments.
               </div>
