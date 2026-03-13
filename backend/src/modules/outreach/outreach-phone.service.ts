@@ -158,8 +158,30 @@ export async function startOutreachAiCall(input: {
   if (!phoneNumberId) {
     throw new Error("No Vapi outbound phone number is configured for outreach calling.");
   }
+  const assistantId = cleanText(callerConfig?.vapiAssistantId);
 
   const prospectName = sanitizeProspectName(lead.contactName) || sanitizeProspectName(lead.companyName);
+
+  const assistantPayload = assistantId
+    ? { assistantId }
+    : {
+        assistant: {
+          name: `Khan Outreach - ${cleanText(lead.companyName) || prospectName || "Prospect"}`,
+          model: cleanText(aiConfig?.model) || "gpt-4o-mini",
+          voice: cleanText(aiConfig?.voice) || "alloy",
+          temperature: typeof aiConfig?.temperature === "number" ? aiConfig.temperature : 0.3,
+          systemPrompt: buildOutreachPhonePrompt({
+            orgName: cleanText(lead.organization?.name) || "Khan Automation Systems",
+            companyName: cleanText(lead.companyName),
+            contactName: prospectName,
+            industry: cleanText(lead.industry),
+            city: cleanText(lead.city),
+            state: cleanText(lead.state),
+            notes: cleanText(lead.notes),
+            customPrompt: cleanText(callerConfig?.prompt)
+          })
+        }
+      };
 
   const response = await fetch("https://api.vapi.ai/call", {
     method: "POST",
@@ -173,22 +195,7 @@ export async function startOutreachAiCall(input: {
         number: customerNumber,
         name: prospectName || undefined
       },
-      assistant: {
-        name: `Khan Outreach - ${cleanText(lead.companyName) || prospectName || "Prospect"}`,
-        model: cleanText(aiConfig?.model) || "gpt-4o-mini",
-        voice: cleanText(aiConfig?.voice) || "alloy",
-        temperature: typeof aiConfig?.temperature === "number" ? aiConfig.temperature : 0.3,
-        systemPrompt: buildOutreachPhonePrompt({
-          orgName: cleanText(lead.organization?.name) || "Khan Automation Systems",
-          companyName: cleanText(lead.companyName),
-          contactName: prospectName,
-          industry: cleanText(lead.industry),
-          city: cleanText(lead.city),
-          state: cleanText(lead.state),
-          notes: cleanText(lead.notes),
-          customPrompt: cleanText(callerConfig?.prompt)
-        })
-      },
+      ...assistantPayload,
       metadata: {
         source: "admin-outreach",
         outreachLeadId: lead.id,
@@ -257,6 +264,7 @@ export async function startOutreachAiCall(input: {
           status,
           toNumber: customerNumber,
           phoneNumberId,
+          assistantId: assistantId || null,
           callerConfigId: callerConfig?.id || null,
           enrollmentId: input.enrollmentId || null
         })

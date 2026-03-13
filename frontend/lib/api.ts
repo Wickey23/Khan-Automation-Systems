@@ -481,6 +481,7 @@ export async function createAdminOutreachCallerConfig(payload: {
   name: string;
   description?: string;
   isActive?: boolean;
+  vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
   twilioFromNumber?: string;
   timezone?: string;

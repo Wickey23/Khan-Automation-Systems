@@ -951,6 +951,7 @@ model OutreachCallerConfig {
   name               String
   description        String?
   isActive           Boolean                  @default(true)
+  vapiAssistantId    String?
   vapiPhoneNumberId  String?
   twilioFromNumber   String?
   timezone           String                   @default("America/New_York")

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
-import { createAdminOutreachCallerConfig, fetchAdminOutreachCallerConfigs, updateAdminOutreachCallerConfig } from "@/lib/api";
+import { createAdminOutreachCallerConfig, fetchAdminOutreachCallerConfigs, fetchAdminVapiResources, updateAdminOutreachCallerConfig } from "@/lib/api";
 import type { OutreachCallerConfig } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const DEFAULT_FORM = {
   name: "Primary Outreach Caller",
   description: "AI caller for live prospecting and intro calls.",
   isActive: true,
+  vapiAssistantId: "",
   vapiPhoneNumberId: "",
   twilioFromNumber: "",
   timezone: "America/New_York",
@@ -33,6 +34,9 @@ export default function AdminOutreachCallerPage() {
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [vapiConfigured, setVapiConfigured] = useState(false);
+  const [assistants, setAssistants] = useState<Array<{ id: string; name: string }>>([]);
+  const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; number: string; provider: string }>>([]);
 
   const load = useCallback(async () => {
     try {
@@ -46,6 +50,7 @@ export default function AdminOutreachCallerPage() {
           name: selected.name,
           description: selected.description || "",
           isActive: selected.isActive,
+          vapiAssistantId: selected.vapiAssistantId || "",
           vapiPhoneNumberId: selected.vapiPhoneNumberId || "",
           twilioFromNumber: selected.twilioFromNumber || "",
           timezone: selected.timezone,
@@ -67,6 +72,20 @@ export default function AdminOutreachCallerPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void fetchAdminVapiResources()
+      .then((data) => {
+        setVapiConfigured(Boolean(data.configured));
+        setAssistants(data.assistants || []);
+        setPhoneNumbers(data.phoneNumbers || []);
+      })
+      .catch(() => {
+        setVapiConfigured(false);
+        setAssistants([]);
+        setPhoneNumbers([]);
+      });
+  }, []);
 
   async function onSave() {
     setSaving(true);
@@ -123,6 +142,7 @@ export default function AdminOutreachCallerPage() {
                       name: config.name,
                       description: config.description || "",
                       isActive: config.isActive,
+                      vapiAssistantId: config.vapiAssistantId || "",
                       vapiPhoneNumberId: config.vapiPhoneNumberId || "",
                       twilioFromNumber: config.twilioFromNumber || "",
                       timezone: config.timezone,
@@ -166,8 +186,36 @@ export default function AdminOutreachCallerPage() {
                 <Input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>Vapi phone number ID</Label>
-                <Input value={form.vapiPhoneNumberId} onChange={(e) => setForm((current) => ({ ...current, vapiPhoneNumberId: e.target.value }))} placeholder="pn_xxx" />
+                <Label>Vapi assistant</Label>
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={form.vapiAssistantId}
+                  onChange={(e) => setForm((current) => ({ ...current, vapiAssistantId: e.target.value }))}
+                  disabled={!vapiConfigured}
+                >
+                  <option value="">Use inline outreach caller</option>
+                  {assistants.map((assistant) => (
+                    <option key={assistant.id} value={assistant.id}>
+                      {assistant.name} ({assistant.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Vapi phone number</Label>
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={form.vapiPhoneNumberId}
+                  onChange={(e) => setForm((current) => ({ ...current, vapiPhoneNumberId: e.target.value }))}
+                  disabled={!vapiConfigured}
+                >
+                  <option value="">Use org/app fallback number</option>
+                  {phoneNumbers.map((number) => (
+                    <option key={number.id} value={number.id}>
+                      {number.number} ({number.id})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Description</Label>
@@ -208,8 +256,13 @@ export default function AdminOutreachCallerPage() {
                   placeholder="Optional campaign-specific instructions, offer, target industries, or qualification notes."
                 />
               </div>
+              {!vapiConfigured ? (
+                <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Vapi API key is not configured on the backend, so assistants and phone numbers cannot be listed automatically yet.
+                </div>
+              ) : null}
               <div className="md:col-span-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-muted-foreground">
-                Leads enrolled into this caller profile will be called only during the configured daily window. Use the outreach runner to process both email and AI phone enrollments. Keep the prompt short, professional, and focused on gauging interest plus the preferred next step.
+                Leads enrolled into this caller profile will be called only during the configured daily window. Choose a saved Vapi assistant if you want a managed outreach caller, or leave it blank to use the built-in outreach caller with the custom script below. Use the outreach runner to process both email and AI phone enrollments.
               </div>
             </CardContent>
           </Card>

@@ -377,6 +377,7 @@ outreachAdminRouter.post("/caller-configs", async (req: Request, res: Response) 
       name: parsed.data.name,
       description: parsed.data.description,
       isActive: parsed.data.isActive ?? true,
+      vapiAssistantId: parsed.data.vapiAssistantId,
       vapiPhoneNumberId: parsed.data.vapiPhoneNumberId,
       twilioFromNumber: parsed.data.twilioFromNumber,
       timezone: parsed.data.timezone || "America/New_York",

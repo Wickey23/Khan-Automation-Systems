@@ -616,6 +616,7 @@ export type OutreachCallerConfig = {
   name: string;
   description: string | null;
   isActive: boolean;
+  vapiAssistantId: string | null;
   vapiPhoneNumberId: string | null;
   twilioFromNumber: string | null;
   timezone: string;
