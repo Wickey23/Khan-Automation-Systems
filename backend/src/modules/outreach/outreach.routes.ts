@@ -63,13 +63,17 @@ function pagination(query: { page?: number; limit?: number }) {
   return { page, limit, skip: (page - 1) * limit };
 }
 
+function decorateOutreachEvent<T extends Record<string, unknown>, C extends "EMAIL" | "PHONE">(channel: C, event: T) {
+  return { channel, ...event };
+}
+
 outreachAdminRouter.get("/overview", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
 
   const orgId = parsed.data.orgId;
   const whereOrg = orgId ? { orgId } : {};
-  const [totalLeads, activeEnrollments, activePhoneEnrollments, emailsSent, phoneCallsStarted, replies, unsubscribes, recentEvents] = await Promise.all([
+  const [totalLeads, activeEnrollments, activePhoneEnrollments, emailsSent, phoneCallsStarted, replies, unsubscribes, recentEmailEvents, recentPhoneEvents] = await Promise.all([
     db.outreachLead.count({ where: whereOrg }),
     db.outreachEnrollment.count({ where: { ...whereOrg, status: "ACTIVE" } }),
     db.outreachPhoneEnrollment.count({ where: { ...whereOrg, status: "ACTIVE" } }),
@@ -85,8 +89,25 @@ outreachAdminRouter.get("/overview", safeOutreachRoute(async (req: Request, res:
       },
       orderBy: { createdAt: "desc" },
       take: 12
+    }),
+    db.outreachPhoneEvent.findMany({
+      where: whereOrg,
+      include: {
+        organization: { select: { id: true, name: true } },
+        lead: { select: { id: true, email: true, companyName: true, contactName: true } },
+        callerConfig: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12
     })
   ]);
+
+  const recentEvents = [
+    ...recentEmailEvents.map((event: any) => decorateOutreachEvent("EMAIL", event)),
+    ...recentPhoneEvents.map((event: any) => decorateOutreachEvent("PHONE", event))
+  ]
+    .sort((a, b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime())
+    .slice(0, 12);
 
   return res.json({
     ok: true,
@@ -157,7 +178,10 @@ outreachAdminRouter.get("/leads", safeOutreachRoute(async (req: Request, res: Re
             status: true,
             toPhone: true,
             createdAt: true,
-            errorMessage: true
+            errorMessage: true,
+            summary: true,
+            providerCallId: true,
+            metadata: true
           }
         }
       },
@@ -823,29 +847,61 @@ outreachAdminRouter.get("/events", async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
   const { skip, limit, page } = pagination(parsed.data);
-  const where: any = {};
-  if (parsed.data.orgId) where.orgId = parsed.data.orgId;
-  if (parsed.data.eventType) where.eventType = parsed.data.eventType as any;
+  const emailWhere: any = {};
+  const phoneWhere: any = {};
+  if (parsed.data.orgId) {
+    emailWhere.orgId = parsed.data.orgId;
+    phoneWhere.orgId = parsed.data.orgId;
+  }
+  if (parsed.data.eventType && ["QUEUED", "SENT", "DELIVERED", "OPENED", "CLICKED", "BOUNCED", "COMPLAINED", "FAILED", "REPLIED", "UNSUBSCRIBED"].includes(parsed.data.eventType)) {
+    emailWhere.eventType = parsed.data.eventType as any;
+  }
+  if (parsed.data.eventType && ["QUEUED", "STARTED", "COMPLETED", "FAILED"].includes(parsed.data.eventType)) {
+    phoneWhere.eventType = parsed.data.eventType as any;
+  }
   if (parsed.data.search) {
-    where.OR = [
+    emailWhere.OR = [
       { toEmail: { contains: parsed.data.search, mode: "insensitive" } },
-      { subject: { contains: parsed.data.search, mode: "insensitive" } }
+      { subject: { contains: parsed.data.search, mode: "insensitive" } },
+      { lead: { companyName: { contains: parsed.data.search, mode: "insensitive" } } },
+      { lead: { contactName: { contains: parsed.data.search, mode: "insensitive" } } }
+    ];
+    phoneWhere.OR = [
+      { toPhone: { contains: parsed.data.search, mode: "insensitive" } },
+      { summary: { contains: parsed.data.search, mode: "insensitive" } },
+      { errorMessage: { contains: parsed.data.search, mode: "insensitive" } },
+      { lead: { companyName: { contains: parsed.data.search, mode: "insensitive" } } },
+      { lead: { contactName: { contains: parsed.data.search, mode: "insensitive" } } }
     ];
   }
-  const [events, total] = await Promise.all([
+  const [emailEvents, phoneEvents] = await Promise.all([
     db.outreachEmailEvent.findMany({
-      where,
+      where: emailWhere,
       include: {
         organization: { select: { id: true, name: true } },
         lead: { select: { id: true, email: true, companyName: true, contactName: true } },
         sequence: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: "desc" },
-      skip,
-      take: limit
+      take: Math.max(limit * page, 100)
     }),
-    db.outreachEmailEvent.count({ where })
+    db.outreachPhoneEvent.findMany({
+      where: phoneWhere,
+      include: {
+        organization: { select: { id: true, name: true } },
+        lead: { select: { id: true, email: true, companyName: true, contactName: true } },
+        callerConfig: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * page, 100)
+    })
   ]);
+  const merged = [
+    ...emailEvents.map((event: any) => decorateOutreachEvent("EMAIL", event)),
+    ...phoneEvents.map((event: any) => decorateOutreachEvent("PHONE", event))
+  ].sort((a, b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
+  const total = merged.length;
+  const events = merged.slice(skip, skip + limit);
   return res.json({ ok: true, data: { events, total, page, limit } });
 });
 

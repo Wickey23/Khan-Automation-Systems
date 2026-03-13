@@ -5,7 +5,7 @@ import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import { fetchAdminOutreachEvents } from "@/lib/api";
-import type { OutreachEmailEvent } from "@/lib/types";
+import type { OutreachActivityEvent } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ export default function AdminOutreachEventsPage() {
   const { showToast } = useToast();
   const [eventType, setEventType] = useState("ALL");
   const [search, setSearch] = useState("");
-  const [events, setEvents] = useState<OutreachEmailEvent[]>([]);
+  const [events, setEvents] = useState<OutreachActivityEvent[]>([]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -47,7 +47,7 @@ export default function AdminOutreachEventsPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach Events"
-          description="Review every send attempt, provider response, and stop event from the internal outreach module."
+          description="Review every email send, AI call attempt, provider response, reply, and failure from internal outreach."
         />
         <OutreachSubnav />
 
@@ -59,13 +59,13 @@ export default function AdminOutreachEventsPage() {
               className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
             >
               <option value="ALL">All event types</option>
-              {["QUEUED", "SENT", "FAILED", "REPLIED", "UNSUBSCRIBED", "BOUNCED"].map((type) => (
+              {["QUEUED", "SENT", "STARTED", "COMPLETED", "FAILED", "REPLIED", "UNSUBSCRIBED", "BOUNCED"].map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>
               ))}
             </select>
-            <Input placeholder="Search email or subject" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <Input placeholder="Search email, phone, company, subject, or summary" value={search} onChange={(event) => setSearch(event.target.value)} />
           </CardContent>
         </Card>
 
@@ -76,18 +76,32 @@ export default function AdminOutreachEventsPage() {
           <CardContent className="space-y-3">
             {events.length ? (
               events.map((event) => (
-                <div key={event.id} className="rounded-lg border p-4">
+                <div key={`${event.channel}-${event.id}`} className="rounded-lg border p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="font-semibold">{event.subject || "No subject"}</div>
-                      <div className="text-sm text-muted-foreground">{event.toEmail}</div>
+                      <div className="font-semibold">
+                        {event.channel === "EMAIL"
+                          ? event.subject || "Email outreach"
+                          : event.summary || `${event.callerConfig?.name || "Caller AI"} phone outreach`}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
+                        {event.lead?.companyName ? ` • ${event.lead.companyName}` : ""}
+                      </div>
                     </div>
-                    <div className="text-sm">{event.eventType}</div>
+                    <div className="text-sm">{event.channel} • {event.eventType}</div>
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground">
                     {new Date(event.createdAt).toLocaleString()}
-                    {event.providerMessageId ? ` · provider ${event.providerMessageId}` : ""}
+                    {event.channel === "EMAIL" && event.providerMessageId ? ` • provider ${event.providerMessageId}` : ""}
+                    {event.channel === "PHONE" && event.providerCallId ? ` • call ${event.providerCallId}` : ""}
                   </div>
+                  {event.channel === "PHONE" && event.status ? (
+                    <div className="mt-2 text-sm text-muted-foreground">Status: {event.status}</div>
+                  ) : null}
+                  {event.channel === "PHONE" && event.summary ? (
+                    <div className="mt-2 text-sm text-foreground">{event.summary}</div>
+                  ) : null}
                   {event.errorMessage ? <div className="mt-2 text-sm text-red-700">{event.errorMessage}</div> : null}
                 </div>
               ))

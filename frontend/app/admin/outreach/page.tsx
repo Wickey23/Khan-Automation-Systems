@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
@@ -15,7 +15,7 @@ export default function AdminOutreachOverviewPage() {
   const { showToast } = useToast();
   const [data, setData] = useState<OutreachOverview | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const overview = await fetchAdminOutreachOverview();
       setData(overview);
@@ -26,11 +26,11 @@ export default function AdminOutreachOverviewPage() {
         variant: "error"
       });
     }
-  }
+  }, [showToast]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   async function runTick() {
     try {
@@ -56,7 +56,7 @@ export default function AdminOutreachOverviewPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach"
-          description="Manage internal outbound outreach for Khan Automation across email sequences and AI calling."
+          description="Manage internal outbound outreach across email and AI calling, and monitor what was sent, called, replied to, or failed."
           actions={
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => void load()}>
@@ -93,14 +93,15 @@ export default function AdminOutreachOverviewPage() {
           <CardContent className="space-y-3">
             {data?.recentEvents?.length ? (
               data.recentEvents.map((event) => (
-                <div key={event.id} className="rounded-lg border p-3 text-sm">
+                <div key={`${event.channel}-${event.id}`} className="rounded-lg border p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="font-medium">
-                      {event.eventType} · {event.subject || "No subject"}
+                      {event.channel} • {event.eventType} • {event.channel === "EMAIL" ? event.subject || "Email outreach" : event.summary || "Phone outreach"}
                     </div>
                     <div className="text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</div>
                   </div>
-                  <div className="mt-1 text-muted-foreground">{event.toEmail}</div>
+                  <div className="mt-1 text-muted-foreground">{event.channel === "EMAIL" ? event.toEmail : event.toPhone}</div>
+                  {event.channel === "PHONE" && event.summary ? <div className="mt-1">{event.summary}</div> : null}
                   {event.errorMessage ? <div className="mt-1 text-red-700">{event.errorMessage}</div> : null}
                 </div>
               ))

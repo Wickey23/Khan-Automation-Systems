@@ -72,7 +72,13 @@ function buildLeadActivity(lead: OutreachLead) {
           : event.eventType === "STARTED"
             ? "AI call started"
             : "AI call queued",
-    detail: event.errorMessage || event.status || event.toPhone || "Phone event"
+    detail:
+      event.errorMessage ||
+      event.summary ||
+      String((event.metadata as { transcript?: string } | undefined)?.transcript || "").trim() ||
+      event.status ||
+      event.toPhone ||
+      "Phone event"
   }));
 
   return [...phoneItems, ...emailItems]
@@ -702,6 +708,9 @@ export default function AdminOutreachLeadsPage() {
                               <Button size="sm" variant="outline" onClick={() => void onSendPhoneNow(enrollment.id)}>Call now</Button>
                               <Button size="sm" variant="outline" onClick={() => void onPausePhoneEnrollment(enrollment.id)}>Pause</Button>
                             </div>
+                          ) : null}
+                          {enrollment.stopReason ? (
+                            <div className="w-full text-xs text-red-700">{enrollment.stopReason}</div>
                           ) : null}
                         </div>
                       ))}

@@ -301,6 +301,107 @@ function buildSafeVapiSummaryFallback(input: {
   return "Customer request captured for office review.";
 }
 
+function extractOutreachMetadata(input: Record<string, unknown>[]) {
+  for (const candidate of input) {
+    const obj = asObject(candidate);
+    if (!Object.keys(obj).length) continue;
+    const source = pickString(obj.source);
+    const outreachLeadId = pickString(obj.outreachLeadId);
+    const outreachPhoneEnrollmentId = pickString(obj.outreachPhoneEnrollmentId);
+    const outreachCallerConfigId = pickString(obj.outreachCallerConfigId);
+    if (source === "admin-outreach" || outreachLeadId || outreachPhoneEnrollmentId || outreachCallerConfigId) {
+      return {
+        source: source || null,
+        leadId: outreachLeadId || null,
+        enrollmentId: outreachPhoneEnrollmentId || null,
+        callerConfigId: outreachCallerConfigId || null
+      };
+    }
+  }
+  return null;
+}
+
+async function syncOutreachPhoneEventFromVapi(input: {
+  orgId: string;
+  providerCallId: string;
+  eventType: string;
+  callStatus: string;
+  outcome: string | null;
+  summary: string | null;
+  transcript: string | null;
+  recordingUrl: string | null;
+  toPhone: string;
+  fromPhone: string | null;
+  outreach: { leadId: string | null; enrollmentId: string | null; callerConfigId: string | null };
+}) {
+  const terminalStatuses = new Set(["ended", "completed", "failed", "canceled", "cancelled", "busy", "no-answer", "timeout"]);
+  const isTerminal = input.eventType === "end-of-call-report" || terminalStatuses.has(input.callStatus);
+  const finalEventType = ["failed", "busy", "no-answer", "timeout", "canceled", "cancelled"].includes(input.callStatus)
+    ? "FAILED"
+    : "COMPLETED";
+
+  const metadata = {
+    transcript: input.transcript,
+    recordingUrl: input.recordingUrl,
+    outcome: input.outcome,
+    callStatus: input.callStatus
+  } as Prisma.InputJsonValue;
+
+  await prisma.outreachPhoneEvent.updateMany({
+    where: {
+      providerCallId: input.providerCallId,
+      eventType: "STARTED"
+    },
+    data: {
+      status: input.callStatus || null,
+      summary: input.summary || undefined,
+      metadata
+    }
+  });
+
+  if (!isTerminal) return;
+
+  const existingTerminal = await prisma.outreachPhoneEvent.findFirst({
+    where: {
+      providerCallId: input.providerCallId,
+      eventType: finalEventType
+    },
+    select: { id: true }
+  });
+
+  if (!existingTerminal) {
+    await prisma.outreachPhoneEvent.create({
+      data: {
+        orgId: input.orgId,
+        leadId: input.outreach.leadId,
+        enrollmentId: input.outreach.enrollmentId,
+        callerConfigId: input.outreach.callerConfigId,
+        provider: "VAPI",
+        providerCallId: input.providerCallId,
+        eventType: finalEventType as any,
+        toPhone: input.toPhone,
+        fromPhone: input.fromPhone,
+        status: input.callStatus || null,
+        summary: input.summary || null,
+        errorMessage: finalEventType === "FAILED" ? input.summary || input.outcome || input.callStatus || "Outreach call failed." : null,
+        metadata
+      }
+    });
+  }
+
+  if (input.outreach.enrollmentId) {
+    await prisma.outreachPhoneEnrollment.updateMany({
+      where: { id: input.outreach.enrollmentId },
+      data: {
+        status: finalEventType === "FAILED" ? "FAILED" : "COMPLETED",
+        nextCallAt: null,
+        processingStartedAt: null,
+        stopReason: finalEventType === "FAILED" ? (input.summary || input.outcome || input.callStatus || "Outreach call failed.") : null
+      }
+    });
+  }
+}
+
 async function ensureLeadForCall(input: {
   orgId: string;
   callLogId: string;
@@ -445,6 +546,11 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
   const artifact = asObject(root.artifact);
   const eventType = pickString(body.type, body.event, body.messageType, root.type, root.event, root.messageType).toLowerCase() || "unknown";
   const assistant = asObject(call.assistant);
+  const outreachMetadata = extractOutreachMetadata([
+    body.metadata as Record<string, unknown>,
+    root.metadata as Record<string, unknown>,
+    call.metadata as Record<string, unknown>
+  ]);
 
   const callSid = pickString(
     body.callSid,
@@ -765,6 +871,22 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         ...(eventType === "end-of-call-report" || endedByStatus ? { endedAt: new Date() } : {})
       }
     });
+
+    if (outreachMetadata) {
+      await syncOutreachPhoneEventFromVapi({
+        orgId: resolvedOrgId,
+        providerCallId: callSid,
+        eventType,
+        callStatus,
+        outcome: effectiveOutcome,
+        summary: safeSummary,
+        transcript,
+        recordingUrl,
+        toPhone: toNumber,
+        fromPhone: fromNumber !== "unknown" ? fromNumber : null,
+        outreach: outreachMetadata
+      });
+    }
 
     if (appointmentIntentFallback.source !== "none" && appointmentIntentFallback.source !== "existing_signal") {
       await prisma.auditLog.create({

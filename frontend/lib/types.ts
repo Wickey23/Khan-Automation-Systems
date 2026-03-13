@@ -598,6 +598,7 @@ export type OutreachLead = {
     id: string;
     status: OutreachEnrollmentStatus;
     nextCallAt: string | null;
+    stopReason?: string | null;
     callerConfig?: { id: string; name: string } | null;
   }>;
   emailEvents?: Array<{
@@ -615,6 +616,9 @@ export type OutreachLead = {
     toPhone: string;
     createdAt: string;
     errorMessage: string | null;
+    summary?: string | null;
+    providerCallId?: string | null;
+    metadata?: Record<string, unknown> | null;
   }>;
 };
 
@@ -726,6 +730,31 @@ export type OutreachEmailEvent = {
   sequence?: { id: string; name: string } | null;
 };
 
+export type OutreachPhoneEvent = {
+  id: string;
+  orgId: string;
+  leadId: string | null;
+  enrollmentId: string | null;
+  callerConfigId: string | null;
+  provider: string;
+  providerCallId: string | null;
+  eventType: "QUEUED" | "STARTED" | "COMPLETED" | "FAILED";
+  toPhone: string;
+  fromPhone: string | null;
+  status: string | null;
+  summary: string | null;
+  errorMessage: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  organization?: { id: string; name: string } | null;
+  lead?: { id: string; email: string; companyName: string | null; contactName: string | null } | null;
+  callerConfig?: { id: string; name: string } | null;
+};
+
+export type OutreachActivityEvent =
+  | ({ channel: "EMAIL" } & OutreachEmailEvent)
+  | ({ channel: "PHONE" } & OutreachPhoneEvent);
+
 export type OutreachOverview = {
   totalLeads: number;
   activeEnrollments: number;
@@ -734,7 +763,7 @@ export type OutreachOverview = {
   phoneCallsStarted?: number;
   replies: number;
   unsubscribes: number;
-  recentEvents: OutreachEmailEvent[];
+  recentEvents: OutreachActivityEvent[];
 };
 
 export type OutreachBulkImportRowResult =

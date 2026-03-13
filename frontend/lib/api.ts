@@ -50,7 +50,7 @@ import type {
   OrgNotification,
   OutreachBulkImportRowResult,
   OutreachCallerConfig,
-  OutreachEmailEvent,
+  OutreachActivityEvent,
   OutreachEnrollment,
   OutreachLead,
   OutreachPhoneEnrollment,
@@ -617,7 +617,7 @@ export async function runAdminOutreachTick() {
 }
 
 export async function fetchAdminOutreachEvents(query = "") {
-  return request<{ events: OutreachEmailEvent[]; total: number; page: number; limit: number }>(`/api/admin/outreach/events${query}`);
+  return request<{ events: OutreachActivityEvent[]; total: number; page: number; limit: number }>(`/api/admin/outreach/events${query}`);
 }
 
 export async function unsubscribeOutreachToken(token: string) {
