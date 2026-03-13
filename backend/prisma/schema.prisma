@@ -915,6 +915,10 @@ model OutreachLead {
   state           String?
   industry        String?
   website         String?
+  angle           String?
+  painPoint       String?
+  offer           String?
+  sourceList      String?
   notes           String?
   status          OutreachLeadStatus @default(NEW)
   lastContactedAt DateTime?

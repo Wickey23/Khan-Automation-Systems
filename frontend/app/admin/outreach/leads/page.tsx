@@ -33,9 +33,9 @@ import {
 } from "@/lib/api";
 import type { OutreachBulkImportRowResult, OutreachCallerConfig, OutreachLead, OutreachSequence } from "@/lib/types";
 
-const CSV_TEMPLATE = `companyName,contactName,email,phone,city,state,industry,website,notes
-Acme Truck Repair,Sam Rivera,sam@acmetruckrepair.com,555-111-2222,Dallas,TX,Truck Repair,https://acmetruckrepair.com,Imported from list
-Metro HVAC,Jamie Cole,jamie@metrohvac.com,555-333-4444,Austin,TX,HVAC,https://metrohvac.com,Priority batch`;
+const CSV_TEMPLATE = `companyName,contactName,email,phone,city,state,industry,website,angle,painPoint,offer,sourceList,notes
+Acme Truck Repair,Sam Rivera,sam@acmetruckrepair.com,555-111-2222,Dallas,TX,Truck Repair,https://acmetruckrepair.com,Missed calls,After-hours calls go unanswered,Offer a short missed-call recovery demo,Lead Finder Batch 1,Imported from list
+Metro HVAC,Jamie Cole,jamie@metrohvac.com,555-333-4444,Austin,TX,HVAC,https://metrohvac.com,Faster follow-up,Slow callback times,Offer a quick callback review,Lead Finder Batch 1,Priority batch`;
 
 function formatLeadHeadline(lead: OutreachLead) {
   return lead.companyName || lead.contactName || lead.email;
@@ -112,6 +112,10 @@ export default function AdminOutreachLeadsPage() {
     state: "",
     industry: "",
     website: "",
+    angle: "",
+    painPoint: "",
+    offer: "",
+    sourceList: "",
     notes: ""
   });
 
@@ -158,6 +162,10 @@ export default function AdminOutreachLeadsPage() {
         state: "",
         industry: "",
         website: "",
+        angle: "",
+        painPoint: "",
+        offer: "",
+        sourceList: "",
         notes: ""
       });
       await load();
@@ -514,6 +522,10 @@ export default function AdminOutreachLeadsPage() {
               <div><Label>State</Label><Input value={form.state} onChange={(event) => setForm((current) => ({ ...current, state: event.target.value }))} /></div>
               <div><Label>Industry</Label><Input value={form.industry} onChange={(event) => setForm((current) => ({ ...current, industry: event.target.value }))} /></div>
               <div><Label>Website</Label><Input value={form.website} onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))} /></div>
+              <div><Label>Angle</Label><Input value={form.angle} onChange={(event) => setForm((current) => ({ ...current, angle: event.target.value }))} placeholder="Missed calls, after-hours coverage, more booked jobs" /></div>
+              <div><Label>Pain point</Label><Input value={form.painPoint} onChange={(event) => setForm((current) => ({ ...current, painPoint: event.target.value }))} placeholder="What problem should the caller focus on?" /></div>
+              <div><Label>Offer</Label><Input value={form.offer} onChange={(event) => setForm((current) => ({ ...current, offer: event.target.value }))} placeholder="Short demo, callback, text details" /></div>
+              <div><Label>Source list</Label><Input value={form.sourceList} onChange={(event) => setForm((current) => ({ ...current, sourceList: event.target.value }))} placeholder="Lead Finder Batch 1" /></div>
               <div className="sm:col-span-2"><Label>Notes</Label><Textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></div>
               <div className="sm:col-span-2"><Button onClick={() => void onCreateLead()}>Create lead</Button></div>
             </CardContent>
@@ -525,7 +537,7 @@ export default function AdminOutreachLeadsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Upload or paste CSV rows with `companyName, contactName, email, phone, city, state, industry, website, notes`.
+                Upload or paste CSV rows with `companyName, contactName, email, phone, city, state, industry, website, angle, painPoint, offer, sourceList, notes`.
                 Preview first, then explicitly confirm whether the import should start email outreach or Caller AI outreach.
               </p>
               <div className="flex flex-wrap gap-2">
@@ -627,6 +639,10 @@ export default function AdminOutreachLeadsPage() {
                         {(lead.city || lead.state) ? `${lead.city || ""}${lead.city && lead.state ? ", " : ""}${lead.state || ""}` : "Location not set"}
                         {lead.industry ? ` - ${lead.industry}` : ""}
                       </div>
+                      {lead.angle ? <div className="mt-2 text-muted-foreground"><span className="font-medium text-foreground">Angle:</span> {lead.angle}</div> : null}
+                      {lead.painPoint ? <div className="mt-1 text-muted-foreground"><span className="font-medium text-foreground">Pain point:</span> {lead.painPoint}</div> : null}
+                      {lead.offer ? <div className="mt-1 text-muted-foreground"><span className="font-medium text-foreground">Offer:</span> {lead.offer}</div> : null}
+                      {lead.sourceList ? <div className="mt-1 text-muted-foreground"><span className="font-medium text-foreground">Source list:</span> {lead.sourceList}</div> : null}
                       {lead.notes ? <div className="mt-2 text-muted-foreground">{lead.notes}</div> : null}
                     </div>
 

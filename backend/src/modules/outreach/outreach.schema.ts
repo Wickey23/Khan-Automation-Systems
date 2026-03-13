@@ -16,6 +16,10 @@ export const outreachLeadCreateSchema = z.object({
   state: optionalTrimmed,
   industry: optionalTrimmed,
   website: optionalTrimmed,
+  angle: optionalTrimmed,
+  painPoint: optionalTrimmed,
+  offer: optionalTrimmed,
+  sourceList: optionalTrimmed,
   notes: optionalTrimmed,
   status: z.enum(["NEW", "ACTIVE", "PAUSED", "REPLIED", "BOUNCED", "UNSUBSCRIBED", "COMPLETED"]).optional()
 });
@@ -29,6 +33,10 @@ export const outreachLeadUpdateSchema = z.object({
   state: optionalTrimmed,
   industry: optionalTrimmed,
   website: optionalTrimmed,
+  angle: optionalTrimmed,
+  painPoint: optionalTrimmed,
+  offer: optionalTrimmed,
+  sourceList: optionalTrimmed,
   notes: optionalTrimmed,
   status: z.enum(["NEW", "ACTIVE", "PAUSED", "REPLIED", "BOUNCED", "UNSUBSCRIBED", "COMPLETED"]).optional()
 });

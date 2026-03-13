@@ -581,6 +581,10 @@ export type OutreachLead = {
   state: string | null;
   industry: string | null;
   website: string | null;
+  angle: string | null;
+  painPoint: string | null;
+  offer: string | null;
+  sourceList: string | null;
   notes: string | null;
   status: OutreachLeadStatus;
   lastContactedAt: string | null;

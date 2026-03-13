@@ -22,6 +22,10 @@ export const OUTREACH_TEMPLATE_VARIABLES = [
   "state",
   "industry",
   "website",
+  "angle",
+  "painPoint",
+  "offer",
+  "sourceList",
   "notes",
   "orgName"
 ] as const;
@@ -86,6 +90,10 @@ function buildTemplateContext(input: {
     industry?: string | null;
     website?: string | null;
     notes?: string | null;
+    angle?: string | null;
+    painPoint?: string | null;
+    offer?: string | null;
+    sourceList?: string | null;
   };
   orgName?: string | null;
 }) {
@@ -100,6 +108,10 @@ function buildTemplateContext(input: {
     state: String(input.lead.state || "").trim(),
     industry: String(input.lead.industry || "").trim(),
     website: String(input.lead.website || "").trim(),
+    angle: String(input.lead.angle || "").trim(),
+    painPoint: String(input.lead.painPoint || "").trim(),
+    offer: String(input.lead.offer || "").trim(),
+    sourceList: String(input.lead.sourceList || "").trim(),
     notes: String(input.lead.notes || "").trim(),
     orgName: String(input.orgName || "").trim()
   };
@@ -261,6 +273,10 @@ export async function buildBulkImportPreview(input: {
       state: row.values.state || undefined,
       industry: row.values.industry || undefined,
       website: row.values.website || undefined,
+      angle: row.values.angle || undefined,
+      painPoint: row.values.painPoint || undefined,
+      offer: row.values.offer || undefined,
+      sourceList: row.values.sourceList || undefined,
       notes: row.values.notes || undefined
     };
 
@@ -321,6 +337,10 @@ function normalizeHeader(header: string) {
   if (["state", "province", "region"].includes(value)) return "state";
   if (["industry", "category"].includes(value)) return "industry";
   if (["website", "url", "domain"].includes(value)) return "website";
+  if (["angle", "campaignangle", "talktrack", "hook"].includes(value)) return "angle";
+  if (["painpoint", "pain_point", "pain"].includes(value)) return "painPoint";
+  if (["offer", "cta"].includes(value)) return "offer";
+  if (["sourcelist", "source_list", "list", "source"].includes(value)) return "sourceList";
   if (["notes", "note"].includes(value)) return "notes";
   return null;
 }

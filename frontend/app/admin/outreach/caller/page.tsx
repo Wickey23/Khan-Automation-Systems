@@ -273,6 +273,10 @@ export default function AdminOutreachCallerPage() {
                     "{{state}}",
                     "{{location}}",
                     "{{phone}}",
+                    "{{angle}}",
+                    "{{painPoint}}",
+                    "{{offer}}",
+                    "{{sourceList}}",
                     "{{notes}}",
                     "{{prospectSummary}}"
                   ].map((item) => (

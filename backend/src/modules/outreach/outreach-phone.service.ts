@@ -26,6 +26,10 @@ function buildOutreachPhonePrompt(input: {
   industry: string;
   city: string;
   state: string;
+  angle: string;
+  painPoint: string;
+  offer: string;
+  sourceList: string;
   notes: string;
   customPrompt?: string;
 }) {
@@ -36,6 +40,10 @@ function buildOutreachPhonePrompt(input: {
     `Prospect contact: ${input.contactName || "Unknown contact"}`,
     `Industry: ${input.industry || "Local service business"}`,
     `Location: ${[input.city, input.state].filter(Boolean).join(", ") || "Unknown"}`,
+    `Conversation angle: ${input.angle || "General missed-call recovery and lead capture"}`,
+    `Prospect pain point: ${input.painPoint || "Unknown"}`,
+    `Offer to emphasize: ${input.offer || "Short overview, callback, or demo"}`,
+    `Source list: ${input.sourceList || "Unknown"}`,
     `Lead notes: ${input.notes || "None"}`,
     "Your goal is to briefly introduce Khan Automation Systems and ask whether the business would be open to learning how AI phone answering and missed-call recovery could help them capture more jobs.",
     "Call style rules:",
@@ -70,6 +78,10 @@ function buildOutreachVariableValues(input: {
   industry: string;
   city: string;
   state: string;
+  angle: string;
+  painPoint: string;
+  offer: string;
+  sourceList: string;
   notes: string;
   phone: string;
 }) {
@@ -80,12 +92,18 @@ function buildOutreachVariableValues(input: {
     industry: input.industry || "",
     city: input.city || "",
     state: input.state || "",
+    angle: input.angle || "",
+    painPoint: input.painPoint || "",
+    offer: input.offer || "",
+    sourceList: input.sourceList || "",
     notes: input.notes || "",
     phone: input.phone || "",
     location: [input.city, input.state].filter(Boolean).join(", "),
     prospectSummary: [
       input.companyName || input.contactName || "Prospect",
       input.industry || null,
+      input.angle || null,
+      input.painPoint || null,
       [input.city, input.state].filter(Boolean).join(", ") || null,
       input.notes || null
     ]
@@ -211,6 +229,10 @@ export async function startOutreachAiCall(input: {
     industry: cleanText(lead.industry),
     city: cleanText(lead.city),
     state: cleanText(lead.state),
+    angle: cleanText(lead.angle),
+    painPoint: cleanText(lead.painPoint),
+    offer: cleanText(lead.offer),
+    sourceList: cleanText(lead.sourceList),
     notes: cleanText(lead.notes),
     phone: customerNumber
   });
@@ -221,6 +243,10 @@ export async function startOutreachAiCall(input: {
     industry: cleanText(lead.industry),
     city: cleanText(lead.city),
     state: cleanText(lead.state),
+    angle: cleanText(lead.angle),
+    painPoint: cleanText(lead.painPoint),
+    offer: cleanText(lead.offer),
+    sourceList: cleanText(lead.sourceList),
     notes: cleanText(lead.notes),
     customPrompt: cleanText(callerConfig?.prompt)
   });

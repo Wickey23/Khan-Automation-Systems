@@ -395,6 +395,10 @@ export async function createAdminOutreachLead(payload: {
   state?: string;
   industry?: string;
   website?: string;
+  angle?: string;
+  painPoint?: string;
+  offer?: string;
+  sourceList?: string;
   notes?: string;
 }) {
   return request<{ lead: OutreachLead }>("/api/admin/outreach/leads", {
