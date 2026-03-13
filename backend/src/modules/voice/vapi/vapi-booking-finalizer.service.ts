@@ -67,6 +67,21 @@ function hashJson(value: unknown) {
   return crypto.createHash("sha256").update(canonicalize(value)).digest("hex");
 }
 
+function normalizeCustomerName(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const normalized = text.toLowerCase();
+  if (["unknown", "unknown caller", "unknown contact", "there"].includes(normalized)) return "";
+  return text;
+}
+
+function normalizeIssueSummary(value: string | null | undefined) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (["unknown", "n/a", "none"].includes(text.toLowerCase())) return "";
+  return text.slice(0, 500);
+}
+
 async function sendPostCallCustomerSms(input: {
   prisma: PrismaClient;
   orgId: string;
@@ -366,12 +381,14 @@ async function ensureLead(input: {
     where: { orgId: input.orgId, phone: input.phone },
     orderBy: { createdAt: "desc" }
   });
+  const safeName = normalizeCustomerName(input.name);
+  const safeMessage = normalizeIssueSummary(input.message);
   if (existing) {
     const lead = await input.prisma.lead.update({
       where: { id: existing.id },
       data: {
-        name: existing.name === "Unknown Caller" ? input.name : existing.name,
-        message: input.message || existing.message
+        name: existing.name === "Unknown Caller" && safeName ? safeName : existing.name,
+        message: safeMessage || existing.message
       }
     });
     if (input.callLogId) {
@@ -390,11 +407,11 @@ async function ensureLead(input: {
   const lead = await input.prisma.lead.create({
     data: {
       orgId: input.orgId,
-      name: input.name || "Unknown Caller",
+      name: safeName || "Unknown Caller",
       business: org?.name || "",
       email: `${input.phone.replace(/\D/g, "") || "unknown"}@no-email.local`,
       phone: input.phone,
-      message: input.message || "",
+      message: safeMessage || "",
       source: "PHONE_CALL"
     }
   });
@@ -559,7 +576,7 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
       });
     }
     const customerPhone = normalizePhone(pickString(evaluation.extracted.customerPhone, callLog.fromNumber));
-    const customerName = pickString(evaluation.extracted.customerName, analysis.name) || "there";
+    const customerName = normalizeCustomerName(pickString(evaluation.extracted.customerName, analysis.name)) || "there";
     const safeSlots = slots.slice(0, 3).map((slot) => ({
       startAt: slot.startAt,
       endAt: slot.endAt,
@@ -585,15 +602,15 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
   }
 
   const customerPhone = normalizePhone(pickString(evaluation.extracted.customerPhone, callLog.fromNumber));
-  const customerName = pickString(
+  const customerName = normalizeCustomerName(pickString(
     evaluation.extracted.customerName,
     analysis.name
-  ) || "Unknown Caller";
-  const issueSummary = pickString(
+  )) || "Unknown Caller";
+  const issueSummary = normalizeIssueSummary(pickString(
     evaluation.extracted.issueSummary,
     callLog.aiSummary,
     callLog.transcript
-  ).slice(0, 500);
+  ));
   const serviceAddress = pickString(evaluation.extracted.serviceAddress) || null;
   const requestedStartAt = evaluation.extracted.requestedStartAt || null;
   const stateDecision = evaluateBookingState({
