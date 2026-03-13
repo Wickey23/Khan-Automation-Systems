@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
 import {
   frontDeskActionBadgeClass,
@@ -456,13 +456,13 @@ export default function AppCallsPage() {
         }
       />
 
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">When to work this queue</p>
-        <p className="mt-2 font-medium text-slate-950">Stay here when a call still needs callback, review, or escalation.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          If the newest customer movement is already a text reply, jump to Inbox. If the call is ready for scheduling, move into Booking Queue.
-        </p>
-      </div>
+      <WorkflowHint
+        items={[
+          { label: "Use this page", text: "Work calls that still need callback, review, or escalation from the original phone conversation." },
+          { label: "Start here", text: "Open the newest call first, confirm what the customer needed, then follow the next action before reading the transcript." },
+          { label: "Go next", text: "Move to Inbox when the customer already replied by text, or Booking Queue when the request is ready for scheduling." }
+        ]}
+      />
 
       <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">

@@ -33,7 +33,7 @@ import type {
 } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
-import { PageHeader, SectionHeading } from "@/components/ui/page";
+import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -772,6 +772,14 @@ export default function AppAppointmentsPage() {
             ) : null}
           </div>
         }
+      />
+
+      <WorkflowHint
+        items={[
+          { label: "Use this page", text: "Work requests that are ready for scheduling decisions and manage appointments that are already on the calendar." },
+          { label: "Start here", text: "Review pending requests first, then approve, offer times, or confirm booked work before switching to calendar or list view." },
+          { label: "Go next", text: "Move to Inbox when the customer already replied by text, or back to Front Desk when you need the broader queue context." }
+        ]}
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,420px)] xl:items-start">

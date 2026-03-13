@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, SectionHeading } from "@/components/ui/page";
+import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { clientBadgeClass } from "@/lib/client-badges";
@@ -318,6 +318,23 @@ export default function AppOnboardingPage() {
             <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
           </div>
         }
+      />
+
+      <WorkflowHint
+        items={[
+          {
+            label: "Use this page",
+            text: "Use Setup Wizard before going live so calls, texts, and booking requests follow the same rules your office already uses."
+          },
+          {
+            label: "Start here",
+            text: "Complete the business profile and operations sections first, then review the build sheet preview to confirm the receptionist understands the business."
+          },
+          {
+            label: "Go next",
+            text: "After setup is complete, move into Front Desk, Call Queue, Inbox, and Booking Queue to work the live requests that start coming in."
+          }
+        ]}
       />
 
       <Card className={frontDeskWorkspaceCardClass("hero")}>

@@ -6,7 +6,7 @@ import { fetchCustomerBase, getBillingStatus, importCustomerBase } from "@/lib/a
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 
@@ -146,9 +146,22 @@ export default function CustomerBasePage() {
         description="Use this page to recognize repeat callers quickly. It shows known customer context, linked lead records, and recent history that should shape follow-up."
       />
 
-      <div className={`${frontDeskEmptyStateClass()} text-left`}>
-        Customer Memory becomes more valuable over time. As repeat callers contact the business, this page helps the office recognize who they are, what happened last time, and whether they already have a linked lead profile.
-      </div>
+      <WorkflowHint
+        items={[
+          {
+            label: "Use this page",
+            text: "Use Customer Memory to recognize repeat callers quickly and understand what happened last time before you respond again."
+          },
+          {
+            label: "Start here",
+            text: "Search for the caller or customer record first, then review recent outcomes and linked lead history before deciding the next follow-up step."
+          },
+          {
+            label: "Go next",
+            text: "Move back into Lead Queue, Inbox, or Call Queue once the repeat-caller context tells the office what should happen next."
+          }
+        ]}
+      />
 
       {canAccess === false ? (
         <div className={`${frontDeskWorkspaceCardClass("subtle")} p-6`}>

@@ -14,9 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
-import { frontDeskContextPanelClass, frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 const PLAN_COPY = {
   none: {
@@ -313,13 +313,22 @@ export default function AppBillingPage() {
         }
       />
 
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">When to use this page</p>
-        <p className="mt-2 font-medium text-slate-950">Use Billing to keep the live front desk active and healthy.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          The work happens in Front Desk, Call Queue, Inbox, and Booking Queue. Billing is where you confirm the subscription, resolve payment problems, and check whether anything is blocking the production runtime.
-        </p>
-      </div>
+      <WorkflowHint
+        items={[
+          {
+            label: "Use this page",
+            text: "Use Billing to keep the production front desk active, paid, and free from subscription or payment blockers."
+          },
+          {
+            label: "Start here",
+            text: "Check the current subscription status and diagnostics first, then open the billing portal if you need to update the plan or fix payment issues."
+          },
+          {
+            label: "Go next",
+            text: "After resolving billing, return to Front Desk or Receptionist Setup to confirm calls, texting, and booking are no longer blocked."
+          }
+        ]}
+      />
 
       <Card className={`${frontDeskWorkspaceCardClass("hero")} overflow-hidden`}>
         <CardHeader>

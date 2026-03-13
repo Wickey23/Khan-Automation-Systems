@@ -9,7 +9,7 @@ import type { OrgAnalytics } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function pct(value: number) {
@@ -118,6 +118,14 @@ export default function AppAnalyticsPage() {
             ))}
           </div>
         }
+      />
+
+      <WorkflowHint
+        items={[
+          { label: "Use this page", text: "Use Performance to confirm whether calls, replies, and follow-up work are turning into leads and booked jobs." },
+          { label: "Start here", text: "Check demand and conversion first, then use the detailed metrics only after you understand the top-line trend." },
+          { label: "Go next", text: "Return to Front Desk, Call Queue, Inbox, or Booking Queue to act on live work. This page is for review, not daily queue work." }
+        ]}
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">

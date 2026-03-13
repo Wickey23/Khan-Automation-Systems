@@ -56,3 +56,27 @@ export function SectionHeading({
     </div>
   );
 }
+
+export function WorkflowHint({
+  className,
+  title = "What to do here",
+  items
+}: {
+  className?: string;
+  title?: string;
+  items: Array<{ label: string; text: string }>;
+}) {
+  return (
+    <div className={cn("rounded-[16px] border border-slate-300 bg-slate-50 px-5 py-4 text-sm text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.04)]", className)}>
+      <p className="page-eyebrow">{title}</p>
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.label} className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
+            <p className="leading-6 text-slate-700">{item.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

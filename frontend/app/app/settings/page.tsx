@@ -26,7 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
@@ -651,13 +651,22 @@ export default function AppSettingsPage() {
         }
       />
 
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">When to use this page</p>
-        <p className="mt-2 font-medium text-slate-950">Come here when you need to change how the front desk behaves.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          Front Desk, Call Queue, Inbox, and Booking Queue show the live work. Receptionist Setup is where you change the rules behind that work: routing, alerts, booking behavior, hours, and assistant knowledge.
-        </p>
-      </div>
+      <WorkflowHint
+        items={[
+          {
+            label: "Use this page",
+            text: "Come here when you need to change how the receptionist behaves: routing, alerts, booking rules, hours, and business knowledge."
+          },
+          {
+            label: "Start here",
+            text: "Update the section that controls the live issue you are seeing, then save settings so the front-desk queues reflect the new rules."
+          },
+          {
+            label: "Go next",
+            text: "Return to Front Desk, Call Queue, Inbox, or Booking Queue to confirm the live workflow now matches how the office wants calls and texts handled."
+          }
+        ]}
+      />
 
       <section className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <div className={frontDeskWorkspaceCardClass("subtle") + " p-5"}>

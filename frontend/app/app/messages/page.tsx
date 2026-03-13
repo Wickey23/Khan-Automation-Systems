@@ -12,7 +12,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskContextPanelClass,
@@ -443,13 +443,13 @@ export default function AppMessagesPage() {
         }
       />
 
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">When to work this queue</p>
-        <p className="mt-2 font-medium text-slate-950">Stay in Inbox when the customer already replied by text.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          Review the thread first, then jump into Lead Queue or Booking Queue only if the reply needs scheduling or broader follow-up.
-        </p>
-      </div>
+      <WorkflowHint
+        items={[
+          { label: "Use this page", text: "Stay in Inbox when the newest customer movement is a text reply or a manual follow-up conversation." },
+          { label: "Start here", text: "Open the thread, confirm the customer case and next step, then reply from the composer on the right." },
+          { label: "Go next", text: "Jump to Lead Queue or Booking Queue only when this reply needs broader follow-up or scheduling." }
+        ]}
+      />
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_320px]">
         <Card className={`${frontDeskWorkspaceCardClass("hero")} ${canSendMessages ? "border-emerald-200/90 bg-[linear-gradient(135deg,rgba(236,253,245,0.98)_0%,rgba(209,250,229,0.92)_100%)]" : "border-amber-200/90 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]"}`}>

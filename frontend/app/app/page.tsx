@@ -32,7 +32,7 @@ import { ActionNeededPanel } from "@/components/dashboard/action-needed-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -856,6 +856,14 @@ export default function AppOverviewPage() {
             </Button>
           </>
         }
+      />
+
+      <WorkflowHint
+        items={[
+          { label: "Use this page", text: "Start here to understand what happened, what needs attention right now, and which requests are already moving toward booked work." },
+          { label: "Start here", text: "Work Action Needed and callback items first, then review new requests and recent customer replies before finished work." },
+          { label: "Go next", text: "Move into Call Queue, Inbox, or Booking Queue based on where the next office action actually lives." }
+        ]}
       />
 
       <section className="grid gap-6 2xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.85fr)]">
