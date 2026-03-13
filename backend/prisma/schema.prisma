@@ -257,6 +257,13 @@ enum OutreachEnrollmentStatus {
   FAILED
 }
 
+enum OutreachPhoneEventType {
+  QUEUED
+  STARTED
+  COMPLETED
+  FAILED
+}
+
 enum OutreachEmailEventType {
   QUEUED
   SENT
@@ -912,6 +919,8 @@ model OutreachLead {
   updatedAt       DateTime           @updatedAt
   enrollments     OutreachEnrollment[]
   emailEvents     OutreachEmailEvent[]
+  phoneEnrollments OutreachPhoneEnrollment[]
+  phoneEvents     OutreachPhoneEvent[]
 
   @@index([orgId, status, createdAt(sort: Desc)])
   @@index([orgId, email])
@@ -933,6 +942,29 @@ model OutreachSequence {
 
   @@unique([orgId, name])
   @@index([orgId, isActive, createdAt(sort: Desc)])
+}
+
+model OutreachCallerConfig {
+  id                 String                   @id @default(cuid())
+  orgId              String
+  organization       Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?
+  isActive           Boolean                  @default(true)
+  vapiPhoneNumberId  String?
+  twilioFromNumber   String?
+  timezone           String                   @default("America/New_York")
+  windowStartHour    Int                      @default(9)
+  windowEndHour      Int                      @default(17)
+  maxCallsPerDay     Int                      @default(20)
+  prompt             String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  phoneEnrollments   OutreachPhoneEnrollment[]
+  phoneEvents        OutreachPhoneEvent[]
+
+  @@index([orgId, isActive, createdAt(sort: Desc)])
+  @@unique([orgId, name])
 }
 
 model OutreachSequenceStep {
@@ -975,6 +1007,30 @@ model OutreachEnrollment {
   @@index([orgId, processingStartedAt])
 }
 
+model OutreachPhoneEnrollment {
+  id                  String                   @id @default(cuid())
+  orgId               String
+  organization        Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId              String
+  lead                OutreachLead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  callerConfigId      String
+  callerConfig        OutreachCallerConfig     @relation(fields: [callerConfigId], references: [id], onDelete: Cascade)
+  nextCallAt          DateTime?
+  status              OutreachEnrollmentStatus @default(ACTIVE)
+  stopReason          String?
+  lastCalledAt        DateTime?
+  processingStartedAt DateTime?
+  attemptCount        Int                      @default(0)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  phoneEvents         OutreachPhoneEvent[]
+
+  @@index([orgId, status, nextCallAt])
+  @@index([orgId, leadId])
+  @@index([orgId, callerConfigId])
+  @@index([orgId, processingStartedAt])
+}
+
 model OutreachEmailEvent {
   id                String                 @id @default(cuid())
   orgId             String
@@ -1001,6 +1057,33 @@ model OutreachEmailEvent {
   @@index([orgId, enrollmentId, createdAt(sort: Desc)])
   @@index([orgId, sequenceId, createdAt(sort: Desc)])
   @@index([orgId, providerMessageId])
+}
+
+model OutreachPhoneEvent {
+  id                String                  @id @default(cuid())
+  orgId             String
+  organization      Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId            String?
+  lead              OutreachLead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  enrollmentId      String?
+  enrollment        OutreachPhoneEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  callerConfigId    String?
+  callerConfig      OutreachCallerConfig?   @relation(fields: [callerConfigId], references: [id], onDelete: SetNull)
+  provider          String
+  providerCallId    String?
+  eventType         OutreachPhoneEventType
+  toPhone           String
+  fromPhone         String?
+  status            String?
+  summary           String?
+  errorMessage      String?
+  metadata          Json?
+  createdAt         DateTime                @default(now())
+
+  @@index([orgId, eventType, createdAt(sort: Desc)])
+  @@index([orgId, leadId, createdAt(sort: Desc)])
+  @@index([orgId, enrollmentId, createdAt(sort: Desc)])
+  @@index([orgId, callerConfigId, createdAt(sort: Desc)])
 }
 
 model OutreachSuppression {

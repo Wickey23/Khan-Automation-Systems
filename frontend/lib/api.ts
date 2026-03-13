@@ -49,9 +49,11 @@ import type {
   OrgCalendarEvent,
   OrgNotification,
   OutreachBulkImportRowResult,
+  OutreachCallerConfig,
   OutreachEmailEvent,
   OutreachEnrollment,
   OutreachLead,
+  OutreachPhoneEnrollment,
   OutreachPhoneCallResult,
   OutreachOverview,
   OutreachSequence
@@ -414,21 +416,21 @@ export async function deleteAdminOutreachLead(id: string) {
   });
 }
 
-export async function importAdminOutreachLeads(payload: { orgId?: string; sequenceId?: string; text: string }) {
+export async function importAdminOutreachLeads(payload: { orgId?: string; sequenceId?: string; callerConfigId?: string; mode?: "EMAIL" | "PHONE"; text: string }) {
   return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export async function previewAdminOutreachLeadsImport(payload: { orgId?: string; sequenceId?: string; text: string }) {
+export async function previewAdminOutreachLeadsImport(payload: { orgId?: string; sequenceId?: string; callerConfigId?: string; mode?: "EMAIL" | "PHONE"; text: string }) {
   return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
     method: "POST",
     body: JSON.stringify({ ...payload, dryRun: true })
   });
 }
 
-export async function confirmAdminOutreachLeadsImport(payload: { orgId?: string; sequenceId?: string; text: string }) {
+export async function confirmAdminOutreachLeadsImport(payload: { orgId?: string; sequenceId?: string; callerConfigId?: string; mode?: "EMAIL" | "PHONE"; text: string }) {
   return request<{ rows: OutreachBulkImportRowResult[] }>("/api/admin/outreach/leads/bulk-import", {
     method: "POST",
     body: JSON.stringify({ ...payload, confirmed: true })
@@ -466,6 +468,37 @@ export async function startAdminOutreachAiCall(id: string) {
   return request<OutreachPhoneCallResult>(`/api/admin/outreach/leads/${id}/call`, {
     method: "POST",
     body: JSON.stringify({})
+  });
+}
+
+export async function fetchAdminOutreachCallerConfigs(orgId?: string) {
+  const query = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  return request<{ callerConfigs: OutreachCallerConfig[] }>(`/api/admin/outreach/caller-configs${query}`);
+}
+
+export async function createAdminOutreachCallerConfig(payload: {
+  orgId?: string;
+  name: string;
+  description?: string;
+  isActive?: boolean;
+  vapiPhoneNumberId?: string;
+  twilioFromNumber?: string;
+  timezone?: string;
+  windowStartHour?: number;
+  windowEndHour?: number;
+  maxCallsPerDay?: number;
+  prompt?: string;
+}) {
+  return request<{ callerConfig: OutreachCallerConfig }>("/api/admin/outreach/caller-configs", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAdminOutreachCallerConfig(id: string, payload: Partial<OutreachCallerConfig>) {
+  return request<{ callerConfig: OutreachCallerConfig }>(`/api/admin/outreach/caller-configs/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
   });
 }
 
@@ -515,8 +548,19 @@ export async function fetchAdminOutreachEnrollments(query = "") {
   return request<{ enrollments: OutreachEnrollment[] }>(`/api/admin/outreach/enrollments${query}`);
 }
 
+export async function fetchAdminOutreachPhoneEnrollments(query = "") {
+  return request<{ enrollments: OutreachPhoneEnrollment[] }>(`/api/admin/outreach/phone-enrollments${query}`);
+}
+
 export async function createAdminOutreachEnrollment(payload: { orgId?: string; leadId: string; sequenceId: string; startAt?: string }) {
   return request<{ enrollment: OutreachEnrollment }>("/api/admin/outreach/enrollments", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function createAdminOutreachPhoneEnrollment(payload: { orgId?: string; leadId: string; callerConfigId: string; startAt?: string }) {
+  return request<{ enrollment: OutreachPhoneEnrollment }>("/api/admin/outreach/phone-enrollments", {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -529,8 +573,22 @@ export async function pauseAdminOutreachEnrollment(id: string) {
   });
 }
 
+export async function pauseAdminOutreachPhoneEnrollment(id: string) {
+  return request<{ enrollment: OutreachPhoneEnrollment }>(`/api/admin/outreach/phone-enrollments/${id}/pause`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
 export async function resumeAdminOutreachEnrollment(id: string) {
   return request<{ enrollment: OutreachEnrollment }>(`/api/admin/outreach/enrollments/${id}/resume`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function resumeAdminOutreachPhoneEnrollment(id: string) {
+  return request<{ enrollment: OutreachPhoneEnrollment }>(`/api/admin/outreach/phone-enrollments/${id}/resume`, {
     method: "POST",
     body: JSON.stringify({})
   });
@@ -543,8 +601,15 @@ export async function sendNowAdminOutreachEnrollment(id: string) {
   });
 }
 
+export async function sendNowAdminOutreachPhoneEnrollment(id: string) {
+  return request<{ ok: boolean; callId?: string }>(`/api/admin/outreach/phone-enrollments/${id}/send-now`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
 export async function runAdminOutreachTick() {
-  return request<{ processed: number; sent: number; failed: number }>("/api/admin/outreach/runner/tick", {
+  return request<{ processed: number; sent: number; failed: number; phoneStarted?: number }>("/api/admin/outreach/runner/tick", {
     method: "POST",
     body: JSON.stringify({})
   });

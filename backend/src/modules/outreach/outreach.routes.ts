@@ -5,7 +5,10 @@ import type { AuthenticatedRequest } from "../../middleware/require-auth";
 import {
   outreachBulkImportSchema,
   outreachBulkDeleteSchema,
+  outreachCallerConfigCreateSchema,
+  outreachCallerConfigUpdateSchema,
   outreachEnrollmentCreateSchema,
+  outreachPhoneEnrollmentCreateSchema,
   outreachLeadCreateSchema,
   outreachLeadSuppressSchema,
   outreachLeadUpdateSchema,
@@ -17,7 +20,7 @@ import {
   validateOrderedSteps
 } from "./outreach.schema";
 import { buildBulkImportPreview, resolveOutreachOrgContext, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
-import { startOutreachAiCall } from "./outreach-phone.service";
+import { runOutreachPhoneTick, startOutreachAiCall } from "./outreach-phone.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
 
@@ -45,10 +48,12 @@ outreachAdminRouter.get("/overview", async (req: Request, res: Response) => {
 
   const orgId = parsed.data.orgId;
   const whereOrg = orgId ? { orgId } : {};
-  const [totalLeads, activeEnrollments, emailsSent, replies, unsubscribes, recentEvents] = await Promise.all([
+  const [totalLeads, activeEnrollments, activePhoneEnrollments, emailsSent, phoneCallsStarted, replies, unsubscribes, recentEvents] = await Promise.all([
     db.outreachLead.count({ where: whereOrg }),
     db.outreachEnrollment.count({ where: { ...whereOrg, status: "ACTIVE" } }),
+    db.outreachPhoneEnrollment.count({ where: { ...whereOrg, status: "ACTIVE" } }),
     db.outreachEmailEvent.count({ where: { ...whereOrg, eventType: "SENT" } }),
+    db.outreachPhoneEvent.count({ where: { ...whereOrg, eventType: "STARTED" } }),
     db.outreachLead.count({ where: { ...whereOrg, status: "REPLIED" } }),
     db.outreachSuppression.count({ where: whereOrg }),
     db.outreachEmailEvent.findMany({
@@ -67,7 +72,9 @@ outreachAdminRouter.get("/overview", async (req: Request, res: Response) => {
     data: {
       totalLeads,
       activeEnrollments,
+      activePhoneEnrollments,
       emailsSent,
+      phoneCallsStarted,
       replies,
       unsubscribes,
       recentEvents
@@ -99,6 +106,13 @@ outreachAdminRouter.get("/leads", async (req: Request, res: Response) => {
           take: 3,
           include: {
             sequence: { select: { id: true, name: true } }
+          }
+        },
+        phoneEnrollments: {
+          orderBy: { createdAt: "desc" },
+          take: 3,
+          include: {
+            callerConfig: { select: { id: true, name: true } }
           }
         }
       },
@@ -191,7 +205,8 @@ outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Respons
   const parsed = outreachBulkImportSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
   const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
-  if (parsed.data.sequenceId) {
+  const mode = parsed.data.mode === "PHONE" ? "PHONE" : "EMAIL";
+  if (mode === "EMAIL" && parsed.data.sequenceId) {
     const sequence = await db.outreachSequence.findFirst({
       where: {
         id: parsed.data.sequenceId,
@@ -204,13 +219,28 @@ outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Respons
       return res.status(400).json({ ok: false, message: "Selected sequence was not found or is inactive." });
     }
   }
-  if (!parsed.data.dryRun && parsed.data.sequenceId && !parsed.data.confirmed) {
+  if (mode === "PHONE" && parsed.data.callerConfigId) {
+    const callerConfig = await db.outreachCallerConfig.findFirst({
+      where: {
+        id: parsed.data.callerConfigId,
+        orgId: org.id,
+        isActive: true
+      },
+      select: { id: true }
+    });
+    if (!callerConfig) {
+      return res.status(400).json({ ok: false, message: "Selected caller AI configuration was not found or is inactive." });
+    }
+  }
+  if (!parsed.data.dryRun && ((mode === "EMAIL" && parsed.data.sequenceId) || (mode === "PHONE" && parsed.data.callerConfigId)) && !parsed.data.confirmed) {
     return res.status(400).json({ ok: false, message: "CSV import must be explicitly confirmed before auto-enrollment starts." });
   }
   const rows = await buildBulkImportPreview({
     prisma,
     orgId: org.id,
-    sequenceId: parsed.data.sequenceId,
+    sequenceId: mode === "EMAIL" ? parsed.data.sequenceId : undefined,
+    callerConfigId: mode === "PHONE" ? parsed.data.callerConfigId : undefined,
+    mode,
     text: parsed.data.text,
     dryRun: parsed.data.dryRun
   });
@@ -226,10 +256,13 @@ outreachAdminRouter.delete("/leads", async (req: Request, res: Response) => {
   await prisma.$transaction(async (tx) => {
     const txDb = tx as any;
     await txDb.outreachEmailEvent.deleteMany({});
+    await txDb.outreachPhoneEvent.deleteMany({});
     await txDb.outreachEnrollment.deleteMany({});
+    await txDb.outreachPhoneEnrollment.deleteMany({});
     await txDb.outreachSuppression.deleteMany({});
     await txDb.outreachSequenceStep.deleteMany({});
     await txDb.outreachSequence.deleteMany({});
+    await txDb.outreachCallerConfig.deleteMany({});
     await txDb.outreachLead.deleteMany({});
   });
 
@@ -320,6 +353,50 @@ outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) 
       502;
     return res.status(statusCode).json({ ok: false, message });
   }
+});
+
+outreachAdminRouter.get("/caller-configs", async (req: Request, res: Response) => {
+  const parsed = outreachListQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
+  const where: any = {};
+  if (parsed.data.orgId) where.orgId = parsed.data.orgId;
+  const callerConfigs = await db.outreachCallerConfig.findMany({
+    where,
+    orderBy: { createdAt: "desc" }
+  });
+  return res.json({ ok: true, data: { callerConfigs } });
+});
+
+outreachAdminRouter.post("/caller-configs", async (req: Request, res: Response) => {
+  const parsed = outreachCallerConfigCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid caller config payload.", errors: parsed.error.flatten() });
+  const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
+  const callerConfig = await db.outreachCallerConfig.create({
+    data: {
+      orgId: org.id,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      isActive: parsed.data.isActive ?? true,
+      vapiPhoneNumberId: parsed.data.vapiPhoneNumberId,
+      twilioFromNumber: parsed.data.twilioFromNumber,
+      timezone: parsed.data.timezone || "America/New_York",
+      windowStartHour: parsed.data.windowStartHour ?? 9,
+      windowEndHour: parsed.data.windowEndHour ?? 17,
+      maxCallsPerDay: parsed.data.maxCallsPerDay ?? 20,
+      prompt: parsed.data.prompt
+    }
+  });
+  return res.status(201).json({ ok: true, data: { callerConfig } });
+});
+
+outreachAdminRouter.patch("/caller-configs/:id", async (req: Request, res: Response) => {
+  const parsed = outreachCallerConfigUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid caller config payload.", errors: parsed.error.flatten() });
+  const callerConfig = await db.outreachCallerConfig.update({
+    where: { id: req.params.id },
+    data: parsed.data
+  });
+  return res.json({ ok: true, data: { callerConfig } });
 });
 
 outreachAdminRouter.get("/sequences", async (req: Request, res: Response) => {
@@ -504,8 +581,84 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
   return res.status(201).json({ ok: true, data: { enrollment } });
 });
 
+outreachAdminRouter.get("/phone-enrollments", async (req: Request, res: Response) => {
+  const parsed = outreachListQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
+  const where: any = {};
+  if (parsed.data.orgId) where.orgId = parsed.data.orgId;
+  if (parsed.data.status) where.status = parsed.data.status as any;
+  const enrollments = await db.outreachPhoneEnrollment.findMany({
+    where,
+    include: {
+      organization: { select: { id: true, name: true } },
+      lead: true,
+      callerConfig: { select: { id: true, name: true } }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  return res.json({ ok: true, data: { enrollments } });
+});
+
+outreachAdminRouter.post("/phone-enrollments", async (req: Request, res: Response) => {
+  const parsed = outreachPhoneEnrollmentCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid phone enrollment payload.", errors: parsed.error.flatten() });
+
+  const [lead, callerConfig] = await Promise.all([
+    db.outreachLead.findUnique({ where: { id: parsed.data.leadId } }),
+    db.outreachCallerConfig.findUnique({ where: { id: parsed.data.callerConfigId } })
+  ]);
+  if (!lead || !callerConfig) return res.status(404).json({ ok: false, message: "Lead or caller AI config not found." });
+  const orgId = parsed.data.orgId || lead.orgId;
+  if (lead.orgId !== callerConfig.orgId || lead.orgId !== orgId) {
+    return res.status(400).json({ ok: false, message: "Lead and caller AI config must belong to the same org." });
+  }
+  if (["UNSUBSCRIBED", "REPLIED", "BOUNCED", "COMPLETED"].includes(lead.status)) {
+    return res.status(400).json({ ok: false, message: "Lead is not eligible for phone outreach." });
+  }
+  if (!lead.phone) {
+    return res.status(400).json({ ok: false, message: "Lead must have a phone number for caller AI outreach." });
+  }
+
+  const existing = await db.outreachPhoneEnrollment.findFirst({
+    where: {
+      orgId,
+      leadId: parsed.data.leadId,
+      callerConfigId: parsed.data.callerConfigId,
+      status: { in: ["ACTIVE", "PAUSED"] }
+    }
+  });
+  if (existing) return res.status(409).json({ ok: false, message: "Lead is already enrolled in this caller AI configuration." });
+
+  const enrollment = await db.outreachPhoneEnrollment.create({
+    data: {
+      orgId,
+      leadId: parsed.data.leadId,
+      callerConfigId: parsed.data.callerConfigId,
+      status: "ACTIVE",
+      nextCallAt: parsed.data.startAt ? new Date(parsed.data.startAt) : new Date()
+    },
+    include: {
+      lead: true,
+      callerConfig: { select: { id: true, name: true } }
+    }
+  });
+  await db.outreachLead.update({
+    where: { id: lead.id },
+    data: { status: "ACTIVE" }
+  });
+  return res.status(201).json({ ok: true, data: { enrollment } });
+});
+
 outreachAdminRouter.post("/enrollments/:id/pause", async (req: Request, res: Response) => {
   const enrollment = await db.outreachEnrollment.update({
+    where: { id: req.params.id },
+    data: { status: "PAUSED", processingStartedAt: null }
+  });
+  return res.json({ ok: true, data: { enrollment } });
+});
+
+outreachAdminRouter.post("/phone-enrollments/:id/pause", async (req: Request, res: Response) => {
+  const enrollment = await db.outreachPhoneEnrollment.update({
     where: { id: req.params.id },
     data: { status: "PAUSED", processingStartedAt: null }
   });
@@ -520,6 +673,45 @@ outreachAdminRouter.post("/enrollments/:id/resume", async (req: Request, res: Re
   return res.json({ ok: true, data: { enrollment } });
 });
 
+outreachAdminRouter.post("/phone-enrollments/:id/resume", async (req: Request, res: Response) => {
+  const enrollment = await db.outreachPhoneEnrollment.update({
+    where: { id: req.params.id },
+    data: { status: "ACTIVE", nextCallAt: new Date(), processingStartedAt: null }
+  });
+  return res.json({ ok: true, data: { enrollment } });
+});
+
+outreachAdminRouter.post("/phone-enrollments/:id/send-now", async (req: Request, res: Response) => {
+  const auth = (req as AuthenticatedRequest).auth!;
+  const enrollment = await db.outreachPhoneEnrollment.findUnique({
+    where: { id: req.params.id },
+    include: { callerConfig: true, lead: true }
+  });
+  if (!enrollment) return res.status(404).json({ ok: false, message: "Phone enrollment not found." });
+  try {
+    const result = await startOutreachAiCall({
+      prisma,
+      leadId: enrollment.leadId,
+      actorUserId: auth.userId,
+      actorRole: auth.role,
+      callerConfigId: enrollment.callerConfigId,
+      enrollmentId: enrollment.id
+    });
+    await db.outreachPhoneEnrollment.update({
+      where: { id: enrollment.id },
+      data: { status: "COMPLETED", nextCallAt: null, processingStartedAt: null }
+    });
+    return res.json({ ok: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not start caller AI outreach.";
+    await db.outreachPhoneEnrollment.update({
+      where: { id: enrollment.id },
+      data: { status: "FAILED", stopReason: message, processingStartedAt: null }
+    });
+    return res.status(400).json({ ok: false, message });
+  }
+});
+
 outreachAdminRouter.post("/enrollments/:id/send-now", async (req: Request, res: Response) => {
   const result = await sendEnrollmentStepNow({
     prisma,
@@ -532,7 +724,7 @@ outreachAdminRouter.post("/enrollments/:id/send-now", async (req: Request, res: 
 });
 
 outreachAdminRouter.post("/runner/tick", async (_req: Request, res: Response) => {
-  const result = await runOutreachTick({
+  const emailResult = await runOutreachTick({
     prisma,
     processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10),
     dailySendCap: Number.parseInt(process.env.OUTREACH_DAILY_SEND_CAP || "40", 10),
@@ -540,7 +732,19 @@ outreachAdminRouter.post("/runner/tick", async (_req: Request, res: Response) =>
     sendWindowEndHour: Number.parseInt(process.env.OUTREACH_SEND_WINDOW_END_HOUR || "17", 10),
     sendJitterMinutes: Number.parseInt(process.env.OUTREACH_SEND_JITTER_MINUTES || "20", 10)
   });
-  return res.json({ ok: true, data: result });
+  const phoneResult = await runOutreachPhoneTick({
+    prisma,
+    processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10)
+  });
+  return res.json({
+    ok: true,
+    data: {
+      processed: emailResult.processed + phoneResult.processed,
+      sent: emailResult.sent,
+      failed: emailResult.failed + phoneResult.failed,
+      phoneStarted: phoneResult.started
+    }
+  });
 });
 
 outreachAdminRouter.get("/events", async (req: Request, res: Response) => {

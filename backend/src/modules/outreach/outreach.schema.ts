@@ -36,6 +36,8 @@ export const outreachLeadUpdateSchema = z.object({
 export const outreachBulkImportSchema = z.object({
   orgId: z.string().min(1).optional(),
   sequenceId: z.string().min(1).optional(),
+  callerConfigId: z.string().min(1).optional(),
+  mode: z.enum(["EMAIL", "PHONE"]).optional(),
   text: z.string().min(1),
   dryRun: z.boolean().optional().default(false),
   confirmed: z.boolean().optional().default(false)
@@ -84,6 +86,40 @@ export const outreachEnrollmentCreateSchema = z.object({
   leadId: z.string().min(1),
   sequenceId: z.string().min(1),
   startAt: z.string().datetime().optional()
+});
+
+export const outreachPhoneEnrollmentCreateSchema = z.object({
+  orgId: z.string().min(1).optional(),
+  leadId: z.string().min(1),
+  callerConfigId: z.string().min(1),
+  startAt: z.string().datetime().optional()
+});
+
+export const outreachCallerConfigCreateSchema = z.object({
+  orgId: z.string().min(1).optional(),
+  name: z.string().trim().min(1),
+  description: optionalTrimmed,
+  isActive: z.boolean().optional(),
+  vapiPhoneNumberId: optionalTrimmed,
+  twilioFromNumber: optionalTrimmed,
+  timezone: z.string().trim().min(1).optional(),
+  windowStartHour: z.number().int().min(0).max(23).optional(),
+  windowEndHour: z.number().int().min(1).max(24).optional(),
+  maxCallsPerDay: z.number().int().min(1).max(500).optional(),
+  prompt: optionalTrimmed
+});
+
+export const outreachCallerConfigUpdateSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  description: optionalTrimmed,
+  isActive: z.boolean().optional(),
+  vapiPhoneNumberId: optionalTrimmed,
+  twilioFromNumber: optionalTrimmed,
+  timezone: z.string().trim().min(1).optional(),
+  windowStartHour: z.number().int().min(0).max(23).optional(),
+  windowEndHour: z.number().int().min(1).max(24).optional(),
+  maxCallsPerDay: z.number().int().min(1).max(500).optional(),
+  prompt: optionalTrimmed
 });
 
 export const outreachLeadSuppressSchema = z.object({

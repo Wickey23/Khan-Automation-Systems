@@ -1,26 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import {
   confirmAdminOutreachLeadsImport,
   createAdminOutreachEnrollment,
+  createAdminOutreachPhoneEnrollment,
   createAdminOutreachLead,
   deleteAdminOutreachLead,
   deleteAllAdminOutreachData,
+  fetchAdminOutreachCallerConfigs,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
   markAdminOutreachLeadReplied,
   pauseAdminOutreachEnrollment,
+  pauseAdminOutreachPhoneEnrollment,
   previewAdminOutreachLeadsImport,
   sendNowAdminOutreachEnrollment,
+  sendNowAdminOutreachPhoneEnrollment,
   startAdminOutreachAiCall,
   suppressAdminOutreachLead,
   unsuppressAdminOutreachLead
 } from "@/lib/api";
-import type { OutreachBulkImportRowResult, OutreachLead, OutreachSequence } from "@/lib/types";
+import type { OutreachBulkImportRowResult, OutreachCallerConfig, OutreachLead, OutreachSequence } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,9 +43,13 @@ export default function AdminOutreachLeadsPage() {
   const [search, setSearch] = useState("");
   const [leads, setLeads] = useState<OutreachLead[]>([]);
   const [sequences, setSequences] = useState<OutreachSequence[]>([]);
+  const [callerConfigs, setCallerConfigs] = useState<OutreachCallerConfig[]>([]);
   const [selectedSequenceByLead, setSelectedSequenceByLead] = useState<Record<string, string>>({});
+  const [selectedCallerConfigByLead, setSelectedCallerConfigByLead] = useState<Record<string, string>>({});
   const [bulkText, setBulkText] = useState(CSV_TEMPLATE);
+  const [bulkMode, setBulkMode] = useState<"EMAIL" | "PHONE">("EMAIL");
   const [bulkSequenceId, setBulkSequenceId] = useState("");
+  const [bulkCallerConfigId, setBulkCallerConfigId] = useState("");
   const [bulkResults, setBulkResults] = useState<OutreachBulkImportRowResult[]>([]);
   const [bulkPreviewReady, setBulkPreviewReady] = useState(false);
   const [bulkImportLoading, setBulkImportLoading] = useState(false);
@@ -65,14 +73,16 @@ export default function AdminOutreachLeadsPage() {
     return `?${params.toString()}`;
   }, [search, status]);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
-      const [leadData, sequenceData] = await Promise.all([
+      const [leadData, sequenceData, callerConfigData] = await Promise.all([
         fetchAdminOutreachLeads(search || status !== "ALL" ? query : ""),
-        fetchAdminOutreachSequences()
+        fetchAdminOutreachSequences(),
+        fetchAdminOutreachCallerConfigs()
       ]);
       setLeads(leadData.leads || []);
       setSequences(sequenceData.sequences || []);
+      setCallerConfigs(callerConfigData.callerConfigs || []);
     } catch (error) {
       showToast({
         title: "Could not load outreach leads",
@@ -80,11 +90,11 @@ export default function AdminOutreachLeadsPage() {
         variant: "error"
       });
     }
-  }
+  }, [query, search, showToast, status]);
 
   useEffect(() => {
     void load();
-  }, [query]);
+  }, [load]);
 
   async function onCreateLead() {
     try {
@@ -112,7 +122,7 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onPreviewImport() {
-    if (!bulkSequenceId) {
+    if (bulkMode === "EMAIL" && !bulkSequenceId) {
       showToast({
         title: "Choose a sequence",
         description: "Pick the sequence that would be used if you start outreach.",
@@ -120,8 +130,21 @@ export default function AdminOutreachLeadsPage() {
       });
       return;
     }
+    if (bulkMode === "PHONE" && !bulkCallerConfigId) {
+      showToast({
+        title: "Choose Caller AI",
+        description: "Pick the caller profile that should be used for enrolled leads.",
+        variant: "error"
+      });
+      return;
+    }
     try {
-      const data = await previewAdminOutreachLeadsImport({ text: bulkText, sequenceId: bulkSequenceId });
+      const data = await previewAdminOutreachLeadsImport({
+        text: bulkText,
+        sequenceId: bulkMode === "EMAIL" ? bulkSequenceId : undefined,
+        callerConfigId: bulkMode === "PHONE" ? bulkCallerConfigId : undefined,
+        mode: bulkMode
+      });
       setBulkResults(data.rows || []);
       setBulkPreviewReady(true);
       const validRows = (data.rows || []).filter((row) => row.status === "created").length;
@@ -140,10 +163,18 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onBulkImport() {
-    if (!bulkSequenceId) {
+    if (bulkMode === "EMAIL" && !bulkSequenceId) {
       showToast({
         title: "Choose a sequence",
         description: "CSV imports require a sequence so outreach can start automatically.",
+        variant: "error"
+      });
+      return;
+    }
+    if (bulkMode === "PHONE" && !bulkCallerConfigId) {
+      showToast({
+        title: "Choose Caller AI",
+        description: "CSV imports require a caller profile so outreach calls can be queued automatically.",
         variant: "error"
       });
       return;
@@ -157,20 +188,32 @@ export default function AdminOutreachLeadsPage() {
       return;
     }
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm("Start outreach for the valid rows in this CSV preview?");
+      const confirmed = window.confirm(bulkMode === "PHONE" ? "Queue AI outreach calls for the valid rows in this CSV preview?" : "Start outreach for the valid rows in this CSV preview?");
       if (!confirmed) return;
     }
 
     try {
       setBulkImportLoading(true);
-      const data = await confirmAdminOutreachLeadsImport({ text: bulkText, sequenceId: bulkSequenceId });
+      const data = await confirmAdminOutreachLeadsImport({
+        text: bulkText,
+        sequenceId: bulkMode === "EMAIL" ? bulkSequenceId : undefined,
+        callerConfigId: bulkMode === "PHONE" ? bulkCallerConfigId : undefined,
+        mode: bulkMode
+      });
       setBulkResults(data.rows || []);
       setBulkPreviewReady(false);
       await load();
       const started = (data.rows || []).filter((row) => row.status === "created" && row.enrollmentId).length;
       showToast({
         title: "CSV imported",
-        description: started ? `${started} contacts were enrolled and queued to start emailing.` : "Import completed."
+        description:
+          bulkMode === "PHONE"
+            ? started
+              ? `${started} contacts were enrolled and queued for AI calling.`
+              : "Import completed."
+            : started
+              ? `${started} contacts were enrolled and queued to start emailing.`
+              : "Import completed."
       });
     } catch (error) {
       showToast({
@@ -197,9 +240,24 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onEnroll(lead: OutreachLead) {
+    const callerConfigId = selectedCallerConfigByLead[lead.id];
+    if (callerConfigId) {
+      try {
+        await createAdminOutreachPhoneEnrollment({ leadId: lead.id, callerConfigId });
+        await load();
+        showToast({ title: "Lead enrolled for AI calling" });
+      } catch (error) {
+        showToast({
+          title: "Could not enroll lead for AI calling",
+          description: error instanceof Error ? error.message : "Try again.",
+          variant: "error"
+        });
+      }
+      return;
+    }
     const sequenceId = selectedSequenceByLead[lead.id];
     if (!sequenceId) {
-      showToast({ title: "Choose a sequence first", variant: "error" });
+      showToast({ title: "Choose a sequence or Caller AI first", variant: "error" });
       return;
     }
     try {
@@ -345,6 +403,34 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
+  async function onPausePhoneEnrollment(enrollmentId: string) {
+    try {
+      await pauseAdminOutreachPhoneEnrollment(enrollmentId);
+      await load();
+      showToast({ title: "AI calling enrollment paused" });
+    } catch (error) {
+      showToast({
+        title: "Could not pause AI calling enrollment",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
+
+  async function onSendPhoneNow(enrollmentId: string) {
+    try {
+      await sendNowAdminOutreachPhoneEnrollment(enrollmentId);
+      await load();
+      showToast({ title: "AI call triggered" });
+    } catch (error) {
+      showToast({
+        title: "Could not trigger AI call",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
+
   return (
     <AdminGuard requireSuperAdmin>
       <div className="container space-y-6 py-10">
@@ -402,23 +488,49 @@ export default function AdminOutreachLeadsPage() {
                 Upload or paste a CSV with headers like `companyName, contactName, email, phone, city, state, industry, website, notes`.
                 Preview rows first, then explicitly confirm before outreach starts.
               </p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant={bulkMode === "EMAIL" ? "default" : "outline"} onClick={() => { setBulkMode("EMAIL"); setBulkPreviewReady(false); }}>
+                  Email sequence
+                </Button>
+                <Button type="button" variant={bulkMode === "PHONE" ? "default" : "outline"} onClick={() => { setBulkMode("PHONE"); setBulkPreviewReady(false); }}>
+                  Caller AI
+                </Button>
+              </div>
               <div>
-                <Label>Sequence to start</Label>
-                <select
-                  value={bulkSequenceId}
-                  onChange={(event) => {
-                    setBulkSequenceId(event.target.value);
-                    setBulkPreviewReady(false);
-                  }}
-                  className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                >
-                  <option value="">Choose sequence</option>
-                  {sequences.map((sequence) => (
-                    <option key={sequence.id} value={sequence.id}>
-                      {sequence.name}
-                    </option>
-                  ))}
-                </select>
+                <Label>{bulkMode === "EMAIL" ? "Sequence to start" : "Caller AI profile"}</Label>
+                {bulkMode === "EMAIL" ? (
+                  <select
+                    value={bulkSequenceId}
+                    onChange={(event) => {
+                      setBulkSequenceId(event.target.value);
+                      setBulkPreviewReady(false);
+                    }}
+                    className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                  >
+                    <option value="">Choose sequence</option>
+                    {sequences.map((sequence) => (
+                      <option key={sequence.id} value={sequence.id}>
+                        {sequence.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={bulkCallerConfigId}
+                    onChange={(event) => {
+                      setBulkCallerConfigId(event.target.value);
+                      setBulkPreviewReady(false);
+                    }}
+                    className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                  >
+                    <option value="">Choose Caller AI profile</option>
+                    {callerConfigs.map((config) => (
+                      <option key={config.id} value={config.id}>
+                        {config.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <Label>CSV file</Label>
@@ -440,7 +552,7 @@ export default function AdminOutreachLeadsPage() {
                   Preview import
                 </Button>
                 <Button disabled={!bulkPreviewReady || bulkImportLoading} onClick={() => void onBulkImport()}>
-                  {bulkImportLoading ? "Starting outreach..." : "Confirm import and start outreach"}
+                  {bulkImportLoading ? "Starting outreach..." : bulkMode === "PHONE" ? "Confirm import and queue AI calls" : "Confirm import and start outreach"}
                 </Button>
                 <Button variant="outline" onClick={() => void onDeleteAllOutreachData()}>
                   Clear all outreach data
@@ -480,7 +592,7 @@ export default function AdminOutreachLeadsPage() {
                     </div>
                     <div className="text-sm">{lead.status}</div>
                   </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
                     <div className="text-sm text-muted-foreground">
                       {(lead.city || lead.state) ? `${lead.city || ""}${lead.city && lead.state ? ", " : ""}${lead.state || ""}` : "Location not set"}
                       {lead.industry ? ` • ${lead.industry}` : ""}
@@ -497,8 +609,22 @@ export default function AdminOutreachLeadsPage() {
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={selectedCallerConfigByLead[lead.id] || ""}
+                      onChange={(event) => setSelectedCallerConfigByLead((current) => ({ ...current, [lead.id]: event.target.value }))}
+                      className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                    >
+                      <option value="">Choose Caller AI</option>
+                      {callerConfigs.map((config) => (
+                        <option key={config.id} value={config.id}>
+                          {config.name}
+                        </option>
+                      ))}
+                    </select>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => void onEnroll(lead)}>Enroll</Button>
+                      <Button size="sm" onClick={() => void onEnroll(lead)}>
+                        {selectedCallerConfigByLead[lead.id] ? "Enroll for AI call" : "Enroll"}
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -528,6 +654,28 @@ export default function AdminOutreachLeadsPage() {
                                 Send now
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => void onPauseEnrollment(enrollment.id)}>
+                                Pause
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {lead.phoneEnrollments?.length ? (
+                    <div className="mt-3 space-y-2 text-sm">
+                      {lead.phoneEnrollments.map((enrollment) => (
+                        <div key={enrollment.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
+                          <span>
+                            {enrollment.callerConfig?.name || "Caller AI"} • {enrollment.status}
+                            {enrollment.nextCallAt ? ` • next ${new Date(enrollment.nextCallAt).toLocaleString()}` : ""}
+                          </span>
+                          {enrollment.status === "ACTIVE" ? (
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => void onSendPhoneNow(enrollment.id)}>
+                                Call now
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => void onPausePhoneEnrollment(enrollment.id)}>
                                 Pause
                               </Button>
                             </div>

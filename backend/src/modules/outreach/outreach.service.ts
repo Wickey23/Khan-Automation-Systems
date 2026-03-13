@@ -172,10 +172,13 @@ export async function buildBulkImportPreview(input: {
   prisma: PrismaClient;
   orgId: string;
   sequenceId?: string;
+  callerConfigId?: string;
+  mode?: "EMAIL" | "PHONE";
   text: string;
   dryRun?: boolean;
 }) {
   const db = input.prisma as any;
+  const outreachMode = input.mode === "PHONE" ? "PHONE" : "EMAIL";
   const results: BulkImportRowResult[] = [];
   const parsed = parseCsvRows(input.text);
   if (parsed.error) {
@@ -247,13 +250,13 @@ export async function buildBulkImportPreview(input: {
       data: {
         orgId: input.orgId,
         email,
-        status: input.sequenceId ? "ACTIVE" : "NEW",
+        status: input.sequenceId || input.callerConfigId ? "ACTIVE" : "NEW",
         ...data
       },
       select: { id: true, email: true }
     });
     let enrollmentId: string | undefined;
-    if (input.sequenceId) {
+    if (outreachMode === "EMAIL" && input.sequenceId) {
       const enrollment = await db.outreachEnrollment.create({
         data: {
           orgId: input.orgId,
@@ -262,6 +265,18 @@ export async function buildBulkImportPreview(input: {
           status: "ACTIVE",
           currentStepNumber: 1,
           nextSendAt: new Date()
+        },
+        select: { id: true }
+      });
+      enrollmentId = enrollment.id;
+    } else if (outreachMode === "PHONE" && input.callerConfigId) {
+      const enrollment = await db.outreachPhoneEnrollment.create({
+        data: {
+          orgId: input.orgId,
+          leadId: created.id,
+          callerConfigId: input.callerConfigId,
+          status: "ACTIVE",
+          nextCallAt: new Date()
         },
         select: { id: true }
       });

@@ -594,6 +594,12 @@ export type OutreachLead = {
     nextSendAt: string | null;
     sequence?: { id: string; name: string } | null;
   }>;
+  phoneEnrollments?: Array<{
+    id: string;
+    status: OutreachEnrollmentStatus;
+    nextCallAt: string | null;
+    callerConfig?: { id: string; name: string } | null;
+  }>;
 };
 
 export type OutreachPhoneCallResult = {
@@ -602,6 +608,23 @@ export type OutreachPhoneCallResult = {
   status: string;
   toNumber: string;
   phoneNumberId: string;
+};
+
+export type OutreachCallerConfig = {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  vapiPhoneNumberId: string | null;
+  twilioFromNumber: string | null;
+  timezone: string;
+  windowStartHour: number;
+  windowEndHour: number;
+  maxCallsPerDay: number;
+  prompt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type OutreachSequenceStep = {
@@ -647,6 +670,24 @@ export type OutreachEnrollment = {
   sequence?: { id: string; name: string } | null;
 };
 
+export type OutreachPhoneEnrollment = {
+  id: string;
+  orgId: string;
+  leadId: string;
+  callerConfigId: string;
+  nextCallAt: string | null;
+  status: OutreachEnrollmentStatus;
+  stopReason: string | null;
+  lastCalledAt: string | null;
+  processingStartedAt: string | null;
+  attemptCount: number;
+  createdAt: string;
+  updatedAt: string;
+  organization?: { id: string; name: string } | null;
+  lead?: OutreachLead | null;
+  callerConfig?: { id: string; name: string } | null;
+};
+
 export type OutreachEmailEvent = {
   id: string;
   orgId: string;
@@ -671,7 +712,9 @@ export type OutreachEmailEvent = {
 export type OutreachOverview = {
   totalLeads: number;
   activeEnrollments: number;
+  activePhoneEnrollments?: number;
   emailsSent: number;
+  phoneCallsStarted?: number;
   replies: number;
   unsubscribes: number;
   recentEvents: OutreachEmailEvent[];

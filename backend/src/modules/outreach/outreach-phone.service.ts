@@ -27,8 +27,9 @@ function buildOutreachPhonePrompt(input: {
   city: string;
   state: string;
   notes: string;
+  customPrompt?: string;
 }) {
-  return [
+  const base = [
     "You are an AI sales assistant making a short professional outreach call for Khan Automation Systems.",
     `Organization: ${input.orgName}`,
     `Prospect company: ${input.companyName || "Unknown company"}`,
@@ -54,7 +55,56 @@ function buildOutreachPhonePrompt(input: {
     "- Appreciate it. A team member can follow up with more details.",
     "- Understood. Thanks for taking the call.",
     "Primary objective: determine interest level and leave a professional impression."
-  ].join("\n");
+  ];
+  if (cleanText(input.customPrompt)) {
+    base.push("Custom campaign instructions:");
+    base.push(cleanText(input.customPrompt));
+  }
+  return base.join("\n");
+}
+
+function sanitizeProspectName(value: string | null | undefined) {
+  const text = cleanText(value);
+  if (!text) return "";
+  const normalized = text.toLowerCase();
+  if (["unknown", "unknown caller", "there", "n/a", "na"].includes(normalized)) return "";
+  return text;
+}
+
+function getHourInTimezone(date: Date, timeZone: string) {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hourCycle: "h23",
+    timeZone
+  }).format(date);
+  return Number.parseInt(hour, 10);
+}
+
+function isWithinWindow(now: Date, input: { timeZone: string; startHour: number; endHour: number }) {
+  const hour = getHourInTimezone(now, input.timeZone);
+  return hour >= input.startHour && hour < input.endHour;
+}
+
+function nextWindowStart(now: Date, input: { timeZone: string; startHour: number; endHour: number }) {
+  const currentHour = getHourInTimezone(now, input.timeZone);
+  const next = new Date(now);
+  if (currentHour < input.startHour) {
+    next.setHours(next.getHours() + (input.startHour - currentHour), 0, 0, 0);
+    return next;
+  }
+  next.setDate(next.getDate() + 1);
+  next.setHours(next.getHours() + (24 - currentHour + input.startHour), 0, 0, 0);
+  return next;
+}
+
+async function resolveCallerConfig(db: any, orgId: string, callerConfigId?: string | null) {
+  if (callerConfigId) {
+    return db.outreachCallerConfig.findUnique({ where: { id: callerConfigId } });
+  }
+  return db.outreachCallerConfig.findFirst({
+    where: { orgId, isActive: true },
+    orderBy: { createdAt: "desc" }
+  });
 }
 
 export async function startOutreachAiCall(input: {
@@ -62,6 +112,8 @@ export async function startOutreachAiCall(input: {
   leadId: string;
   actorUserId: string;
   actorRole: UserRole;
+  callerConfigId?: string | null;
+  enrollmentId?: string | null;
 }) {
   const db = input.prisma as any;
   const lead = await db.outreachLead.findUnique({
@@ -97,11 +149,17 @@ export async function startOutreachAiCall(input: {
       demoVapiPhoneNumberId: true
     }
   });
+  const callerConfig = await resolveCallerConfig(db, lead.orgId, input.callerConfigId || null);
 
-  const phoneNumberId = cleanText(aiConfig?.vapiPhoneNumberId) || cleanText(appConfig?.demoVapiPhoneNumberId);
+  const phoneNumberId =
+    cleanText(callerConfig?.vapiPhoneNumberId) ||
+    cleanText(aiConfig?.vapiPhoneNumberId) ||
+    cleanText(appConfig?.demoVapiPhoneNumberId);
   if (!phoneNumberId) {
     throw new Error("No Vapi outbound phone number is configured for outreach calling.");
   }
+
+  const prospectName = sanitizeProspectName(lead.contactName) || sanitizeProspectName(lead.companyName);
 
   const response = await fetch("https://api.vapi.ai/call", {
     method: "POST",
@@ -113,26 +171,29 @@ export async function startOutreachAiCall(input: {
       phoneNumberId,
       customer: {
         number: customerNumber,
-        name: cleanText(lead.contactName) || cleanText(lead.companyName) || undefined
+        name: prospectName || undefined
       },
       assistant: {
-        name: `Khan Outreach - ${cleanText(lead.companyName) || cleanText(lead.contactName) || "Prospect"}`,
+        name: `Khan Outreach - ${cleanText(lead.companyName) || prospectName || "Prospect"}`,
         model: cleanText(aiConfig?.model) || "gpt-4o-mini",
         voice: cleanText(aiConfig?.voice) || "alloy",
         temperature: typeof aiConfig?.temperature === "number" ? aiConfig.temperature : 0.3,
         systemPrompt: buildOutreachPhonePrompt({
           orgName: cleanText(lead.organization?.name) || "Khan Automation Systems",
           companyName: cleanText(lead.companyName),
-          contactName: cleanText(lead.contactName),
+          contactName: prospectName,
           industry: cleanText(lead.industry),
           city: cleanText(lead.city),
           state: cleanText(lead.state),
-          notes: cleanText(lead.notes)
+          notes: cleanText(lead.notes),
+          customPrompt: cleanText(callerConfig?.prompt)
         })
       },
       metadata: {
         source: "admin-outreach",
         outreachLeadId: lead.id,
+        outreachPhoneEnrollmentId: input.enrollmentId || null,
+        outreachCallerConfigId: callerConfig?.id || null,
         orgId: lead.orgId,
         companyName: cleanText(lead.companyName) || null,
         contactName: cleanText(lead.contactName) || null
@@ -157,6 +218,33 @@ export async function startOutreachAiCall(input: {
         status: lead.status === "NEW" ? "ACTIVE" : undefined
       }
     }),
+    input.enrollmentId
+      ? db.outreachPhoneEnrollment.update({
+          where: { id: input.enrollmentId },
+          data: {
+            lastCalledAt: new Date(),
+            processingStartedAt: null,
+            attemptCount: { increment: 1 }
+          }
+        })
+      : Promise.resolve(null),
+    db.outreachPhoneEvent.create({
+      data: {
+        orgId: lead.orgId,
+        leadId: lead.id,
+        enrollmentId: input.enrollmentId || null,
+        callerConfigId: callerConfig?.id || null,
+        provider: "VAPI",
+        providerCallId: callId || null,
+        eventType: "STARTED",
+        toPhone: customerNumber,
+        fromPhone: cleanText(callerConfig?.twilioFromNumber) || null,
+        status,
+        metadata: {
+          phoneNumberId
+        }
+      }
+    }),
     db.auditLog.create({
       data: {
         orgId: lead.orgId,
@@ -168,7 +256,9 @@ export async function startOutreachAiCall(input: {
           callId: callId || null,
           status,
           toNumber: customerNumber,
-          phoneNumberId
+          phoneNumberId,
+          callerConfigId: callerConfig?.id || null,
+          enrollmentId: input.enrollmentId || null
         })
       }
     })
@@ -181,4 +271,129 @@ export async function startOutreachAiCall(input: {
     toNumber: customerNumber,
     phoneNumberId
   };
+}
+
+export async function runOutreachPhoneTick(input: {
+  prisma: PrismaClient;
+  processingTimeoutMs: number;
+}) {
+  const db = input.prisma as any;
+  const now = new Date();
+  const due = await db.outreachPhoneEnrollment.findMany({
+    where: {
+      status: "ACTIVE",
+      nextCallAt: { lte: now },
+      OR: [{ processingStartedAt: null }, { processingStartedAt: { lt: new Date(now.getTime() - input.processingTimeoutMs) } }]
+    },
+    include: {
+      lead: true,
+      callerConfig: true
+    },
+    orderBy: { nextCallAt: "asc" },
+    take: 20
+  });
+
+  let processed = 0;
+  let started = 0;
+  let failed = 0;
+
+  for (const enrollment of due) {
+    processed += 1;
+    const config = enrollment.callerConfig;
+    if (!config || !config.isActive) {
+      await db.outreachPhoneEnrollment.update({
+        where: { id: enrollment.id },
+        data: { status: "FAILED", stopReason: "Caller AI configuration is missing or inactive.", processingStartedAt: null }
+      });
+      failed += 1;
+      continue;
+    }
+
+    const withinWindow = isWithinWindow(now, {
+      timeZone: cleanText(config.timezone) || "America/New_York",
+      startHour: Number(config.windowStartHour ?? 9),
+      endHour: Number(config.windowEndHour ?? 17)
+    });
+    if (!withinWindow) {
+      await db.outreachPhoneEnrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          nextCallAt: nextWindowStart(now, {
+            timeZone: cleanText(config.timezone) || "America/New_York",
+            startHour: Number(config.windowStartHour ?? 9),
+            endHour: Number(config.windowEndHour ?? 17)
+          }),
+          processingStartedAt: null
+        }
+      });
+      continue;
+    }
+
+    const dailyCount = await db.outreachPhoneEvent.count({
+      where: {
+        orgId: enrollment.orgId,
+        callerConfigId: config.id,
+        eventType: "STARTED",
+        createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) }
+      }
+    });
+    if (dailyCount >= Number(config.maxCallsPerDay ?? 20)) {
+      await db.outreachPhoneEnrollment.update({
+        where: { id: enrollment.id },
+        data: { nextCallAt: nextWindowStart(now, { timeZone: cleanText(config.timezone) || "America/New_York", startHour: Number(config.windowStartHour ?? 9), endHour: Number(config.windowEndHour ?? 17) }), processingStartedAt: null }
+      });
+      continue;
+    }
+
+    await db.outreachPhoneEnrollment.update({
+      where: { id: enrollment.id },
+      data: { processingStartedAt: now }
+    });
+
+    try {
+      await startOutreachAiCall({
+        prisma: input.prisma,
+        leadId: enrollment.leadId,
+        actorUserId: "system-outreach-phone",
+        actorRole: "SYSTEM" as UserRole,
+        callerConfigId: config.id,
+        enrollmentId: enrollment.id
+      });
+      await db.outreachPhoneEnrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          status: "COMPLETED",
+          nextCallAt: null,
+          processingStartedAt: null
+        }
+      });
+      started += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown outreach phone failure.";
+      await db.outreachPhoneEnrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          status: "FAILED",
+          stopReason: message,
+          processingStartedAt: null
+        }
+      });
+      await db.outreachPhoneEvent.create({
+        data: {
+          orgId: enrollment.orgId,
+          leadId: enrollment.leadId,
+          enrollmentId: enrollment.id,
+          callerConfigId: config.id,
+          provider: "VAPI",
+          eventType: "FAILED",
+          toPhone: cleanText(enrollment.lead?.phone) || "",
+          fromPhone: cleanText(config.twilioFromNumber) || null,
+          errorMessage: message
+        }
+      });
+      failed += 1;
+    }
+  }
+
+  return { processed, started, failed };
 }

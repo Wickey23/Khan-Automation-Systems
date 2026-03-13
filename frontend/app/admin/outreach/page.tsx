@@ -37,7 +37,7 @@ export default function AdminOutreachOverviewPage() {
       const result = await runAdminOutreachTick();
       showToast({
         title: "Runner completed",
-        description: `Processed ${result.processed}, sent ${result.sent}, failed ${result.failed}.`
+        description: `Processed ${result.processed}, emailed ${result.sent}, AI calls ${result.phoneStarted ?? 0}, failed ${result.failed}.`
       });
       await load();
     } catch (error) {
@@ -56,23 +56,24 @@ export default function AdminOutreachOverviewPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach"
-          description="Manage internal outbound cold email for Khan Automation and track the full prospecting pipeline."
+          description="Manage internal outbound outreach for Khan Automation across email sequences and AI calling."
           actions={
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => void load()}>
                 Refresh
               </Button>
-              <Button onClick={() => void runTick()}>Run sender</Button>
+              <Button onClick={() => void runTick()}>Run outreach</Button>
             </div>
           }
         />
         <OutreachSubnav />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           {[
             { label: "Total leads", value: data?.totalLeads ?? 0 },
             { label: "Active enrollments", value: data?.activeEnrollments ?? 0 },
             { label: "Emails sent", value: data?.emailsSent ?? 0 },
+            { label: "AI calls started", value: data?.phoneCallsStarted ?? 0 },
             { label: "Replies", value: data?.replies ?? 0 },
             { label: "Unsubscribes", value: data?.unsubscribes ?? 0 }
           ].map((item) => (
