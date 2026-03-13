@@ -28,6 +28,27 @@ export const outreachAdminRouter = Router();
 export const outreachPublicRouter = Router();
 const db = prisma as any;
 
+function sendOutreachRouteError(res: Response, error: unknown) {
+  const message = error instanceof Error ? error.message : "Unexpected outreach error.";
+  const missingTable =
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2021";
+  return res.status(missingTable ? 503 : 500).json({
+    ok: false,
+    message: missingTable
+      ? "Outreach phone tables are not available yet. Apply the latest Prisma migration and retry."
+      : message
+  });
+}
+
+function safeOutreachRoute(handler: (req: Request, res: Response) => Promise<unknown>) {
+  return (req: Request, res: Response) => {
+    void Promise.resolve(handler(req, res)).catch((error) => {
+      sendOutreachRouteError(res, error);
+    });
+  };
+}
+
 outreachAdminRouter.use((req: Request, res: Response, next) => {
   const auth = (req as AuthenticatedRequest).auth;
   if (!auth || auth.role !== UserRole.SUPER_ADMIN) {
@@ -42,7 +63,7 @@ function pagination(query: { page?: number; limit?: number }) {
   return { page, limit, skip: (page - 1) * limit };
 }
 
-outreachAdminRouter.get("/overview", async (req: Request, res: Response) => {
+outreachAdminRouter.get("/overview", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
 
@@ -80,9 +101,9 @@ outreachAdminRouter.get("/overview", async (req: Request, res: Response) => {
       recentEvents
     }
   });
-});
+}));
 
-outreachAdminRouter.get("/leads", async (req: Request, res: Response) => {
+outreachAdminRouter.get("/leads", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
   const { skip, limit, page } = pagination(parsed.data);
@@ -123,7 +144,7 @@ outreachAdminRouter.get("/leads", async (req: Request, res: Response) => {
     db.outreachLead.count({ where })
   ]);
   return res.json({ ok: true, data: { leads, total, page, limit } });
-});
+}));
 
 outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
   const parsed = outreachLeadCreateSchema.safeParse(req.body);
@@ -355,7 +376,7 @@ outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) 
   }
 });
 
-outreachAdminRouter.get("/caller-configs", async (req: Request, res: Response) => {
+outreachAdminRouter.get("/caller-configs", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
   const where: any = {};
@@ -365,9 +386,9 @@ outreachAdminRouter.get("/caller-configs", async (req: Request, res: Response) =
     orderBy: { createdAt: "desc" }
   });
   return res.json({ ok: true, data: { callerConfigs } });
-});
+}));
 
-outreachAdminRouter.post("/caller-configs", async (req: Request, res: Response) => {
+outreachAdminRouter.post("/caller-configs", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachCallerConfigCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid caller config payload.", errors: parsed.error.flatten() });
   const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
@@ -388,9 +409,9 @@ outreachAdminRouter.post("/caller-configs", async (req: Request, res: Response) 
     }
   });
   return res.status(201).json({ ok: true, data: { callerConfig } });
-});
+}));
 
-outreachAdminRouter.patch("/caller-configs/:id", async (req: Request, res: Response) => {
+outreachAdminRouter.patch("/caller-configs/:id", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachCallerConfigUpdateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid caller config payload.", errors: parsed.error.flatten() });
   const callerConfig = await db.outreachCallerConfig.update({
@@ -398,7 +419,7 @@ outreachAdminRouter.patch("/caller-configs/:id", async (req: Request, res: Respo
     data: parsed.data
   });
   return res.json({ ok: true, data: { callerConfig } });
-});
+}));
 
 outreachAdminRouter.get("/sequences", async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
@@ -582,7 +603,7 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
   return res.status(201).json({ ok: true, data: { enrollment } });
 });
 
-outreachAdminRouter.get("/phone-enrollments", async (req: Request, res: Response) => {
+outreachAdminRouter.get("/phone-enrollments", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid filters." });
   const where: any = {};
@@ -598,9 +619,9 @@ outreachAdminRouter.get("/phone-enrollments", async (req: Request, res: Response
     orderBy: { createdAt: "desc" }
   });
   return res.json({ ok: true, data: { enrollments } });
-});
+}));
 
-outreachAdminRouter.post("/phone-enrollments", async (req: Request, res: Response) => {
+outreachAdminRouter.post("/phone-enrollments", safeOutreachRoute(async (req: Request, res: Response) => {
   const parsed = outreachPhoneEnrollmentCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid phone enrollment payload.", errors: parsed.error.flatten() });
 
@@ -648,7 +669,7 @@ outreachAdminRouter.post("/phone-enrollments", async (req: Request, res: Respons
     data: { status: "ACTIVE" }
   });
   return res.status(201).json({ ok: true, data: { enrollment } });
-});
+}));
 
 outreachAdminRouter.post("/enrollments/:id/pause", async (req: Request, res: Response) => {
   const enrollment = await db.outreachEnrollment.update({
@@ -658,13 +679,13 @@ outreachAdminRouter.post("/enrollments/:id/pause", async (req: Request, res: Res
   return res.json({ ok: true, data: { enrollment } });
 });
 
-outreachAdminRouter.post("/phone-enrollments/:id/pause", async (req: Request, res: Response) => {
+outreachAdminRouter.post("/phone-enrollments/:id/pause", safeOutreachRoute(async (req: Request, res: Response) => {
   const enrollment = await db.outreachPhoneEnrollment.update({
     where: { id: req.params.id },
     data: { status: "PAUSED", processingStartedAt: null }
   });
   return res.json({ ok: true, data: { enrollment } });
-});
+}));
 
 outreachAdminRouter.post("/enrollments/:id/resume", async (req: Request, res: Response) => {
   const enrollment = await db.outreachEnrollment.update({
@@ -674,15 +695,15 @@ outreachAdminRouter.post("/enrollments/:id/resume", async (req: Request, res: Re
   return res.json({ ok: true, data: { enrollment } });
 });
 
-outreachAdminRouter.post("/phone-enrollments/:id/resume", async (req: Request, res: Response) => {
+outreachAdminRouter.post("/phone-enrollments/:id/resume", safeOutreachRoute(async (req: Request, res: Response) => {
   const enrollment = await db.outreachPhoneEnrollment.update({
     where: { id: req.params.id },
     data: { status: "ACTIVE", nextCallAt: new Date(), processingStartedAt: null }
   });
   return res.json({ ok: true, data: { enrollment } });
-});
+}));
 
-outreachAdminRouter.post("/phone-enrollments/:id/send-now", async (req: Request, res: Response) => {
+outreachAdminRouter.post("/phone-enrollments/:id/send-now", safeOutreachRoute(async (req: Request, res: Response) => {
   const auth = (req as AuthenticatedRequest).auth!;
   const enrollment = await db.outreachPhoneEnrollment.findUnique({
     where: { id: req.params.id },
@@ -711,7 +732,7 @@ outreachAdminRouter.post("/phone-enrollments/:id/send-now", async (req: Request,
     });
     return res.status(400).json({ ok: false, message });
   }
-});
+}));
 
 outreachAdminRouter.post("/enrollments/:id/send-now", async (req: Request, res: Response) => {
   const result = await sendEnrollmentStepNow({
@@ -724,7 +745,7 @@ outreachAdminRouter.post("/enrollments/:id/send-now", async (req: Request, res: 
   return res.json({ ok: true, data: result });
 });
 
-outreachAdminRouter.post("/runner/tick", async (_req: Request, res: Response) => {
+outreachAdminRouter.post("/runner/tick", safeOutreachRoute(async (_req: Request, res: Response) => {
   const emailResult = await runOutreachTick({
     prisma,
     processingTimeoutMs: Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10),
@@ -746,7 +767,7 @@ outreachAdminRouter.post("/runner/tick", async (_req: Request, res: Response) =>
       phoneStarted: phoneResult.started
     }
   });
-});
+}));
 
 outreachAdminRouter.get("/events", async (req: Request, res: Response) => {
   const parsed = outreachListQuerySchema.safeParse(req.query);
