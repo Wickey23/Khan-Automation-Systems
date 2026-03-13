@@ -264,6 +264,24 @@ function inferAppointmentRequested(transcript: string) {
   );
 }
 
+function buildSafeCallSummaryFallback(input: {
+  transcript?: string | null;
+  outcome?: string | null;
+  answeredAt?: Date | string | null;
+}) {
+  const transcriptText = String(input.transcript || "").trim();
+  if (transcriptText) {
+    return transcriptText.split("\n").slice(0, 3).join(" ").replace(/\s+/g, " ").trim().slice(0, 220) || "Call request captured for office review.";
+  }
+
+  const outcome = String(input.outcome || "").toUpperCase();
+  if (outcome === "MISSED" || outcome === "ABANDONED") return "Caller still needs follow-up. Review the missed call and contact them back.";
+  if (outcome === "SPAM") return "Call marked as spam.";
+  if (outcome === "APPOINTMENT_REQUEST") return "Customer requested an appointment and should be reviewed by the office.";
+  if (input.answeredAt) return "Call completed, but structured extraction was incomplete. Review the call record.";
+  return "Call request captured for office review.";
+}
+
 function normalizeTranscriptLine(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -667,7 +685,11 @@ export async function finalizeTranscriptionForCall(callLogId: string, reason: st
         callLogId: call.id,
         orgId: call.orgId
       });
-      updates.aiSummary = extraction.summary;
+      updates.aiSummary = extraction.summary || buildSafeCallSummaryFallback({
+        transcript,
+        outcome: call.outcome,
+        answeredAt: call.answeredAt
+      });
       updates.aiSummaryGeneratedAt = new Date();
       updates.appointmentRequested = extraction.appointmentRequested === true;
       lead = await upsertLeadFromSummary({
@@ -682,6 +704,13 @@ export async function finalizeTranscriptionForCall(callLogId: string, reason: st
         callLogId: call.id,
         providerCallId: call.providerCallId
       });
+    } else if (!call.aiSummaryGeneratedAt && !call.aiSummary) {
+      updates.aiSummary = buildSafeCallSummaryFallback({
+        transcript,
+        outcome: call.outcome,
+        answeredAt: call.answeredAt
+      });
+      updates.aiSummaryGeneratedAt = new Date();
     }
 
     if (Object.keys(updates).length) {
@@ -713,6 +742,52 @@ export async function finalizeTranscriptionForCall(callLogId: string, reason: st
       providerCallId: call.providerCallId,
       reason
     });
+  } catch (error) {
+    const call = await prisma.callLog.findUnique({
+      where: { id: callLogId },
+      select: {
+        id: true,
+        orgId: true,
+        providerCallId: true,
+        outcome: true,
+        answeredAt: true,
+        transcript: true,
+        aiSummary: true,
+        aiSummaryGeneratedAt: true,
+        transcriptStatus: true
+      }
+    });
+
+    if (call) {
+      const fallbackUpdates: Prisma.CallLogUpdateInput = {};
+      if (!call.aiSummary) {
+        fallbackUpdates.aiSummary = buildSafeCallSummaryFallback({
+          transcript: call.transcript,
+          outcome: call.outcome,
+          answeredAt: call.answeredAt
+        });
+        fallbackUpdates.aiSummaryGeneratedAt = new Date();
+      }
+      if (!call.transcript && call.transcriptStatus !== "ERROR") {
+        fallbackUpdates.transcriptStatus = "ERROR";
+      }
+      if (Object.keys(fallbackUpdates).length) {
+        await prisma.callLog.update({
+          where: { id: call.id },
+          data: fallbackUpdates
+        });
+      }
+
+      logTranscriptionEvent({
+        eventType: "TRANSCRIPTION_FINALIZE_FAILED",
+        status: "ERROR",
+        orgId: call.orgId,
+        callLogId: call.id,
+        providerCallId: call.providerCallId,
+        reason,
+        message: error instanceof Error ? error.message : "unknown_error"
+      });
+    }
   } finally {
     finalizingCalls.delete(callLogId);
   }
