@@ -17,6 +17,7 @@ import {
   validateOrderedSteps
 } from "./outreach.schema";
 import { buildBulkImportPreview, resolveOutreachOrgContext, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
+import { startOutreachAiCall } from "./outreach-phone.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
 
@@ -295,6 +296,30 @@ outreachAdminRouter.post("/leads/:id/mark-replied", async (req: Request, res: Re
     note: parsed.data.note
   });
   return res.json({ ok: true, data: { lead: updated } });
+});
+
+outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    if (!auth) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
+
+    const result = await startOutreachAiCall({
+      prisma,
+      leadId: req.params.id,
+      actorUserId: auth.userId,
+      actorRole: auth.role
+    });
+    return res.json({ ok: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not start AI outreach call.";
+    const statusCode =
+      /not found/i.test(message) ? 404 :
+      /valid phone|configured/i.test(message) ? 400 :
+      502;
+    return res.status(statusCode).json({ ok: false, message });
+  }
 });
 
 outreachAdminRouter.get("/sequences", async (req: Request, res: Response) => {

@@ -52,6 +52,7 @@ import type {
   OutreachEmailEvent,
   OutreachEnrollment,
   OutreachLead,
+  OutreachPhoneCallResult,
   OutreachOverview,
   OutreachSequence
 } from "@/lib/types";
@@ -458,6 +459,13 @@ export async function markAdminOutreachLeadReplied(id: string, payload: { orgId?
   return request<{ lead: OutreachLead }>(`/api/admin/outreach/leads/${id}/mark-replied`, {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export async function startAdminOutreachAiCall(id: string) {
+  return request<OutreachPhoneCallResult>(`/api/admin/outreach/leads/${id}/call`, {
+    method: "POST",
+    body: JSON.stringify({})
   });
 }
 

@@ -16,6 +16,7 @@ import {
   pauseAdminOutreachEnrollment,
   previewAdminOutreachLeadsImport,
   sendNowAdminOutreachEnrollment,
+  startAdminOutreachAiCall,
   suppressAdminOutreachLead,
   unsuppressAdminOutreachLead
 } from "@/lib/api";
@@ -44,6 +45,7 @@ export default function AdminOutreachLeadsPage() {
   const [bulkResults, setBulkResults] = useState<OutreachBulkImportRowResult[]>([]);
   const [bulkPreviewReady, setBulkPreviewReady] = useState(false);
   const [bulkImportLoading, setBulkImportLoading] = useState(false);
+  const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
   const [form, setForm] = useState({
     companyName: "",
     contactName: "",
@@ -265,6 +267,35 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
+  async function onAiCall(lead: OutreachLead) {
+    if (!lead.phone?.trim()) {
+      showToast({
+        title: "Phone number required",
+        description: "Add a valid phone number before starting an AI outreach call.",
+        variant: "error"
+      });
+      return;
+    }
+
+    try {
+      setCallingLeadId(lead.id);
+      const result = await startAdminOutreachAiCall(lead.id);
+      await load();
+      showToast({
+        title: "AI call started",
+        description: `${lead.companyName || lead.contactName || lead.email} is being called at ${result.toNumber}.`
+      });
+    } catch (error) {
+      showToast({
+        title: "Could not start AI call",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setCallingLeadId(null);
+    }
+  }
+
   async function onDeleteAllOutreachData() {
     if (typeof window !== "undefined") {
       const confirmed = window.confirm("Delete all outreach leads, sequences, enrollments, suppressions, and events?");
@@ -468,6 +499,14 @@ export default function AdminOutreachLeadsPage() {
                     </select>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" onClick={() => void onEnroll(lead)}>Enroll</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={callingLeadId === lead.id || !lead.phone?.trim()}
+                        onClick={() => void onAiCall(lead)}
+                      >
+                        {callingLeadId === lead.id ? "Calling..." : "AI call"}
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => void onSuppress(lead)}>
                         {lead.status === "PAUSED" || lead.status === "UNSUBSCRIBED" ? "Unsuppress" : "Suppress"}
                       </Button>

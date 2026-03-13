@@ -596,6 +596,14 @@ export type OutreachLead = {
   }>;
 };
 
+export type OutreachPhoneCallResult = {
+  leadId: string;
+  callId: string | null;
+  status: string;
+  toNumber: string;
+  phoneNumberId: string;
+};
+
 export type OutreachSequenceStep = {
   id?: string;
   sequenceId?: string;
