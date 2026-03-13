@@ -100,7 +100,12 @@ export const outreachPhoneEnrollmentCreateSchema = z.object({
   orgId: z.string().min(1).optional(),
   leadId: z.string().min(1),
   callerConfigId: z.string().min(1),
-  startAt: z.string().datetime().optional()
+  startAt: z.string().datetime().optional(),
+  force: z.boolean().optional()
+});
+
+export const outreachPhoneCallStartSchema = z.object({
+  force: z.boolean().optional()
 });
 
 export const outreachCallerConfigCreateSchema = z.object({

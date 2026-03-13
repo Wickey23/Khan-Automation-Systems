@@ -163,6 +163,7 @@ export async function startOutreachAiCall(input: {
   actorRole: UserRole;
   callerConfigId?: string | null;
   enrollmentId?: string | null;
+  force?: boolean;
 }) {
   const db = input.prisma as any;
   const lead = await db.outreachLead.findUnique({
@@ -183,7 +184,7 @@ export async function startOutreachAiCall(input: {
     select: { id: true, createdAt: true },
     orderBy: { createdAt: "desc" }
   });
-  if (priorStartedCall) {
+  if (priorStartedCall && !input.force) {
     throw new Error("This lead has already been called by Caller AI.");
   }
 

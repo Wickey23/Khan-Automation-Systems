@@ -314,7 +314,13 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
-  async function onStartPhoneOutreach(lead: OutreachLead) {
+  function confirmCallOverride(lead: OutreachLead) {
+    if (typeof window === "undefined") return true;
+    const label = formatLeadHeadline(lead);
+    return window.confirm(`Caller AI has already placed a live call to ${label}. Start another call anyway?`);
+  }
+
+  async function onStartPhoneOutreach(lead: OutreachLead, options?: { force?: boolean }) {
     const callerConfigId = selectedCallerConfigByLead[lead.id];
     if (!callerConfigId) {
       showToast({ title: "Choose Caller AI first", variant: "error" });
@@ -324,14 +330,17 @@ export default function AdminOutreachLeadsPage() {
       showToast({ title: "Valid phone required", description: "Add a valid phone number before starting Caller AI outreach.", variant: "error" });
       return;
     }
-    if (hasBeenCalled(lead)) {
+    if (hasBeenCalled(lead) && !options?.force) {
       showToast({ title: "Already called once", description: "Caller AI is limited to one live call per lead.", variant: "error" });
       return;
     }
+    if (options?.force && !confirmCallOverride(lead)) {
+      return;
+    }
     try {
-      await createAdminOutreachPhoneEnrollment({ leadId: lead.id, callerConfigId });
+      await createAdminOutreachPhoneEnrollment({ leadId: lead.id, callerConfigId, force: options?.force });
       await load();
-      showToast({ title: "Caller AI outreach started" });
+      showToast({ title: options?.force ? "Caller AI outreach restarted" : "Caller AI outreach started" });
     } catch (error) {
       showToast({
         title: "Could not start Caller AI outreach",
@@ -392,21 +401,24 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
-  async function onAiCall(lead: OutreachLead) {
+  async function onAiCall(lead: OutreachLead, options?: { force?: boolean }) {
     if (!lead.phone?.trim()) {
       showToast({ title: "Phone number required", description: "Add a valid phone number before starting an AI outreach call.", variant: "error" });
       return;
     }
-    if (hasBeenCalled(lead)) {
+    if (hasBeenCalled(lead) && !options?.force) {
       showToast({ title: "Already called once", description: "Caller AI is limited to one live call per lead.", variant: "error" });
+      return;
+    }
+    if (options?.force && !confirmCallOverride(lead)) {
       return;
     }
     try {
       setCallingLeadId(lead.id);
-      const result = await startAdminOutreachAiCall(lead.id);
+      const result = await startAdminOutreachAiCall(lead.id, { force: options?.force });
       await load();
       showToast({
-        title: "AI call started",
+        title: options?.force ? "AI call started again" : "AI call started",
         description: `${formatLeadHeadline(lead)} is being called at ${result.toNumber}.`
       });
     } catch (error) {
@@ -498,11 +510,14 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
-  async function onSendPhoneNow(enrollmentId: string) {
+  async function onSendPhoneNow(enrollmentId: string, lead?: OutreachLead, options?: { force?: boolean }) {
+    if (options?.force && lead && !confirmCallOverride(lead)) {
+      return;
+    }
     try {
-      await sendNowAdminOutreachPhoneEnrollment(enrollmentId);
+      await sendNowAdminOutreachPhoneEnrollment(enrollmentId, { force: options?.force });
       await load();
-      showToast({ title: "AI call triggered" });
+      showToast({ title: options?.force ? "AI call triggered again" : "AI call triggered" });
     } catch (error) {
       showToast({
         title: "Could not trigger AI call",
@@ -707,17 +722,17 @@ export default function AdminOutreachLeadsPage() {
                           <option key={config.id} value={config.id}>{config.name}</option>
                         ))}
                       </select>
-                      <Button className="mt-3 w-full" size="sm" disabled={!lead.phone?.trim() || called} onClick={() => void onStartPhoneOutreach(lead)}>
-                        {called ? "Already called once" : "Start AI call outreach"}
+                      <Button className="mt-3 w-full" size="sm" disabled={!lead.phone?.trim()} onClick={() => void onStartPhoneOutreach(lead, called ? { force: true } : undefined)}>
+                        {called ? "Start AI call outreach again" : "Start AI call outreach"}
                       </Button>
                       {!lead.phone?.trim() ? <p className="mt-2 text-xs text-muted-foreground">Add a valid phone number to enable Caller AI.</p> : null}
-                      {called ? <p className="mt-2 text-xs text-muted-foreground">Caller AI is limited to one live call per lead.</p> : null}
+                      {called ? <p className="mt-2 text-xs text-muted-foreground">This lead has already been called once. Use the button again only when you want to deliberately retry.</p> : null}
                     </div>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" disabled={callingLeadId === lead.id || !lead.phone?.trim() || called} onClick={() => void onAiCall(lead)}>
-                      {callingLeadId === lead.id ? "Calling..." : called ? "Already called once" : "Call now once"}
+                    <Button size="sm" variant="outline" disabled={callingLeadId === lead.id || !lead.phone?.trim()} onClick={() => void onAiCall(lead, called ? { force: true } : undefined)}>
+                      {callingLeadId === lead.id ? "Calling..." : called ? "Call again" : "Call now once"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => void onSuppress(lead)}>
                       {lead.status === "PAUSED" || lead.status === "UNSUBSCRIBED" ? "Unsuppress" : "Suppress"}
@@ -755,7 +770,9 @@ export default function AdminOutreachLeadsPage() {
                           </span>
                           {enrollment.status === "ACTIVE" ? (
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => void onSendPhoneNow(enrollment.id)}>Call now</Button>
+                              <Button size="sm" variant="outline" onClick={() => void onSendPhoneNow(enrollment.id, lead, called ? { force: true } : undefined)}>
+                                {called ? "Call again" : "Call now"}
+                              </Button>
                               <Button size="sm" variant="outline" onClick={() => void onPausePhoneEnrollment(enrollment.id)}>Pause</Button>
                             </div>
                           ) : null}

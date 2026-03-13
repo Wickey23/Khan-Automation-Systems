@@ -9,6 +9,7 @@ import {
   outreachCallerConfigUpdateSchema,
   outreachEnrollmentCreateSchema,
   outreachPhoneEnrollmentCreateSchema,
+  outreachPhoneCallStartSchema,
   outreachLeadCreateSchema,
   outreachLeadSuppressSchema,
   outreachLeadUpdateSchema,
@@ -459,12 +460,17 @@ outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) 
     if (!auth) {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
     }
+    const parsed = outreachPhoneCallStartSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ ok: false, message: "Invalid phone call payload.", errors: parsed.error.flatten() });
+    }
 
     const result = await startOutreachAiCall({
       prisma,
       leadId: req.params.id,
       actorUserId: auth.userId,
-      actorRole: auth.role
+      actorRole: auth.role,
+      force: parsed.data.force
     });
     return res.json({ ok: true, data: result });
   } catch (error) {
@@ -752,7 +758,7 @@ outreachAdminRouter.post("/phone-enrollments", safeOutreachRoute(async (req: Req
     },
     select: { id: true }
   });
-  if (priorCall) {
+  if (priorCall && !parsed.data.force) {
     return res.status(409).json({ ok: false, message: "This lead has already been called by Caller AI." });
   }
 
@@ -820,6 +826,10 @@ outreachAdminRouter.post("/phone-enrollments/:id/resume", safeOutreachRoute(asyn
 
 outreachAdminRouter.post("/phone-enrollments/:id/send-now", safeOutreachRoute(async (req: Request, res: Response) => {
   const auth = (req as AuthenticatedRequest).auth!;
+  const parsed = outreachPhoneCallStartSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid phone send payload.", errors: parsed.error.flatten() });
+  }
   const enrollment = await db.outreachPhoneEnrollment.findUnique({
     where: { id: req.params.id },
     include: { callerConfig: true, lead: true }
@@ -832,7 +842,8 @@ outreachAdminRouter.post("/phone-enrollments/:id/send-now", safeOutreachRoute(as
       actorUserId: auth.userId,
       actorRole: auth.role,
       callerConfigId: enrollment.callerConfigId,
-      enrollmentId: enrollment.id
+      enrollmentId: enrollment.id,
+      force: parsed.data.force
     });
     await db.outreachPhoneEnrollment.update({
       where: { id: enrollment.id },
