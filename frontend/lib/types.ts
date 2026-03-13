@@ -600,6 +600,22 @@ export type OutreachLead = {
     nextCallAt: string | null;
     callerConfig?: { id: string; name: string } | null;
   }>;
+  emailEvents?: Array<{
+    id: string;
+    eventType: OutreachEmailEventType;
+    subject: string | null;
+    toEmail: string;
+    createdAt: string;
+    errorMessage: string | null;
+  }>;
+  phoneEvents?: Array<{
+    id: string;
+    eventType: "QUEUED" | "STARTED" | "COMPLETED" | "FAILED";
+    status: string | null;
+    toPhone: string;
+    createdAt: string;
+    errorMessage: string | null;
+  }>;
 };
 
 export type OutreachPhoneCallResult = {

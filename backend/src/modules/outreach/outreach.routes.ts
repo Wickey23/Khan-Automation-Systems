@@ -19,7 +19,7 @@ import {
   outreachSequenceUpdateSchema,
   validateOrderedSteps
 } from "./outreach.schema";
-import { buildBulkImportPreview, resolveOutreachOrgContext, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
+import { buildBulkImportPreview, normalizePhoneE164, resolveOutreachOrgContext, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
 import { runOutreachPhoneTick, startOutreachAiCall } from "./outreach-phone.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
@@ -135,6 +135,30 @@ outreachAdminRouter.get("/leads", safeOutreachRoute(async (req: Request, res: Re
           include: {
             callerConfig: { select: { id: true, name: true } }
           }
+        },
+        emailEvents: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            eventType: true,
+            subject: true,
+            toEmail: true,
+            createdAt: true,
+            errorMessage: true
+          }
+        },
+        phoneEvents: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            eventType: true,
+            status: true,
+            toPhone: true,
+            createdAt: true,
+            errorMessage: true
+          }
         }
       },
       orderBy: { createdAt: "desc" },
@@ -152,6 +176,10 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
 
   const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
   const email = normalizeEmail(parsed.data.email);
+  const phone = parsed.data.phone ? normalizePhoneE164(parsed.data.phone) : "";
+  if (parsed.data.phone && !phone) {
+    return res.status(400).json({ ok: false, message: "Phone must be a valid US or E.164 number." });
+  }
   const duplicate = await db.outreachLead.findFirst({
     where: { orgId: org.id, email },
     select: { id: true }
@@ -163,6 +191,7 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
       ...parsed.data,
       orgId: org.id,
       email,
+      phone: phone || undefined,
       status: parsed.data.status || "NEW"
     },
     include: {
@@ -175,12 +204,22 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
 outreachAdminRouter.patch("/leads/:id", async (req: Request, res: Response) => {
   const parsed = outreachLeadUpdateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid lead payload.", errors: parsed.error.flatten() });
+  const normalizedPhone =
+    typeof parsed.data.phone === "string"
+      ? parsed.data.phone
+        ? normalizePhoneE164(parsed.data.phone)
+        : null
+      : undefined;
+  if (typeof parsed.data.phone === "string" && parsed.data.phone && !normalizedPhone) {
+    return res.status(400).json({ ok: false, message: "Phone must be a valid US or E.164 number." });
+  }
   try {
     const lead = await db.outreachLead.update({
       where: { id: req.params.id },
       data: {
         ...parsed.data,
-        email: parsed.data.email ? normalizeEmail(parsed.data.email) : undefined
+        email: parsed.data.email ? normalizeEmail(parsed.data.email) : undefined,
+        phone: normalizedPhone
       }
     });
     return res.json({ ok: true, data: { lead } });
@@ -370,6 +409,7 @@ outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) 
     const message = error instanceof Error ? error.message : "Could not start AI outreach call.";
     const statusCode =
       /not found/i.test(message) ? 404 :
+      /already been called/i.test(message) ? 409 :
       /valid phone|configured/i.test(message) ? 400 :
       502;
     return res.status(statusCode).json({ ok: false, message });
@@ -639,6 +679,16 @@ outreachAdminRouter.post("/phone-enrollments", safeOutreachRoute(async (req: Req
   }
   if (!lead.phone) {
     return res.status(400).json({ ok: false, message: "Lead must have a phone number for caller AI outreach." });
+  }
+  const priorCall = await db.outreachPhoneEvent.findFirst({
+    where: {
+      leadId: lead.id,
+      eventType: { in: ["STARTED", "COMPLETED"] }
+    },
+    select: { id: true }
+  });
+  if (priorCall) {
+    return res.status(409).json({ ok: false, message: "This lead has already been called by Caller AI." });
   }
 
   const existing = await db.outreachPhoneEnrollment.findFirst({

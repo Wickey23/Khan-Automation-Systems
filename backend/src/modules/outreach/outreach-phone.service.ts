@@ -126,6 +126,18 @@ export async function startOutreachAiCall(input: {
     throw new Error("Lead not found.");
   }
 
+  const priorStartedCall = await db.outreachPhoneEvent.findFirst({
+    where: {
+      leadId: lead.id,
+      eventType: { in: ["STARTED", "COMPLETED"] }
+    },
+    select: { id: true, createdAt: true },
+    orderBy: { createdAt: "desc" }
+  });
+  if (priorStartedCall) {
+    throw new Error("This lead has already been called by Caller AI.");
+  }
+
   const customerNumber = normalizePhoneE164(lead.phone || "");
   if (!customerNumber) {
     throw new Error("Lead does not have a valid phone number for AI calling.");

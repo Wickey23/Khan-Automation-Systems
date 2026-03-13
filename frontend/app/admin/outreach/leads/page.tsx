@@ -1,14 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
+import { AdminGuard } from "@/components/dashboard/admin-guard";
+import { useToast } from "@/components/site/toast-provider";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page";
+import { Textarea } from "@/components/ui/textarea";
 import {
   confirmAdminOutreachLeadsImport,
   createAdminOutreachEnrollment,
-  createAdminOutreachPhoneEnrollment,
   createAdminOutreachLead,
+  createAdminOutreachPhoneEnrollment,
   deleteAdminOutreachLead,
   deleteAllAdminOutreachData,
   fetchAdminOutreachCallerConfigs,
@@ -25,17 +32,53 @@ import {
   unsuppressAdminOutreachLead
 } from "@/lib/api";
 import type { OutreachBulkImportRowResult, OutreachCallerConfig, OutreachLead, OutreachSequence } from "@/lib/types";
-import { useToast } from "@/components/site/toast-provider";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
-import { Textarea } from "@/components/ui/textarea";
 
 const CSV_TEMPLATE = `companyName,contactName,email,phone,city,state,industry,website,notes
 Acme Truck Repair,Sam Rivera,sam@acmetruckrepair.com,555-111-2222,Dallas,TX,Truck Repair,https://acmetruckrepair.com,Imported from list
 Metro HVAC,Jamie Cole,jamie@metrohvac.com,555-333-4444,Austin,TX,HVAC,https://metrohvac.com,Priority batch`;
+
+function formatLeadHeadline(lead: OutreachLead) {
+  return lead.companyName || lead.contactName || lead.email;
+}
+
+function formatLeadSubline(lead: OutreachLead) {
+  return [lead.contactName || "-", lead.email, lead.phone || "No phone"].filter(Boolean).join(" - ");
+}
+
+function hasBeenCalled(lead: OutreachLead) {
+  return Boolean((lead.phoneEvents || []).find((event) => event.eventType === "STARTED" || event.eventType === "COMPLETED"));
+}
+
+function buildLeadActivity(lead: OutreachLead) {
+  const emailItems = (lead.emailEvents || []).map((event) => ({
+    id: `email-${event.id}`,
+    createdAt: event.createdAt,
+    label:
+      event.eventType === "REPLIED"
+        ? "Email reply received"
+        : event.eventType === "FAILED"
+          ? "Email send failed"
+          : `Email ${event.eventType.toLowerCase()}`,
+    detail: event.subject || event.toEmail || "Email event"
+  }));
+  const phoneItems = (lead.phoneEvents || []).map((event) => ({
+    id: `phone-${event.id}`,
+    createdAt: event.createdAt,
+    label:
+      event.eventType === "FAILED"
+        ? "AI call failed"
+        : event.eventType === "COMPLETED"
+          ? "AI call completed"
+          : event.eventType === "STARTED"
+            ? "AI call started"
+            : "AI call queued",
+    detail: event.errorMessage || event.status || event.toPhone || "Phone event"
+  }));
+
+  return [...phoneItems, ...emailItems]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 6);
+}
 
 export default function AdminOutreachLeadsPage() {
   const { showToast } = useToast();
@@ -70,13 +113,14 @@ export default function AdminOutreachLeadsPage() {
     const params = new URLSearchParams();
     if (status !== "ALL") params.set("status", status);
     if (search.trim()) params.set("search", search.trim());
-    return `?${params.toString()}`;
+    const queryText = params.toString();
+    return queryText ? `?${queryText}` : "";
   }, [search, status]);
 
   const load = useCallback(async () => {
     try {
       const [leadData, sequenceData, callerConfigData] = await Promise.all([
-        fetchAdminOutreachLeads(search || status !== "ALL" ? query : ""),
+        fetchAdminOutreachLeads(query),
         fetchAdminOutreachSequences(),
         fetchAdminOutreachCallerConfigs()
       ]);
@@ -90,7 +134,7 @@ export default function AdminOutreachLeadsPage() {
         variant: "error"
       });
     }
-  }, [query, search, showToast, status]);
+  }, [query, showToast]);
 
   useEffect(() => {
     void load();
@@ -123,19 +167,11 @@ export default function AdminOutreachLeadsPage() {
 
   async function onPreviewImport() {
     if (bulkMode === "EMAIL" && !bulkSequenceId) {
-      showToast({
-        title: "Choose a sequence",
-        description: "Pick the sequence that would be used if you start outreach.",
-        variant: "error"
-      });
+      showToast({ title: "Choose a sequence", description: "Pick the sequence used for email outreach.", variant: "error" });
       return;
     }
     if (bulkMode === "PHONE" && !bulkCallerConfigId) {
-      showToast({
-        title: "Choose Caller AI",
-        description: "Pick the caller profile that should be used for enrolled leads.",
-        variant: "error"
-      });
+      showToast({ title: "Choose Caller AI", description: "Pick the caller profile used for AI calls.", variant: "error" });
       return;
     }
     try {
@@ -148,10 +184,7 @@ export default function AdminOutreachLeadsPage() {
       setBulkResults(data.rows || []);
       setBulkPreviewReady(true);
       const validRows = (data.rows || []).filter((row) => row.status === "created").length;
-      showToast({
-        title: "Preview ready",
-        description: `${validRows} valid rows are ready to import.`
-      });
+      showToast({ title: "Preview ready", description: `${validRows} valid rows are ready to import.` });
     } catch (error) {
       setBulkPreviewReady(false);
       showToast({
@@ -164,31 +197,23 @@ export default function AdminOutreachLeadsPage() {
 
   async function onBulkImport() {
     if (bulkMode === "EMAIL" && !bulkSequenceId) {
-      showToast({
-        title: "Choose a sequence",
-        description: "CSV imports require a sequence so outreach can start automatically.",
-        variant: "error"
-      });
+      showToast({ title: "Choose a sequence", description: "CSV imports require a sequence to start email outreach.", variant: "error" });
       return;
     }
     if (bulkMode === "PHONE" && !bulkCallerConfigId) {
-      showToast({
-        title: "Choose Caller AI",
-        description: "CSV imports require a caller profile so outreach calls can be queued automatically.",
-        variant: "error"
-      });
+      showToast({ title: "Choose Caller AI", description: "CSV imports require a Caller AI profile.", variant: "error" });
       return;
     }
     if (!bulkPreviewReady) {
-      showToast({
-        title: "Preview required",
-        description: "Preview the CSV before starting outreach.",
-        variant: "error"
-      });
+      showToast({ title: "Preview required", description: "Preview the CSV before starting outreach.", variant: "error" });
       return;
     }
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(bulkMode === "PHONE" ? "Queue AI outreach calls for the valid rows in this CSV preview?" : "Start outreach for the valid rows in this CSV preview?");
+      const confirmed = window.confirm(
+        bulkMode === "PHONE"
+          ? "Queue Caller AI outreach for the valid rows in this preview?"
+          : "Start email outreach for the valid rows in this preview?"
+      );
       if (!confirmed) return;
     }
 
@@ -209,10 +234,10 @@ export default function AdminOutreachLeadsPage() {
         description:
           bulkMode === "PHONE"
             ? started
-              ? `${started} contacts were enrolled and queued for AI calling.`
+              ? `${started} contacts were queued for AI calling.`
               : "Import completed."
             : started
-              ? `${started} contacts were enrolled and queued to start emailing.`
+              ? `${started} contacts were enrolled for email outreach.`
               : "Import completed."
       });
     } catch (error) {
@@ -239,34 +264,46 @@ export default function AdminOutreachLeadsPage() {
     }
   }
 
-  async function onEnroll(lead: OutreachLead) {
-    const callerConfigId = selectedCallerConfigByLead[lead.id];
-    if (callerConfigId) {
-      try {
-        await createAdminOutreachPhoneEnrollment({ leadId: lead.id, callerConfigId });
-        await load();
-        showToast({ title: "Lead enrolled for AI calling" });
-      } catch (error) {
-        showToast({
-          title: "Could not enroll lead for AI calling",
-          description: error instanceof Error ? error.message : "Try again.",
-          variant: "error"
-        });
-      }
-      return;
-    }
+  async function onStartEmailOutreach(lead: OutreachLead) {
     const sequenceId = selectedSequenceByLead[lead.id];
     if (!sequenceId) {
-      showToast({ title: "Choose a sequence or Caller AI first", variant: "error" });
+      showToast({ title: "Choose a sequence first", variant: "error" });
       return;
     }
     try {
       await createAdminOutreachEnrollment({ leadId: lead.id, sequenceId });
       await load();
-      showToast({ title: "Lead enrolled" });
+      showToast({ title: "Email outreach started" });
     } catch (error) {
       showToast({
-        title: "Could not enroll lead",
+        title: "Could not start email outreach",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }
+
+  async function onStartPhoneOutreach(lead: OutreachLead) {
+    const callerConfigId = selectedCallerConfigByLead[lead.id];
+    if (!callerConfigId) {
+      showToast({ title: "Choose Caller AI first", variant: "error" });
+      return;
+    }
+    if (!lead.phone?.trim()) {
+      showToast({ title: "Valid phone required", description: "Add a valid phone number before starting Caller AI outreach.", variant: "error" });
+      return;
+    }
+    if (hasBeenCalled(lead)) {
+      showToast({ title: "Already called once", description: "Caller AI is limited to one live call per lead.", variant: "error" });
+      return;
+    }
+    try {
+      await createAdminOutreachPhoneEnrollment({ leadId: lead.id, callerConfigId });
+      await load();
+      showToast({ title: "Caller AI outreach started" });
+    } catch (error) {
+      showToast({
+        title: "Could not start Caller AI outreach",
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
@@ -308,10 +345,9 @@ export default function AdminOutreachLeadsPage() {
   async function onDeleteLead(lead: OutreachLead) {
     const label = lead.companyName || lead.contactName || lead.email;
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`Delete ${label} from outreach? This will remove its enrollments and outreach history.`);
+      const confirmed = window.confirm(`Delete ${label} from outreach? This removes enrollments and outreach history.`);
       if (!confirmed) return;
     }
-
     try {
       await deleteAdminOutreachLead(lead.id);
       await load();
@@ -327,21 +363,20 @@ export default function AdminOutreachLeadsPage() {
 
   async function onAiCall(lead: OutreachLead) {
     if (!lead.phone?.trim()) {
-      showToast({
-        title: "Phone number required",
-        description: "Add a valid phone number before starting an AI outreach call.",
-        variant: "error"
-      });
+      showToast({ title: "Phone number required", description: "Add a valid phone number before starting an AI outreach call.", variant: "error" });
       return;
     }
-
+    if (hasBeenCalled(lead)) {
+      showToast({ title: "Already called once", description: "Caller AI is limited to one live call per lead.", variant: "error" });
+      return;
+    }
     try {
       setCallingLeadId(lead.id);
       const result = await startAdminOutreachAiCall(lead.id);
       await load();
       showToast({
         title: "AI call started",
-        description: `${lead.companyName || lead.contactName || lead.email} is being called at ${result.toNumber}.`
+        description: `${formatLeadHeadline(lead)} is being called at ${result.toNumber}.`
       });
     } catch (error) {
       showToast({
@@ -359,7 +394,6 @@ export default function AdminOutreachLeadsPage() {
       const confirmed = window.confirm("Delete all outreach leads, sequences, enrollments, suppressions, and events?");
       if (!confirmed) return;
     }
-
     try {
       await deleteAllAdminOutreachData();
       setBulkResults([]);
@@ -393,7 +427,7 @@ export default function AdminOutreachLeadsPage() {
     try {
       await sendNowAdminOutreachEnrollment(enrollmentId);
       await load();
-      showToast({ title: "Send triggered" });
+      showToast({ title: "Email send triggered" });
     } catch (error) {
       showToast({
         title: "Could not send now",
@@ -438,7 +472,7 @@ export default function AdminOutreachLeadsPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach Leads"
-          description="Preview CSV contact lists before import, then explicitly confirm before any outreach enrollments begin."
+          description="Load prospect lists, choose whether outreach starts by email or Caller AI, and keep a single activity timeline per lead."
           actions={
             <div className="flex gap-2">
               <Input placeholder="Search leads" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -485,8 +519,8 @@ export default function AdminOutreachLeadsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Upload or paste a CSV with headers like `companyName, contactName, email, phone, city, state, industry, website, notes`.
-                Preview rows first, then explicitly confirm before outreach starts.
+                Upload or paste CSV rows with `companyName, contactName, email, phone, city, state, industry, website, notes`.
+                Preview first, then explicitly confirm whether the import should start email outreach or Caller AI outreach.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant={bulkMode === "EMAIL" ? "default" : "outline"} onClick={() => { setBulkMode("EMAIL"); setBulkPreviewReady(false); }}>
@@ -509,9 +543,7 @@ export default function AdminOutreachLeadsPage() {
                   >
                     <option value="">Choose sequence</option>
                     {sequences.map((sequence) => (
-                      <option key={sequence.id} value={sequence.id}>
-                        {sequence.name}
-                      </option>
+                      <option key={sequence.id} value={sequence.id}>{sequence.name}</option>
                     ))}
                   </select>
                 ) : (
@@ -525,9 +557,7 @@ export default function AdminOutreachLeadsPage() {
                   >
                     <option value="">Choose Caller AI profile</option>
                     {callerConfigs.map((config) => (
-                      <option key={config.id} value={config.id}>
-                        {config.name}
-                      </option>
+                      <option key={config.id} value={config.id}>{config.name}</option>
                     ))}
                   </select>
                 )}
@@ -538,25 +568,14 @@ export default function AdminOutreachLeadsPage() {
               </div>
               <div>
                 <Label>CSV contents</Label>
-                <Textarea
-                  rows={10}
-                  value={bulkText}
-                  onChange={(event) => {
-                    setBulkText(event.target.value);
-                    setBulkPreviewReady(false);
-                  }}
-                />
+                <Textarea rows={10} value={bulkText} onChange={(event) => { setBulkText(event.target.value); setBulkPreviewReady(false); }} />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => void onPreviewImport()}>
-                  Preview import
-                </Button>
+                <Button variant="outline" onClick={() => void onPreviewImport()}>Preview import</Button>
                 <Button disabled={!bulkPreviewReady || bulkImportLoading} onClick={() => void onBulkImport()}>
                   {bulkImportLoading ? "Starting outreach..." : bulkMode === "PHONE" ? "Confirm import and queue AI calls" : "Confirm import and start outreach"}
                 </Button>
-                <Button variant="outline" onClick={() => void onDeleteAllOutreachData()}>
-                  Clear all outreach data
-                </Button>
+                <Button variant="outline" onClick={() => void onDeleteAllOutreachData()}>Clear all outreach data</Button>
               </div>
               {bulkResults.length ? (
                 <div className="space-y-2 rounded-lg border p-3 text-sm">
@@ -565,9 +584,9 @@ export default function AdminOutreachLeadsPage() {
                       <span>Line {row.lineNumber}</span>
                       <span>
                         {row.status}
-                        {"email" in row ? ` • ${row.email}` : ""}
-                        {"enrollmentId" in row && row.enrollmentId ? " • enrolled" : ""}
-                        {"reason" in row ? ` • ${row.reason}` : ""}
+                        {"email" in row ? ` - ${row.email}` : ""}
+                        {"enrollmentId" in row && row.enrollmentId ? " - enrolled" : ""}
+                        {"reason" in row ? ` - ${row.reason}` : ""}
                       </span>
                     </div>
                   ))}
@@ -582,113 +601,132 @@ export default function AdminOutreachLeadsPage() {
             <CardTitle>Leads</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {leads.length ? (
-              leads.map((lead) => (
+            {leads.length ? leads.map((lead) => {
+              const called = hasBeenCalled(lead);
+              const activity = buildLeadActivity(lead);
+              return (
                 <div key={lead.id} className="rounded-lg border p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="font-semibold">{lead.companyName || lead.contactName || lead.email}</div>
-                      <div className="text-sm text-muted-foreground">{lead.contactName || "-"} • {lead.email}</div>
+                      <div className="font-semibold">{formatLeadHeadline(lead)}</div>
+                      <div className="text-sm text-muted-foreground">{formatLeadSubline(lead)}</div>
                     </div>
-                    <div className="text-sm">{lead.status}</div>
+                    <div className="text-sm font-medium">{lead.status}</div>
                   </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
-                    <div className="text-sm text-muted-foreground">
-                      {(lead.city || lead.state) ? `${lead.city || ""}${lead.city && lead.state ? ", " : ""}${lead.state || ""}` : "Location not set"}
-                      {lead.industry ? ` • ${lead.industry}` : ""}
+
+                  <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)_minmax(260px,0.9fr)]">
+                    <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+                      <div className="font-medium">Lead details</div>
+                      <div className="mt-2 text-muted-foreground">
+                        {(lead.city || lead.state) ? `${lead.city || ""}${lead.city && lead.state ? ", " : ""}${lead.state || ""}` : "Location not set"}
+                        {lead.industry ? ` - ${lead.industry}` : ""}
+                      </div>
+                      {lead.notes ? <div className="mt-2 text-muted-foreground">{lead.notes}</div> : null}
                     </div>
-                    <select
-                      value={selectedSequenceByLead[lead.id] || ""}
-                      onChange={(event) => setSelectedSequenceByLead((current) => ({ ...current, [lead.id]: event.target.value }))}
-                      className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                    >
-                      <option value="">Choose sequence</option>
-                      {sequences.map((sequence) => (
-                        <option key={sequence.id} value={sequence.id}>
-                          {sequence.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={selectedCallerConfigByLead[lead.id] || ""}
-                      onChange={(event) => setSelectedCallerConfigByLead((current) => ({ ...current, [lead.id]: event.target.value }))}
-                      className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                    >
-                      <option value="">Choose Caller AI</option>
-                      {callerConfigs.map((config) => (
-                        <option key={config.id} value={config.id}>
-                          {config.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => void onEnroll(lead)}>
-                        {selectedCallerConfigByLead[lead.id] ? "Enroll for AI call" : "Enroll"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={callingLeadId === lead.id || !lead.phone?.trim()}
-                        onClick={() => void onAiCall(lead)}
+
+                    <div className="rounded-lg border bg-muted/20 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Assign sequence to start</div>
+                      <select
+                        value={selectedSequenceByLead[lead.id] || ""}
+                        onChange={(event) => setSelectedSequenceByLead((current) => ({ ...current, [lead.id]: event.target.value }))}
+                        className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
                       >
-                        {callingLeadId === lead.id ? "Calling..." : "AI call"}
+                        <option value="">Choose sequence</option>
+                        {sequences.map((sequence) => (
+                          <option key={sequence.id} value={sequence.id}>{sequence.name}</option>
+                        ))}
+                      </select>
+                      <Button className="mt-3 w-full" size="sm" onClick={() => void onStartEmailOutreach(lead)}>Start email outreach</Button>
+                    </div>
+
+                    <div className="rounded-lg border bg-muted/20 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Assign call to start</div>
+                      <select
+                        value={selectedCallerConfigByLead[lead.id] || ""}
+                        onChange={(event) => setSelectedCallerConfigByLead((current) => ({ ...current, [lead.id]: event.target.value }))}
+                        className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                      >
+                        <option value="">Choose Caller AI</option>
+                        {callerConfigs.map((config) => (
+                          <option key={config.id} value={config.id}>{config.name}</option>
+                        ))}
+                      </select>
+                      <Button className="mt-3 w-full" size="sm" disabled={!lead.phone?.trim() || called} onClick={() => void onStartPhoneOutreach(lead)}>
+                        {called ? "Already called once" : "Start AI call outreach"}
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => void onSuppress(lead)}>
-                        {lead.status === "PAUSED" || lead.status === "UNSUBSCRIBED" ? "Unsuppress" : "Suppress"}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => void onMarkReplied(lead)}>Mark replied</Button>
-                      <Button size="sm" variant="outline" onClick={() => void onDeleteLead(lead)}>Delete</Button>
+                      {!lead.phone?.trim() ? <p className="mt-2 text-xs text-muted-foreground">Add a valid phone number to enable Caller AI.</p> : null}
+                      {called ? <p className="mt-2 text-xs text-muted-foreground">Caller AI is limited to one live call per lead.</p> : null}
                     </div>
                   </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={callingLeadId === lead.id || !lead.phone?.trim() || called} onClick={() => void onAiCall(lead)}>
+                      {callingLeadId === lead.id ? "Calling..." : called ? "Already called once" : "Call now once"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void onSuppress(lead)}>
+                      {lead.status === "PAUSED" || lead.status === "UNSUBSCRIBED" ? "Unsuppress" : "Suppress"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void onMarkReplied(lead)}>Mark replied</Button>
+                    <Button size="sm" variant="outline" onClick={() => void onDeleteLead(lead)}>Delete</Button>
+                  </div>
+
                   {lead.enrollments?.length ? (
                     <div className="mt-3 space-y-2 text-sm">
                       {lead.enrollments.map((enrollment) => (
                         <div key={enrollment.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
                           <span>
-                            {enrollment.sequence?.name || "Sequence"} • {enrollment.status} • step {enrollment.currentStepNumber}
-                            {enrollment.nextSendAt ? ` • next ${new Date(enrollment.nextSendAt).toLocaleString()}` : ""}
+                            {enrollment.sequence?.name || "Sequence"} - {enrollment.status} - step {enrollment.currentStepNumber}
+                            {enrollment.nextSendAt ? ` - next ${new Date(enrollment.nextSendAt).toLocaleString()}` : ""}
                           </span>
                           {enrollment.status === "ACTIVE" ? (
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => void onSendNow(enrollment.id)}>
-                                Send now
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => void onPauseEnrollment(enrollment.id)}>
-                                Pause
-                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => void onSendNow(enrollment.id)}>Send now</Button>
+                              <Button size="sm" variant="outline" onClick={() => void onPauseEnrollment(enrollment.id)}>Pause</Button>
                             </div>
                           ) : null}
                         </div>
                       ))}
                     </div>
                   ) : null}
+
                   {lead.phoneEnrollments?.length ? (
                     <div className="mt-3 space-y-2 text-sm">
                       {lead.phoneEnrollments.map((enrollment) => (
                         <div key={enrollment.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2">
                           <span>
-                            {enrollment.callerConfig?.name || "Caller AI"} • {enrollment.status}
-                            {enrollment.nextCallAt ? ` • next ${new Date(enrollment.nextCallAt).toLocaleString()}` : ""}
+                            {enrollment.callerConfig?.name || "Caller AI"} - {enrollment.status}
+                            {enrollment.nextCallAt ? ` - next ${new Date(enrollment.nextCallAt).toLocaleString()}` : ""}
                           </span>
                           {enrollment.status === "ACTIVE" ? (
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => void onSendPhoneNow(enrollment.id)}>
-                                Call now
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => void onPausePhoneEnrollment(enrollment.id)}>
-                                Pause
-                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => void onSendPhoneNow(enrollment.id)}>Call now</Button>
+                              <Button size="sm" variant="outline" onClick={() => void onPausePhoneEnrollment(enrollment.id)}>Pause</Button>
                             </div>
                           ) : null}
                         </div>
                       ))}
                     </div>
                   ) : null}
+
+                  {activity.length ? (
+                    <div className="mt-3 rounded-lg border bg-muted/10 p-3">
+                      <div className="text-sm font-medium">Recent outreach activity</div>
+                      <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+                        {activity.map((item) => (
+                          <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/60 bg-background px-3 py-2">
+                            <div>
+                              <div className="font-medium text-foreground">{item.label}</div>
+                              <div>{item.detail}</div>
+                            </div>
+                            <div className="text-xs">{new Date(item.createdAt).toLocaleString()}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">No outreach leads found.</div>
-            )}
+              );
+            }) : <div className="text-sm text-muted-foreground">No outreach leads found.</div>}
           </CardContent>
         </Card>
       </div>

@@ -30,6 +30,19 @@ export function htmlToText(input: string) {
   return input.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").trim();
 }
 
+export function normalizePhoneE164(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("+")) {
+    const digits = `+${raw.slice(1).replace(/\D/g, "")}`;
+    return /^\+\d{10,15}$/.test(digits) ? digits : "";
+  }
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return /^\d{10,15}$/.test(digits) ? `+${digits}` : "";
+}
+
 export function textToHtml(input: string) {
   return input
     .split(/\r?\n\r?\n/)
@@ -193,8 +206,18 @@ export async function buildBulkImportPreview(input: {
   const seenEmails = new Set<string>();
   for (const row of rows) {
     const email = normalizeEmail(row.values.email || "");
+    const rawPhone = String(row.values.phone || "").trim();
+    const phone = normalizePhoneE164(rawPhone);
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Valid email required.", raw: row.raw });
+      continue;
+    }
+    if (rawPhone && !phone) {
+      results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Phone must be a valid US or E.164 number.", raw: row.raw });
+      continue;
+    }
+    if (outreachMode === "PHONE" && !phone) {
+      results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Valid phone required for Caller AI outreach.", raw: row.raw });
       continue;
     }
     if (seenEmails.has(email)) {
@@ -233,7 +256,7 @@ export async function buildBulkImportPreview(input: {
     const data = {
       companyName: row.values.companyName || undefined,
       contactName: row.values.contactName || undefined,
-      phone: row.values.phone || undefined,
+      phone: phone || undefined,
       city: row.values.city || undefined,
       state: row.values.state || undefined,
       industry: row.values.industry || undefined,
