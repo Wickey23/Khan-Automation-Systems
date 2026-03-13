@@ -391,6 +391,29 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
             ...(resolvedLead?.id ? { leadId: resolvedLead.id } : {})
           }
         });
+        if (resolvedLead?.id && body) {
+          await prisma.lead.updateMany({
+            where: { id: resolvedLead.id, orgId },
+            data: {
+              message: body,
+              notes: body
+            }
+          });
+        }
+        await prisma.auditLog.create({
+          data: {
+            orgId,
+            actorUserId: "twilio-sms",
+            actorRole: "SYSTEM",
+            action: "AUTO_RECOVERY_REPLY_CAPTURED",
+            metadataJson: JSON.stringify({
+              callLogId: parsedMetadata.callLogId,
+              threadId: thread.id,
+              leadId: resolvedLead?.id || null,
+              fromNumber: normalizedFrom
+            })
+          }
+        }).catch(() => null);
       }
     } catch {
       // Ignore malformed metadata from legacy recovery messages.

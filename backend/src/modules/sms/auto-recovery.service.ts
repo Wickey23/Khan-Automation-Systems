@@ -17,15 +17,28 @@ function buildWindowBucket(date: Date, windowHours: number) {
   return String(Math.floor(date.getTime() / bucketMs));
 }
 
+const SHORT_RECOVERY_CALL_MAX_DURATION_SEC = 20;
+
 function reasonForAutoRecovery(call: {
   durationSec: number | null;
   aiStartedAt: Date | null;
   transferredAt: Date | null;
   outcome: string;
+  answeredAt?: Date | null;
+  callStatus?: string | null;
+  dialCallStatus?: string | null;
   unansweredTransfer?: boolean | null;
 }) {
   if (call.outcome === "MISSED") return "MISSED_CALL";
-  if (call.outcome === "ABANDONED") return "ABANDONED_CALL";
+  if (
+    call.outcome === "ABANDONED" ||
+    (!call.answeredAt &&
+      ["busy", "no-answer", "failed", "canceled", "cancelled"].includes(String(call.callStatus || call.dialCallStatus || "").toLowerCase()))
+  ) {
+    if (call.durationSec === null || call.durationSec <= SHORT_RECOVERY_CALL_MAX_DURATION_SEC || !call.aiStartedAt) {
+      return "ABANDONED_CALL";
+    }
+  }
   if (call.outcome === "TRANSFERRED" && call.unansweredTransfer) return "TRANSFER_UNANSWERED";
   return null;
 }
@@ -57,10 +70,18 @@ export async function evaluateAndSendAutoRecovery(input: { prisma: PrismaClient;
     durationSec: call.durationSec,
     aiStartedAt: call.aiStartedAt,
     transferredAt: call.transferredAt,
+    answeredAt: call.answeredAt,
+    callStatus: call.callStatus,
+    dialCallStatus: call.dialCallStatus,
     outcome: String(call.outcome || ""),
     unansweredTransfer: (call as { unansweredTransfer?: boolean | null }).unansweredTransfer ?? null
   });
   if (!reasonCode) return { sent: false, skipped: "TRIGGER_NOT_MET" as const };
+
+  if (call.recoverySmsSentAt) {
+    await writeSkipAudit(input.prisma, call.orgId, { callLogId: call.id, reasonCode, skipped: "ALREADY_SENT" });
+    return { sent: false, skipped: "ALREADY_SENT" as const };
+  }
 
   if (env.AUTO_RECOVERY_ENABLED !== "true") {
     return { sent: false, skipped: "FEATURE_FLAG_DISABLED" as const };
