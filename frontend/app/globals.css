@@ -4,25 +4,25 @@
 
 :root {
   --bg-primary-hex: #ffffff;
-  --text-primary-hex: #111827;
-  --text-secondary-hex: #4b5563;
+  --text-primary-hex: #0f172a;
+  --text-secondary-hex: #334155;
   --accent-hex: #1f3a8a;
-  --background: 210 20% 99%;
-  --foreground: 221 39% 11%;
+  --background: 215 24% 95%;
+  --foreground: 222 47% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 221 39% 11%;
-  --surface: 210 20% 97%;
+  --card-foreground: 222 47% 11%;
+  --surface: 210 18% 95%;
   --surface-strong: 0 0% 100%;
-  --surface-muted: 210 22% 95%;
+  --surface-muted: 215 18% 93%;
   --surface-contrast: 220 33% 97%;
   --primary: 224 64% 33%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 20% 95%;
-  --secondary-foreground: 221 39% 11%;
-  --muted: 210 20% 95%;
-  --muted-foreground: 218 18% 24%;
-  --border: 220 14% 82%;
-  --input: 220 14% 82%;
+  --secondary: 215 17% 92%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 215 17% 92%;
+  --muted-foreground: 215 25% 27%;
+  --border: 215 16% 74%;
+  --input: 215 16% 74%;
   --accent: 224 64% 33%;
   --accent-foreground: 0 0% 100%;
   --ring: 224 64% 33%;
@@ -150,7 +150,7 @@ html {
 
 body {
   @apply bg-background text-foreground antialiased;
-  background: linear-gradient(180deg, #edf2f7 0%, #e5ebf3 100%);
+  background: linear-gradient(180deg, #e6edf5 0%, #dce4ee 100%);
   font-family:
     "Inter",
     "Neue Haas Grotesk Text Pro",
@@ -211,7 +211,7 @@ body {
 
   .surface-panel {
     background-color: rgba(255, 255, 255, 0.99);
-    @apply rounded-[18px] border border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.08)];
+    @apply rounded-[18px] border border-slate-300 shadow-[0_14px_30px_rgba(15,23,42,0.10)];
   }
 
   .surface-muted {
@@ -220,11 +220,11 @@ body {
   }
 
   .page-eyebrow {
-    @apply inline-flex w-fit rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-700;
+    @apply inline-flex w-fit rounded-full border border-slate-400 bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-800;
   }
 
   .page-header {
-    @apply flex flex-col gap-5 rounded-[20px] border border-slate-200 bg-white px-6 py-6 shadow-[0_14px_32px_rgba(15,23,42,0.08)] md:flex-row md:items-end md:justify-between md:px-8;
+    @apply flex flex-col gap-5 rounded-[20px] border border-slate-300 bg-white px-6 py-6 shadow-[0_16px_34px_rgba(15,23,42,0.10)] md:flex-row md:items-end md:justify-between md:px-8;
   }
 
   .page-header-copy {
@@ -240,7 +240,7 @@ body {
   }
 
   .metric-card {
-    @apply rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_12px_26px_rgba(15,23,42,0.08)];
+    @apply rounded-[18px] border border-slate-300 bg-white p-5 shadow-[0_14px_28px_rgba(15,23,42,0.09)];
   }
 
   .card-stack {
@@ -248,30 +248,30 @@ body {
   }
 
   .empty-state {
-    @apply rounded-[18px] border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-700;
+    @apply rounded-[18px] border border-dashed border-slate-400 bg-slate-50 px-6 py-10 text-center text-sm text-slate-800;
   }
 
   .data-toolbar {
     background-color: rgba(255, 255, 255, 0.99);
-    @apply rounded-[18px] border border-slate-200 p-5 shadow-[0_12px_26px_rgba(15,23,42,0.08)];
+    @apply rounded-[18px] border border-slate-300 p-5 shadow-[0_14px_28px_rgba(15,23,42,0.09)];
   }
 
   .table-shell {
     background-color: rgba(255, 255, 255, 0.99);
-    @apply overflow-hidden rounded-[18px] border border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.08)];
+    @apply overflow-hidden rounded-[18px] border border-slate-300 shadow-[0_14px_30px_rgba(15,23,42,0.09)];
   }
 
   .app-portal-shell {
-    @apply relative overflow-hidden rounded-[22px] border border-slate-200 bg-[#f4f7fb] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)] sm:p-4;
+    @apply relative overflow-hidden rounded-[22px] border border-slate-300 bg-[#eef3f8] p-3 shadow-[0_20px_48px_rgba(15,23,42,0.12)] sm:p-4;
   }
 
   .app-sidebar-shell {
-    @apply relative h-fit rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_14px_32px_rgba(15,23,42,0.08)];
+    @apply relative h-fit rounded-[20px] border border-slate-300 bg-white p-4 shadow-[0_16px_34px_rgba(15,23,42,0.10)];
   }
 
   .app-main-shell {
     background-color: rgba(255, 255, 255, 0.78);
-    @apply min-w-0 space-y-5 rounded-[20px] border border-slate-200 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] sm:p-3;
+    @apply min-w-0 space-y-5 rounded-[20px] border border-slate-300 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] sm:p-3;
   }
 
   .app-banner {

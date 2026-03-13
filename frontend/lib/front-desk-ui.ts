@@ -51,24 +51,24 @@ export function frontDeskOutcomeBadgeMeta(kind: "saved" | "booked" | "resolved")
 
 export function frontDeskCardClass(kind: "default" | "muted" | "focus" = "default") {
   if (kind === "focus") {
-    return "rounded-[18px] border border-slate-200 bg-white shadow-[0_14px_30px_rgba(15,23,42,0.08)] transition-colors duration-150 hover:border-slate-300";
+    return "rounded-[18px] border border-slate-300 bg-white shadow-[0_16px_34px_rgba(15,23,42,0.10)] transition-colors duration-150 hover:border-slate-400";
   }
   if (kind === "muted") {
-    return "rounded-[16px] border border-slate-200 bg-slate-50 shadow-[0_8px_20px_rgba(15,23,42,0.05)] transition-colors hover:border-slate-300 hover:bg-white";
+    return "rounded-[16px] border border-slate-300 bg-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.07)] transition-colors hover:border-slate-400 hover:bg-white";
   }
-  return "rounded-[18px] border border-slate-200 bg-white shadow-[0_12px_26px_rgba(15,23,42,0.07)] transition-colors duration-150 hover:border-slate-300";
+  return "rounded-[18px] border border-slate-300 bg-white shadow-[0_14px_30px_rgba(15,23,42,0.09)] transition-colors duration-150 hover:border-slate-400";
 }
 
 export function frontDeskContextPanelClass() {
-  return "rounded-[16px] border border-slate-200 bg-slate-50 p-4 shadow-[0_8px_20px_rgba(15,23,42,0.05)]";
+  return "rounded-[16px] border border-slate-300 bg-slate-50 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]";
 }
 
 export function frontDeskEmptyStateClass() {
-  return "rounded-[16px] border border-dashed border-slate-300 bg-slate-50 px-5 py-7 text-sm leading-6 text-slate-700";
+  return "rounded-[16px] border border-dashed border-slate-400 bg-slate-50 px-5 py-7 text-sm leading-6 text-slate-800";
 }
 
 export function frontDeskLoadingCardClass() {
-  return "rounded-[16px] border border-slate-200 bg-white px-4 py-4 shadow-[0_8px_20px_rgba(15,23,42,0.05)]";
+  return "rounded-[16px] border border-slate-300 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]";
 }
 
 export function frontDeskSkeletonLineClass(width: "full" | "lg" | "md" | "sm" = "full") {
@@ -98,18 +98,18 @@ export function frontDeskOutcomeSurfaceClass(kind: "active" | "saved" | "booked"
 
 export function frontDeskWorkspaceCardClass(kind: "default" | "hero" | "subtle" = "default") {
   if (kind === "hero") {
-    return "rounded-[20px] border border-slate-200 bg-white shadow-[0_16px_34px_rgba(15,23,42,0.08)]";
+    return "rounded-[20px] border border-slate-300 bg-white shadow-[0_18px_38px_rgba(15,23,42,0.10)]";
   }
   if (kind === "subtle") {
-    return "rounded-[18px] border border-slate-200 bg-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]";
+    return "rounded-[18px] border border-slate-300 bg-slate-50 shadow-[0_12px_26px_rgba(15,23,42,0.08)]";
   }
-  return "rounded-[20px] border border-slate-200 bg-white shadow-[0_14px_30px_rgba(15,23,42,0.07)]";
+  return "rounded-[20px] border border-slate-300 bg-white shadow-[0_16px_34px_rgba(15,23,42,0.09)]";
 }
 
 export function frontDeskMetricCardClass() {
-  return "rounded-[16px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)]";
+  return "rounded-[16px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.07)]";
 }
 
 export function frontDeskActionStripClass() {
-  return "inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700";
+  return "inline-flex items-center gap-2 rounded-full border border-slate-400 bg-slate-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-800";
 }
