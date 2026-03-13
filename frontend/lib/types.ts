@@ -755,6 +755,40 @@ export type OutreachPhoneEvent = {
   callerConfig?: { id: string; name: string } | null;
 };
 
+export type OutreachPhoneEventDetail = OutreachPhoneEvent & {
+  organization?: { id: string; name: string } | null;
+  lead?: {
+    id: string;
+    companyName: string | null;
+    contactName: string | null;
+    email: string;
+    phone: string | null;
+    city: string | null;
+    state: string | null;
+    industry: string | null;
+    angle: string | null;
+    painPoint: string | null;
+    offer: string | null;
+    sourceList: string | null;
+    notes: string | null;
+  } | null;
+  callerConfig?: {
+    id: string;
+    name: string;
+    vapiAssistantId: string | null;
+    vapiPhoneNumberId: string | null;
+    timezone: string;
+  } | null;
+  enrollment?: {
+    id: string;
+    status: string;
+    stopReason: string | null;
+    lastCalledAt: string | null;
+    nextCallAt: string | null;
+    attemptCount: number;
+  } | null;
+};
+
 export type OutreachActivityEvent =
   | ({ channel: "EMAIL" } & OutreachEmailEvent)
   | ({ channel: "PHONE" } & OutreachPhoneEvent);

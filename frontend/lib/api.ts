@@ -53,6 +53,7 @@ import type {
   OutreachActivityEvent,
   OutreachEnrollment,
   OutreachLead,
+  OutreachPhoneEventDetail,
   OutreachPhoneEnrollment,
   OutreachPhoneCallResult,
   OutreachOverview,
@@ -622,6 +623,10 @@ export async function runAdminOutreachTick() {
 
 export async function fetchAdminOutreachEvents(query = "") {
   return request<{ events: OutreachActivityEvent[]; total: number; page: number; limit: number }>(`/api/admin/outreach/events${query}`);
+}
+
+export async function fetchAdminOutreachPhoneEvent(id: string) {
+  return request<{ event: OutreachPhoneEventDetail }>(`/api/admin/outreach/phone-events/${id}`);
 }
 
 export async function unsubscribeOutreachToken(token: string) {

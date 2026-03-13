@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
+import { OutreachPhoneEventDetailCard } from "@/components/admin/outreach-phone-event-detail";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
   createAdminOutreachPhoneEnrollment,
   deleteAdminOutreachLead,
   deleteAllAdminOutreachData,
+  fetchAdminOutreachPhoneEvent,
   fetchAdminOutreachCallerConfigs,
   fetchAdminOutreachLeads,
   fetchAdminOutreachSequences,
@@ -31,7 +33,7 @@ import {
   suppressAdminOutreachLead,
   unsuppressAdminOutreachLead
 } from "@/lib/api";
-import type { OutreachBulkImportRowResult, OutreachCallerConfig, OutreachLead, OutreachSequence } from "@/lib/types";
+import type { OutreachBulkImportRowResult, OutreachCallerConfig, OutreachLead, OutreachPhoneEventDetail, OutreachSequence } from "@/lib/types";
 
 const CSV_TEMPLATE = `companyName,contactName,email,phone,city,state,industry,website,angle,painPoint,offer,sourceList,notes
 Acme Truck Repair,Sam Rivera,sam@acmetruckrepair.com,555-111-2222,Dallas,TX,Truck Repair,https://acmetruckrepair.com,Missed calls,After-hours calls go unanswered,Offer a short missed-call recovery demo,Lead Finder Batch 1,Imported from list
@@ -52,6 +54,8 @@ function hasBeenCalled(lead: OutreachLead) {
 function buildLeadActivity(lead: OutreachLead) {
   const emailItems = (lead.emailEvents || []).map((event) => ({
     id: `email-${event.id}`,
+    eventId: event.id,
+    channel: "EMAIL" as const,
     createdAt: event.createdAt,
     label:
       event.eventType === "REPLIED"
@@ -63,6 +67,8 @@ function buildLeadActivity(lead: OutreachLead) {
   }));
   const phoneItems = (lead.phoneEvents || []).map((event) => ({
     id: `phone-${event.id}`,
+    eventId: event.id,
+    channel: "PHONE" as const,
     createdAt: event.createdAt,
     label:
       event.eventType === "FAILED"
@@ -103,6 +109,8 @@ export default function AdminOutreachLeadsPage() {
   const [bulkPreviewReady, setBulkPreviewReady] = useState(false);
   const [bulkImportLoading, setBulkImportLoading] = useState(false);
   const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
+  const [selectedPhoneEvent, setSelectedPhoneEvent] = useState<OutreachPhoneEventDetail | null>(null);
+  const [loadingPhoneEventId, setLoadingPhoneEventId] = useState<string | null>(null);
   const [form, setForm] = useState({
     companyName: "",
     contactName: "",
@@ -420,6 +428,22 @@ export default function AdminOutreachLeadsPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+    }
+  }
+
+  async function onOpenPhoneEvent(id: string) {
+    try {
+      setLoadingPhoneEventId(id);
+      const data = await fetchAdminOutreachPhoneEvent(id);
+      setSelectedPhoneEvent(data.event);
+    } catch (error) {
+      showToast({
+        title: "Could not load outreach call detail",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setLoadingPhoneEventId(null);
     }
   }
 
@@ -743,7 +767,20 @@ export default function AdminOutreachLeadsPage() {
                               <div className="font-medium text-foreground">{item.label}</div>
                               <div>{item.detail}</div>
                             </div>
-                            <div className="text-xs">{new Date(item.createdAt).toLocaleString()}</div>
+                            <div className="flex items-center gap-2">
+                              {item.channel === "PHONE" ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={loadingPhoneEventId === item.eventId}
+                                  onClick={() => void onOpenPhoneEvent(item.eventId)}
+                                >
+                                  {loadingPhoneEventId === item.eventId ? "Loading..." : "View call"}
+                                </Button>
+                              ) : null}
+                              <div className="text-xs">{new Date(item.createdAt).toLocaleString()}</div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -754,6 +791,13 @@ export default function AdminOutreachLeadsPage() {
             }) : <div className="text-sm text-muted-foreground">No outreach leads found.</div>}
           </CardContent>
         </Card>
+
+        {selectedPhoneEvent ? (
+          <OutreachPhoneEventDetailCard
+            event={selectedPhoneEvent}
+            onClose={() => setSelectedPhoneEvent(null)}
+          />
+        ) : null}
       </div>
     </AdminGuard>
   );

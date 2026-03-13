@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
-import { fetchAdminOutreachEvents } from "@/lib/api";
-import type { OutreachActivityEvent } from "@/lib/types";
+import { OutreachPhoneEventDetailCard } from "@/components/admin/outreach-phone-event-detail";
+import { fetchAdminOutreachEvents, fetchAdminOutreachPhoneEvent } from "@/lib/api";
+import type { OutreachActivityEvent, OutreachPhoneEventDetail } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
@@ -16,6 +18,8 @@ export default function AdminOutreachEventsPage() {
   const [eventType, setEventType] = useState("ALL");
   const [search, setSearch] = useState("");
   const [events, setEvents] = useState<OutreachActivityEvent[]>([]);
+  const [selectedPhoneEvent, setSelectedPhoneEvent] = useState<OutreachPhoneEventDetail | null>(null);
+  const [loadingEventId, setLoadingEventId] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -39,6 +43,22 @@ export default function AdminOutreachEventsPage() {
     }
     void load();
   }, [query, showToast]);
+
+  async function openPhoneEvent(id: string) {
+    try {
+      setLoadingEventId(id);
+      const data = await fetchAdminOutreachPhoneEvent(id);
+      setSelectedPhoneEvent(data.event);
+    } catch (error) {
+      showToast({
+        title: "Could not load outreach call detail",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setLoadingEventId(null);
+    }
+  }
 
   return (
     <AdminGuard requireSuperAdmin>
@@ -103,6 +123,19 @@ export default function AdminOutreachEventsPage() {
                     <div className="mt-2 text-sm text-foreground">{event.summary}</div>
                   ) : null}
                   {event.errorMessage ? <div className="mt-2 text-sm text-red-700">{event.errorMessage}</div> : null}
+                  {event.channel === "PHONE" ? (
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={loadingEventId === event.id}
+                        onClick={() => void openPhoneEvent(event.id)}
+                      >
+                        {loadingEventId === event.id ? "Loading..." : "View call details"}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ))
             ) : (
@@ -110,6 +143,13 @@ export default function AdminOutreachEventsPage() {
             )}
           </CardContent>
         </Card>
+
+        {selectedPhoneEvent ? (
+          <OutreachPhoneEventDetailCard
+            event={selectedPhoneEvent}
+            onClose={() => setSelectedPhoneEvent(null)}
+          />
+        ) : null}
       </div>
     </AdminGuard>
   );
