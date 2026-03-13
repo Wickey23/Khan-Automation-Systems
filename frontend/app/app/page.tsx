@@ -383,14 +383,23 @@ export default function AppOverviewPage() {
     analytics: null
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
 
-    void Promise.all([
+    const loadDashboard = async (mode: "initial" | "refresh" = "refresh") => {
+      if (mode === "initial") {
+        setLoading(true);
+        setError(null);
+      } else {
+        setRefreshing(true);
+      }
+
+      try {
+        const [profile, , health, messagingReadiness, notifications, calls, leads, messages, requests, analytics] = await Promise.all([
       fetchOrgProfile(),
       fetchOrgOnboarding(),
       fetchOrgHealth(),
@@ -401,8 +410,7 @@ export default function AppOverviewPage() {
       fetchOrgMessages(),
       fetchAppointmentRequests(),
       fetchOrgAnalytics({ range: "7d" })
-    ])
-      .then(([profile, , health, messagingReadiness, notifications, calls, leads, messages, requests, analytics]) => {
+        ]);
         if (!active) return;
         setState({
           assignedPhoneNumber: profile.assignedPhoneNumber,
@@ -416,17 +424,27 @@ export default function AppOverviewPage() {
           requests: requests.requests || [],
           analytics
         });
-      })
-      .catch((loadError) => {
+        setLastUpdatedAt(new Date().toISOString());
+      } catch (loadError) {
         if (!active) return;
-        setError(loadError instanceof Error ? loadError.message : "Could not load today's dashboard.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+        if (mode === "initial") {
+          setError(loadError instanceof Error ? loadError.message : "Could not load today's dashboard.");
+        }
+      } finally {
+        if (!active) return;
+        if (mode === "initial") setLoading(false);
+        else setRefreshing(false);
+      }
+    };
+
+    void loadDashboard("initial");
+    const interval = setInterval(() => {
+      void loadDashboard("refresh");
+    }, 30_000);
 
     return () => {
       active = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -654,6 +672,18 @@ export default function AppOverviewPage() {
 
   const newLeadsToday = useMemo(() => state.leads.filter((lead) => isToday(lead.createdAt)).length, [state.leads]);
   const callsToday = useMemo(() => state.calls.filter((call) => isToday(call.startedAt)).length, [state.calls]);
+  const appointmentRequestsToday = useMemo(
+    () => state.requests.filter((request) => isToday(request.lastEventAt || request.createdAt)).length,
+    [state.requests]
+  );
+  const liveRepliesCount = useMemo(
+    () =>
+      state.threads.filter((thread) => {
+        const frontDesk = thread.frontDesk || thread.lead?.frontDesk;
+        return latestThreadDirection(thread) === "Customer replied" && frontDesk?.needsFollowUp;
+      }).length,
+    [state.threads]
+  );
 
   const recentCalls = useMemo(
     () =>
@@ -812,7 +842,7 @@ export default function AppOverviewPage() {
       <PageHeader
         eyebrow="Front desk"
         title="Front Desk"
-        description="Use this page to see what just happened, what needs attention now, and which requests are already moving toward booked work."
+        description={`Use this page to see what just happened, what needs attention now, and which requests are already moving toward booked work.${lastUpdatedAt ? ` Updated ${formatShortDateTime(lastUpdatedAt)}.` : ""}${refreshing ? " Refreshing..." : ""}`}
         actions={
           <>
             <Button asChild>
@@ -1384,9 +1414,18 @@ export default function AppOverviewPage() {
       <section className="space-y-4">
         <div className="space-y-1">
           <p className="page-eyebrow">Operational snapshot</p>
-          <p className="text-sm text-muted-foreground">Supportive business context for the day that should stay secondary to live queue work.</p>
+          <p className="text-sm text-muted-foreground">Use these five signals to understand the front desk in under 10 seconds, then move into the right queue.</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-7">
+          <Card className={frontDeskMetricCardClass()}>
+            <CardContent className="space-y-2 pt-5 sm:pt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Action Needed</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{customerActionCount}</p>
+              <p className="text-sm text-muted-foreground">
+                {loading ? "Loading live work..." : customerActionCount === 0 ? "No live customer work waiting" : "Open customer work waiting now"}
+              </p>
+            </CardContent>
+          </Card>
           <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Calls Today</p>
@@ -1396,34 +1435,27 @@ export default function AppOverviewPage() {
           </Card>
           <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">New Leads</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">New Leads Today</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{newLeadsToday}</p>
               <p className="text-sm text-muted-foreground">{loading ? "Loading leads..." : newLeadsToday === 0 ? "No new leads captured" : "Captured today"}</p>
             </CardContent>
           </Card>
           <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Active Follow-Up</p>
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{customerActionCount}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Appointment Requests</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{appointmentRequestsToday}</p>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Loading requests..." : customerActionCount === 0 ? "No live customer work waiting" : "Open customer work waiting now"}
+                {loading ? "Loading booking work..." : appointmentRequestsToday === 0 ? "No booking requests yet today" : "Booking requests updated today"}
               </p>
             </CardContent>
           </Card>
           <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Alerts</p>
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{systemActionCount}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Recent Messages</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{liveRepliesCount}</p>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Loading alerts..." : systemActionCount === 0 ? "No active system blockers" : "Configuration or runtime items to review"}
+                {loading ? "Loading inbox..." : liveRepliesCount === 0 ? "No live customer replies waiting" : "Customer replies waiting in the inbox"}
               </p>
-            </CardContent>
-          </Card>
-          <Card className={frontDeskMetricCardClass()}>
-            <CardContent className="space-y-2 pt-5 sm:pt-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Answer Rate</p>
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatPercent(answerRate)}</p>
-              <p className="text-sm text-muted-foreground">{loading ? "Loading reporting..." : "Answered calls divided by total calls in the current reporting window"}</p>
             </CardContent>
           </Card>
           <Card className={frontDeskMetricCardClass()}>
@@ -1439,10 +1471,26 @@ export default function AppOverviewPage() {
           </Card>
           <Card className={frontDeskMetricCardClass()}>
             <CardContent className="space-y-2 pt-5 sm:pt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Answer Rate</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatPercent(answerRate)}</p>
+              <p className="text-sm text-muted-foreground">{loading ? "Loading reporting..." : "Answered calls divided by total calls in the current reporting window"}</p>
+            </CardContent>
+          </Card>
+          <Card className={frontDeskMetricCardClass()}>
+            <CardContent className="space-y-2 pt-5 sm:pt-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Booked Outcomes</p>
               <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "-" : `${bookedOutcomeCount}`}</p>
               <p className="text-sm text-muted-foreground">
                 {loading ? "Loading bookings..." : bookedOutcomeCount === 0 ? "No booked work yet" : "Requests and leads already moved into booked work"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className={frontDeskMetricCardClass()}>
+            <CardContent className="space-y-2 pt-5 sm:pt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">System Alerts</p>
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{systemActionCount}</p>
+              <p className="text-sm text-muted-foreground">
+                {loading ? "Loading alerts..." : systemActionCount === 0 ? "No active system blockers" : "Configuration or runtime items to review"}
               </p>
             </CardContent>
           </Card>
