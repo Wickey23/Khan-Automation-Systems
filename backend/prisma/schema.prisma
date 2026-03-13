@@ -370,8 +370,11 @@ model Organization {
   serviceRequests      ServiceRequest[]
   outreachLeads        OutreachLead[]
   outreachSequences    OutreachSequence[]
+  outreachCallerConfigs OutreachCallerConfig[]
   outreachEnrollments  OutreachEnrollment[]
+  outreachPhoneEnrollments OutreachPhoneEnrollment[]
   outreachEmailEvents  OutreachEmailEvent[]
+  outreachPhoneEvents  OutreachPhoneEvent[]
   outreachSuppressions OutreachSuppression[]
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
