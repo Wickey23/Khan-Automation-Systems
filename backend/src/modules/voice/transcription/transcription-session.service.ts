@@ -288,7 +288,7 @@ function inferAppointmentRequested(transcript: string) {
   );
 }
 
-function buildSafeCallSummaryFallback(input: {
+export function buildSafeCallSummaryFallback(input: {
   transcript?: string | null;
   outcome?: string | null;
   answeredAt?: Date | string | null;
