@@ -765,6 +765,20 @@ export default function AppOverviewPage() {
   const healthStateFromRuntime = healthTone(runtimeHealth?.level);
   const systemHealthMessage =
     runtimeHealth?.level === "GREEN" ? "All services operational" : runtimeHealth?.summary || "Review the system health details.";
+  const primaryHealthIssue = runtimeHealth?.missingChecks?.[0] || null;
+  const healthFixHref =
+    primaryHealthIssue?.fixHint && !primaryHealthIssue.fixHint.startsWith("/admin")
+      ? primaryHealthIssue.fixHint
+      : "/app";
+  const messagingFixHref = !state.messagingReadiness
+    ? "/app/settings"
+    : !state.messagingReadiness.billingActive || state.messagingReadiness.plan !== "PRO"
+      ? "/app/billing"
+      : "/app/settings";
+  const messagingStatusMessage =
+    state.messagingReadiness?.state === "A2P_REGISTERED"
+      ? "No active blockers on customer texting."
+      : state.messagingReadiness?.reasons?.[0] || "Review setup before follow-up texting is affected.";
 
   const answerRate = state.analytics?.kpis.answerRate ?? 0;
 
@@ -884,15 +898,33 @@ export default function AppOverviewPage() {
                   {healthStateFromRuntime.label}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{systemHealthMessage}</p>
+                {primaryHealthIssue ? (
+                  <div className="mt-3 rounded-2xl border border-slate-200/80 bg-white/75 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Issue detected</p>
+                    <p className="mt-2 text-sm text-slate-800">{primaryHealthIssue.reason}</p>
+                  </div>
+                ) : null}
+                {runtimeHealth?.level !== "GREEN" ? (
+                  <div className="mt-3">
+                    <Button asChild size="sm" className="w-full sm:w-auto">
+                      <Link href={healthFixHref}>Open fix page</Link>
+                    </Button>
+                  </div>
+                ) : null}
               </div>
               <div className={frontDeskContextPanelClass()}>
                 <p className="page-eyebrow">Messaging</p>
                 <p className="mt-2 text-sm font-semibold text-slate-900">
                   {state.messagingReadiness?.state === "A2P_REGISTERED" ? "A2P registered" : state.messagingReadiness?.state === "A2P_PENDING" ? "Registration pending" : "Needs setup"}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {state.messagingReadiness?.state === "A2P_REGISTERED" ? "No active blockers on customer texting." : "Review setup before follow-up texting is affected."}
-                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{messagingStatusMessage}</p>
+                {state.messagingReadiness?.state !== "A2P_REGISTERED" ? (
+                  <div className="mt-3">
+                    <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                      <Link href={messagingFixHref}>Open fix page</Link>
+                    </Button>
+                  </div>
+                ) : null}
               </div>
               <div className={frontDeskContextPanelClass()}>
                 <p className="page-eyebrow">Phone line</p>
