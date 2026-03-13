@@ -223,6 +223,13 @@ function isPlaceholderName(value: string | null | undefined) {
   return !normalized || normalized === "unknown caller" || normalized === "unknown contact" || normalized === "unknown";
 }
 
+function normalizeStructuredSummary(value: string | null | undefined) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (["unknown", "unknown caller", "no summary", "n/a"].includes(text.toLowerCase())) return "";
+  return text.slice(0, 500);
+}
+
 function extractHumanNameFromText(text: string) {
   const source = String(text || "").trim();
   if (!source) return "";
@@ -270,6 +277,30 @@ function extractHumanNameFromText(text: string) {
   return "";
 }
 
+function buildSafeVapiSummaryFallback(input: {
+  summary?: string | null;
+  transcript?: string | null;
+  outcome?: string | null;
+}) {
+  const preferred = normalizeStructuredSummary(input.summary);
+  if (preferred) return preferred;
+
+  const transcript = String(input.transcript || "")
+    .split("\n")
+    .map((line) => line.replace(/^[A-Z_]+:\s*/i, "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (transcript) return transcript.slice(0, 280);
+
+  const outcome = String(input.outcome || "").toUpperCase();
+  if (outcome === "MISSED" || outcome === "ABANDONED") return "Caller still needs follow-up. Review the missed call and recovery workflow.";
+  if (outcome === "APPOINTMENT_REQUEST") return "Customer requested an appointment and should be reviewed by the office.";
+  if (outcome === "SPAM") return "Call marked as spam.";
+  return "Customer request captured for office review.";
+}
+
 async function ensureLeadForCall(input: {
   orgId: string;
   callLogId: string;
@@ -307,14 +338,20 @@ async function ensureLeadForCall(input: {
   const candidateFromText = extractHumanNameFromText(`${input.summary || ""}\n${input.transcript || ""}`);
   const strongCandidate = !isPlaceholderName(candidateFromFields) ? candidateFromFields : candidateFromText;
   const fallbackName = strongCandidate || existingLead?.name || "Unknown Caller";
-  const fallbackMessage = (input.summary || input.transcript || "").trim() || existingLead?.message || "";
+  const fallbackMessage = buildSafeVapiSummaryFallback({
+    summary: input.summary,
+    transcript: input.transcript
+  }) || existingLead?.message || "";
   const fallbackEmail = `${input.fromNumber.replace(/\D/g, "") || "unknown"}@no-email.local`;
 
   const lead = existingLead
     ? await prisma.lead.update({
         where: { id: existingLead.id },
         data: {
-          name: !isPlaceholderName(strongCandidate) && isPlaceholderName(existingLead.name) ? strongCandidate : existingLead.name,
+          name:
+            !isPlaceholderName(strongCandidate) && isPlaceholderName(existingLead.name)
+              ? strongCandidate
+              : existingLead.name,
           business: existingLead.business || org.name,
           email: existingLead.email || fallbackEmail,
           message: fallbackMessage || existingLead.message
@@ -451,7 +488,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       return res.json({ ok: true, data: { ignored: true } });
     }
   }
-  const summary = pickString(body.summary, analysis.summary) || null;
+  const summary = normalizeStructuredSummary(pickString(body.summary, analysis.summary)) || null;
   const transcript = pickString(body.transcript, artifact.transcript) || null;
   const recordingUrl = pickString(body.recordingUrl, artifact.recordingUrl) || null;
   const toolCalls = extractToolCallsFromPayload(body);
@@ -559,7 +596,8 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         status: callStatus || null,
         rawJson: body as Prisma.InputJsonValue
       };
-      if (summary !== null) demoUpdateData.aiSummary = summary;
+    const safeSummary = buildSafeVapiSummaryFallback({ summary, transcript, outcome });
+    if (safeSummary) demoUpdateData.aiSummary = safeSummary;
       if (transcript !== null) demoUpdateData.transcript = transcript;
       if (recordingUrl !== null) demoUpdateData.recordingUrl = recordingUrl;
       if (outcome) demoUpdateData.outcome = outcome;
@@ -578,7 +616,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
           toNumber,
           status: callStatus || null,
           rawJson: body as Prisma.InputJsonValue,
-          ...(summary ? { aiSummary: summary } : {}),
+          ...(safeSummary ? { aiSummary: safeSummary } : {}),
           ...(transcript ? { transcript } : {}),
           ...(recordingUrl ? { recordingUrl } : {}),
           ...(outcome ? { outcome } : {}),
@@ -683,7 +721,8 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
       aiProvider: AiProvider.VAPI,
       rawJson: body as Prisma.InputJsonValue
     };
-    if (summary !== null) updateData.aiSummary = summary;
+    const safeSummary = buildSafeVapiSummaryFallback({ summary, transcript, outcome: effectiveOutcome });
+    if (safeSummary) updateData.aiSummary = safeSummary;
     if (transcript !== null) updateData.transcript = transcript;
     if (recordingUrl !== null) updateData.recordingUrl = recordingUrl;
     if (leadId !== null) updateData.leadId = leadId;
@@ -711,7 +750,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         aiProvider: AiProvider.VAPI,
         outcome: "MESSAGE_TAKEN",
         rawJson: body as Prisma.InputJsonValue,
-        ...(summary ? { aiSummary: summary } : {}),
+        ...(safeSummary ? { aiSummary: safeSummary } : {}),
         ...(transcript ? { transcript } : {}),
         ...(recordingUrl ? { recordingUrl } : {}),
         ...(leadId ? { leadId } : {}),
@@ -758,7 +797,7 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
         orgId: resolvedOrgId,
         callLogId: persistedCall.id,
         fromNumber,
-        summary,
+        summary: safeSummary,
         transcript,
         candidateLeadId: leadId,
         candidateName
