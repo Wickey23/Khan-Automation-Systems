@@ -19,7 +19,15 @@ import {
   outreachSequenceUpdateSchema,
   validateOrderedSteps
 } from "./outreach.schema";
-import { buildBulkImportPreview, normalizePhoneE164, resolveOutreachOrgContext, runOutreachTick, sendEnrollmentStepNow } from "./outreach.service";
+import {
+  buildBulkImportPreview,
+  buildPhoneOnlyOutreachEmail,
+  isSyntheticOutreachEmail,
+  normalizePhoneE164,
+  resolveOutreachOrgContext,
+  runOutreachTick,
+  sendEnrollmentStepNow
+} from "./outreach.service";
 import { runOutreachPhoneTick, startOutreachAiCall } from "./outreach-phone.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
@@ -65,6 +73,11 @@ function pagination(query: { page?: number; limit?: number }) {
 
 function decorateOutreachEvent<T extends Record<string, unknown>, C extends "EMAIL" | "PHONE">(channel: C, event: T) {
   return { channel, ...event };
+}
+
+function hasRealOutreachEmail(email: string | null | undefined) {
+  const normalized = normalizeEmail(String(email || ""));
+  return Boolean(normalized && !isSyntheticOutreachEmail(normalized));
 }
 
 outreachAdminRouter.get("/overview", safeOutreachRoute(async (req: Request, res: Response) => {
@@ -199,13 +212,22 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid lead payload.", errors: parsed.error.flatten() });
 
   const org = await resolveOutreachOrgContext(prisma, parsed.data.orgId);
-  const email = normalizeEmail(parsed.data.email);
+  const email = normalizeEmail(parsed.data.email || "");
   const phone = parsed.data.phone ? normalizePhoneE164(parsed.data.phone) : "";
   if (parsed.data.phone && !phone) {
     return res.status(400).json({ ok: false, message: "Phone must be a valid US or E.164 number." });
   }
+  if (!email && !phone) {
+    return res.status(400).json({ ok: false, message: "Add at least a valid email or a valid phone number." });
+  }
+  const persistedEmail = email || buildPhoneOnlyOutreachEmail({ phone, orgId: org.id });
   const duplicate = await db.outreachLead.findFirst({
-    where: { orgId: org.id, email },
+    where: phone
+      ? {
+          orgId: org.id,
+          OR: [{ email: persistedEmail }, { phone }]
+        }
+      : { orgId: org.id, email: persistedEmail },
     select: { id: true }
   });
   if (duplicate) return res.status(409).json({ ok: false, message: "Lead already exists for this org." });
@@ -214,7 +236,7 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
     data: {
       ...parsed.data,
       orgId: org.id,
-      email,
+      email: persistedEmail,
       phone: phone || undefined,
       status: parsed.data.status || "NEW"
     },
@@ -238,11 +260,27 @@ outreachAdminRouter.patch("/leads/:id", async (req: Request, res: Response) => {
     return res.status(400).json({ ok: false, message: "Phone must be a valid US or E.164 number." });
   }
   try {
+    const existing = await db.outreachLead.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, orgId: true, email: true, phone: true }
+    });
+    if (!existing) {
+      return res.status(404).json({ ok: false, message: "Lead not found." });
+    }
+    const nextPhone = normalizedPhone === undefined ? existing.phone : normalizedPhone;
+    const emailInputProvided = typeof parsed.data.email === "string";
+    const normalizedEmailInput = emailInputProvided ? normalizeEmail(parsed.data.email || "") : undefined;
+    const nextEmail = emailInputProvided
+      ? normalizedEmailInput || (nextPhone ? buildPhoneOnlyOutreachEmail({ phone: nextPhone, orgId: existing.orgId }) : "")
+      : existing.email;
+    if (!nextEmail && !nextPhone) {
+      return res.status(400).json({ ok: false, message: "Lead must keep either a valid email or a valid phone number." });
+    }
     const lead = await db.outreachLead.update({
       where: { id: req.params.id },
       data: {
         ...parsed.data,
-        email: parsed.data.email ? normalizeEmail(parsed.data.email) : undefined,
+        email: nextEmail,
         phone: normalizedPhone
       }
     });
@@ -631,6 +669,9 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
   const orgId = parsed.data.orgId || lead.orgId;
   if (lead.orgId !== sequence.orgId || lead.orgId !== orgId) {
     return res.status(400).json({ ok: false, message: "Lead and sequence must belong to the same org." });
+  }
+  if (!hasRealOutreachEmail(lead.email)) {
+    return res.status(400).json({ ok: false, message: "A real email is required to start email outreach for this lead." });
   }
   if (suppression || ["UNSUBSCRIBED", "REPLIED", "BOUNCED", "COMPLETED"].includes(lead.status)) {
     return res.status(400).json({ ok: false, message: "Lead is not eligible for outreach." });

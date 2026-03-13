@@ -39,12 +39,17 @@ const CSV_TEMPLATE = `companyName,contactName,email,phone,city,state,industry,we
 Acme Truck Repair,Sam Rivera,sam@acmetruckrepair.com,555-111-2222,Dallas,TX,Truck Repair,https://acmetruckrepair.com,Missed calls,After-hours calls go unanswered,Offer a short missed-call recovery demo,Lead Finder Batch 1,Imported from list
 Metro HVAC,Jamie Cole,jamie@metrohvac.com,555-333-4444,Austin,TX,HVAC,https://metrohvac.com,Faster follow-up,Slow callback times,Offer a quick callback review,Lead Finder Batch 1,Priority batch`;
 
+function hasRealOutreachEmail(email: string | null | undefined) {
+  const normalized = String(email || "").trim().toLowerCase();
+  return Boolean(normalized && !normalized.endsWith("@no-email.khan.local"));
+}
+
 function formatLeadHeadline(lead: OutreachLead) {
   return lead.companyName || lead.contactName || lead.email;
 }
 
 function formatLeadSubline(lead: OutreachLead) {
-  return [lead.contactName || "-", lead.email, lead.phone || "No phone"].filter(Boolean).join(" - ");
+  return [lead.contactName || "-", hasRealOutreachEmail(lead.email) ? lead.email : null, lead.phone || "No phone"].filter(Boolean).join(" - ");
 }
 
 function hasBeenCalled(lead: OutreachLead) {
@@ -287,6 +292,10 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onStartEmailOutreach(lead: OutreachLead) {
+    if (!hasRealOutreachEmail(lead.email)) {
+      showToast({ title: "Real email required", description: "Add a real email before starting email outreach for this lead.", variant: "error" });
+      return;
+    }
     const sequenceId = selectedSequenceByLead[lead.id];
     if (!sequenceId) {
       showToast({ title: "Choose a sequence first", variant: "error" });
@@ -682,7 +691,8 @@ export default function AdminOutreachLeadsPage() {
                           <option key={sequence.id} value={sequence.id}>{sequence.name}</option>
                         ))}
                       </select>
-                      <Button className="mt-3 w-full" size="sm" onClick={() => void onStartEmailOutreach(lead)}>Start email outreach</Button>
+                      <Button className="mt-3 w-full" size="sm" disabled={!hasRealOutreachEmail(lead.email)} onClick={() => void onStartEmailOutreach(lead)}>Start email outreach</Button>
+                      {!hasRealOutreachEmail(lead.email) ? <p className="mt-2 text-xs text-muted-foreground">Add a real email to use the email sequence lane. Phone-only leads can still use Caller AI.</p> : null}
                     </div>
 
                     <div className="rounded-lg border bg-muted/20 p-3">

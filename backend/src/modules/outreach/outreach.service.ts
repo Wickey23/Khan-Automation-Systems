@@ -30,6 +30,8 @@ export const OUTREACH_TEMPLATE_VARIABLES = [
   "orgName"
 ] as const;
 
+const PHONE_ONLY_EMAIL_DOMAIN = "no-email.khan.local";
+
 export function htmlToText(input: string) {
   return input.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").trim();
 }
@@ -45,6 +47,16 @@ export function normalizePhoneE164(value: string) {
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   return /^\d{10,15}$/.test(digits) ? `+${digits}` : "";
+}
+
+export function isSyntheticOutreachEmail(email: string | null | undefined) {
+  return String(email || "").trim().toLowerCase().endsWith(`@${PHONE_ONLY_EMAIL_DOMAIN}`);
+}
+
+export function buildPhoneOnlyOutreachEmail(input: { phone: string; orgId: string }) {
+  const digits = normalizePhoneE164(input.phone).replace(/\D/g, "") || "lead";
+  const orgSuffix = String(input.orgId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-8).toLowerCase() || "org";
+  return `phone-${digits}-${orgSuffix}@${PHONE_ONLY_EMAIL_DOMAIN}`;
 }
 
 export function textToHtml(input: string) {
@@ -102,7 +114,7 @@ function buildTemplateContext(input: {
     contactName,
     firstName: firstNameFromContactName(contactName),
     companyName: String(input.lead.companyName || "").trim(),
-    email: normalizeEmail(input.lead.email || ""),
+    email: isSyntheticOutreachEmail(input.lead.email) ? "" : normalizeEmail(input.lead.email || ""),
     phone: String(input.lead.phone || "").trim(),
     city: String(input.lead.city || "").trim(),
     state: String(input.lead.state || "").trim(),
@@ -217,10 +229,10 @@ export async function buildBulkImportPreview(input: {
 
   const seenEmails = new Set<string>();
   for (const row of rows) {
-    const email = normalizeEmail(row.values.email || "");
+    const rawEmail = normalizeEmail(row.values.email || "");
     const rawPhone = String(row.values.phone || "").trim();
     const phone = normalizePhoneE164(rawPhone);
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (outreachMode === "EMAIL" && (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail))) {
       results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Valid email required.", raw: row.raw });
       continue;
     }
@@ -232,6 +244,7 @@ export async function buildBulkImportPreview(input: {
       results.push({ lineNumber: row.lineNumber, status: "invalid", reason: "Valid phone required for Caller AI outreach.", raw: row.raw });
       continue;
     }
+    const email = rawEmail || (outreachMode === "PHONE" ? buildPhoneOnlyOutreachEmail({ phone, orgId: input.orgId }) : "");
     if (seenEmails.has(email)) {
       results.push({ lineNumber: row.lineNumber, status: "duplicate", email, reason: "Email is duplicated within this CSV import." });
       continue;
@@ -254,10 +267,18 @@ export async function buildBulkImportPreview(input: {
     }
 
     const existing = await db.outreachLead.findFirst({
-      where: {
-        orgId: input.orgId,
-        email
-      },
+      where: outreachMode === "PHONE"
+        ? {
+            orgId: input.orgId,
+            OR: [
+              { email },
+              ...(phone ? [{ phone }] : [])
+            ]
+          }
+        : {
+            orgId: input.orgId,
+            email
+          },
       select: { id: true }
     });
     if (existing) {

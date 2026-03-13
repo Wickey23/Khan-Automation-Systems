@@ -390,7 +390,7 @@ export async function createAdminOutreachLead(payload: {
   orgId?: string;
   companyName?: string;
   contactName?: string;
-  email: string;
+  email?: string;
   phone?: string;
   city?: string;
   state?: string;

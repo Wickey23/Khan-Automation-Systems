@@ -10,7 +10,7 @@ export const outreachLeadCreateSchema = z.object({
   orgId: z.string().min(1).optional(),
   companyName: optionalTrimmed,
   contactName: optionalTrimmed,
-  email: z.string().trim().email(),
+  email: z.string().trim().email().optional(),
   phone: optionalTrimmed,
   city: optionalTrimmed,
   state: optionalTrimmed,
