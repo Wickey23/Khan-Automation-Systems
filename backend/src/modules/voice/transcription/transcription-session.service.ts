@@ -178,24 +178,48 @@ async function markTranscriptSessionError(input: { transcriptSessionId: string; 
 
 function inferServiceRequested(transcript: string) {
   const text = transcript.toLowerCase();
-  if (text.includes("ac") || text.includes("air conditioner") || text.includes("hvac")) return "HVAC service";
-  if (text.includes("plumb") || text.includes("pipe") || text.includes("water heater")) return "Plumbing service";
-  if (text.includes("electric") || text.includes("breaker") || text.includes("panel")) return "Electrical service";
-  if (text.includes("engine") || text.includes("transmission") || text.includes("truck")) return "Truck repair";
+  if (
+    text.includes("ac") ||
+    text.includes("air conditioner") ||
+    text.includes("hvac") ||
+    text.includes("heating") ||
+    text.includes("furnace") ||
+    text.includes("cooling")
+  ) {
+    return "HVAC";
+  }
+  if (text.includes("plumb") || text.includes("pipe") || text.includes("water heater") || text.includes("drain") || text.includes("leak")) {
+    return "Plumbing";
+  }
+  if (text.includes("electric") || text.includes("breaker") || text.includes("panel") || text.includes("outlet") || text.includes("wiring")) {
+    return "Electrical";
+  }
+  if (text.includes("engine") || text.includes("transmission") || text.includes("truck") || text.includes("trailer") || text.includes("diesel")) {
+    return "Truck repair";
+  }
+  if (text.includes("garage door")) return "Garage door";
+  if (text.includes("appliance")) return "Appliance repair";
   return null;
 }
 
 function inferUrgency(transcript: string) {
   const text = transcript.toLowerCase();
-  if (["emergency", "urgent", "asap", "today", "immediately"].some((token) => text.includes(token))) {
+  if (["emergency", "urgent", "asap", "immediately", "right now", "same day"].some((token) => text.includes(token))) {
     return "high";
   }
-  return null;
+  if (["today", "soon", "as soon as possible", "stuck", "not working", "no heat", "no ac", "no power", "leaking"].some((token) => text.includes(token))) {
+    return "medium";
+  }
+  return "normal";
 }
 
 function inferCustomerName(transcript: string) {
   const match = transcript.match(/my name is ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
-  return match?.[1]?.trim() || null;
+  const name = match?.[1]?.trim() || null;
+  if (!name) return null;
+  const normalized = name.toLowerCase();
+  if (["unknown", "caller", "customer", "contact"].includes(normalized)) return null;
+  return name;
 }
 
 function inferServiceAddress(transcript: string) {
@@ -342,7 +366,7 @@ async function generateSummary(input: {
           {
             role: "system",
             content:
-              "Summarize service-business call transcripts. Return JSON with keys: summary, customerName, serviceRequested, urgency, serviceAddress, appointmentRequested, notes."
+              "Summarize service-business call transcripts. Return JSON with keys: summary, customerName, serviceRequested, urgency, serviceAddress, appointmentRequested, notes. Normalize serviceRequested into short categories like HVAC, Plumbing, Electrical, Truck repair, Garage door, Appliance repair, General service. Set urgency to high, medium, or normal. Use null instead of guessing when a field is unclear."
           },
           {
             role: "user",
@@ -398,16 +422,29 @@ async function upsertLeadFromSummary(input: {
     lead = await prisma.lead.findFirst({ where: { sourceCallLogId: input.call.id, orgId: input.call.orgId } });
   }
 
+  const safeCustomerName =
+    input.extraction.customerName && input.extraction.customerName.trim() && input.extraction.customerName.trim().toLowerCase() !== "unknown caller"
+      ? input.extraction.customerName.trim()
+      : null;
+  const safeUrgency =
+    input.extraction.urgency && ["high", "medium", "normal"].includes(String(input.extraction.urgency).toLowerCase())
+      ? String(input.extraction.urgency).toLowerCase()
+      : null;
+  const safeServiceRequested = input.extraction.serviceRequested?.trim() || null;
+  const safeServiceAddress = input.extraction.serviceAddress?.trim() || null;
+  const safeSummary = input.extraction.summary?.trim() || null;
+  const safeNotes = input.extraction.notes?.trim() || safeSummary;
+
   const payload = {
-    name: input.extraction.customerName || lead?.name || "Unknown Caller",
+    name: safeCustomerName || lead?.name || "Unknown Caller",
     business: lead?.business || input.org.name,
     email: lead?.email || "",
     phone: input.call.fromNumber,
     industry: lead?.industry || input.org.industry || undefined,
-    urgency: input.extraction.urgency || lead?.urgency || undefined,
-    notes: input.extraction.notes || input.extraction.summary || lead?.notes || undefined,
-    serviceRequested: input.extraction.serviceRequested || lead?.serviceRequested || undefined,
-    serviceAddress: input.extraction.serviceAddress || lead?.serviceAddress || undefined,
+    urgency: safeUrgency || lead?.urgency || undefined,
+    notes: safeNotes || lead?.notes || undefined,
+    serviceRequested: safeServiceRequested || lead?.serviceRequested || undefined,
+    serviceAddress: safeServiceAddress || lead?.serviceAddress || undefined,
     appointmentRequested: input.extraction.appointmentRequested === true,
     sourceCallLogId: input.call.id,
     source: LeadSource.PHONE_CALL
@@ -422,7 +459,7 @@ async function upsertLeadFromSummary(input: {
         data: {
           ...payload,
           orgId: input.call.orgId,
-          message: input.extraction.summary || "",
+          message: safeSummary || "",
           preferredContact: "call"
         }
       });
