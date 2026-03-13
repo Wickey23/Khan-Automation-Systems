@@ -20,7 +20,6 @@ import {
   frontDeskLoadingCardClass,
   frontDeskOutcomeSurfaceClass,
   frontDeskOutcomeBadgeMeta,
-  frontDeskPriorityBadgeClass,
   frontDeskPriorityMeta,
   frontDeskWorkspaceCardClass,
   frontDeskSkeletonLineClass
@@ -72,6 +71,10 @@ function threadDisplayAction(thread: OrgMessageThread) {
     return threadQuickActions(thread)[0].label;
   }
   return action;
+}
+
+function threadDisplaySummary(thread: OrgMessageThread) {
+  return threadFrontDesk(thread)?.summary || getLatestMessagePreview(thread);
 }
 
 function threadStateWeight(thread: OrgMessageThread) {
@@ -183,6 +186,14 @@ function threadWorkTypeLabel(thread: OrgMessageThread) {
   if (state === "closed") return "Resolved";
   if (state === "spam") return "Spam";
   return "General follow-up";
+}
+
+function threadPriorityLabel(thread: OrgMessageThread) {
+  return frontDeskPriorityMeta(threadFrontDesk(thread)?.frontDeskPriority).label;
+}
+
+function threadStateLabel(thread: OrgMessageThread) {
+  return getThreadStateBadge(thread)?.label || "Open";
 }
 
 function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
@@ -504,7 +515,10 @@ export default function AppMessagesPage() {
           <CardHeader className="pb-3">
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-lg">Threads</CardTitle>
+                <div>
+                  <CardTitle className="text-lg">Threads</CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">Customer replies and follow-up conversations.</p>
+                </div>
                 <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                   {filteredThreads.length}
                 </span>
@@ -566,7 +580,6 @@ export default function AppMessagesPage() {
             ) : (
               filteredThreads.map((thread) => (
                 (() => {
-                  const primaryBadge = getThreadPrimaryBadge(thread);
                   const deliveryBadge = getThreadDeliveryBadge(thread);
                   return (
                     <button
@@ -597,35 +610,24 @@ export default function AppMessagesPage() {
                             ) : null}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadDisplayAction(thread))}`}>
-                              {threadDisplayAction(thread)}
-                            </span>
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskPriorityBadgeClass(threadFrontDesk(thread)?.frontDeskPriority)}`}>
-                              {frontDeskPriorityMeta(threadFrontDesk(thread)?.frontDeskPriority).label}
-                            </span>
-                            {getThreadStateBadge(thread) ? (
-                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(getThreadStateBadge(thread)!.tone)}`}>
-                                {getThreadStateBadge(thread)!.label}
-                              </span>
-                            ) : null}
-                          </div>
-                          {threadFrontDesk(thread)?.summary ? (
-                            <p className="mt-2 line-clamp-2 text-xs text-foreground/80">{threadFrontDesk(thread)?.summary}</p>
-                          ) : null}
-                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{getLatestMessagePreview(thread)}</p>
+                          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Next step</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-950">{threadDisplayAction(thread)}</p>
+                          <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-800">{threadDisplaySummary(thread)}</p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>{threadWorkTypeLabel(thread)}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span>{threadPriorityLabel(thread)}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span>{threadStateLabel(thread)}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
                             <span>{latestThreadDirection(thread)}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-300" />
                             <span>Updated {formatWhen(thread.lastMessageAt)}</span>
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
-                            {threadWorkTypeLabel(thread)}
-                          </span>
-                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(primaryBadge.tone)}`}>
-                            {primaryBadge.label}
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadDisplayAction(thread))}`}>
+                            {threadDisplayAction(thread)}
                           </span>
                           {deliveryBadge ? (
                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(deliveryBadge.tone)}`}>
@@ -635,7 +637,7 @@ export default function AppMessagesPage() {
                         </div>
                       </div>
                       {threadOutcomeListNote(thread) ? (
-                        <p className={`${frontDeskContextPanelClass()} text-[11px] text-muted-foreground`}>{threadOutcomeListNote(thread)}</p>
+                        <p className="mt-3 text-[12px] text-muted-foreground">{threadOutcomeListNote(thread)}</p>
                       ) : null}
                     </button>
                   );
@@ -687,115 +689,155 @@ export default function AppMessagesPage() {
               ) : (
                 <>
                 {threadFrontDesk(selected) ? (
-                  <div className={frontDeskContextPanelClass()}>
-                    <p className="page-eyebrow">Front-desk summary</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadDisplayAction(selected))}`}>
-                        {threadDisplayAction(selected)}
-                      </span>
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskPriorityBadgeClass(threadFrontDesk(selected)?.frontDeskPriority)}`}>
-                        {frontDeskPriorityMeta(threadFrontDesk(selected)?.frontDeskPriority).label}
-                      </span>
-                      {getThreadStateBadge(selected) ? (
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(getThreadStateBadge(selected)!.tone)}`}>
-                          {getThreadStateBadge(selected)!.label}
-                        </span>
-                      ) : null}
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${clientBadgeClass(getThreadPrimaryBadge(selected).tone)}`}>
-                        {threadWorkTypeLabel(selected)}
-                      </span>
-                    </div>
-                    <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
-                          <p className="mt-1 text-sm text-foreground">{threadDisplayName(selected)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Phone number</p>
-                          <p className="mt-1 text-sm text-foreground">{selected.contactPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Service request</p>
-                          <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.summary || "No structured summary yet."}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Urgency</p>
-                          <p className="mt-1 text-sm text-foreground">{threadFrontDesk(selected)?.frontDeskPriority || "normal"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Recommended action</p>
-                          <p className="mt-1 text-sm text-foreground">{threadDisplayAction(selected)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Follow-up state</p>
-                          <p className="mt-1 text-sm text-foreground">{getThreadStateBadge(selected)?.label || "Open"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Latest movement</p>
-                          <p className="mt-1 text-sm text-foreground">{latestThreadDirection(selected)}</p>
-                        </div>
-                        {selected.latestAppointmentRequestId ? (
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Booking context</p>
-                            <p className="mt-1 text-sm text-foreground">
-                              {latestThreadDirection(selected) === "Customer replied" ? "Booking reply in progress" : "Booking follow-up linked"}
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="space-y-4">
+                      <div className={frontDeskContextPanelClass()}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="space-y-2">
+                            <p className="page-eyebrow">Customer case</p>
+                            <div>
+                              <p className="text-xl font-semibold text-slate-950">{threadDisplayName(selected)}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">{selected.contactPhone}</p>
+                            </div>
+                          </div>
+                          <div className="min-w-[240px] rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Next step</p>
+                            <p className="mt-2 text-base font-semibold text-slate-950">{threadDisplayAction(selected)}</p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {latestThreadDirection(selected) === "Customer replied"
+                                ? "Reply here first, then move to booking or lead follow-up only if the thread needs a larger action."
+                                : "Review the latest office message and decide whether this thread needs another reply or can be resolved."}
                             </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Service request</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-900">{threadDisplaySummary(selected)}</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Current status</p>
+                            <dl className="mt-2 space-y-2 text-sm">
+                              <div className="flex items-center justify-between gap-4">
+                                <dt className="text-muted-foreground">Priority</dt>
+                                <dd className="font-medium text-slate-950">{threadPriorityLabel(selected)}</dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <dt className="text-muted-foreground">Follow-up</dt>
+                                <dd className="font-medium text-slate-950">{threadStateLabel(selected)}</dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <dt className="text-muted-foreground">Latest movement</dt>
+                                <dd className="font-medium text-slate-950">{latestThreadDirection(selected)}</dd>
+                              </div>
+                              {selected.latestAppointmentRequestId ? (
+                                <div className="flex items-center justify-between gap-4">
+                                  <dt className="text-muted-foreground">Booking</dt>
+                                  <dd className="font-medium text-slate-950">
+                                    {latestThreadDirection(selected) === "Customer replied" ? "Reply in progress" : "Booking follow-up linked"}
+                                  </dd>
+                                </div>
+                              ) : null}
+                            </dl>
+                          </div>
+                        </div>
+
+                        {threadOutcomeNote(selected) ? (
+                          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+                            {threadOutcomeNote(selected)}
                           </div>
                         ) : null}
                       </div>
-                      <div className={`${frontDeskContextPanelClass()} space-y-3`}>
-                        <p className="text-sm text-muted-foreground">
-                          Why this matters now: {threadDisplayAction(selected)}. Stay in Inbox when the customer already replied here, then move to Lead Queue or Booking Queue only if this thread needs a larger follow-up action.
-                        </p>
-                        {selected.leadId && canEditPipeline ? (
-                          <div className="space-y-2 border-t border-border/60 pt-3">
-                            <p className="page-eyebrow">Quick follow-up actions</p>
-                            <div className="grid gap-2 sm:flex sm:flex-wrap">
-                              {threadQuickActions(selected).map((action) => (
-                                <Button
-                                  key={`${selected.id}-${action.stage}`}
-                                  size="sm"
-                                  variant={action.tone}
-                                  className="w-full sm:w-auto"
-                                  disabled={savingLeadStage === action.stage}
-                                  onClick={() => void onQuickAction(action.stage)}
+
+                      <div className={frontDeskWorkspaceCardClass("subtle")}>
+                        <div className="border-b border-border/60 px-5 py-4">
+                          <p className="page-eyebrow">Conversation timeline</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Read the actual text exchange after you confirm the customer context and next step.
+                          </p>
+                        </div>
+                        <div className="max-h-[620px] space-y-3 overflow-auto px-5 py-4 pr-4">
+                          {[...selected.messages]
+                            .reverse()
+                            .map((message) => {
+                              const badge = getMessageBadge(message);
+                              return (
+                                <div
+                                  key={message.id}
+                                  className={`max-w-full sm:max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
+                                    message.direction === "OUTBOUND" ? "ml-auto bg-blue-50/70" : "bg-zinc-50/70"
+                                  }`}
                                 >
-                                  {action.label}
-                                </Button>
-                              ))}
-                            </div>
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(badge.tone)}`}>
+                                      {badge.label}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {message.direction === "OUTBOUND" ? "Office to customer" : "Customer to office"}
+                                    </span>
+                                  </div>
+                                  <p className="whitespace-pre-wrap leading-6">{message.body}</p>
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    {message.status} | {formatWhen(message.createdAt)}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {selected.leadId && canEditPipeline ? (
+                        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                          <p className="page-eyebrow">Quick actions</p>
+                          <div className="mt-3 grid gap-2">
+                            {threadQuickActions(selected).map((action) => (
+                              <Button
+                                key={`${selected.id}-${action.stage}`}
+                                size="sm"
+                                variant={action.tone}
+                                className="justify-start"
+                                disabled={savingLeadStage === action.stage}
+                                onClick={() => void onQuickAction(action.stage)}
+                              >
+                                {action.label}
+                              </Button>
+                            ))}
                           </div>
-                        ) : null}
-                        {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
-                          <div className="space-y-2 border-t border-border/60 pt-3">
-                            <p className="page-eyebrow">Related workspaces</p>
-                            <div className="grid gap-2 sm:flex sm:flex-wrap">
-                              {selected.latestAppointmentRequestId ? (
-                                <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"} className="w-full sm:w-auto">
-                                  <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking</Link>
-                                </Button>
-                              ) : null}
-                              {selected.leadId ? (
-                                <Button asChild size="sm" variant={!selected.latestAppointmentRequestId ? "default" : "outline"} className="w-full sm:w-auto">
-                                  <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead</Link>
-                                </Button>
-                              ) : null}
-                              {selected.latestCallId ? (
-                                <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-                                  <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call</Link>
-                                </Button>
-                              ) : null}
-                            </div>
+                        </div>
+                      ) : null}
+
+                      {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
+                        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                          <p className="page-eyebrow">Open related workspace</p>
+                          <div className="mt-3 grid gap-2">
+                            {selected.latestAppointmentRequestId ? (
+                              <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"} className="justify-start">
+                                <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking queue</Link>
+                              </Button>
+                            ) : null}
+                            {selected.leadId ? (
+                              <Button asChild size="sm" variant={!selected.latestAppointmentRequestId ? "default" : "outline"} className="justify-start">
+                                <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead queue</Link>
+                              </Button>
+                            ) : null}
+                            {selected.latestCallId ? (
+                              <Button asChild size="sm" variant="outline" className="justify-start">
+                                <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call queue</Link>
+                              </Button>
+                            ) : null}
                           </div>
-                        ) : null}
-                        <div className="space-y-3 border-t border-border/60 pt-3">
-                          <div className="space-y-1">
-                            <p className="page-eyebrow">Reply from inbox</p>
-                            <p className="text-sm text-muted-foreground">
-                              Send a manual follow-up to the selected contact or type any number directly.
-                            </p>
-                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                        <div className="space-y-1">
+                          <p className="page-eyebrow">Reply from inbox</p>
+                          <p className="text-sm text-muted-foreground">Send a manual follow-up to the selected contact.</p>
+                        </div>
+                        <div className="mt-4 space-y-3">
                           <label className="grid gap-1.5 text-sm">
                             <span className="page-eyebrow">To</span>
                             <input
@@ -813,64 +855,23 @@ export default function AppMessagesPage() {
                               onChange={(event) => setBody(event.target.value)}
                               placeholder="Type an outbound message..."
                               disabled={!canSendMessages || sending}
-                              className="min-h-[148px] rounded-xl border bg-background px-3 py-3 text-sm"
+                              className="min-h-[220px] rounded-xl border bg-background px-3 py-3 text-sm"
                             />
                           </label>
-                          <div className="grid gap-2 pt-1 sm:flex sm:flex-wrap">
-                            <Button
-                              type="button"
-                              onClick={() => void onSend()}
-                              disabled={sending || !canSendMessages}
-                              title={!canSendMessages ? "Upgrade to Pro to enable outbound SMS." : "Send message"}
-                              className="w-full sm:w-auto"
-                            >
-                              {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => void onSend()}
+                            disabled={sending || !canSendMessages}
+                            title={!canSendMessages ? "Upgrade to Pro to enable outbound SMS." : "Send message"}
+                            className="w-full"
+                          >
+                            {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}
+                          </Button>
                         </div>
                       </div>
                     </div>
-                    {threadOutcomeNote(selected) ? (
-                      <p className={`${frontDeskContextPanelClass()} text-xs text-muted-foreground`}>{threadOutcomeNote(selected)}</p>
-                    ) : null}
                   </div>
                 ) : null}
-                <div className={frontDeskWorkspaceCardClass("subtle")}>
-                  <div className="border-b border-border/60 px-5 py-4">
-                    <p className="page-eyebrow">Conversation timeline</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Review the actual text exchange here after you confirm the customer context and next action.
-                    </p>
-                  </div>
-                  <div className="max-h-[620px] space-y-3 overflow-auto px-5 py-4 pr-4">
-                    {[...selected.messages]
-                      .reverse()
-                      .map((message) => {
-                        const badge = getMessageBadge(message);
-                        return (
-                          <div
-                            key={message.id}
-                            className={`max-w-full sm:max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
-                              message.direction === "OUTBOUND" ? "ml-auto bg-blue-50/70" : "bg-zinc-50/70"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(badge.tone)}`}>
-                                {badge.label}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {message.direction === "OUTBOUND" ? "Office to customer" : "Customer to office"}
-                              </span>
-                            </div>
-                            <p className="whitespace-pre-wrap leading-6">{message.body}</p>
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              {message.status} | {formatWhen(message.createdAt)}
-                            </p>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
                 </>
               )}
               </div>
