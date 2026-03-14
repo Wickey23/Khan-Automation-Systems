@@ -103,7 +103,18 @@ function buildLeadActivity(lead: OutreachLead) {
           : `Email ${event.eventType.toLowerCase()}`,
     detail: event.subject || event.toEmail || "Email event"
   }));
-  const phoneItems = (lead.phoneEvents || []).map((event) => ({
+  const phoneItems = Array.from(
+    (lead.phoneEvents || []).reduce((map, event) => {
+      const key = event.providerCallId || event.id;
+      const current = map.get(key);
+      const currentScore = current ? (current.eventType === "COMPLETED" || current.eventType === "FAILED" ? 2 : 1) : 0;
+      const nextScore = event.eventType === "COMPLETED" || event.eventType === "FAILED" ? 2 : 1;
+      if (!current || nextScore > currentScore || new Date(event.createdAt).getTime() > new Date(current.createdAt).getTime()) {
+        map.set(key, event);
+      }
+      return map;
+    }, new Map<string, NonNullable<OutreachLead["phoneEvents"]>[number]>()).values()
+  ).map((event) => ({
     id: `phone-${event.id}`,
     eventId: event.id,
     channel: "PHONE" as const,
@@ -114,7 +125,7 @@ function buildLeadActivity(lead: OutreachLead) {
         : event.eventType === "COMPLETED"
           ? "AI call completed"
           : event.eventType === "STARTED"
-            ? "AI call started"
+            ? "AI call queued"
             : "AI call queued",
     detail:
       event.errorMessage ||

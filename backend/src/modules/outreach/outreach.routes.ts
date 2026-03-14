@@ -1020,44 +1020,62 @@ outreachAdminRouter.get("/events", async (req: Request, res: Response) => {
 });
 
 outreachAdminRouter.get("/phone-events/:id", safeOutreachRoute(async (req: Request, res: Response) => {
-  const event = await db.outreachPhoneEvent.findUnique({
-    where: { id: req.params.id },
-    include: {
-      organization: { select: { id: true, name: true } },
-      lead: {
-        select: {
-          id: true,
-          companyName: true,
-          contactName: true,
-          email: true,
-          phone: true,
-          city: true,
-          state: true,
-          industry: true,
-          angle: true,
-          painPoint: true,
-          offer: true,
-          sourceList: true,
-          notes: true
-        }
-      },
-      callerConfig: { select: { id: true, name: true, vapiAssistantId: true, vapiPhoneNumberId: true, timezone: true } },
-      enrollment: {
-        select: {
-          id: true,
-          status: true,
-          stopReason: true,
-          lastCalledAt: true,
-          nextCallAt: true,
-          attemptCount: true
-        }
+  const include = {
+    organization: { select: { id: true, name: true } },
+    lead: {
+      select: {
+        id: true,
+        companyName: true,
+        contactName: true,
+        email: true,
+        phone: true,
+        city: true,
+        state: true,
+        industry: true,
+        angle: true,
+        painPoint: true,
+        offer: true,
+        sourceList: true,
+        notes: true
+      }
+    },
+    callerConfig: { select: { id: true, name: true, vapiAssistantId: true, vapiPhoneNumberId: true, timezone: true } },
+    enrollment: {
+      select: {
+        id: true,
+        status: true,
+        stopReason: true,
+        lastCalledAt: true,
+        nextCallAt: true,
+        attemptCount: true
       }
     }
+  } as const;
+
+  const event = await db.outreachPhoneEvent.findUnique({
+    where: { id: req.params.id },
+    include
   });
   if (!event) {
     return res.status(404).json({ ok: false, message: "Outreach phone event not found." });
   }
-  return res.json({ ok: true, data: { event } });
+
+  let resolvedEvent = event;
+  if (event.providerCallId) {
+    const richerTerminal = await db.outreachPhoneEvent.findFirst({
+      where: {
+        providerCallId: event.providerCallId,
+        eventType: { in: ["COMPLETED", "FAILED"] }
+      },
+      include,
+      orderBy: { createdAt: "desc" }
+    });
+    if (richerTerminal) {
+      resolvedEvent = richerTerminal;
+    }
+  }
+
+  return res.json({ ok: true, data: { event: resolvedEvent } });
 }));
 
 outreachPublicRouter.get("/unsubscribe/:token", async (req: Request, res: Response) => {
