@@ -85,7 +85,8 @@ export function Header() {
       { href: "/app/onboarding", label: "Onboarding" },
       { href: "/app/calls", label: "Calls" },
       { href: "/app/messages", label: "Messages" },
-      { href: "/app/leads", label: "Leads" }
+      { href: "/app/leads", label: "Leads" },
+      { href: "/app/outreach", label: "Outreach" }
     ];
   }, [isAdmin, user]);
 

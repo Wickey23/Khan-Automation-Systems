@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Lock, MessageSquareText, PhoneCall, Settings2, Users2, Wallet, LayoutDashboard, ClipboardCheck, CalendarClock, UserRoundSearch } from "lucide-react";
+import { BarChart3, Lock, MessageSquareText, PhoneCall, Settings2, Users2, Wallet, LayoutDashboard, ClipboardCheck, CalendarClock, UserRoundSearch, Megaphone } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus, getMe } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { clientBadgeClass } from "@/lib/client-badges";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/types";
 
@@ -22,6 +24,7 @@ const navItems: Array<{
   requiredPlan?: Exclude<PlanTier, null>;
   requiredRoles?: ClientRole[];
   requiredFeature?: FeatureKey;
+  comingSoon?: boolean;
 }> = [
   { href: "/app", label: "Front Desk", icon: LayoutDashboard },
   { href: "/app/onboarding", label: "Setup Wizard", icon: ClipboardCheck },
@@ -29,12 +32,13 @@ const navItems: Array<{
   { href: "/app/leads", label: "Lead Queue", icon: UserRoundSearch },
   { href: "/app/appointments", label: "Booking Queue", icon: CalendarClock, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
   { href: "/app/messages", label: "Inbox", icon: MessageSquareText },
+  { href: "/app/outreach", label: "Outreach", icon: Megaphone, comingSoon: true },
   { href: "/app/analytics", label: "Performance", icon: BarChart3, requiredPlan: "STARTER" },
   { href: "/app/settings", label: "Receptionist Setup", icon: Settings2, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", icon: Wallet, requiredRoles: ["CLIENT_ADMIN"] },
   { href: "/app/team", label: "Team & Routing", icon: Users2, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
-const primaryNavHrefs = new Set(["/app", "/app/onboarding", "/app/calls", "/app/leads", "/app/appointments", "/app/messages", "/app/analytics"]);
+const primaryNavHrefs = new Set(["/app", "/app/onboarding", "/app/calls", "/app/leads", "/app/appointments", "/app/messages", "/app/outreach", "/app/analytics"]);
 
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {
   if (!requiredPlan) return true;
@@ -184,7 +188,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/90 bg-white/80 text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
               <Icon className="h-4 w-4" />
             </span>
-            <span>{item.label}</span>
+            <span className="flex items-center gap-2">
+              <span>{item.label}</span>
+              {item.comingSoon ? <Badge className={clientBadgeClass("pending")}>Coming soon</Badge> : null}
+            </span>
           </span>
           <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide">
             <Lock className="h-3 w-3" />
@@ -220,6 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Icon className={cn("h-4 w-4", pathname === item.href && item.href === "/app/messages" ? "scale-110" : "")} />
         </span>
         <span className="truncate">{item.label}</span>
+        {item.comingSoon ? <Badge className={`ml-auto hidden shrink-0 sm:inline-flex ${clientBadgeClass("pending")}`}>Soon</Badge> : null}
       </Link>
     );
   };
