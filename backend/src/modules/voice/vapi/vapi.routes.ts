@@ -301,6 +301,36 @@ function buildSafeVapiSummaryFallback(input: {
   return "Customer request captured for office review.";
 }
 
+function extractTranscriptFromMessages(...sources: unknown[]) {
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    const lines = source
+      .map((item) => {
+        const obj = asObject(item);
+        const role = pickString(obj.role, obj.speaker, obj.type).toUpperCase();
+        const content =
+          pickString(obj.content, obj.message, obj.text) ||
+          (Array.isArray(obj.contents)
+            ? obj.contents
+                .map((entry) => {
+                  const contentObj = asObject(entry);
+                  return pickString(contentObj.text, contentObj.content, contentObj.message);
+                })
+                .filter(Boolean)
+                .join(" ")
+            : "");
+        if (!content) return "";
+        const label = role === "ASSISTANT" ? "ASSISTANT" : role === "USER" ? "USER" : role;
+        return label ? `${label}: ${content}` : content;
+      })
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    if (lines) return lines;
+  }
+  return "";
+}
+
 function extractOutreachMetadata(input: Record<string, unknown>[]) {
   for (const candidate of input) {
     const obj = asObject(candidate);
@@ -595,7 +625,10 @@ vapiRouter.post("/webhook", verifyVapiToolSecret, async (req, res) => {
     }
   }
   const summary = normalizeStructuredSummary(pickString(body.summary, analysis.summary)) || null;
-  const transcript = pickString(body.transcript, artifact.transcript) || null;
+  const transcript =
+    pickString(body.transcript, artifact.transcript) ||
+    extractTranscriptFromMessages(body.messages, root.messages, artifact.messages, message.messages) ||
+    null;
   const recordingUrl = pickString(body.recordingUrl, artifact.recordingUrl) || null;
   const toolCalls = extractToolCallsFromPayload(body);
   const invalidToolCalls = toolCalls.filter((item) => !allowedVapiActionNames.has(item.name));
