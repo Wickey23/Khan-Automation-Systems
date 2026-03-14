@@ -1075,6 +1075,41 @@ outreachAdminRouter.get("/phone-events/:id", safeOutreachRoute(async (req: Reque
     }
   }
 
+  if (resolvedEvent.providerCallId) {
+    const callLog = await db.callLog.findFirst({
+      where: {
+        orgId: resolvedEvent.orgId,
+        providerCallId: resolvedEvent.providerCallId
+      },
+      select: {
+        aiSummary: true,
+        transcript: true,
+        recordingUrl: true,
+        outcome: true,
+        fromNumber: true,
+        toNumber: true
+      }
+    });
+
+    if (callLog) {
+      const mergedMetadata = {
+        ...(resolvedEvent.metadata || {}),
+        ...(callLog.transcript ? { transcript: callLog.transcript } : {}),
+        ...(callLog.recordingUrl ? { recordingUrl: callLog.recordingUrl } : {}),
+        ...(callLog.outcome ? { outcome: callLog.outcome } : {}),
+        ...(resolvedEvent.status ? {} : { callStatus: null })
+      };
+
+      resolvedEvent = {
+        ...resolvedEvent,
+        summary: resolvedEvent.summary || callLog.aiSummary || null,
+        fromPhone: resolvedEvent.fromPhone || callLog.fromNumber || null,
+        toPhone: resolvedEvent.toPhone || callLog.toNumber || resolvedEvent.toPhone,
+        metadata: mergedMetadata
+      };
+    }
+  }
+
   return res.json({ ok: true, data: { event: resolvedEvent } });
 }));
 
