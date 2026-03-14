@@ -108,9 +108,15 @@ export default function AdminOutreachOverviewPage() {
         <PageHeader
           eyebrow="Internal growth"
           title="Outreach"
-          description="Manage internal outbound outreach across email and AI calling, and monitor what was sent, called, replied to, or failed."
+          description="Manage internal outbound outreach across email and AI calling, and monitor the email log and call log from one place."
           actions={
             <div className="flex gap-2">
+              <Link href="/admin/outreach/events?channel=EMAIL">
+                <Button variant="outline">Email log</Button>
+              </Link>
+              <Link href="/admin/outreach/events?channel=PHONE">
+                <Button variant="outline">Call log</Button>
+              </Link>
               <Button variant="outline" onClick={() => void load()}>
                 Refresh
               </Button>
@@ -124,7 +130,7 @@ export default function AdminOutreachOverviewPage() {
           items={[
             { label: "Overview", text: "Use this page to see whether email or Caller AI is failing, whether replies are stacking up, and whether too many leads are live in both lanes." },
             { label: "Do first", text: "Clear failed sends and failed calls before loading more leads. Broken outbound infrastructure makes the rest of the workflow noisy." },
-            { label: "Go next", text: "Open Leads to assign the right lane per prospect, Events to inspect failures, and Caller AI to verify the live outbound setup." }
+            { label: "Go next", text: "Open Leads to assign the right lane per prospect, use Email log or Call log to inspect outcomes, and verify Caller AI before scaling live calls." }
           ]}
         />
 

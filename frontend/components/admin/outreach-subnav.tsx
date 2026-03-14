@@ -9,7 +9,7 @@ const tabs = [
   { href: "/admin/outreach/leads", label: "Leads" },
   { href: "/admin/outreach/sequences", label: "Sequences" },
   { href: "/admin/outreach/caller", label: "Caller AI" },
-  { href: "/admin/outreach/events", label: "Events" }
+  { href: "/admin/outreach/events", label: "Logs" }
 ];
 
 export function OutreachSubnav() {

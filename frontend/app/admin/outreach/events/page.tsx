@@ -79,14 +79,14 @@ export default function AdminOutreachEventsPage() {
         <AdminTopTabs />
         <PageHeader
           eyebrow="Internal growth"
-          title="Outreach Events"
-          description="Review every email send, AI call attempt, provider response, reply, and failure from internal outreach."
+          title="Outreach Logs"
+          description="Review the email log and call log for every send, AI call attempt, provider response, reply, and failure."
         />
         <OutreachSubnav />
         <WorkflowHint
           title="How to read this log"
           items={[
-            { label: "Start here", text: "Filter by channel first if you are diagnosing a lane-specific issue. Email failures and phone failures usually need different fixes." },
+            { label: "Start here", text: "Use the channel filter as your log switch. Email only is your email log. Caller AI only is your call log." },
             { label: "Phone failures", text: "Open the call detail for failed or completed phone events to inspect transcript, summary, recording link, provider call ID, and the caller profile used." },
             { label: "Operator rule", text: "A failed event means fix the setup before running more outreach in that lane. A replied lead means move it into a real follow-up path." }
           ]}
