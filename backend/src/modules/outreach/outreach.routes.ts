@@ -470,6 +470,7 @@ outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) 
       leadId: req.params.id,
       actorUserId: auth.userId,
       actorRole: auth.role,
+      callerConfigId: parsed.data.callerConfigId,
       force: parsed.data.force
     });
     return res.json({ ok: true, data: result });

@@ -105,6 +105,7 @@ export const outreachPhoneEnrollmentCreateSchema = z.object({
 });
 
 export const outreachPhoneCallStartSchema = z.object({
+  callerConfigId: z.string().min(1).optional(),
   force: z.boolean().optional()
 });
 

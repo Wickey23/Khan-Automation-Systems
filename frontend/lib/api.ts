@@ -469,7 +469,7 @@ export async function markAdminOutreachLeadReplied(id: string, payload: { orgId?
   });
 }
 
-export async function startAdminOutreachAiCall(id: string, payload?: { force?: boolean }) {
+export async function startAdminOutreachAiCall(id: string, payload?: { force?: boolean; callerConfigId?: string }) {
   return request<OutreachPhoneCallResult>(`/api/admin/outreach/leads/${id}/call`, {
     method: "POST",
     body: JSON.stringify(payload || {})

@@ -402,6 +402,11 @@ export default function AdminOutreachLeadsPage() {
   }
 
   async function onAiCall(lead: OutreachLead, options?: { force?: boolean }) {
+    const callerConfigId = selectedCallerConfigByLead[lead.id] || lead.phoneEnrollments?.[0]?.callerConfig?.id || "";
+    if (!callerConfigId) {
+      showToast({ title: "Choose Caller AI first", description: "Pick the caller profile that should place this call.", variant: "error" });
+      return;
+    }
     if (!lead.phone?.trim()) {
       showToast({ title: "Phone number required", description: "Add a valid phone number before starting an AI outreach call.", variant: "error" });
       return;
@@ -415,7 +420,7 @@ export default function AdminOutreachLeadsPage() {
     }
     try {
       setCallingLeadId(lead.id);
-      const result = await startAdminOutreachAiCall(lead.id, { force: options?.force });
+      const result = await startAdminOutreachAiCall(lead.id, { force: options?.force, callerConfigId });
       await load();
       showToast({
         title: options?.force ? "AI call started again" : "AI call started",
