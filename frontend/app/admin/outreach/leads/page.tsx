@@ -645,6 +645,14 @@ export default function AdminOutreachLeadsPage() {
                 Upload or paste CSV rows with `companyName, contactName, email, phone, city, state, industry, website, angle, painPoint, offer, sourceList, notes`.
                 Preview first, then explicitly confirm whether the import should start email outreach or queue Caller AI calls automatically.
               </p>
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Need a clean starting file?</span>
+                <Button asChild size="sm" variant="outline">
+                  <a href="/files/outreach-leads-template.csv" download="outreach-leads-template.csv">
+                    Download CSV template
+                  </a>
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant={bulkMode === "EMAIL" ? "default" : "outline"} onClick={() => { setBulkMode("EMAIL"); setBulkPreviewReady(false); }}>
                   Email sequence
