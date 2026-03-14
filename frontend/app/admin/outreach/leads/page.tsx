@@ -708,19 +708,20 @@ export default function AdminOutreachLeadsPage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Leads</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {leads.length ? leads.map((lead) => {
-              const called = hasBeenCalled(lead);
-              const activity = buildLeadActivity(lead);
-              const laneSummary = getLeadLaneSummary(lead);
-              const nextStep = getLeadNextStep(lead);
-              const laneConflict = hasActiveEmailLane(lead) && hasActivePhoneLane(lead);
-              return (
-                <div key={lead.id} className="rounded-lg border p-4">
+        <div className={`grid gap-4 ${selectedPhoneEvent ? "xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]" : ""}`}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Leads</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {leads.length ? leads.map((lead) => {
+                const called = hasBeenCalled(lead);
+                const activity = buildLeadActivity(lead);
+                const laneSummary = getLeadLaneSummary(lead);
+                const nextStep = getLeadNextStep(lead);
+                const laneConflict = hasActiveEmailLane(lead) && hasActivePhoneLane(lead);
+                return (
+                  <div key={lead.id} className="rounded-lg border p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{formatLeadHeadline(lead)}</div>
@@ -876,18 +877,21 @@ export default function AdminOutreachLeadsPage() {
                       </div>
                     </div>
                   ) : null}
-                </div>
-              );
-            }) : <div className="text-sm text-muted-foreground">No outreach leads found.</div>}
-          </CardContent>
-        </Card>
+                  </div>
+                );
+              }) : <div className="text-sm text-muted-foreground">No outreach leads found.</div>}
+            </CardContent>
+          </Card>
 
-        {selectedPhoneEvent ? (
-          <OutreachPhoneEventDetailCard
-            event={selectedPhoneEvent}
-            onClose={() => setSelectedPhoneEvent(null)}
-          />
-        ) : null}
+          {selectedPhoneEvent ? (
+            <div className="xl:sticky xl:top-6 xl:self-start">
+              <OutreachPhoneEventDetailCard
+                event={selectedPhoneEvent}
+                onClose={() => setSelectedPhoneEvent(null)}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
     </AdminGuard>
   );
