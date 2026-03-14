@@ -632,7 +632,7 @@ export default function AdminOutreachLeadsPage() {
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Upload or paste CSV rows with `companyName, contactName, email, phone, city, state, industry, website, angle, painPoint, offer, sourceList, notes`.
-                Preview first, then explicitly confirm whether the import should start email outreach or Caller AI outreach.
+                Preview first, then explicitly confirm whether the import should start email outreach or queue Caller AI calls automatically.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant={bulkMode === "EMAIL" ? "default" : "outline"} onClick={() => { setBulkMode("EMAIL"); setBulkPreviewReady(false); }}>
@@ -783,9 +783,12 @@ export default function AdminOutreachLeadsPage() {
                         ))}
                       </select>
                       <Button className="mt-3 w-full" size="sm" disabled={!lead.phone?.trim()} onClick={() => void onStartPhoneOutreach(lead, called ? { force: true } : undefined)}>
-                        {called ? "Start AI call outreach again" : "Start AI call outreach"}
+                        {called ? "Queue AI call outreach again" : "Queue AI call outreach"}
                       </Button>
                       {!lead.phone?.trim() ? <p className="mt-2 text-xs text-muted-foreground">Add a valid phone number to enable Caller AI.</p> : null}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Once enrolled, Caller AI will call automatically in queue order during the profile&apos;s allowed calling window.
+                      </p>
                       {called ? <p className="mt-2 text-xs text-muted-foreground">This lead has already been called once. Use the button again only when you want to deliberately retry.</p> : null}
                     </div>
                   </div>

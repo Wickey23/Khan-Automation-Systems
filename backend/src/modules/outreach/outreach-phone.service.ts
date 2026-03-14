@@ -1,6 +1,8 @@
 import type { PrismaClient, UserRole } from "@prisma/client";
 import { env } from "../../config/env";
 
+const PHONE_QUEUE_SPACING_MS = 2 * 60 * 1000;
+
 function normalizePhoneE164(value: string) {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -146,6 +148,13 @@ function nextWindowStart(now: Date, input: { timeZone: string; startHour: number
   return next;
 }
 
+function alignPhoneScheduleToWindow(date: Date, input: { timeZone: string; startHour: number; endHour: number }) {
+  if (isWithinWindow(date, input)) {
+    return date;
+  }
+  return nextWindowStart(date, input);
+}
+
 async function resolveCallerConfig(db: any, orgId: string, callerConfigId?: string | null) {
   if (callerConfigId) {
     return db.outreachCallerConfig.findUnique({ where: { id: callerConfigId } });
@@ -154,6 +163,54 @@ async function resolveCallerConfig(db: any, orgId: string, callerConfigId?: stri
     where: { orgId, isActive: true },
     orderBy: { createdAt: "desc" }
   });
+}
+
+export async function computeNextPhoneEnrollmentStart(input: {
+  prisma: PrismaClient;
+  orgId: string;
+  callerConfigId: string;
+  requestedStartAt?: Date | null;
+  excludeEnrollmentId?: string | null;
+}) {
+  const db = input.prisma as any;
+  const callerConfig = await db.outreachCallerConfig.findUnique({
+    where: { id: input.callerConfigId },
+    select: {
+      id: true,
+      timezone: true,
+      windowStartHour: true,
+      windowEndHour: true
+    }
+  });
+  if (!callerConfig) {
+    throw new Error("Caller AI config not found.");
+  }
+
+  const windowConfig = {
+    timeZone: cleanText(callerConfig.timezone) || "America/New_York",
+    startHour: Number(callerConfig.windowStartHour ?? 9),
+    endHour: Number(callerConfig.windowEndHour ?? 17)
+  };
+
+  const base = alignPhoneScheduleToWindow(input.requestedStartAt || new Date(), windowConfig);
+  const latestQueued = await db.outreachPhoneEnrollment.findFirst({
+    where: {
+      orgId: input.orgId,
+      callerConfigId: input.callerConfigId,
+      status: "ACTIVE",
+      nextCallAt: { not: null },
+      ...(input.excludeEnrollmentId ? { id: { not: input.excludeEnrollmentId } } : {})
+    },
+    orderBy: { nextCallAt: "desc" },
+    select: { nextCallAt: true }
+  });
+
+  const latestQueuedAt = latestQueued?.nextCallAt ? new Date(latestQueued.nextCallAt) : null;
+  const scheduled = latestQueuedAt && latestQueuedAt.getTime() >= base.getTime()
+    ? new Date(latestQueuedAt.getTime() + PHONE_QUEUE_SPACING_MS)
+    : base;
+
+  return alignPhoneScheduleToWindow(scheduled, windowConfig);
 }
 
 export async function startOutreachAiCall(input: {

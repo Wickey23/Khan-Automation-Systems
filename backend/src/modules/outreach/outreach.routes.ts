@@ -29,7 +29,7 @@ import {
   runOutreachTick,
   sendEnrollmentStepNow
 } from "./outreach.service";
-import { runOutreachPhoneTick, startOutreachAiCall } from "./outreach-phone.service";
+import { computeNextPhoneEnrollmentStart, runOutreachPhoneTick, startOutreachAiCall } from "./outreach-phone.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
 
@@ -809,13 +809,20 @@ outreachAdminRouter.post("/phone-enrollments", safeOutreachRoute(async (req: Req
   });
   if (existing) return res.status(409).json({ ok: false, message: "Lead is already enrolled in this caller AI configuration." });
 
+  const nextCallAt = await computeNextPhoneEnrollmentStart({
+    prisma,
+    orgId,
+    callerConfigId: parsed.data.callerConfigId,
+    requestedStartAt: parsed.data.startAt ? new Date(parsed.data.startAt) : null
+  });
+
   const enrollment = await db.outreachPhoneEnrollment.create({
     data: {
       orgId,
       leadId: parsed.data.leadId,
       callerConfigId: parsed.data.callerConfigId,
       status: "ACTIVE",
-      nextCallAt: parsed.data.startAt ? new Date(parsed.data.startAt) : new Date()
+      nextCallAt
     },
     include: {
       lead: true,
@@ -854,9 +861,22 @@ outreachAdminRouter.post("/enrollments/:id/resume", async (req: Request, res: Re
 });
 
 outreachAdminRouter.post("/phone-enrollments/:id/resume", safeOutreachRoute(async (req: Request, res: Response) => {
+  const current = await db.outreachPhoneEnrollment.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, orgId: true, callerConfigId: true }
+  });
+  if (!current) {
+    return res.status(404).json({ ok: false, message: "Phone enrollment not found." });
+  }
+  const nextCallAt = await computeNextPhoneEnrollmentStart({
+    prisma,
+    orgId: current.orgId,
+    callerConfigId: current.callerConfigId,
+    excludeEnrollmentId: current.id
+  });
   const enrollment = await db.outreachPhoneEnrollment.update({
     where: { id: req.params.id },
-    data: { status: "ACTIVE", nextCallAt: new Date(), processingStartedAt: null }
+    data: { status: "ACTIVE", nextCallAt, processingStartedAt: null }
   });
   return res.json({ ok: true, data: { enrollment } });
 }));
