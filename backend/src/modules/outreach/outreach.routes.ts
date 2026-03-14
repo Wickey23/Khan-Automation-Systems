@@ -1075,39 +1075,62 @@ outreachAdminRouter.get("/phone-events/:id", safeOutreachRoute(async (req: Reque
     }
   }
 
-  if (resolvedEvent.providerCallId) {
-    const callLog = await db.callLog.findFirst({
+  const callLogSelect = {
+    aiSummary: true,
+    transcript: true,
+    recordingUrl: true,
+    outcome: true,
+    fromNumber: true,
+    toNumber: true
+  } as const;
+
+  let callLog =
+    resolvedEvent.providerCallId
+      ? await db.callLog.findFirst({
+          where: {
+            orgId: resolvedEvent.orgId,
+            providerCallId: resolvedEvent.providerCallId
+          },
+          select: callLogSelect
+        })
+      : null;
+
+  if (!callLog) {
+    const eventCreatedAt = new Date(resolvedEvent.createdAt);
+    const windowStart = new Date(eventCreatedAt.getTime() - 60 * 60 * 1000);
+    const windowEnd = new Date(eventCreatedAt.getTime() + 6 * 60 * 60 * 1000);
+    callLog = await db.callLog.findFirst({
       where: {
         orgId: resolvedEvent.orgId,
-        providerCallId: resolvedEvent.providerCallId
+        aiProvider: "VAPI",
+        toNumber: resolvedEvent.toPhone,
+        ...(resolvedEvent.fromPhone ? { fromNumber: resolvedEvent.fromPhone } : {}),
+        startedAt: {
+          gte: windowStart,
+          lte: windowEnd
+        }
       },
-      select: {
-        aiSummary: true,
-        transcript: true,
-        recordingUrl: true,
-        outcome: true,
-        fromNumber: true,
-        toNumber: true
-      }
+      orderBy: { startedAt: "desc" },
+      select: callLogSelect
     });
+  }
 
-    if (callLog) {
-      const mergedMetadata = {
-        ...(resolvedEvent.metadata || {}),
-        ...(callLog.transcript ? { transcript: callLog.transcript } : {}),
-        ...(callLog.recordingUrl ? { recordingUrl: callLog.recordingUrl } : {}),
-        ...(callLog.outcome ? { outcome: callLog.outcome } : {}),
-        ...(resolvedEvent.status ? {} : { callStatus: null })
-      };
+  if (callLog) {
+    const mergedMetadata = {
+      ...(resolvedEvent.metadata || {}),
+      ...(callLog.transcript ? { transcript: callLog.transcript } : {}),
+      ...(callLog.recordingUrl ? { recordingUrl: callLog.recordingUrl } : {}),
+      ...(callLog.outcome ? { outcome: callLog.outcome } : {}),
+      ...(resolvedEvent.status ? {} : { callStatus: null })
+    };
 
-      resolvedEvent = {
-        ...resolvedEvent,
-        summary: resolvedEvent.summary || callLog.aiSummary || null,
-        fromPhone: resolvedEvent.fromPhone || callLog.fromNumber || null,
-        toPhone: resolvedEvent.toPhone || callLog.toNumber || resolvedEvent.toPhone,
-        metadata: mergedMetadata
-      };
-    }
+    resolvedEvent = {
+      ...resolvedEvent,
+      summary: resolvedEvent.summary || callLog.aiSummary || null,
+      fromPhone: resolvedEvent.fromPhone || callLog.fromNumber || null,
+      toPhone: resolvedEvent.toPhone || callLog.toNumber || resolvedEvent.toPhone,
+      metadata: mergedMetadata
+    };
   }
 
   return res.json({ ok: true, data: { event: resolvedEvent } });
