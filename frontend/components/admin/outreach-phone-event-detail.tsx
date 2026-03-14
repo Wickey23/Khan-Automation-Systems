@@ -9,6 +9,26 @@ function readMetadataString(metadata: Record<string, unknown> | null | undefined
   return value || "";
 }
 
+function formatOptional(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  return text || "Not available";
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Date not available";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "Date not available" : parsed.toLocaleString();
+}
+
+function DetailBlock(input: { label: string; value: string; subtle?: boolean }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{input.label}</div>
+      <div className={`mt-2 text-sm leading-6 ${input.subtle ? "text-slate-600" : "text-slate-950"}`}>{input.value}</div>
+    </div>
+  );
+}
+
 export function OutreachPhoneEventDetailCard(input: {
   event: OutreachPhoneEventDetail;
   onClose?: () => void;
@@ -19,79 +39,93 @@ export function OutreachPhoneEventDetailCard(input: {
   const recordingUrl = readMetadataString(metadata, "recordingUrl");
   const outcome = readMetadataString(metadata, "outcome");
   const callStatus = readMetadataString(metadata, "callStatus");
+  const leadLabel = event.lead?.companyName || event.lead?.contactName || event.toPhone || "Unknown lead";
+  const leadContext = [
+    event.lead?.industry ? `Industry: ${event.lead.industry}` : null,
+    event.lead?.angle ? `Angle: ${event.lead.angle}` : null,
+    event.lead?.painPoint ? `Pain point: ${event.lead.painPoint}` : null,
+    event.lead?.offer ? `Offer: ${event.lead.offer}` : null,
+    event.lead?.sourceList ? `Source list: ${event.lead.sourceList}` : null,
+    event.lead?.notes ? `Notes: ${event.lead.notes}` : null
+  ].filter(Boolean).join("\n");
 
   return (
-    <Card className="border-zinc-300 bg-white shadow-sm">
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>Outreach call detail</CardTitle>
-          <div className="mt-2 text-sm text-muted-foreground">
-            {event.lead?.companyName || event.lead?.contactName || event.toPhone}
-            {event.providerCallId ? ` · call ${event.providerCallId}` : ""}
-            {` · ${new Date(event.createdAt).toLocaleString()}`}
+    <Card className="overflow-hidden border-slate-300 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+      <CardHeader className="border-b border-slate-200 bg-slate-50/70">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Selected outreach call</div>
+            <CardTitle className="text-[26px] tracking-[-0.03em] text-slate-950">Call detail</CardTitle>
+            <div className="text-sm text-slate-600">
+              {leadLabel}
+              {event.providerCallId ? ` · call ${event.providerCallId}` : ""}
+              {` · ${formatDate(event.createdAt)}`}
+            </div>
           </div>
+          {onClose ? (
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          ) : null}
         </div>
-        {onClose ? (
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        ) : null}
       </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Status</div>
-            <div className="mt-2 text-sm font-medium">{event.eventType}{event.status ? ` · ${event.status}` : ""}</div>
-            {event.errorMessage ? <div className="mt-2 text-xs text-red-700">{event.errorMessage}</div> : null}
-          </div>
-          <div className="rounded-lg border p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Lead</div>
-            <div className="mt-2 text-sm font-medium">{event.lead?.contactName || event.lead?.companyName || "Unknown lead"}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{event.toPhone}</div>
-          </div>
-          <div className="rounded-lg border p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Caller profile</div>
-            <div className="mt-2 text-sm font-medium">{event.callerConfig?.name || "Unknown caller profile"}</div>
-            {event.callerConfig?.timezone ? <div className="mt-1 text-xs text-muted-foreground">{event.callerConfig.timezone}</div> : null}
-          </div>
-          <div className="rounded-lg border p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Enrollment</div>
-            <div className="mt-2 text-sm font-medium">{event.enrollment?.status || "No enrollment"}</div>
-            {event.enrollment?.stopReason ? <div className="mt-1 text-xs text-muted-foreground">{event.enrollment.stopReason}</div> : null}
+      <CardContent className="space-y-5 p-5">
+        <div className="grid gap-3 md:grid-cols-2">
+          <DetailBlock label="Status" value={`${event.eventType}${event.status ? ` · ${event.status}` : ""}`} />
+          <DetailBlock label="Lead" value={`${event.lead?.contactName || event.lead?.companyName || "Unknown lead"}\n${formatOptional(event.toPhone)}`} subtle />
+          <DetailBlock label="Caller profile" value={`${event.callerConfig?.name || "Unknown caller profile"}${event.callerConfig?.timezone ? `\n${event.callerConfig.timezone}` : ""}`} subtle />
+          <DetailBlock label="Enrollment" value={`${event.enrollment?.status || "No enrollment"}${event.enrollment?.stopReason ? `\n${event.enrollment.stopReason}` : ""}`} subtle />
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Summary</div>
+          <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-900">
+            {event.summary || event.errorMessage || "No summary captured for this outreach call."}
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-          <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Summary</div>
-              <div className="mt-3 whitespace-pre-wrap text-sm text-foreground">
-                {event.summary || event.errorMessage || "No summary captured for this outreach call."}
-              </div>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Transcript</div>
-              <div className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap text-sm text-foreground">
-                {transcript || "No transcript was captured for this outreach call."}
-              </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Transcript</div>
+            <div className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap text-sm leading-6 text-slate-900">
+              {transcript || "No transcript was captured for this outreach call."}
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Call facts</div>
-              <dl className="mt-3 space-y-2 text-sm">
-                <div><dt className="font-medium">Provider</dt><dd className="text-muted-foreground">{event.provider}</dd></div>
-                <div><dt className="font-medium">Provider call ID</dt><dd className="break-all text-muted-foreground">{event.providerCallId || "Not available"}</dd></div>
-                <div><dt className="font-medium">Outcome</dt><dd className="text-muted-foreground">{outcome || "Not available"}</dd></div>
-                <div><dt className="font-medium">Call status</dt><dd className="text-muted-foreground">{callStatus || event.status || "Not available"}</dd></div>
-                <div><dt className="font-medium">From / To</dt><dd className="text-muted-foreground">{event.fromPhone || "Unknown"} {"->"} {event.toPhone}</dd></div>
-                <div><dt className="font-medium">Attempt count</dt><dd className="text-muted-foreground">{event.enrollment?.attemptCount ?? 0}</dd></div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Call facts</div>
+              <dl className="mt-3 space-y-3 text-sm">
+                <div>
+                  <dt className="font-medium text-slate-900">Provider</dt>
+                  <dd className="mt-1 text-slate-600">{formatOptional(event.provider)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-900">Provider call ID</dt>
+                  <dd className="mt-1 break-all text-slate-600">{formatOptional(event.providerCallId)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-900">Outcome</dt>
+                  <dd className="mt-1 text-slate-600">{formatOptional(outcome)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-900">Call status</dt>
+                  <dd className="mt-1 text-slate-600">{formatOptional(callStatus || event.status)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-900">From / To</dt>
+                  <dd className="mt-1 text-slate-600">{formatOptional(event.fromPhone)} {"->"} {formatOptional(event.toPhone)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-900">Attempt count</dt>
+                  <dd className="mt-1 text-slate-600">{event.enrollment?.attemptCount ?? 0}</dd>
+                </div>
               </dl>
             </div>
-            <div className="rounded-lg border p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Recording</div>
-              <div className="mt-3 text-sm text-muted-foreground">
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Recording</div>
+              <div className="mt-3 text-sm text-slate-600">
                 {recordingUrl ? (
                   <a className="break-all text-primary underline underline-offset-4" href={recordingUrl} target="_blank" rel="noreferrer">
                     Open recording
@@ -101,15 +135,11 @@ export function OutreachPhoneEventDetailCard(input: {
                 )}
               </div>
             </div>
-            <div className="rounded-lg border p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Lead context</div>
-              <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                {event.lead?.industry ? <div><span className="font-medium text-foreground">Industry:</span> {event.lead.industry}</div> : null}
-                {event.lead?.angle ? <div><span className="font-medium text-foreground">Angle:</span> {event.lead.angle}</div> : null}
-                {event.lead?.painPoint ? <div><span className="font-medium text-foreground">Pain point:</span> {event.lead.painPoint}</div> : null}
-                {event.lead?.offer ? <div><span className="font-medium text-foreground">Offer:</span> {event.lead.offer}</div> : null}
-                {event.lead?.sourceList ? <div><span className="font-medium text-foreground">Source list:</span> {event.lead.sourceList}</div> : null}
-                {event.lead?.notes ? <div><span className="font-medium text-foreground">Notes:</span> {event.lead.notes}</div> : null}
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Lead context</div>
+              <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                {leadContext || "No extra lead context was captured for this call."}
               </div>
             </div>
           </div>

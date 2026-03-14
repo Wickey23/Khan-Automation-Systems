@@ -708,7 +708,7 @@ export default function AdminOutreachLeadsPage() {
           </Card>
         </div>
 
-        <div className={`grid gap-4 ${selectedPhoneEvent ? "xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]" : ""}`}>
+        <div className={`grid gap-4 ${selectedPhoneEvent ? "xl:grid-cols-[minmax(0,1.05fr)_minmax(460px,0.95fr)]" : ""}`}>
           <Card>
             <CardHeader>
               <CardTitle>Leads</CardTitle>
