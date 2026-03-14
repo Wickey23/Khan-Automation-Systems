@@ -51,8 +51,8 @@ export default function AdminOutreachEventsPage() {
   async function openPhoneEvent(id: string) {
     try {
       setLoadingEventId(id);
-      const event = await fetchAdminOutreachPhoneEvent(id);
-      setSelectedPhoneEvent(event);
+      const data = await fetchAdminOutreachPhoneEvent(id);
+      setSelectedPhoneEvent(data.event);
     } catch (error) {
       showToast({
         title: "Could not load outreach call detail",
