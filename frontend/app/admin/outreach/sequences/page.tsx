@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
 type SequenceTemplate = {
@@ -190,7 +190,7 @@ export default function AdminOutreachSequencesPage() {
     });
   }, [form.steps]);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const sequenceData = await fetchAdminOutreachSequences();
       setSequences(sequenceData.sequences || []);
@@ -201,11 +201,11 @@ export default function AdminOutreachSequencesPage() {
         variant: "error"
       });
     }
-  }
+  }, [showToast]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   function resetForm() {
     setEditingId(null);
@@ -380,6 +380,14 @@ export default function AdminOutreachSequencesPage() {
           description="Build reusable cold outreach campaigns, start from proven templates, and preview the timing before you enroll leads."
         />
         <OutreachSubnav />
+        <WorkflowHint
+          title="How to use sequences"
+          items={[
+            { label: "Purpose", text: "Sequences control the email lane only. Use them when you want a paced outreach campaign instead of an immediate phone-first approach." },
+            { label: "Structure", text: "Keep the sequence short, relevant, and operational. Strong steps usually make one point and one ask rather than trying to explain everything." },
+            { label: "Operator rule", text: "If a lead replies or moves into Caller AI, stop treating the sequence as the primary lane unless you deliberately want both channels live." }
+          ]}
+        />
 
         <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
           <div className="space-y-6">

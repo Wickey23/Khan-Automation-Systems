@@ -65,7 +65,7 @@ export function OutreachPhoneEventDetailCard(input: {
           <div className="space-y-4">
             <div className="rounded-lg border p-4">
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Summary</div>
-              <div className="mt-3 text-sm text-foreground whitespace-pre-wrap">
+              <div className="mt-3 whitespace-pre-wrap text-sm text-foreground">
                 {event.summary || event.errorMessage || "No summary captured for this outreach call."}
               </div>
             </div>
@@ -82,10 +82,10 @@ export function OutreachPhoneEventDetailCard(input: {
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Call facts</div>
               <dl className="mt-3 space-y-2 text-sm">
                 <div><dt className="font-medium">Provider</dt><dd className="text-muted-foreground">{event.provider}</dd></div>
-                <div><dt className="font-medium">Provider call ID</dt><dd className="text-muted-foreground break-all">{event.providerCallId || "Not available"}</dd></div>
+                <div><dt className="font-medium">Provider call ID</dt><dd className="break-all text-muted-foreground">{event.providerCallId || "Not available"}</dd></div>
                 <div><dt className="font-medium">Outcome</dt><dd className="text-muted-foreground">{outcome || "Not available"}</dd></div>
                 <div><dt className="font-medium">Call status</dt><dd className="text-muted-foreground">{callStatus || event.status || "Not available"}</dd></div>
-                <div><dt className="font-medium">From / To</dt><dd className="text-muted-foreground">{event.fromPhone || "Unknown"} → {event.toPhone}</dd></div>
+                <div><dt className="font-medium">From / To</dt><dd className="text-muted-foreground">{event.fromPhone || "Unknown"} {"->"} {event.toPhone}</dd></div>
                 <div><dt className="font-medium">Attempt count</dt><dd className="text-muted-foreground">{event.enrollment?.attemptCount ?? 0}</dd></div>
               </dl>
             </div>
@@ -93,7 +93,7 @@ export function OutreachPhoneEventDetailCard(input: {
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Recording</div>
               <div className="mt-3 text-sm text-muted-foreground">
                 {recordingUrl ? (
-                  <a className="text-primary underline underline-offset-4 break-all" href={recordingUrl} target="_blank" rel="noreferrer">
+                  <a className="break-all text-primary underline underline-offset-4" href={recordingUrl} target="_blank" rel="noreferrer">
                     Open recording
                   </a>
                 ) : (

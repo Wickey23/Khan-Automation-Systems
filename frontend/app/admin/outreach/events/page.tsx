@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
@@ -11,11 +11,12 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 
 export default function AdminOutreachEventsPage() {
   const { showToast } = useToast();
   const [eventType, setEventType] = useState("ALL");
+  const [channel, setChannel] = useState("ALL");
   const [search, setSearch] = useState("");
   const [events, setEvents] = useState<OutreachActivityEvent[]>([]);
   const [selectedPhoneEvent, setSelectedPhoneEvent] = useState<OutreachPhoneEventDetail | null>(null);
@@ -24,25 +25,28 @@ export default function AdminOutreachEventsPage() {
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (eventType !== "ALL") params.set("eventType", eventType);
+    if (channel !== "ALL") params.set("channel", channel);
     if (search.trim()) params.set("search", search.trim());
-    return `?${params.toString()}`;
-  }, [eventType, search]);
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : "";
+  }, [channel, eventType, search]);
+
+  const load = useCallback(async () => {
+    try {
+      const eventData = await fetchAdminOutreachEvents(query);
+      setEvents(eventData.events || []);
+    } catch (error) {
+      showToast({
+        title: "Could not load outreach events",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    }
+  }, [query, showToast]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const eventData = await fetchAdminOutreachEvents(query);
-        setEvents(eventData.events || []);
-      } catch (error) {
-        showToast({
-          title: "Could not load outreach events",
-          description: error instanceof Error ? error.message : "Try again.",
-          variant: "error"
-        });
-      }
-    }
     void load();
-  }, [query, showToast]);
+  }, [load]);
 
   async function openPhoneEvent(id: string) {
     try {
@@ -60,6 +64,15 @@ export default function AdminOutreachEventsPage() {
     }
   }
 
+  const summary = useMemo(() => {
+    return {
+      email: events.filter((event) => event.channel === "EMAIL").length,
+      phone: events.filter((event) => event.channel === "PHONE").length,
+      failed: events.filter((event) => event.eventType === "FAILED").length,
+      replies: events.filter((event) => event.eventType === "REPLIED").length
+    };
+  }, [events]);
+
   return (
     <AdminGuard requireSuperAdmin>
       <div className="container py-10 space-y-6">
@@ -70,9 +83,33 @@ export default function AdminOutreachEventsPage() {
           description="Review every email send, AI call attempt, provider response, reply, and failure from internal outreach."
         />
         <OutreachSubnav />
+        <WorkflowHint
+          title="How to read this log"
+          items={[
+            { label: "Start here", text: "Filter by channel first if you are diagnosing a lane-specific issue. Email failures and phone failures usually need different fixes." },
+            { label: "Phone failures", text: "Open the call detail for failed or completed phone events to inspect transcript, summary, recording link, provider call ID, and the caller profile used." },
+            { label: "Operator rule", text: "A failed event means fix the setup before running more outreach in that lane. A replied lead means move it into a real follow-up path." }
+          ]}
+        />
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card><CardContent className="p-5"><p className="page-eyebrow">Visible events</p><p className="mt-2 text-2xl font-semibold">{events.length}</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="page-eyebrow">Email events</p><p className="mt-2 text-2xl font-semibold">{summary.email}</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="page-eyebrow">Phone events</p><p className="mt-2 text-2xl font-semibold">{summary.phone}</p></CardContent></Card>
+          <Card><CardContent className="p-5"><p className="page-eyebrow">Failures in view</p><p className={`mt-2 text-2xl font-semibold ${summary.failed ? "text-red-700" : ""}`}>{summary.failed}</p></CardContent></Card>
+        </div>
 
         <Card>
-          <CardContent className="grid gap-3 p-5 md:grid-cols-2">
+          <CardContent className="grid gap-3 p-5 md:grid-cols-3">
+            <select
+              value={channel}
+              onChange={(event) => setChannel(event.target.value)}
+              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+            >
+              <option value="ALL">All channels</option>
+              <option value="EMAIL">Email only</option>
+              <option value="PHONE">Caller AI only</option>
+            </select>
             <select
               value={eventType}
               onChange={(event) => setEventType(event.target.value)}
@@ -106,15 +143,15 @@ export default function AdminOutreachEventsPage() {
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
-                        {event.lead?.companyName ? ` • ${event.lead.companyName}` : ""}
+                        {event.lead?.companyName ? ` · ${event.lead.companyName}` : ""}
                       </div>
                     </div>
-                    <div className="text-sm">{event.channel} • {event.eventType}</div>
+                    <div className="text-sm">{event.channel} · {event.eventType}</div>
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground">
                     {new Date(event.createdAt).toLocaleString()}
-                    {event.channel === "EMAIL" && event.providerMessageId ? ` • provider ${event.providerMessageId}` : ""}
-                    {event.channel === "PHONE" && event.providerCallId ? ` • call ${event.providerCallId}` : ""}
+                    {event.channel === "EMAIL" && event.providerMessageId ? ` · provider ${event.providerMessageId}` : ""}
+                    {event.channel === "PHONE" && event.providerCallId ? ` · call ${event.providerCallId}` : ""}
                   </div>
                   {event.channel === "PHONE" && event.status ? (
                     <div className="mt-2 text-sm text-muted-foreground">Status: {event.status}</div>

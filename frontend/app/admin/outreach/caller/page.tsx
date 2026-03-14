@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
 const DEFAULT_FORM = {
@@ -109,6 +109,43 @@ export default function AdminOutreachCallerPage() {
     }
   }
 
+  const selectedAssistant = useMemo(
+    () => assistants.find((assistant) => assistant.id === form.vapiAssistantId) || null,
+    [assistants, form.vapiAssistantId]
+  );
+
+  const selectedPhoneNumber = useMemo(
+    () => phoneNumbers.find((item) => item.id === form.vapiPhoneNumberId) || null,
+    [form.vapiPhoneNumberId, phoneNumbers]
+  );
+
+  const readinessItems = useMemo(() => ([
+    {
+      label: "Assistant",
+      state: form.vapiAssistantId ? "Ready" : "Inline prompt",
+      text: form.vapiAssistantId
+        ? `${selectedAssistant?.name || "Saved Vapi assistant"} is selected for live outbound calls.`
+        : "No saved Vapi assistant is selected. The built-in outreach caller prompt will be used instead."
+    },
+    {
+      label: "Phone number",
+      state: form.vapiPhoneNumberId ? "Pinned" : "Fallback",
+      text: form.vapiPhoneNumberId
+        ? `${selectedPhoneNumber?.number || form.vapiPhoneNumberId} is selected as the outbound phone number.`
+        : "No specific outbound number is pinned here, so the org-level or app-level fallback number will be used."
+    },
+    {
+      label: "Call window",
+      state: `${form.windowStartHour}:00-${form.windowEndHour}:00`,
+      text: `Calls from this profile can only start during ${form.windowStartHour}:00-${form.windowEndHour}:00 in ${form.timezone}.`
+    },
+    {
+      label: "Daily cap",
+      state: `${form.maxCallsPerDay}/day`,
+      text: `The runner will stop starting new calls from this profile after ${form.maxCallsPerDay} calls in a single day.`
+    }
+  ]), [form.maxCallsPerDay, form.timezone, form.vapiAssistantId, form.vapiPhoneNumberId, form.windowEndHour, form.windowStartHour, selectedAssistant?.name, selectedPhoneNumber?.number]);
+
   return (
     <AdminGuard requireSuperAdmin>
       <div className="container py-10 space-y-6">
@@ -125,6 +162,26 @@ export default function AdminOutreachCallerPage() {
           }
         />
         <OutreachSubnav />
+        <WorkflowHint
+          title="How to configure Caller AI"
+          items={[
+            { label: "Profile", text: "A caller profile defines which assistant speaks, which outbound number it uses, when calls are allowed, and how many calls can start per day." },
+            { label: "Before you scale", text: "Verify one real outbound test call from this exact profile before queueing leads. Provider auth problems will surface as failed phone events." },
+            { label: "Best practice", text: "Keep one primary caller profile stable, then change only the prompt or target list variables when you want a different outreach angle." }
+          ]}
+        />
+
+        <div className="grid gap-4 md:grid-cols-4">
+          {readinessItems.map((item) => (
+            <Card key={item.label}>
+              <CardContent className="p-5">
+                <p className="page-eyebrow">{item.label}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-950">{item.state}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{item.text}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
           <Card>
@@ -212,7 +269,7 @@ export default function AdminOutreachCallerPage() {
                   <option value="">Use org/app fallback number</option>
                   {phoneNumbers.map((number) => (
                     <option key={number.id} value={number.id}>
-                      {number.number} ({number.id})
+                      {number.number} ({number.provider})
                     </option>
                   ))}
                 </select>
@@ -261,6 +318,17 @@ export default function AdminOutreachCallerPage() {
                   Vapi API key is not configured on the backend, so assistants and phone numbers cannot be listed automatically yet.
                 </div>
               ) : null}
+              {selectedPhoneNumber ? (
+                <div className={`md:col-span-2 rounded-lg border p-4 text-sm ${selectedPhoneNumber.provider === "vapi" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-zinc-200 bg-zinc-50 text-muted-foreground"}`}>
+                  <div className="font-medium text-foreground">Selected outbound number</div>
+                  <p className="mt-2">
+                    {selectedPhoneNumber.number} is coming from the <span className="font-medium">{selectedPhoneNumber.provider}</span> provider.
+                    {selectedPhoneNumber.provider === "vapi"
+                      ? " Verify that outbound dialing is enabled for this number in your Vapi account before using it for real outreach."
+                      : " This profile will try to dial through that provider every time a call starts."}
+                  </p>
+                </div>
+              ) : null}
               <div className="md:col-span-2 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-muted-foreground">
                 <div className="font-medium text-foreground">Available dynamic variables for your Vapi assistant</div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -286,7 +354,7 @@ export default function AdminOutreachCallerPage() {
                   ))}
                 </div>
                 <p className="mt-3">
-                  If you choose a saved Vapi assistant, these values are now passed into the call so the assistant can speak naturally about who it is calling and what business it is reaching.
+                  If you choose a saved Vapi assistant, these values are passed into the call so the assistant can speak naturally about who it is calling and what business it is reaching.
                 </p>
               </div>
               <div className="md:col-span-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-muted-foreground">

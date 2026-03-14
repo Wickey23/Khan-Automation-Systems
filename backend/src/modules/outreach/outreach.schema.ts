@@ -153,6 +153,7 @@ export const outreachListQuerySchema = z.object({
   orgId: z.string().trim().optional(),
   status: z.string().trim().optional(),
   eventType: z.string().trim().optional(),
+  channel: z.enum(["EMAIL", "PHONE"]).optional(),
   search: z.string().trim().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   page: z.coerce.number().int().min(1).optional()

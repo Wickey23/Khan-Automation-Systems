@@ -799,8 +799,11 @@ export type OutreachOverview = {
   activePhoneEnrollments?: number;
   emailsSent: number;
   phoneCallsStarted?: number;
+  failedEmails?: number;
+  failedCalls?: number;
   replies: number;
   unsubscribes: number;
+  activeMultiChannelLeads?: number;
   recentEvents: OutreachActivityEvent[];
 };
 

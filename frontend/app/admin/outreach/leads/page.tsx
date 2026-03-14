@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import {
   confirmAdminOutreachLeadsImport,
@@ -54,6 +54,39 @@ function formatLeadSubline(lead: OutreachLead) {
 
 function hasBeenCalled(lead: OutreachLead) {
   return Boolean((lead.phoneEvents || []).find((event) => event.eventType === "STARTED" || event.eventType === "COMPLETED"));
+}
+
+function hasActiveEmailLane(lead: OutreachLead) {
+  return Boolean((lead.enrollments || []).find((enrollment) => enrollment.status === "ACTIVE"));
+}
+
+function hasActivePhoneLane(lead: OutreachLead) {
+  return Boolean((lead.phoneEnrollments || []).find((enrollment) => enrollment.status === "ACTIVE"));
+}
+
+function getLeadLaneSummary(lead: OutreachLead) {
+  const emailLive = hasActiveEmailLane(lead);
+  const phoneLive = hasActivePhoneLane(lead);
+  if (emailLive && phoneLive) return "Email and Caller AI are both active. Pick a primary lane to avoid messy outreach.";
+  if (phoneLive) return "Caller AI is the active lane for this lead.";
+  if (emailLive) return "Email sequence is the active lane for this lead.";
+  if (hasBeenCalled(lead)) return "Caller AI has already placed at least one live call to this lead.";
+  if (hasRealOutreachEmail(lead.email) && lead.phone) return "Both lanes are available. Choose the primary lane before starting outreach.";
+  if (hasRealOutreachEmail(lead.email)) return "Email lane is available. Add Caller AI only if you also want phone outreach.";
+  if (lead.phone) return "Phone lane is available. This lead does not currently have a real email for sequence-based outreach.";
+  return "This lead needs valid contact data before outreach can start.";
+}
+
+function getLeadNextStep(lead: OutreachLead) {
+  const latestPhoneFailure = (lead.phoneEvents || []).find((event) => event.eventType === "FAILED");
+  if (lead.status === "REPLIED") return "Review the reply and move the lead into a real follow-up path.";
+  if (latestPhoneFailure) return "Review the failed call reason before retrying Caller AI.";
+  if (hasActiveEmailLane(lead) && hasActivePhoneLane(lead)) return "Pause one lane or decide which channel should stay primary.";
+  if (hasActivePhoneLane(lead)) return "Monitor the next call attempt in Events.";
+  if (hasActiveEmailLane(lead)) return "Wait for the next email step or stop the sequence if the lead is no longer a fit.";
+  if (lead.phone && !hasBeenCalled(lead)) return "Assign Caller AI and run one test call or queue the phone lane.";
+  if (hasRealOutreachEmail(lead.email)) return "Assign a sequence if email is the right starting lane.";
+  return "Add a real email or valid phone number before starting outreach.";
 }
 
 function buildLeadActivity(lead: OutreachLead) {
@@ -560,6 +593,14 @@ export default function AdminOutreachLeadsPage() {
           }
         />
         <OutreachSubnav />
+        <WorkflowHint
+          title="How to work outreach leads"
+          items={[
+            { label: "Choose a lane", text: "Email sequences and Caller AI are both available, but most leads should have one primary lane at a time so the workflow stays controlled." },
+            { label: "Do first", text: "Confirm the lead has usable contact data, then assign either a sequence or a Caller AI profile before starting outreach." },
+            { label: "If something fails", text: "Use the recent activity row on the lead to open the exact failed call or email context before retrying. Do not blindly rerun broken outreach." }
+          ]}
+        />
 
         <div className="grid gap-4 xl:grid-cols-2">
           <Card>
@@ -675,6 +716,9 @@ export default function AdminOutreachLeadsPage() {
             {leads.length ? leads.map((lead) => {
               const called = hasBeenCalled(lead);
               const activity = buildLeadActivity(lead);
+              const laneSummary = getLeadLaneSummary(lead);
+              const nextStep = getLeadNextStep(lead);
+              const laneConflict = hasActiveEmailLane(lead) && hasActivePhoneLane(lead);
               return (
                 <div key={lead.id} className="rounded-lg border p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -683,6 +727,17 @@ export default function AdminOutreachLeadsPage() {
                       <div className="text-sm text-muted-foreground">{formatLeadSubline(lead)}</div>
                     </div>
                     <div className="text-sm font-medium">{lead.status}</div>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)]">
+                    <div className={`rounded-lg border p-3 text-sm ${laneConflict ? "border-amber-200 bg-amber-50" : "bg-muted/20"}`}>
+                      <div className="font-medium">Current lane status</div>
+                      <div className="mt-2 text-muted-foreground">{laneSummary}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 text-sm">
+                      <div className="font-medium">Recommended next step</div>
+                      <div className="mt-2 text-muted-foreground">{nextStep}</div>
+                    </div>
                   </div>
 
                   <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)_minmax(260px,0.9fr)]">
