@@ -632,7 +632,7 @@ export async function fetchAdminOutreachEvents(query = "") {
 }
 
 export async function fetchAdminOutreachPhoneEvent(id: string) {
-  return request<{ event: OutreachPhoneEventDetail }>(`/api/admin/outreach/phone-events/${id}`);
+  return request<OutreachPhoneEventDetail>(`/api/admin/outreach/phone-events/${id}`);
 }
 
 export async function unsubscribeOutreachToken(token: string) {
