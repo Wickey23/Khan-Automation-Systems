@@ -33,7 +33,7 @@ import type {
 } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
-import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
+import { ClientGateCard, ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
 import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
@@ -151,6 +151,7 @@ export default function AppAppointmentsPage() {
   const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequest[]>([]);
   const [requestQueueFilter, setRequestQueueFilter] = useState<(typeof requestQueueFilters)[number]>("ALL");
   const [viewMode, setViewMode] = useState<"LIST" | "CALENDAR">("CALENDAR");
+  const [moduleTab, setModuleTab] = useState<"REQUESTS" | "CALENDAR" | "SCHEDULED">("REQUESTS");
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -752,27 +753,29 @@ export default function AppAppointmentsPage() {
         description="Use this page to turn captured requests into scheduled work. Review new booking requests first, then manage the appointments already confirmed on the calendar."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant={viewMode === "CALENDAR" ? "default" : "outline"}
-              onClick={() => setViewMode("CALENDAR")}
-            >
-              Calendar view
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === "LIST" ? "default" : "outline"}
-              onClick={() => setViewMode("LIST")}
-            >
-              List view
-            </Button>
-            {canWrite && !featureDisabled ? (
+            {canWrite && !featureDisabled && moduleTab !== "REQUESTS" ? (
               <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)}>
                 {showDirectBooking ? "Hide office booking" : "Book manually"}
               </Button>
             ) : null}
           </div>
         }
+      />
+
+      <ClientModuleTabs
+        items={[
+          { value: "REQUESTS", label: "Request queue", badge: filteredAppointmentRequests.length },
+          { value: "CALENDAR", label: "Calendar", badge: appointments.length },
+          { value: "SCHEDULED", label: "Schedule list", badge: appointments.length }
+        ]}
+        value={moduleTab}
+        onChange={(next) => {
+          setModuleTab(next);
+          setViewMode(next === "CALENDAR" ? "CALENDAR" : "LIST");
+          if (next === "REQUESTS") {
+            setRequestQueueFilter("ALL");
+          }
+        }}
       />
 
       <WorkflowHint
@@ -819,6 +822,8 @@ export default function AppAppointmentsPage() {
         />
       ) : null}
 
+      {moduleTab === "REQUESTS" ? (
+      <>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,420px)] xl:items-start">
         <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>
           <div className="space-y-5">
@@ -1381,6 +1386,11 @@ export default function AppAppointmentsPage() {
         </div>
       ) : null}
 
+      </>
+      ) : null}
+
+      {moduleTab !== "REQUESTS" ? (
+      <>
       {viewMode === "CALENDAR" ? (
         <div className={`${frontDeskWorkspaceCardClass("default")} p-5 sm:p-6`}>
           <SectionHeading
@@ -1749,6 +1759,8 @@ export default function AppAppointmentsPage() {
             </div>
           )}
         </div>
+      ) : null}
+      </>
       ) : null}
 
       {selectedCalendarDetail ? (

@@ -12,7 +12,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
+import { ClientGateCard, ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, messagingReadinessTone, subscriptionStatusLabel } from "@/lib/client-status-language";
 import {
@@ -27,7 +27,7 @@ import {
   frontDeskSkeletonLineClass
 } from "@/lib/front-desk-ui";
 
-const threadFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
+type ThreadFilter = "ALL" | "needs_follow_up" | "contacted" | "booked" | "closed" | "spam";
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
 function normalizePhoneMatch(value: string | null | undefined) {
@@ -99,7 +99,7 @@ function getThreadStateBadge(thread: OrgMessageThread) {
   return null;
 }
 
-function threadFilterLabel(value: (typeof threadFilters)[number]) {
+function threadFilterLabel(value: ThreadFilter) {
   switch (value) {
     case "needs_follow_up":
       return "Needs follow-up";
@@ -261,7 +261,7 @@ export default function AppMessagesPage() {
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [threadFilter, setThreadFilter] = useState<(typeof threadFilters)[number]>("ALL");
+  const [threadFilter, setThreadFilter] = useState<ThreadFilter>("ALL");
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [canSendMessages, setCanSendMessages] = useState(false);
@@ -445,6 +445,18 @@ export default function AppMessagesPage() {
         }
       />
 
+      <ClientModuleTabs
+        items={[
+          { value: "ALL", label: "All threads", badge: threads.length },
+          { value: "needs_follow_up", label: "Needs reply", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "needs_follow_up").length },
+          { value: "contacted", label: "Contacted", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "contacted").length },
+          { value: "booked", label: "Booked", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "booked").length },
+          { value: "closed", label: "Resolved", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "closed").length }
+        ]}
+        value={threadFilter}
+        onChange={setThreadFilter}
+      />
+
       <WorkflowHint
         items={[
           { label: "Use this page", text: "Stay in Inbox when the newest customer movement is a text reply or a manual follow-up conversation." },
@@ -566,21 +578,10 @@ export default function AppMessagesPage() {
                   className="h-11 w-full rounded-xl border bg-background pl-10 pr-3 text-sm"
                 />
               </label>
-              <div className="flex flex-wrap gap-2">
-                {threadFilters.map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    onClick={() => setThreadFilter(filter)}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors ${
-                      threadFilter === filter
-                        ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(31,58,138,0.16)]"
-                        : "bg-white text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    {threadFilterLabel(filter)}
-                  </button>
-                ))}
+              <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-slate-700">
+                {threadFilter === "ALL"
+                  ? "Showing every active and resolved conversation in one inbox view."
+                  : `${threadFilterLabel(threadFilter)} threads only. Use the subtab row above to jump between work modes quickly.`}
               </div>
             </div>
           </CardHeader>

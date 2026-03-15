@@ -11,7 +11,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ClientStatusGrid } from "@/components/ui/client-module";
+import { ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import {
@@ -315,26 +315,15 @@ export default function AppLeadsPage() {
         eyebrow="Follow-up queue"
         title="Lead Queue"
         description="Use this page to work open requests that still need office follow-up. It is the clearest view of who needs a callback, a reply, scheduling, or resolution next."
-        actions={
-          <div className="inline-flex rounded-xl border bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setView("OPEN_LEADS")}
-              className={`rounded-lg px-3 py-2 text-sm font-medium ${view === "OPEN_LEADS" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              Follow-up queue
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("CUSTOMERS")}
-              disabled={plan !== "PRO"}
-              className={`rounded-lg px-3 py-2 text-sm font-medium ${view === "CUSTOMERS" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"} disabled:cursor-not-allowed disabled:opacity-50`}
-              title={plan !== "PRO" ? "Upgrade to Pro to unlock customer memory." : "View known customers"}
-            >
-              Customers
-            </button>
-          </div>
-        }
+      />
+
+      <ClientModuleTabs
+        items={[
+          { value: "OPEN_LEADS", label: "Follow-up", badge: filtered.length },
+          { value: "CUSTOMERS", label: "Customers", badge: customerFiltered.length, disabled: plan !== "PRO", title: plan !== "PRO" ? "Upgrade to Pro to unlock customer memory." : undefined }
+        ]}
+        value={view}
+        onChange={setView}
       />
 
       <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>

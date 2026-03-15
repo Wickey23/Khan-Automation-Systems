@@ -71,3 +71,39 @@ export function ClientGateCard({
     </div>
   );
 }
+
+export function ClientModuleTabs<T extends string>({
+  items,
+  value,
+  onChange
+}: {
+  items: Array<{ value: T; label: string; badge?: React.ReactNode; disabled?: boolean; title?: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          disabled={item.disabled}
+          title={item.title}
+          onClick={() => onChange(item.value)}
+          className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors ${
+            value === item.value
+              ? "border-blue-200 bg-blue-50 text-blue-950 shadow-[inset_3px_0_0_0_rgb(30,64,175)]"
+              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+          } disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          <span>{item.label}</span>
+          {item.badge ? (
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${value === item.value ? "border-blue-200 bg-white text-blue-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+              {item.badge}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
