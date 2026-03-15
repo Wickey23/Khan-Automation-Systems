@@ -314,7 +314,7 @@ export default function AppLeadsPage() {
       <PageHeader
         eyebrow="Follow-up queue"
         title="Lead Queue"
-        description="Use this page to work open requests that still need office follow-up. It is the clearest view of who needs a callback, a reply, scheduling, or resolution next."
+        description="Work open requests here. Open the freshest lead and choose the next step."
       />
 
       <ClientModuleTabs
@@ -334,21 +334,11 @@ export default function AppLeadsPage() {
         ]}
       />
 
-      <div className={`${frontDeskContextPanelClass()} text-sm text-slate-700`}>
-        <p className="page-eyebrow">When to work this queue</p>
-        <p className="mt-2 font-medium text-slate-950">Use Lead Queue for the office’s open follow-up list.</p>
-        <p className="mt-1 leading-6 text-slate-600">
-          This is the best page for deciding who still needs contact, who is moving toward scheduling, and which requests are already done.
-        </p>
-      </div>
-
-      
-
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
         <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Follow-up workflow</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Queue summary</p>
               <p className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-slate-900">
                 {view === "OPEN_LEADS"
                   ? filtered.length
@@ -358,23 +348,9 @@ export default function AppLeadsPage() {
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {view === "OPEN_LEADS"
-                  ? "Start here when the office needs to decide the next step for a request. Work fresh follow-up first, move live text replies into Inbox, and push scheduling-ready jobs into Booking Queue."
-                  : "Use customer memory when the office needs context from repeat callers, prior outcomes, and older interactions before responding."}
+                  ? "Search, open the freshest request, and move it forward."
+                  : "Open customer memory when you need repeat-caller context."}
               </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className={frontDeskContextPanelClass()}>
-                <p className="page-eyebrow">1. Triage open work</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Review who still needs contact, callback, or office review before the request goes cold.</p>
-              </div>
-              <div className={frontDeskContextPanelClass()}>
-                <p className="page-eyebrow">2. Work live replies</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">If the latest movement is a customer reply, switch to Inbox and keep the conversation moving.</p>
-              </div>
-              <div className={frontDeskContextPanelClass()}>
-                <p className="page-eyebrow">3. Advance the job</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Use stage actions to move the request toward scheduling, booking, or final resolution.</p>
-              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
               {stats.map((item) => (
@@ -712,3 +688,4 @@ export default function AppLeadsPage() {
     </div>
   );
 }
+

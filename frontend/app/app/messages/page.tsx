@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, SendHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
@@ -12,9 +12,9 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClientGateCard, ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
+import { ClientGateCard, ClientModuleTabs } from "@/components/ui/client-module";
 import { PageHeader, PageHelpFab } from "@/components/ui/page";
-import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, messagingReadinessTone, subscriptionStatusLabel } from "@/lib/client-status-language";
+import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, subscriptionStatusLabel } from "@/lib/client-status-language";
 import {
   frontDeskActionBadgeClass,
   frontDeskContextPanelClass,
@@ -99,23 +99,6 @@ function getThreadStateBadge(thread: OrgMessageThread) {
   return null;
 }
 
-function threadFilterLabel(value: ThreadFilter) {
-  switch (value) {
-    case "needs_follow_up":
-      return "Needs follow-up";
-    case "contacted":
-      return "Contacted";
-    case "booked":
-      return "Booked";
-    case "closed":
-      return "Resolved";
-    case "spam":
-      return "Spam";
-    default:
-      return "All";
-  }
-}
-
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
 }
@@ -126,16 +109,6 @@ function containsBookingLanguage(value: string) {
 
 function containsAutomationLanguage(value: string) {
   return /thanks for calling|team will|follow up|request received|next available|service update/i.test(value);
-}
-
-function getThreadPrimaryBadge(thread: OrgMessageThread) {
-  const messages = thread.messages || [];
-  const hasBookingLanguage = messages.some((message) => containsBookingLanguage(message.body));
-  const hasAutomationLanguage = messages.some((message) => message.direction === "OUTBOUND" && containsAutomationLanguage(message.body));
-
-  if (hasBookingLanguage) return { label: "Booking", tone: "booking" as const };
-  if (hasAutomationLanguage) return { label: "Automated", tone: "automated" as const };
-  return { label: "Manual", tone: "manual" as const };
 }
 
 function getThreadDeliveryBadge(thread: OrgMessageThread) {
@@ -262,7 +235,6 @@ export default function AppMessagesPage() {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [threadFilter, setThreadFilter] = useState<ThreadFilter>("ALL");
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [canSendMessages, setCanSendMessages] = useState(false);
   const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
@@ -284,7 +256,6 @@ export default function AppMessagesPage() {
         status: subscription?.status
       });
 
-      setSubscriptionPlan(featureAccess.plan);
       setSubscriptionStatus(subscription?.status || null);
       setCanSendMessages(featureAccess.messaging);
       setMessagingReadiness(readinessData);
@@ -310,7 +281,6 @@ export default function AppMessagesPage() {
       setThreads([]);
       setAssignedPhoneNumber(null);
       setAssignedNumberProvider(null);
-      setSubscriptionPlan(null);
       setSubscriptionStatus(null);
       setCanSendMessages(false);
       setMessagingReadiness(null);
@@ -368,17 +338,6 @@ export default function AppMessagesPage() {
         return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
       });
   }, [search, threadFilter, threads]);
-  const threadsWithActionNeeded = useMemo(
-    () =>
-      threads.filter(
-        (thread) =>
-          getThreadDeliveryBadge(thread)?.tone === "failed" ||
-          getThreadPrimaryBadge(thread).tone === "booking" ||
-          threadFrontDesk(thread)?.needsFollowUp
-      ).length,
-    [threads]
-  );
-
   async function onSend() {
     if (!canSendMessages) {
       showToast({
@@ -437,7 +396,7 @@ export default function AppMessagesPage() {
       <PageHeader
         eyebrow="Reply workspace"
         title="Inbox"
-        description="Use this page when the newest customer movement is a text reply. Review the thread, send follow-up, and move booking conversations forward without losing context."
+        description="Work live customer replies here."
         actions={
           <Button type="button" variant="outline" onClick={() => void load()}>
             Refresh inbox
@@ -465,96 +424,25 @@ export default function AppMessagesPage() {
         ]}
       />
 
-      <ClientStatusGrid
-        items={[
-          {
-            label: "Outbound messaging",
-            value: canSendMessages ? "Active" : "Locked",
-            detail: canSendMessages ? "Manual replies and outbound follow-up are available in this workspace." : "Upgrade the workspace plan before the office can send outbound texts.",
-            tone: canSendMessages ? "success" : "warning"
-          },
-          {
-            label: connectedNumberProviderLabel(assignedNumberProvider),
-            value: assignedPhoneNumber || "Not assigned",
-            detail: connectedNumberProviderDetail(assignedNumberProvider),
-            tone: assignedPhoneNumber ? "success" : "warning"
-          },
-          {
-            label: "Messaging readiness",
-            value: messagingReadinessLabel(messagingReadiness?.state),
-            detail: messagingReadiness?.reasons?.[0] || "No delivery blockers are currently surfaced.",
-            tone: messagingReadinessTone(messagingReadiness?.state)
-          },
-          {
-            label: "Subscription",
-            value: subscriptionPlan || "No plan",
-            detail: subscriptionStatusLabel(subscriptionStatus),
-            tone: canSendMessages ? "success" : "pending"
-          }
-        ]}
-      />
-
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_320px]">
-        {canSendMessages ? (
-          <Card className={`${frontDeskWorkspaceCardClass("hero")} border-emerald-200/90 bg-[linear-gradient(135deg,rgba(236,253,245,0.98)_0%,rgba(209,250,229,0.92)_100%)]`}>
-            <CardContent className="px-5 py-6 text-sm text-emerald-950 sm:px-6 sm:py-5">
-              <div className="flex items-start gap-3">
-                <SendHorizontal className="mt-1 h-4 w-4 shrink-0" />
-                <div className="space-y-2">
-                  <p className="font-semibold">Outbound messaging is live.</p>
-                  <p className="text-emerald-900/90">
-                    Use this inbox to review replies, send manual follow-up, and keep booking conversations moving without losing the customer context.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
-                  <p className="mt-2 text-2xl font-semibold">{threads.length}</p>
-                </div>
-                <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Needs attention</p>
-                  <p className="mt-2 text-2xl font-semibold">{threadsWithActionNeeded}</p>
-                </div>
-                <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Selected thread</p>
-                  <p className="mt-2 truncate text-sm font-semibold">{selected ? threadDisplayName(selected) || selected.contactPhone : "No thread selected"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <ClientGateCard
-            title="Outbound texting is locked on the current plan."
-            description="You can still review customer replies here, but the office cannot send outbound texts until messaging is unlocked in Billing."
-            badgeLabel="Locked"
-            badgeTone="warning"
-            actions={[{ href: "/app/billing", label: "Open Billing" }]}
-          />
-        )}
+      {!canSendMessages ? (
+        <ClientGateCard
+          title="Outbound texting is locked on the current plan."
+          description="You can still review customer replies here, but the office cannot send outbound texts until messaging is unlocked in Billing."
+          badgeLabel="Locked"
+          badgeTone="warning"
+          actions={[{ href: "/app/billing", label: "Open Billing" }]}
+        />
+      ) : !assignedPhoneNumber ? (
         <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardContent className="grid gap-3 p-5 text-sm">
+          <CardContent className="flex flex-col gap-2 p-4 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="page-eyebrow">Connected number</p>
-              <p className="mt-2 font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{assignedNumberProvider ? "Ready for live customer threads." : "Connect a business number before relying on this inbox for live follow-up."}</p>
+              <p className="font-medium text-slate-950">{connectedNumberProviderLabel(assignedNumberProvider)} not assigned</p>
+              <p className="text-slate-600">{connectedNumberProviderDetail(assignedNumberProvider)}</p>
             </div>
-            <div className="border-t pt-3">
-              <p className="page-eyebrow">Messaging readiness</p>
-              <p className="mt-2 font-semibold text-foreground">{messagingReadinessLabel(messagingReadiness?.state)}</p>
-              {messagingReadiness?.reasons?.length ? (
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  {messagingReadiness.reasons.slice(0, 2).map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-xs text-muted-foreground">No blocking issues detected.</p>
-              )}
-            </div>
+            <p className="text-xs text-slate-500">{subscriptionStatusLabel(subscriptionStatus)} • {messagingReadinessLabel(messagingReadiness?.state)}</p>
           </CardContent>
         </Card>
-      </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:gap-5">
         <Card className={`${frontDeskWorkspaceCardClass("default")} self-start overflow-hidden`}>
@@ -563,7 +451,7 @@ export default function AppMessagesPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-lg">Threads</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">Customer replies and follow-up conversations.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Customer replies.</p>
                 </div>
                 <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                   {filteredThreads.length}
@@ -578,11 +466,6 @@ export default function AppMessagesPage() {
                   className="h-11 w-full rounded-xl border bg-background pl-10 pr-3 text-sm"
                 />
               </label>
-              <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-slate-700">
-                {threadFilter === "ALL"
-                  ? "Showing every active and resolved conversation in one inbox view."
-                  : `${threadFilterLabel(threadFilter)} threads only. Use the subtab row above to jump between work modes quickly.`}
-              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
