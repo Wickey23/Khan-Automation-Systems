@@ -152,17 +152,6 @@ function threadNextActionLabel(thread: OrgMessageThread) {
   return threadFrontDesk(thread)?.recommendedAction || "Review thread";
 }
 
-function threadWorkTypeLabel(thread: OrgMessageThread) {
-  const action = threadFrontDesk(thread)?.recommendedAction;
-  const state = threadFrontDesk(thread)?.state;
-  if (action === "Call back now") return "Callback";
-  if (action === "Offer times") return "Scheduling";
-  if (state === "booked") return "Booked work";
-  if (state === "closed") return "Resolved";
-  if (state === "spam") return "Spam";
-  return "General follow-up";
-}
-
 function threadPriorityLabel(thread: OrgMessageThread) {
   return frontDeskPriorityMeta(threadFrontDesk(thread)?.frontDeskPriority).label;
 }
@@ -202,14 +191,6 @@ function threadOutcomeNote(thread: OrgMessageThread | null) {
   if (state === "closed") {
     return "This conversation is already resolved. Review it only if the office needs to revisit the outcome.";
   }
-  return null;
-}
-
-function threadOutcomeListNote(thread: OrgMessageThread) {
-  const state = threadFrontDesk(thread)?.state;
-  if (state === "booked") return "Booked work already confirmed.";
-  if (state === "closed") return "Handled and resolved by the office.";
-  if (latestThreadDirection(thread) === "Customer replied") return "Saved lead with a live customer reply.";
   return null;
 }
 
@@ -449,10 +430,7 @@ export default function AppMessagesPage() {
           <CardHeader className="pb-3">
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-lg">Threads</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">Customer replies.</p>
-                </div>
+                <CardTitle className="text-lg">Threads</CardTitle>
                 <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                   {filteredThreads.length}
                 </span>
@@ -528,14 +506,8 @@ export default function AppMessagesPage() {
                             ) : null}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
-                          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Next step</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-950">{threadDisplayAction(thread)}</p>
                           <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-800">{threadDisplaySummary(thread)}</p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                            <span>{threadWorkTypeLabel(thread)}</span>
-                            <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <span>{threadPriorityLabel(thread)}</span>
-                            <span className="h-1 w-1 rounded-full bg-slate-300" />
                             <span>{threadStateLabel(thread)}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-300" />
                             <span>{latestThreadDirection(thread)}</span>
@@ -554,9 +526,6 @@ export default function AppMessagesPage() {
                           ) : null}
                         </div>
                       </div>
-                      {threadOutcomeListNote(thread) ? (
-                        <p className="mt-3 text-[12px] text-muted-foreground">{threadOutcomeListNote(thread)}</p>
-                      ) : null}
                     </button>
                   );
                 })()
@@ -570,7 +539,7 @@ export default function AppMessagesPage() {
           <Card className={`${frontDeskWorkspaceCardClass("default")} min-w-0 overflow-hidden`}>
             <CardHeader className="pb-3">
               <div className="space-y-2">
-                <CardTitle className="text-lg">Active thread workspace</CardTitle>
+                <CardTitle className="text-lg">Conversation</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {selected ? `${threadDisplayName(selected)} • ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
                 </p>
@@ -612,57 +581,36 @@ export default function AppMessagesPage() {
                       <div className={frontDeskContextPanelClass()}>
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="space-y-2">
-                            <p className="page-eyebrow">Customer case</p>
-                            <div>
-                              <p className="text-xl font-semibold text-slate-950">{threadDisplayName(selected)}</p>
-                              <p className="mt-1 text-sm text-muted-foreground">{selected.contactPhone}</p>
-                            </div>
+                            <p className="text-xl font-semibold text-slate-950">{threadDisplayName(selected)}</p>
+                            <p className="text-sm text-muted-foreground">{selected.contactPhone}</p>
                           </div>
-                          <div className="min-w-[240px] rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          <div className="min-w-[220px] rounded-[12px] border border-slate-200 bg-white px-4 py-3">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Next step</p>
                             <p className="mt-2 text-base font-semibold text-slate-950">{threadDisplayAction(selected)}</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              {latestThreadDirection(selected) === "Customer replied"
-                                ? "Reply here first, then move to booking or lead follow-up only if the thread needs a larger action."
-                                : "Review the latest office message and decide whether this thread needs another reply or can be resolved."}
-                            </p>
                           </div>
                         </div>
 
                         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Service request</p>
+                          <div className="rounded-[12px] border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Summary</p>
                             <p className="mt-2 text-sm leading-6 text-slate-900">{threadDisplaySummary(selected)}</p>
                           </div>
-                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Current status</p>
-                            <dl className="mt-2 space-y-2 text-sm">
-                              <div className="flex items-center justify-between gap-4">
-                                <dt className="text-muted-foreground">Priority</dt>
-                                <dd className="font-medium text-slate-950">{threadPriorityLabel(selected)}</dd>
-                              </div>
-                              <div className="flex items-center justify-between gap-4">
-                                <dt className="text-muted-foreground">Follow-up</dt>
-                                <dd className="font-medium text-slate-950">{threadStateLabel(selected)}</dd>
-                              </div>
-                              <div className="flex items-center justify-between gap-4">
-                                <dt className="text-muted-foreground">Latest movement</dt>
-                                <dd className="font-medium text-slate-950">{latestThreadDirection(selected)}</dd>
-                              </div>
-                              {selected.latestAppointmentRequestId ? (
-                                <div className="flex items-center justify-between gap-4">
-                                  <dt className="text-muted-foreground">Booking</dt>
-                                  <dd className="font-medium text-slate-950">
-                                    {latestThreadDirection(selected) === "Customer replied" ? "Reply in progress" : "Booking follow-up linked"}
-                                  </dd>
-                                </div>
-                              ) : null}
-                            </dl>
+                          <div className="rounded-[12px] border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Status</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge className={clientBadgeClass(frontDeskPriorityMeta(threadFrontDesk(selected)?.frontDeskPriority).tone)}>
+                                {threadPriorityLabel(selected)}
+                              </Badge>
+                              <Badge className={clientBadgeClass(getThreadStateBadge(selected)?.tone || "neutral")}>
+                                {threadStateLabel(selected)}
+                              </Badge>
+                              <Badge className={clientBadgeClass("pending")}>{latestThreadDirection(selected)}</Badge>
+                            </div>
                           </div>
                         </div>
 
                         {threadOutcomeNote(selected) ? (
-                          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+                          <div className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
                             {threadOutcomeNote(selected)}
                           </div>
                         ) : null}
@@ -670,10 +618,7 @@ export default function AppMessagesPage() {
 
                       <div className={frontDeskWorkspaceCardClass("subtle")}>
                         <div className="border-b border-border/60 px-5 py-4">
-                          <p className="page-eyebrow">Conversation timeline</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Read the actual text exchange after you confirm the customer context and next step.
-                          </p>
+                          <p className="page-eyebrow">Timeline</p>
                         </div>
                         <div className="max-h-[620px] space-y-3 overflow-auto px-5 py-4 pr-4">
                           {[...selected.messages]
@@ -696,9 +641,7 @@ export default function AppMessagesPage() {
                                     </span>
                                   </div>
                                   <p className="whitespace-pre-wrap leading-6">{message.body}</p>
-                                  <p className="mt-2 text-xs text-muted-foreground">
-                                    {message.status} | {formatWhen(message.createdAt)}
-                                  </p>
+                                  <p className="mt-2 text-xs text-muted-foreground">{formatWhen(message.createdAt)}</p>
                                 </div>
                               );
                             })}
@@ -708,8 +651,8 @@ export default function AppMessagesPage() {
 
                     <div className="space-y-4">
                       {selected.leadId && canEditPipeline ? (
-                        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
-                          <p className="page-eyebrow">Quick actions</p>
+                        <div className="rounded-[12px] border border-slate-200 bg-white px-5 py-4">
+                          <p className="page-eyebrow">Actions</p>
                           <div className="mt-3 grid gap-2">
                             {threadQuickActions(selected).map((action) => (
                               <Button
@@ -728,8 +671,8 @@ export default function AppMessagesPage() {
                       ) : null}
 
                       {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
-                        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
-                          <p className="page-eyebrow">Open related workspace</p>
+                        <div className="rounded-[12px] border border-slate-200 bg-white px-5 py-4">
+                          <p className="page-eyebrow">Related</p>
                           <div className="mt-3 grid gap-2">
                             {selected.latestAppointmentRequestId ? (
                               <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"} className="justify-start">
@@ -750,10 +693,10 @@ export default function AppMessagesPage() {
                         </div>
                       ) : null}
 
-                      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                      <div className="rounded-[12px] border border-slate-200 bg-white px-5 py-4">
                         <div className="space-y-1">
-                          <p className="page-eyebrow">Reply from inbox</p>
-                          <p className="text-sm text-muted-foreground">Send a manual follow-up to the selected contact.</p>
+                          <p className="page-eyebrow">Reply</p>
+                          <p className="text-sm text-muted-foreground">Send a manual follow-up.</p>
                         </div>
                         <div className="mt-4 space-y-3">
                           <label className="grid gap-1.5 text-sm">
