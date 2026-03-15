@@ -241,7 +241,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="app-portal-shell">
           <div className="relative grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
           <aside className="app-sidebar-shell xl:sticky xl:top-24">
-            <div className="rounded-[16px] border border-slate-200 bg-slate-950 px-4 py-4 text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)]">
+            <div className="rounded-[12px] border border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Client portal</p>
               <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-white">Front Desk OS</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
@@ -286,7 +286,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="app-banner app-banner-primary">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>{modeBanner.text}</span>
-                  <Link href={modeBanner.ctaHref} className="rounded-xl border border-blue-300/90 bg-white/90 px-3 py-1.5 text-xs font-semibold text-blue-950 shadow-[0_8px_18px_rgba(37,99,235,0.12)]">
+                  <Link href={modeBanner.ctaHref} className="rounded-[10px] border border-blue-300/90 bg-white/90 px-3 py-1.5 text-xs font-semibold text-blue-950 shadow-none">
                     {modeBanner.ctaLabel}
                   </Link>
                 </div>
