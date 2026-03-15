@@ -33,7 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientStatusGrid } from "@/components/ui/client-module";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { connectedNumberProviderDetail, connectedNumberProviderLabel, healthLevelLabel, healthLevelTone, messagingReadinessLabel, messagingReadinessTone } from "@/lib/client-status-language";
 import {
   frontDeskActionBadgeClass,
@@ -860,7 +860,7 @@ export default function AppOverviewPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           { label: "Use this page", text: "Start here to understand what happened, what needs attention right now, and which requests are already moving toward booked work." },
           { label: "Start here", text: "Work Action Needed and callback items first, then review new requests and recent customer replies before finished work." },
@@ -1531,3 +1531,4 @@ export default function AppOverviewPage() {
     </div>
   );
 }
+

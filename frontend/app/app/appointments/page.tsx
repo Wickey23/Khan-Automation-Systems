@@ -34,7 +34,7 @@ import type {
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { ClientGateCard, ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
-import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, SectionHeading, PageHelpFab } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -778,7 +778,7 @@ export default function AppAppointmentsPage() {
         }}
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           { label: "Use this page", text: "Work requests that are ready for scheduling decisions and manage appointments that are already on the calendar." },
           { label: "Start here", text: "Review pending requests first, then approve, offer times, or confirm booked work before switching to calendar or list view." },
@@ -1844,3 +1844,4 @@ export default function AppAppointmentsPage() {
     </div>
   );
 }
+

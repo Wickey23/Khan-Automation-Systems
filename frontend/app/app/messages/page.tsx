@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard, ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, messagingReadinessTone, subscriptionStatusLabel } from "@/lib/client-status-language";
 import {
   frontDeskActionBadgeClass,
@@ -457,7 +457,7 @@ export default function AppMessagesPage() {
         onChange={setThreadFilter}
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           { label: "Use this page", text: "Stay in Inbox when the newest customer movement is a text reply or a manual follow-up conversation." },
           { label: "Start here", text: "Open the thread, confirm the customer case and next step, then reply from the composer on the right." },

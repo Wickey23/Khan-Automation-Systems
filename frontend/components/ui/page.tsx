@@ -1,4 +1,5 @@
 import * as React from "react";
+import { HelpCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({
@@ -78,5 +79,61 @@ export function WorkflowHint({
         ))}
       </div>
     </div>
+  );
+}
+
+export function PageHelpFab({
+  className,
+  title = "How to use this page",
+  items
+}: {
+  className?: string;
+  title?: string;
+  items: Array<{ label: string; text: string }>;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-slate-900 bg-slate-950 px-4 py-3 text-sm font-medium text-white shadow-[0_14px_28px_rgba(15,23,42,0.22)] transition-colors hover:bg-slate-800",
+          className
+        )}
+      >
+        <HelpCircle className="h-4 w-4" />
+        <span>How to use this page</span>
+      </button>
+
+      {open ? (
+        <div className="fixed inset-0 z-50 bg-slate-950/28 backdrop-blur-[1px]">
+          <div className="absolute bottom-5 right-5 w-[min(420px,calc(100vw-2rem))] rounded-[16px] border border-slate-300 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="page-eyebrow">Page help</p>
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-950">{title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-950"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {items.map((item) => (
+                <div key={item.label} className="rounded-[12px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
+                  <p className="mt-1.5 text-sm leading-6 text-slate-700">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

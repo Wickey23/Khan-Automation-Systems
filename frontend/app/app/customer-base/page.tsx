@@ -6,7 +6,7 @@ import { fetchCustomerBase, getBillingStatus, importCustomerBase } from "@/lib/a
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 
@@ -146,7 +146,7 @@ export default function CustomerBasePage() {
         description="Use this page to recognize repeat callers quickly. It shows known customer context, linked lead records, and recent history that should shape follow-up."
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           {
             label: "Use this page",
@@ -303,3 +303,4 @@ export default function CustomerBasePage() {
     </div>
   );
 }
+

@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
@@ -653,7 +653,7 @@ export default function AppSettingsPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           {
             label: "Use this page",
@@ -1721,3 +1721,4 @@ export default function AppSettingsPage() {
     </div>
   );
 }
+

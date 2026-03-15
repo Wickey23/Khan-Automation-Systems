@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { connectedNumberProviderDetail, connectedNumberProviderLabel } from "@/lib/client-status-language";
 import {
@@ -458,7 +458,7 @@ export default function AppCallsPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           { label: "Use this page", text: "Work calls that still need callback, review, or escalation from the original phone conversation." },
           { label: "Start here", text: "Open the newest call first, confirm what the customer needed, then follow the next action before reading the transcript." },

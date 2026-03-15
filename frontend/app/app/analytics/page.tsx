@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { subscriptionStatusLabel } from "@/lib/client-status-language";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
@@ -121,7 +121,7 @@ export default function AppAnalyticsPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           { label: "Use this page", text: "Use Performance to confirm whether calls, replies, and follow-up work are turning into leads and booked jobs." },
           { label: "Start here", text: "Check demand and conversion first, then use the detailed metrics only after you understand the top-line trend." },
@@ -362,3 +362,4 @@ export default function AppAnalyticsPage() {
     </div>
   );
 }
+

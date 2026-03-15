@@ -5,7 +5,7 @@ import { Lock, Mail, Megaphone, PhoneCall, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
 
 const launchBlocks = [
@@ -46,7 +46,7 @@ export default function AppOutreachPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         title="What this workspace will cover"
         items={[
           { label: "What belongs here", text: "Client-managed prospecting, outbound follow-up, and campaign monitoring will live in Outreach rather than in the live front-desk queues." },
@@ -121,3 +121,4 @@ export default function AppOutreachPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
 import { frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 import { subscriptionStatusLabel } from "@/lib/client-status-language";
@@ -315,7 +315,7 @@ export default function AppBillingPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           {
             label: "Use this page",
@@ -659,3 +659,4 @@ export default function AppBillingPage() {
     </div>
   );
 }
+

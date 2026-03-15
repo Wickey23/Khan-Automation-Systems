@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, SectionHeading, PageHelpFab } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { clientBadgeClass } from "@/lib/client-badges";
@@ -321,7 +321,7 @@ export default function AppOnboardingPage() {
         }
       />
 
-      <WorkflowHint
+      <PageHelpFab
         items={[
           {
             label: "Use this page",
@@ -573,3 +573,4 @@ export default function AppOnboardingPage() {
     </div>
   );
 }
+
