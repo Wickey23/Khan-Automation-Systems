@@ -21,7 +21,7 @@ const launchBlocks = [
   },
   {
     title: "Caller AI",
-    description: "Queue AI outreach calls during the allowed daily window, review call outcomes, and verify summaries, transcripts, and provider health.",
+    description: "Queue AI outreach calls during the approved daily window, review call outcomes, and monitor summaries, transcripts, and call quality.",
     icon: PhoneCall
   }
 ];
@@ -29,7 +29,7 @@ const launchBlocks = [
 const releaseChecks = [
   "Call completion logging has to be consistently reliable on real calls.",
   "Transcript and summary capture need to prove out across voicemail, pickup, and transfer paths.",
-  "Provider and webhook reconciliation has to stay dependable before clients can run this unattended."
+  "Call delivery and result syncing have to stay dependable before clients can run this unattended."
 ];
 
 export default function AppOutreachPage() {
@@ -64,7 +64,7 @@ export default function AppOutreachPage() {
             <div className="space-y-1.5">
               <p className="font-semibold">Client activation is locked for now.</p>
               <p className="max-w-3xl leading-6 text-amber-900/90">
-                Outreach is being held behind a coming-soon release until call outcomes, transcript capture, and provider reliability are consistently trustworthy in supervised use.
+                Outreach is being held behind a coming-soon release until call outcomes, transcript capture, and overall delivery reliability are consistently trustworthy in supervised use.
               </p>
             </div>
           </div>

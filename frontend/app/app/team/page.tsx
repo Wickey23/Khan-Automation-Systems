@@ -15,6 +15,7 @@ import type { TeamMember } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
@@ -245,6 +246,33 @@ export default function TeamPage() {
         ]}
       />
 
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Team access",
+            value: roleBlocked ? "Locked" : "Ready",
+            detail: roleBlocked ? "This user cannot manage team access in the workspace." : "This workspace can review people, seats, and routing ownership here.",
+            tone: roleBlocked ? "warning" : "success"
+          },
+          {
+            label: "Plan access",
+            value: proEnabled ? "Active" : "Locked",
+            detail: proEnabled ? "Invites and multi-user seat management are available." : "Upgrade to unlock multi-user team management.",
+            tone: proEnabled ? "success" : "warning"
+          },
+          {
+            label: "Active members",
+            value: seats.activeMembers ?? activeCount,
+            detail: "Current people with active workspace access."
+          },
+          {
+            label: "Used seats",
+            value: usedSeats,
+            detail: `${seats.allowedSeats} allowed seat${seats.allowedSeats === 1 ? "" : "s"} in the current plan.`
+          }
+        ]}
+      />
+
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
         <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardHeader className="pb-3">
@@ -287,19 +315,22 @@ export default function TeamPage() {
       </div>
 
       {roleBlocked ? (
-        <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardContent className="p-5 text-sm">
-            You do not have access to Team management. Contact your admin for role access.
-          </CardContent>
-        </Card>
+        <ClientGateCard
+          title="Team management is locked for this user."
+          description="This role cannot manage workspace seats or routing ownership. Contact the workspace admin if access needs to change."
+          badgeLabel="Role restricted"
+          badgeTone="warning"
+        />
       ) : null}
 
       {!proEnabled && !roleBlocked ? (
-        <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardContent className="p-5 text-sm">
-            Team management is a Pro feature. Upgrade to Pro to invite and manage multiple users.
-          </CardContent>
-        </Card>
+        <ClientGateCard
+          title="Team management is locked on the current plan."
+          description="Upgrade when the office needs multiple seats, teammate invites, and shared routing ownership inside the portal."
+          badgeLabel="Locked"
+          badgeTone="warning"
+          actions={[{ href: "/app/billing", label: "Open Billing" }]}
+        />
       ) : null}
 
       <Card className={`${frontDeskWorkspaceCardClass("default")} ${roleBlocked ? "opacity-60" : ""}`}>

@@ -24,12 +24,14 @@ import {
 import { useToast } from "@/components/site/toast-provider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { setupReadinessLabel, setupReadinessTone } from "@/lib/client-status-language";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
@@ -664,6 +666,39 @@ export default function AppSettingsPage() {
           {
             label: "Go next",
             text: "Return to Front Desk, Call Queue, Inbox, or Booking Queue to confirm the live workflow now matches how the office wants calls and texts handled."
+          }
+        ]}
+      />
+
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Call routing",
+            value: formatVoiceRoutingMode(state.voiceRoutingMode),
+            detail: supportsHumanForwardingMode(state.voiceRoutingMode)
+              ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
+                ? `${state.voiceRingTimeoutSeconds}s ring before handoff`
+                : "Forwarding number still needed"
+              : "AI answers first on the business line.",
+            tone: setupReadinessTone(Boolean(state.voiceRoutingMode), Boolean(state.voiceForwardingEnabled))
+          },
+          {
+            label: "Booking setup",
+            value: primaryCalendarConnection ? "Ready" : "Manual",
+            detail: primaryCalendarConnection ? `${primaryCalendarConnection.accountEmail} is connected for scheduling.` : "No live calendar connection is active yet.",
+            tone: primaryCalendarConnection ? "success" : "warning"
+          },
+          {
+            label: "Alert routing",
+            value: setupReadinessLabel(readinessHints.emails.length + readinessHints.phones.length > 0, true),
+            detail: `${readinessHints.emails.length} email and ${readinessHints.phones.length} phone contact${readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"} available for alerts.`,
+            tone: setupReadinessTone(readinessHints.emails.length + readinessHints.phones.length > 0, true)
+          },
+          {
+            label: "Business hours",
+            value: state.timezone,
+            detail: "Hours and after-hours behavior follow this workspace timezone.",
+            tone: "neutral"
           }
         ]}
       />

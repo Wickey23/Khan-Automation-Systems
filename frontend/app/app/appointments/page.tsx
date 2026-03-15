@@ -33,6 +33,7 @@ import type {
 } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
+import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
@@ -781,6 +782,42 @@ export default function AppAppointmentsPage() {
           { label: "Go next", text: "Move to Inbox when the customer already replied by text, or back to Front Desk when you need the broader queue context." }
         ]}
       />
+
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Booking feature",
+            value: featureDisabled ? "Locked" : "Ready",
+            detail: featureDisabled ? "A workspace admin still needs to turn on booking before this queue can run live." : "The office can review requests and confirm scheduled work here.",
+            tone: featureDisabled ? "warning" : "success"
+          },
+          {
+            label: "Connected calendars",
+            value: calendarProviders.filter((provider) => provider.isActive).length,
+            detail: calendarProviders.some((provider) => provider.isActive) ? "At least one live calendar connection is available." : "No live calendar connection is active yet."
+          },
+          {
+            label: "Needs review",
+            value: pendingAppointmentRequests.length,
+            detail: "Requests still waiting for office review."
+          },
+          {
+            label: "Booked work",
+            value: appointments.length,
+            detail: "Appointments already placed on the calendar."
+          }
+        ]}
+      />
+
+      {featureDisabled ? (
+        <ClientGateCard
+          title="Booking Queue is locked for this workspace."
+          description="Appointment scheduling is not enabled yet. Use Lead Queue and Inbox for follow-up until booking access is turned on."
+          badgeLabel="Locked"
+          badgeTone="warning"
+          actions={[{ href: "/app/settings", label: "Open Setup" }]}
+        />
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,420px)] xl:items-start">
         <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>

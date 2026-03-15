@@ -13,10 +13,12 @@ import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
 import { frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
+import { subscriptionStatusLabel } from "@/lib/client-status-language";
 
 const PLAN_COPY = {
   none: {
@@ -326,6 +328,35 @@ export default function AppBillingPage() {
           {
             label: "Go next",
             text: "After resolving billing, return to Front Desk or Receptionist Setup to confirm calls, texting, and booking are no longer blocked."
+          }
+        ]}
+      />
+
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Subscription",
+            value: subscription ? formatPlan(subscription.plan) : "No plan",
+            detail: subscriptionStatusLabel(subscription?.status),
+            tone: isActiveSubscription ? "success" : "warning"
+          },
+          {
+            label: "Customer portal",
+            value: diagnostics?.summary.customerPortalReady ? "Ready" : "Needs review",
+            detail: diagnostics?.summary.customerPortalReady ? "Customers can manage billing through the hosted portal." : "Billing access needs attention before self-service updates are reliable.",
+            tone: diagnostics?.summary.customerPortalReady ? "success" : "warning"
+          },
+          {
+            label: "Plan change",
+            value: diagnostics?.summary.changePlanReady ? "Ready" : "Blocked",
+            detail: "Shows whether this workspace can safely change plan tiers right now.",
+            tone: diagnostics?.summary.changePlanReady ? "success" : "warning"
+          },
+          {
+            label: "Checkout",
+            value: diagnostics?.summary.checkoutReady ? "Ready" : "Blocked",
+            detail: showDemoCard ? "Guided demo workspaces still need a paid plan before live runtime begins." : "Shows whether this workspace can start or renew a paid subscription now.",
+            tone: diagnostics?.summary.checkoutReady ? "success" : "warning"
           }
         ]}
       />

@@ -8,9 +8,11 @@ import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
+import { connectedNumberProviderDetail, connectedNumberProviderLabel } from "@/lib/client-status-language";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -464,14 +466,41 @@ export default function AppCallsPage() {
         ]}
       />
 
+      <ClientStatusGrid
+        items={[
+          {
+            label: connectedNumberProviderLabel(assignedNumberProvider),
+            value: assignedPhoneNumber || "Not assigned",
+            detail: connectedNumberProviderDetail(assignedNumberProvider),
+            tone: assignedPhoneNumber ? "success" : "warning"
+          },
+          {
+            label: "Visible calls",
+            value: metrics.totalVisible,
+            detail: `Page ${page} of ${totalPages}`
+          },
+          {
+            label: "Needs attention",
+            value: metrics.needsReview,
+            detail: "Calls on this page that still need callback, review, or office action."
+          },
+          {
+            label: "Urgent",
+            value: metrics.urgentCount,
+            detail: "Highest-priority call items in the current queue."
+          }
+        ]}
+      />
+
       <Card className={frontDeskWorkspaceCardClass("hero")}>
         <CardContent className="grid gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="space-y-3">
             <div className="space-y-1">
-              <p className="page-eyebrow">Assigned line</p>
+              <p className="page-eyebrow">Connected line</p>
               <p className="text-lg font-semibold text-foreground">
-                {assignedPhoneNumber || "Not assigned"}{assignedNumberProvider ? ` (${assignedNumberProvider})` : ""}
+                {assignedPhoneNumber || "Not assigned"}
               </p>
+              <p className="text-sm text-muted-foreground">{assignedNumberProvider ? "Live calls are flowing through the connected business number." : "Complete number setup before relying on this queue for live operations."}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>Showing {filteredLabel}</span>
@@ -508,7 +537,7 @@ export default function AppCallsPage() {
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {[
           { label: "Visible calls", value: metrics.totalVisible, meta: `Page ${page} of ${totalPages}` },
-          { label: "Need follow-up", value: metrics.needsReview, meta: "Open requests on this page" },
+          { label: "Needs attention", value: metrics.needsReview, meta: "Calls that still need office action" },
           { label: "Requests captured", value: metrics.requestCount, meta: "Appointment requests on this page" },
           { label: "Urgent", value: metrics.urgentCount, meta: "Urgent front-desk items on this page" }
         ].map((item) => (

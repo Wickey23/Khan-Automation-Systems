@@ -11,8 +11,9 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -343,6 +344,32 @@ export default function AppLeadsPage() {
           This is the best page for deciding who still needs contact, who is moving toward scheduling, and which requests are already done.
         </p>
       </div>
+
+      <WorkflowHint
+        items={[
+          { label: "Use this page", text: "Use Lead Queue for open requests that still need callback, scheduling, reply handling, or final resolution." },
+          { label: "Start here", text: "Open the freshest request first, confirm the last movement, then choose the next step before reading older context." },
+          { label: "Go next", text: "Switch to Inbox for live customer replies or Booking Queue once the request is ready for scheduling." }
+        ]}
+      />
+
+      <ClientStatusGrid
+        items={
+          view === "OPEN_LEADS"
+            ? [
+                { label: "Open requests", value: filtered.length, detail: "Requests still waiting on office action." },
+                { label: "Needs attention", value: filtered.filter((lead) => lead.frontDesk?.state === "needs_follow_up").length, detail: "Leads that still need fresh outreach or a decision." },
+                { label: "Urgent", value: filtered.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent").length, detail: "Highest-priority follow-up items." },
+                { label: "Need scheduling", value: filtered.filter((lead) => lead.pipelineStage === "NEEDS_SCHEDULING" || lead.frontDesk?.recommendedAction === "Offer times").length, detail: "Requests closest to becoming booked work." }
+              ]
+            : [
+                { label: "Customer memory", value: planLabel, detail: plan !== "PRO" ? "Upgrade to unlock repeat-caller context in this workspace." : "Known-customer context is available in this view.", tone: plan === "PRO" ? "success" : "warning" },
+                { label: "Known customers", value: customerFiltered.length, detail: "Repeat callers and imported customer context." },
+                { label: "Repeat callers", value: customerFiltered.filter((customer) => customer.totalCalls > 1).length, detail: "Customers with more than one recorded call." },
+                { label: "VIP", value: customerFiltered.filter((customer) => customer.flaggedVIP).length, detail: "Flagged high-value customer records." }
+              ]
+        }
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
         <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>

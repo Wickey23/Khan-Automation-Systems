@@ -249,11 +249,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="px-3 pb-1 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Workspace navigation</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Live work</p>
             </div>
             <nav className="mt-2 space-y-4">
               <div className="grid gap-1">
-                {primaryNavItems.map(renderNavItem)}
+                {primaryNavItems.filter((item) => !item.comingSoon).map(renderNavItem)}
+              </div>
+              <div className="border-t pt-4">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Upcoming</p>
+                <div className="grid gap-1">
+                  {primaryNavItems.filter((item) => item.comingSoon).map(renderNavItem)}
+                </div>
               </div>
               <div className="border-t pt-4">
                 <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Setup & management</p>
@@ -264,9 +270,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </nav>
             <div className="mt-5 rounded-[16px] border border-slate-200 bg-slate-50 px-4 py-4 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">How work flows</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">Calls and texts create front-desk work.</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">Work the live queue, then move the request forward.</p>
               <p className="mt-1 text-sm leading-6 text-slate-700">
-                Start in Front Desk, work the queue that owns the next step, then finish the request as booked or resolved.
+                Start in Front Desk for the clearest priorities, switch into the queue that owns the next step, then finish the request as booked or resolved.
               </p>
             </div>
             <div className="mt-5 border-t border-slate-200/80 pt-4">

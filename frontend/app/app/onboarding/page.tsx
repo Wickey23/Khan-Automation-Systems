@@ -6,6 +6,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, SectionHeading, WorkflowHint } from "@/components/ui/page";
@@ -333,6 +334,35 @@ export default function AppOnboardingPage() {
           {
             label: "Go next",
             text: "After setup is complete, move into Front Desk, Call Queue, Inbox, and Booking Queue to work the live requests that start coming in."
+          }
+        ]}
+      />
+
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Setup status",
+            value: status.replaceAll("_", " "),
+            detail: status === "SUBMITTED" ? "The setup package has been submitted for review." : "Keep filling this out until the receptionist rules match how the office actually operates.",
+            tone: statusTone(status)
+          },
+          {
+            label: "Call mode",
+            value: state.testMode ? "Testing" : "Live-ready",
+            detail: state.testMode ? "Use testing while validating flows and wording before go-live." : "This setup is aimed at live production behavior.",
+            tone: state.testMode ? "pending" : "success"
+          },
+          {
+            label: "Business profile",
+            value: sectionReady([state.legalBusinessName, state.displayName, state.industry], "all") ? "Ready" : "In progress",
+            detail: "Legal name, display name, and industry are the minimum business identity fields for launch.",
+            tone: sectionReady([state.legalBusinessName, state.displayName, state.industry], "all") ? "success" : "pending"
+          },
+          {
+            label: "Booking setup",
+            value: sectionReady([state.bookingMethod, state.services], "all") ? "In progress" : "Not configured",
+            detail: "Booking details determine whether requests move cleanly into scheduling work.",
+            tone: sectionReady([state.bookingMethod, state.services], "all") ? "pending" : "warning"
           }
         ]}
       />

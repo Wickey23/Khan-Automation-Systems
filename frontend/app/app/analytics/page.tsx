@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Lock } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { fetchOrgAnalytics, getBillingStatus, getMe } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgAnalytics } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { subscriptionStatusLabel } from "@/lib/client-status-language";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function pct(value: number) {
@@ -128,6 +129,32 @@ export default function AppAnalyticsPage() {
         ]}
       />
 
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Reporting access",
+            value: isPro ? "Ready" : "Locked",
+            detail: isPro ? "Expanded KPI reporting is available in this workspace." : "Upgrade the workspace plan to unlock the full reporting view.",
+            tone: isPro ? "success" : "warning"
+          },
+          {
+            label: "Reporting window",
+            value: range === "7d" ? "Last 7 days" : "Last 30 days",
+            detail: "Switch the range above to compare short-term and month-long trends."
+          },
+          {
+            label: "Data freshness",
+            value: kpis?.dataFreshnessAt ? new Date(kpis.dataFreshnessAt).toLocaleTimeString() : "Pending",
+            detail: "Latest analytics snapshot used by this page."
+          },
+          {
+            label: "Viewer role",
+            value: isViewer ? "Read-only" : "Operational",
+            detail: isViewer ? "This page is for review only." : "Use this page to review trends, then return to the live queues to act."
+          }
+        ]}
+      />
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
         <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardContent className="space-y-4 p-6 sm:p-7">
@@ -205,20 +232,13 @@ export default function AppAnalyticsPage() {
       </div>
 
       {!isPro ? (
-        <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]`}>
-          <CardContent className="p-5 text-sm text-amber-950">
-            <div className="flex items-center gap-2 font-semibold">
-              <Lock className="h-4 w-4" />
-              Advanced analytics is a Pro feature
-            </div>
-            <p className="mt-1">
-              Upgrade to Pro to unlock expanded KPI reporting and trend analysis.
-            </p>
-            <Link href="/app/billing" className="mt-3 inline-block rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-medium">
-              Upgrade to Pro
-            </Link>
-          </CardContent>
-        </Card>
+        <ClientGateCard
+          title="Advanced reporting is locked on the current plan."
+          description={`Upgrade when you want broader KPI reporting, deeper trend visibility, and stronger operational review tools. Current access: ${subscriptionStatusLabel(isPro ? "active" : "not_active")}.`}
+          badgeLabel="Locked"
+          badgeTone="warning"
+          actions={[{ href: "/app/billing", label: "Open Billing" }]}
+        />
       ) : null}
 
       <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 ${!isPro ? "opacity-60" : ""}`}>

@@ -81,10 +81,10 @@ export function Header() {
       ];
     }
     return [
-      { href: "/app", label: "Overview" },
-      { href: "/app/onboarding", label: "Onboarding" },
+      { href: "/app", label: "Front Desk" },
+      { href: "/app/onboarding", label: "Setup" },
       { href: "/app/calls", label: "Calls" },
-      { href: "/app/messages", label: "Messages" },
+      { href: "/app/messages", label: "Inbox" },
       { href: "/app/leads", label: "Leads" },
       { href: "/app/outreach", label: "Outreach" }
     ];

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock, Search, SendHorizontal } from "lucide-react";
+import { Search, SendHorizontal } from "lucide-react";
 import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
@@ -12,7 +12,9 @@ import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, messagingReadinessTone, subscriptionStatusLabel } from "@/lib/client-status-language";
 import {
   frontDeskActionBadgeClass,
   frontDeskContextPanelClass,
@@ -451,51 +453,83 @@ export default function AppMessagesPage() {
         ]}
       />
 
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Outbound messaging",
+            value: canSendMessages ? "Active" : "Locked",
+            detail: canSendMessages ? "Manual replies and outbound follow-up are available in this workspace." : "Upgrade the workspace plan before the office can send outbound texts.",
+            tone: canSendMessages ? "success" : "warning"
+          },
+          {
+            label: connectedNumberProviderLabel(assignedNumberProvider),
+            value: assignedPhoneNumber || "Not assigned",
+            detail: connectedNumberProviderDetail(assignedNumberProvider),
+            tone: assignedPhoneNumber ? "success" : "warning"
+          },
+          {
+            label: "Messaging readiness",
+            value: messagingReadinessLabel(messagingReadiness?.state),
+            detail: messagingReadiness?.reasons?.[0] || "No delivery blockers are currently surfaced.",
+            tone: messagingReadinessTone(messagingReadiness?.state)
+          },
+          {
+            label: "Subscription",
+            value: subscriptionPlan || "No plan",
+            detail: subscriptionStatusLabel(subscriptionStatus),
+            tone: canSendMessages ? "success" : "pending"
+          }
+        ]}
+      />
+
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_320px]">
-        <Card className={`${frontDeskWorkspaceCardClass("hero")} ${canSendMessages ? "border-emerald-200/90 bg-[linear-gradient(135deg,rgba(236,253,245,0.98)_0%,rgba(209,250,229,0.92)_100%)]" : "border-amber-200/90 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]"}`}>
-          <CardContent className={`px-5 py-6 text-sm sm:px-6 sm:py-5 ${canSendMessages ? "text-emerald-950" : "text-amber-950"}`}>
-            <div className="flex items-start gap-3">
-              {canSendMessages ? <SendHorizontal className="mt-1 h-4 w-4 shrink-0" /> : <Lock className="mt-1 h-4 w-4 shrink-0" />}
-              <div className="space-y-2">
-                <p className="font-semibold">{canSendMessages ? "Outbound messaging is live." : "Messaging automation is a Pro feature."}</p>
-                <p className={canSendMessages ? "text-emerald-900/90" : "text-amber-900/90"}>
-                  Current plan: <strong>{subscriptionPlan || "NONE"}</strong> ({subscriptionStatus || "inactive"}).{" "}
-                  {canSendMessages ? (
-                    <>Use this inbox to review threads, reply manually, and keep booking conversations moving.</>
-                  ) : (
-                    <>
-                      If sending is disabled, upgrade from <Link className="underline" href="/app/billing">Billing</Link>.
-                    </>
-                  )}
-                </p>
+        {canSendMessages ? (
+          <Card className={`${frontDeskWorkspaceCardClass("hero")} border-emerald-200/90 bg-[linear-gradient(135deg,rgba(236,253,245,0.98)_0%,rgba(209,250,229,0.92)_100%)]`}>
+            <CardContent className="px-5 py-6 text-sm text-emerald-950 sm:px-6 sm:py-5">
+              <div className="flex items-start gap-3">
+                <SendHorizontal className="mt-1 h-4 w-4 shrink-0" />
+                <div className="space-y-2">
+                  <p className="font-semibold">Outbound messaging is live.</p>
+                  <p className="text-emerald-900/90">
+                    Use this inbox to review replies, send manual follow-up, and keep booking conversations moving without losing the customer context.
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
-                <p className="mt-2 text-2xl font-semibold">{threads.length}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
+                  <p className="mt-2 text-2xl font-semibold">{threads.length}</p>
+                </div>
+                <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Needs attention</p>
+                  <p className="mt-2 text-2xl font-semibold">{threadsWithActionNeeded}</p>
+                </div>
+                <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Selected thread</p>
+                  <p className="mt-2 truncate text-sm font-semibold">{selected ? threadDisplayName(selected) || selected.contactPhone : "No thread selected"}</p>
+                </div>
               </div>
-              <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Action needed</p>
-                <p className="mt-2 text-2xl font-semibold">{threadsWithActionNeeded}</p>
-              </div>
-              <div className="rounded-xl border border-black/5 bg-white/[0.65] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Selected</p>
-                        <p className="mt-2 truncate text-sm font-semibold">{selected ? threadDisplayName(selected) || selected.contactPhone : "No thread selected"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <ClientGateCard
+            title="Outbound texting is locked on the current plan."
+            description="You can still review customer replies here, but the office cannot send outbound texts until messaging is unlocked in Billing."
+            badgeLabel="Locked"
+            badgeTone="warning"
+            actions={[{ href: "/app/billing", label: "Open Billing" }]}
+          />
+        )}
         <Card className={frontDeskWorkspaceCardClass("subtle")}>
           <CardContent className="grid gap-3 p-5 text-sm">
             <div>
-              <p className="page-eyebrow">Assigned number</p>
+              <p className="page-eyebrow">Connected number</p>
               <p className="mt-2 font-semibold text-foreground">{assignedPhoneNumber || "Not assigned"}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{assignedNumberProvider ? `Provider: ${assignedNumberProvider}` : "No provider connected yet."}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{assignedNumberProvider ? "Ready for live customer threads." : "Connect a business number before relying on this inbox for live follow-up."}</p>
             </div>
             <div className="border-t pt-3">
               <p className="page-eyebrow">Messaging readiness</p>
-              <p className="mt-2 font-semibold text-foreground">{messagingReadiness?.state || "Unknown"}</p>
+              <p className="mt-2 font-semibold text-foreground">{messagingReadinessLabel(messagingReadiness?.state)}</p>
               {messagingReadiness?.reasons?.length ? (
                 <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                   {messagingReadiness.reasons.slice(0, 2).map((reason) => (
