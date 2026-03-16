@@ -717,7 +717,7 @@ export default function AppSettingsPage() {
             </div>
           </aside>
 
-          <div id="settings-content-root" className="p-6">
+          <div id="settings-content-root" className="space-y-6 p-6">
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
@@ -754,9 +754,6 @@ export default function AppSettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
       <Accordion type="multiple" defaultValue={["security", "calendar", "booking", "notifications", "knowledge", "business-hours", "services", "policies", "sms"]} className="space-y-4">
       {activeSection === "Security" ? <AccordionItem id="settings-security" value="security" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
@@ -1666,6 +1663,9 @@ export default function AppSettingsPage() {
           {saving ? "Saving..." : "Save assistant settings"}
         </Button>
       </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
