@@ -171,6 +171,12 @@ let finalizeBookingTimer: NodeJS.Timeout | null = null;
 let securityRetentionTimer: NodeJS.Timeout | null = null;
 let outreachRunnerTimer: NodeJS.Timeout | null = null;
 let adminReportsTimer: NodeJS.Timeout | null = null;
+let isBackfillWorkerRunning = false;
+let isSlaMonitorWorkerRunning = false;
+let isDataIntegrityGuardWorkerRunning = false;
+let isFinalizeBookingWorkerRunning = false;
+let isOutreachRunnerWorkerRunning = false;
+let isAdminReportsWorkerRunning = false;
 const voiceMediaStreamServer = attachVoiceMediaStreamServer({ server, prisma });
 async function ensureAdminUser() {
   try {
@@ -195,6 +201,8 @@ function startVapiBackfillWorker() {
   if (!enabled || !Number.isFinite(interval) || interval < 5000) return;
 
   backfillTimer = setInterval(() => {
+    if (isBackfillWorkerRunning) return;
+    isBackfillWorkerRunning = true;
     void backfillMissedVapiCalls(prisma, "system-backfill")
       .then((result) => {
         if (result.resolved > 0 || result.skipped > 0) {
@@ -231,6 +239,9 @@ function startVapiBackfillWorker() {
             message: error instanceof Error ? error.message : "unknown_error"
           })
         );
+      })
+      .finally(() => {
+        isBackfillWorkerRunning = false;
       });
   }, interval);
 }
@@ -241,22 +252,28 @@ function startSlaMonitorWorker() {
   if (!Number.isFinite(interval) || interval < 10000) return;
 
   slaMonitorTimer = setInterval(() => {
-    void runSlaMonitorTick(prisma).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        JSON.stringify({
-          orgId: "-",
-          provider: "SYSTEM",
-          endpoint: "worker:sla-monitor",
-          eventType: "SLA_MONITOR_TICK",
-          requestId: "-",
-          providerCallId: "-",
-          latencyMs: null,
-          status: "ERROR",
-          message: error instanceof Error ? error.message : "unknown_error"
-        })
-      );
-    });
+    if (isSlaMonitorWorkerRunning) return;
+    isSlaMonitorWorkerRunning = true;
+    void runSlaMonitorTick(prisma)
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify({
+            orgId: "-",
+            provider: "SYSTEM",
+            endpoint: "worker:sla-monitor",
+            eventType: "SLA_MONITOR_TICK",
+            requestId: "-",
+            providerCallId: "-",
+            latencyMs: null,
+            status: "ERROR",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        );
+      })
+      .finally(() => {
+        isSlaMonitorWorkerRunning = false;
+      });
   }, interval);
 }
 
@@ -266,6 +283,8 @@ function startDataIntegrityGuardWorker() {
   if (!Number.isFinite(interval) || interval < 60_000) return;
 
   dataIntegrityGuardTimer = setInterval(() => {
+    if (isDataIntegrityGuardWorkerRunning) return;
+    isDataIntegrityGuardWorkerRunning = true;
     void runDataIntegrityGuardTick(prisma)
       .then((result) => {
         if (result.anomaliesLogged > 0 || result.repairedLeadLinks > 0) {
@@ -301,6 +320,9 @@ function startDataIntegrityGuardWorker() {
             message: error instanceof Error ? error.message : "unknown_error"
           })
         );
+      })
+      .finally(() => {
+        isDataIntegrityGuardWorkerRunning = false;
       });
   }, interval);
 }
@@ -429,25 +451,31 @@ function startSecuritySignalRetentionWorker() {
 }
 
 function startFinalizeBookingWorker() {
-  const interval = Number.parseInt(process.env.FINALIZE_BOOKING_WORKER_INTERVAL_MS || "1000", 10);
+  const interval = Number.parseInt(env.FINALIZE_BOOKING_WORKER_INTERVAL_MS, 10);
   if (!Number.isFinite(interval) || interval < 500) return;
   finalizeBookingTimer = setInterval(() => {
-    void runFinalizeBookingWorkerTick(prisma).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        JSON.stringify({
-          orgId: "-",
-          provider: "SYSTEM",
-          endpoint: "worker:finalize-booking",
-          eventType: "FINALIZE_BOOKING_TICK",
-          requestId: "-",
-          providerCallId: "-",
-          latencyMs: null,
-          status: "ERROR",
-          message: error instanceof Error ? error.message : "unknown_error"
-        })
-      );
-    });
+    if (isFinalizeBookingWorkerRunning) return;
+    isFinalizeBookingWorkerRunning = true;
+    void runFinalizeBookingWorkerTick(prisma)
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify({
+            orgId: "-",
+            provider: "SYSTEM",
+            endpoint: "worker:finalize-booking",
+            eventType: "FINALIZE_BOOKING_TICK",
+            requestId: "-",
+            providerCallId: "-",
+            latencyMs: null,
+            status: "ERROR",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        );
+      })
+      .finally(() => {
+        isFinalizeBookingWorkerRunning = false;
+      });
   }, interval);
 }
 
@@ -456,22 +484,28 @@ function startOutreachRunnerWorker() {
   const interval = Number.parseInt(env.OUTREACH_RUNNER_INTERVAL_MS, 10);
   if (!Number.isFinite(interval) || interval < 1000) return;
   outreachRunnerTimer = setInterval(() => {
-    void runOutreachRunnerTick(prisma).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        JSON.stringify({
-          orgId: "-",
-          provider: "SYSTEM",
-          endpoint: "worker:outreach-runner",
-          eventType: "OUTREACH_RUNNER_TICK",
-          requestId: "-",
-          providerCallId: "-",
-          latencyMs: null,
-          status: "ERROR",
-          message: error instanceof Error ? error.message : "unknown_error"
-        })
-      );
-    });
+    if (isOutreachRunnerWorkerRunning) return;
+    isOutreachRunnerWorkerRunning = true;
+    void runOutreachRunnerTick(prisma)
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify({
+            orgId: "-",
+            provider: "SYSTEM",
+            endpoint: "worker:outreach-runner",
+            eventType: "OUTREACH_RUNNER_TICK",
+            requestId: "-",
+            providerCallId: "-",
+            latencyMs: null,
+            status: "ERROR",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        );
+      })
+      .finally(() => {
+        isOutreachRunnerWorkerRunning = false;
+      });
   }, interval);
 }
 
@@ -480,22 +514,28 @@ function startAdminReportsWorker() {
   const interval = Number.parseInt(env.ADMIN_REPORTS_RUNNER_INTERVAL_MS, 10);
   if (!Number.isFinite(interval) || interval < 60_000) return;
   adminReportsTimer = setInterval(() => {
-    void runAdminReportsTick(prisma).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        JSON.stringify({
-          orgId: "-",
-          provider: "SYSTEM",
-          endpoint: "worker:admin-reports",
-          eventType: "ADMIN_REPORTS_TICK",
-          requestId: "-",
-          providerCallId: "-",
-          latencyMs: null,
-          status: "ERROR",
-          message: error instanceof Error ? error.message : "unknown_error"
-        })
-      );
-    });
+    if (isAdminReportsWorkerRunning) return;
+    isAdminReportsWorkerRunning = true;
+    void runAdminReportsTick(prisma)
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify({
+            orgId: "-",
+            provider: "SYSTEM",
+            endpoint: "worker:admin-reports",
+            eventType: "ADMIN_REPORTS_TICK",
+            requestId: "-",
+            providerCallId: "-",
+            latencyMs: null,
+            status: "ERROR",
+            message: error instanceof Error ? error.message : "unknown_error"
+          })
+        );
+      })
+      .finally(() => {
+        isAdminReportsWorkerRunning = false;
+      });
   }, interval);
 }
 

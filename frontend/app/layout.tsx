@@ -7,21 +7,21 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Khan Automation Systems | AI Reception + Follow-Up",
-    template: "%s | Khan Automation Systems"
+    default: "Front Desk OS by Khan Systems",
+    template: "%s | Front Desk OS"
   },
   description: siteConfig.description,
   openGraph: {
-    title: "Khan Automation Systems",
+    title: "Front Desk OS by Khan Systems",
     description: siteConfig.description,
     url: siteConfig.url,
-    siteName: "Khan Automation Systems",
+    siteName: "Front Desk OS",
     type: "website",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Khan Automation Systems" }]
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Front Desk OS by Khan Systems" }]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Khan Automation Systems",
+    title: "Front Desk OS by Khan Systems",
     description: siteConfig.description
   }
 };

@@ -7,8 +7,14 @@ import { Header } from "@/components/site/header";
 export function RootShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isWorkspaceRoute = pathname.startsWith("/app") || pathname.startsWith("/admin");
+  const isAiStudioPublicRoute =
+    pathname === "/" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/contact" ||
+    pathname === "/how-it-works";
 
-  if (isWorkspaceRoute) {
+  if (isWorkspaceRoute || isAiStudioPublicRoute) {
     return <>{children}</>;
   }
 

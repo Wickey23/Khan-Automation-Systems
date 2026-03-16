@@ -92,6 +92,7 @@ const envSchema = z.object({
   AUTO_RECOVERY_ENABLED: z.string().default("false"),
   SLA_MONITOR_ENABLED: z.string().default("false"),
   DATA_INTEGRITY_GUARD_ENABLED: z.string().default("true"),
+  FINALIZE_BOOKING_WORKER_INTERVAL_MS: z.string().default("15000"),
   AUTO_RECOVERY_DEDUPE_WINDOW_HOURS: z.string().default("2"),
   AUTO_RECOVERY_DAILY_CAP: z.string().default("50"),
   CALL_QUALITY_MIN_SCORE: z.string().default("75"),
