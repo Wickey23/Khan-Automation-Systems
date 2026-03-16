@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { CalendarDays, Inbox, PhoneCall, Search } from "lucide-react";
 import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { resolvePlanFeatures } from "@/lib/plan-features";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard, ClientModuleTabs } from "@/components/ui/client-module";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHelpFab } from "@/components/ui/page";
 import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, subscriptionStatusLabel } from "@/lib/client-status-language";
 import {
   frontDeskActionBadgeClass,
@@ -374,16 +374,49 @@ export default function AppMessagesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Reply workspace"
-        title="Inbox"
-        description="Work live customer replies here."
-        actions={
-          <Button type="button" variant="outline" onClick={() => void load()}>
+      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Inbox className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Operator Inbox</p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">Messages</h1>
+            </div>
+          </div>
+          <Button type="button" variant="outline" className="rounded-2xl" onClick={() => void load()}>
             Refresh inbox
           </Button>
-        }
-      />
+        </div>
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-3">
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Active threads</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{threads.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Customer conversations currently available for office review.</p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Needs reply</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">
+              {threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "needs_follow_up").length} urgent threads
+            </p>
+            <p className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <PhoneCall className="h-3.5 w-3.5" />
+              Follow-up requests and missed-call recovery live here.
+            </p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Booking-linked</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">
+              {threads.filter((thread) => Boolean(thread.latestAppointmentRequestId)).length} scheduling conversations
+            </p>
+            <p className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Jump these to Booking Queue when the customer is choosing times.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <ClientModuleTabs
         items={[
@@ -420,12 +453,12 @@ export default function AppMessagesPage() {
               <p className="font-medium text-slate-950">{connectedNumberProviderLabel(assignedNumberProvider)} not assigned</p>
               <p className="text-slate-600">{connectedNumberProviderDetail(assignedNumberProvider)}</p>
             </div>
-            <p className="text-xs text-slate-500">{subscriptionStatusLabel(subscriptionStatus)} • {messagingReadinessLabel(messagingReadiness?.state)}</p>
+            <p className="text-xs text-slate-500">{subscriptionStatusLabel(subscriptionStatus)} | {messagingReadinessLabel(messagingReadiness?.state)}</p>
           </CardContent>
         </Card>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:gap-5">
+      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)] 2xl:gap-5">
         <Card className={`${frontDeskWorkspaceCardClass("default")} self-start overflow-hidden`}>
           <CardHeader className="pb-3">
             <div className="space-y-3">
@@ -541,7 +574,7 @@ export default function AppMessagesPage() {
               <div className="space-y-2">
                 <CardTitle className="text-lg">Conversation</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {selected ? `${threadDisplayName(selected)} • ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
+                  {selected ? `${threadDisplayName(selected)} | ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
                 </p>
               </div>
             </CardHeader>

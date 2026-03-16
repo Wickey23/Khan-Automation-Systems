@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { History, PhoneCall, Search } from "lucide-react";
 import { fetchOrgCalls, getMe, repopulateOrgCalls, updateLeadPipelineStage } from "@/lib/api";
 import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHelpFab } from "@/components/ui/page";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { connectedNumberProviderDetail, connectedNumberProviderLabel } from "@/lib/client-status-language";
 import {
@@ -447,16 +448,53 @@ export default function AppCallsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Front-desk queue"
-        title="Call Queue"
-        description="Newest calls appear first so the office can work straight down the queue. Confirm what the customer needed, then follow the next action before reading raw transcript detail."
-        actions={
-          <Button onClick={() => void refreshAndRepopulate()} disabled={refreshing}>
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-        }
-      />
+      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <History className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Reviewed Calls</p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">Call Queue</h1>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative hidden md:block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input readOnly value="" placeholder="Search calls..." className="h-10 w-64 rounded-2xl border-slate-200 bg-slate-50 pl-10" />
+            </label>
+            <Button onClick={() => void refreshAndRepopulate()} disabled={refreshing} className="rounded-2xl">
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
+        </div>
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-4">
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Visible calls</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{metrics.totalVisible}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Calls in the current filtered queue.</p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Needs attention</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{metrics.needsReview} call{metrics.needsReview === 1 ? "" : "s"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Still needs callback, review, or handoff verification.</p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Booking requests</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{metrics.requestCount} request{metrics.requestCount === 1 ? "" : "s"}</p>
+            <p className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <PhoneCall className="h-3.5 w-3.5" />
+              Requests that can move directly into scheduling.
+            </p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Urgent</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{metrics.urgentCount} high-priority item{metrics.urgentCount === 1 ? "" : "s"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">The office should work these first.</p>
+          </div>
+        </div>
+      </section>
 
       <PageHelpFab
         items={[

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { Search, UserRoundSearch } from "lucide-react";
 import { fetchCustomerBase, fetchOrgLeads, getBillingStatus, getMe, updateLeadPipelineStage } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import { clientBadgeClass } from "@/lib/client-badges";
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientModuleTabs } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHelpFab } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -311,11 +312,42 @@ export default function AppLeadsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Follow-up queue"
-        title="Lead Queue"
-        description="Work open requests here. Open the freshest lead and choose the next step."
-      />
+      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <UserRoundSearch className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Follow-up Queue</p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">Lead Queue</h1>
+            </div>
+          </div>
+          <label className="relative hidden md:block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input readOnly value="" placeholder="Search leads..." className="h-10 w-64 rounded-2xl border-slate-200 bg-slate-50 pl-10" />
+          </label>
+        </div>
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-4">
+          {stats.map((item) => (
+            <div key={item.label} className={frontDeskContextPanelClass()}>
+              <p className="page-eyebrow">{item.label}</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{item.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {item.label === "Plan"
+                  ? "Current workspace package and feature tier."
+                  : item.label === "Need follow-up"
+                    ? "Requests still waiting on office action."
+                    : item.label === "Urgent"
+                      ? "Highest-priority items in the current queue."
+                      : item.label === "Need scheduling"
+                        ? "Leads nearest to booking."
+                        : "Saved customer context."}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <ClientModuleTabs
         items={[
@@ -663,7 +695,7 @@ export default function AppLeadsPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">{customer.phoneNumber}</p>
                     <p className="text-sm text-muted-foreground">
-                      Last outcome: {customer.lastOutcome || "Unknown"} · Last seen {new Date(customer.lastCallAt).toLocaleDateString()}
+                      Last outcome: {customer.lastOutcome || "Unknown"} | Last seen {new Date(customer.lastCallAt).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="space-y-1 text-sm text-muted-foreground">

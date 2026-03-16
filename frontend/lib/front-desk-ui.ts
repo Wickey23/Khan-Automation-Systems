@@ -51,16 +51,16 @@ export function frontDeskOutcomeBadgeMeta(kind: "saved" | "booked" | "resolved")
 
 export function frontDeskCardClass(kind: "default" | "muted" | "focus" = "default") {
   if (kind === "focus") {
-    return "rounded-[14px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.07)] transition-colors duration-150 hover:border-slate-400";
+    return "rounded-2xl border border-sky-200 bg-white shadow-sm transition-colors duration-150 hover:border-sky-300";
   }
   if (kind === "muted") {
-    return "rounded-[12px] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(248,250,252,0.88)_100%)] shadow-none transition-colors hover:border-slate-300 hover:bg-white";
+    return "rounded-2xl border border-slate-200 bg-slate-50 shadow-none transition-colors hover:border-slate-300 hover:bg-white";
   }
-  return "rounded-[14px] border border-slate-300 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:border-slate-400";
+  return "rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors duration-150 hover:border-slate-300";
 }
 
 export function frontDeskContextPanelClass() {
-  return "rounded-[12px] border border-slate-200 bg-slate-50/70 p-4 shadow-none";
+  return "rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-none";
 }
 
 export function frontDeskEmptyStateClass() {
@@ -68,7 +68,7 @@ export function frontDeskEmptyStateClass() {
 }
 
 export function frontDeskLoadingCardClass() {
-  return "rounded-[12px] border border-slate-200 bg-white px-4 py-4 shadow-[0_6px_14px_rgba(15,23,42,0.04)]";
+  return "rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm";
 }
 
 export function frontDeskSkeletonLineClass(width: "full" | "lg" | "md" | "sm" = "full") {
@@ -98,16 +98,16 @@ export function frontDeskOutcomeSurfaceClass(kind: "active" | "saved" | "booked"
 
 export function frontDeskWorkspaceCardClass(kind: "default" | "hero" | "subtle" = "default") {
   if (kind === "hero") {
-    return "rounded-[16px] border border-slate-300 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]";
+    return "rounded-[24px] border border-slate-200 bg-white shadow-sm";
   }
   if (kind === "subtle") {
-    return "rounded-[14px] border border-slate-200 bg-slate-50/70 shadow-none";
+    return "rounded-2xl border border-slate-200 bg-slate-50 shadow-none";
   }
-  return "rounded-[16px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.07)]";
+  return "rounded-[24px] border border-slate-200 bg-white shadow-sm";
 }
 
 export function frontDeskMetricCardClass() {
-  return "rounded-[12px] border border-slate-200 bg-white shadow-[0_6px_14px_rgba(15,23,42,0.04)]";
+  return "rounded-2xl border border-slate-200 bg-white shadow-sm";
 }
 
 export function frontDeskActionStripClass() {

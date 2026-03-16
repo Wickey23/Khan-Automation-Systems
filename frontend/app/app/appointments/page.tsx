@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { CalendarDays, Inbox, Search } from "lucide-react";
 import {
   approveAppointmentRequest,
   assignAppointmentRequest,
@@ -34,7 +35,7 @@ import type {
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { ClientGateCard, ClientModuleTabs, ClientStatusGrid } from "@/components/ui/client-module";
-import { PageHeader, SectionHeading, PageHelpFab } from "@/components/ui/page";
+import { SectionHeading, PageHelpFab } from "@/components/ui/page";
 import {
   frontDeskActionBadgeClass,
   frontDeskCardClass,
@@ -730,6 +731,12 @@ export default function AppAppointmentsPage() {
         : viewMode === "CALENDAR"
           ? "Review the schedule for conflicts"
           : "Review the appointment list";
+  const requestStats = {
+    needsReview: pendingAppointmentRequests.length,
+    readyToBook: approvedAppointmentRequests.length,
+    awaitingReply: offeredAppointmentRequests.length,
+    booked: scheduledAppointmentRequests.length + appointments.filter((appointment) => appointment.status === "CONFIRMED").length
+  };
 
   function buildEventViewUrl(event: OrgCalendarEvent) {
     if (event.viewUrl && String(event.viewUrl).trim()) return String(event.viewUrl).trim();
@@ -747,20 +754,56 @@ export default function AppAppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Scheduling workspace"
-        title="Booking Queue"
-        description="Use this page to turn captured requests into scheduled work. Review new booking requests first, then manage the appointments already confirmed on the calendar."
-        actions={
-          <div className="flex flex-wrap gap-2">
+      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Inbox className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Front-Desk Request Queue</p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">Booking Triage</h1>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {canWrite && !featureDisabled && moduleTab !== "REQUESTS" ? (
-              <Button size="sm" variant={showDirectBooking ? "outline" : "default"} onClick={() => setShowDirectBooking((current) => !current)}>
+              <Button size="sm" variant={showDirectBooking ? "outline" : "default"} className="rounded-2xl" onClick={() => setShowDirectBooking((current) => !current)}>
                 {showDirectBooking ? "Hide office booking" : "Book manually"}
               </Button>
             ) : null}
+            <label className="relative hidden md:block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input readOnly value="" placeholder="Search requests..." className="h-10 w-64 rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm" />
+            </label>
           </div>
-        }
-      />
+        </div>
+
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-4">
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Needs review</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{requestStats.needsReview}</p>
+            <p className="mt-1 text-xs text-muted-foreground">New requests still waiting on an operator decision.</p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Ready to book</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{requestStats.readyToBook} request{requestStats.readyToBook === 1 ? "" : "s"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Approved and ready for slot selection.</p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Awaiting reply</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{requestStats.awaitingReply} customer thread{requestStats.awaitingReply === 1 ? "" : "s"}</p>
+            <p className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Slot offers are out and the office is waiting for a reply.
+            </p>
+          </div>
+          <div className={frontDeskContextPanelClass()}>
+            <p className="page-eyebrow">Focus now</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{nextFocusLabel}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Use the queue first, then shift to the calendar once the request is placed.</p>
+          </div>
+        </div>
+      </section>
 
       <ClientModuleTabs
         items={[
@@ -1205,7 +1248,7 @@ export default function AppAppointmentsPage() {
                                       </p>
                                       <div className="mt-3 text-xs text-muted-foreground">
                                         SMS: {request.effectiveSmsPhone}
-                                        {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
+                                        {request.latestMessageAt ? ` | ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                       </div>
                                     </div>
                                   </div>
@@ -1261,7 +1304,7 @@ export default function AppAppointmentsPage() {
                                 </div>
                                 <div className="space-y-2 text-xs text-muted-foreground">
                                   SMS: {request.effectiveSmsPhone}
-                                  {request.latestMessageAt ? ` • ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
+                                  {request.latestMessageAt ? ` | ${requestLatestMessageLabel(request)} ${new Date(request.latestMessageAt).toLocaleDateString()}` : ""}
                                 </div>
                               </div>
                             </div>
@@ -1462,7 +1505,7 @@ export default function AppAppointmentsPage() {
                           </div>
                           <div className={appointmentSecondaryTextClass}>
                             {appointment.status}
-                            {isGoogleSynced ? " • GOOGLE" : ""}
+                            {isGoogleSynced ? " | GOOGLE" : ""}
                           </div>
                         </button>
                       );

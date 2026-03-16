@@ -12,18 +12,17 @@ type BadgeTone =
   | "pending";
 
 const badgeToneClasses: Record<BadgeTone, string> = {
-  success: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-300 bg-amber-50 text-amber-800",
-  critical: "border-rose-300 bg-rose-50 text-rose-800",
-  neutral: "border-slate-300 bg-slate-50 text-slate-700",
-  automated: "border-sky-300 bg-sky-50 text-sky-800",
-  manual: "border-indigo-300 bg-indigo-50 text-indigo-800",
-  booking: "border-violet-300 bg-violet-50 text-violet-800",
-  failed: "border-rose-300 bg-rose-50 text-rose-800",
-  pending: "border-amber-300 bg-amber-50 text-amber-800"
+  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  warning: "border-amber-200 bg-amber-50 text-amber-700",
+  critical: "border-rose-200 bg-rose-50 text-rose-700",
+  neutral: "border-slate-200 bg-slate-50 text-slate-600",
+  automated: "border-sky-200 bg-sky-50 text-sky-700",
+  manual: "border-blue-200 bg-blue-50 text-blue-700",
+  booking: "border-blue-200 bg-blue-50 text-blue-700",
+  failed: "border-rose-200 bg-rose-50 text-rose-700",
+  pending: "border-sky-200 bg-sky-50 text-sky-700"
 };
 
 export function clientBadgeClass(tone: BadgeTone, className?: string) {
   return cn(badgeToneClasses[tone], className);
 }
-

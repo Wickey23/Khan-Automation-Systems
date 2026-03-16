@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Filter, Plus, Search } from "lucide-react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { backfillMissedVapiCalls, clearAllSystemData, fetchAdminOrgs } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
@@ -10,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type AdminOrg = {
@@ -99,53 +99,93 @@ export default function AdminOrgsPage() {
       <div className="page-shell space-y-6">
         <AdminTopTabs />
 
-        <PageHeader
-          eyebrow="Admin operations"
-          title="Organizations"
-          description="Review onboarding, provisioning, and go-live readiness with calmer structure and clearer next steps."
-          actions={
-            <Button variant="outline" disabled={backfillLoading} onClick={() => void backfillCalls()}>
-              {backfillLoading ? "Syncing..." : "Sync missed Vapi calls"}
-            </Button>
-          }
-        />
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-950 px-8 py-6 text-white">
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Admin Control Plane</p>
+              <div>
+                <h1 className="text-3xl font-black tracking-tight">Organizations</h1>
+                <p className="mt-1 text-sm text-slate-400">Review onboarding, provisioning, and launch readiness across active tenant environments.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" className="rounded-2xl border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" disabled={backfillLoading} onClick={() => void backfillCalls()}>
+                {backfillLoading ? "Syncing..." : "Sync missed Vapi calls"}
+              </Button>
+              <Button className="rounded-2xl bg-primary px-5 shadow-lg shadow-sky-200/70 hover:bg-sky-500">
+                <Plus className="mr-2 h-4 w-4" />
+                Provision new org
+              </Button>
+            </div>
+          </div>
 
-        <div className="metric-grid">
-          {[
-            { label: "Total orgs", value: metrics.total },
-            { label: "Live", value: metrics.live },
-            { label: "Needs setup", value: metrics.needsConfig },
-            { label: "Paused", value: metrics.paused }
-          ].map((item) => (
-            <Card key={item.label}>
-              <CardContent className="p-5">
-                <p className="page-eyebrow">{item.label}</p>
-                <p className="mt-2 text-2xl font-semibold tracking-tight">{item.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search by org ID, name, or domain"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="h-11 w-[360px] rounded-2xl border-slate-200 bg-slate-50 pl-10"
+                />
+              </label>
+              <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+                {["ALL", "LIVE", "TESTING", "PAUSED"].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setStatusFilter(option)}
+                    className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+                      statusFilter === option ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {option === "ALL" ? "All orgs" : option}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <select
+                className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                <option value="ALL">All statuses</option>
+                <option value="NEW">NEW</option>
+                <option value="ONBOARDING">ONBOARDING</option>
+                <option value="SUBMITTED">SUBMITTED</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="PROVISIONING">PROVISIONING</option>
+                <option value="TESTING">TESTING</option>
+                <option value="LIVE">LIVE</option>
+                <option value="PAUSED">PAUSED</option>
+              </select>
+              <button type="button" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:text-primary">
+                <Filter className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
-        <div className="data-toolbar grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-          <select
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="ALL">All statuses</option>
-            <option value="NEW">NEW</option>
-            <option value="ONBOARDING">ONBOARDING</option>
-            <option value="SUBMITTED">SUBMITTED</option>
-            <option value="APPROVED">APPROVED</option>
-            <option value="PROVISIONING">PROVISIONING</option>
-            <option value="TESTING">TESTING</option>
-            <option value="LIVE">LIVE</option>
-            <option value="PAUSED">PAUSED</option>
-          </select>
-          <Input placeholder="Search organization name or ID" value={search} onChange={(event) => setSearch(event.target.value)} />
-        </div>
+          <div className="grid gap-4 px-8 py-6 md:grid-cols-4">
+            {[
+              { label: "Total orgs", value: metrics.total, detail: "Across all lifecycle states" },
+              { label: "Live", value: metrics.live, detail: "Handling production traffic" },
+              { label: "Needs setup", value: metrics.needsConfig, detail: "Provisioning or testing" },
+              { label: "Paused", value: metrics.paused, detail: "Requires billing or ops review" }
+            ].map((item) => (
+              <Card key={item.label} className="rounded-3xl border-slate-200 shadow-sm">
+                <CardContent className="p-5">
+                  <p className="page-eyebrow">{item.label}</p>
+                  <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{item.value}</p>
+                  <p className="mt-2 text-xs text-slate-500">{item.detail}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
-        <div className="table-shell">
+        <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
@@ -161,7 +201,7 @@ export default function AdminOrgsPage() {
                 <TableRow key={org.id}>
                   <TableCell>
                     <div className="space-y-1">
-                      <Link href={`/admin/orgs/${org.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
+                      <Link href={`/admin/orgs/${org.id}`} className="font-semibold text-slate-900 transition hover:text-primary">
                         {org.name}
                       </Link>
                       <p className="text-xs text-muted-foreground">{org.id}</p>
@@ -198,11 +238,11 @@ export default function AdminOrgsPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <Card>
+          <Card className="rounded-[30px] border-slate-200 shadow-sm">
             <CardContent className="space-y-4 p-6">
               <div>
                 <p className="page-eyebrow">System tools</p>
-                <h2 className="text-2xl">Operational maintenance</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900">Operational maintenance</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">Run maintenance actions here instead of mixing them into the main organization grid.</p>
               </div>
               <Button variant="outline" disabled={backfillLoading} onClick={() => void backfillCalls()}>
@@ -211,11 +251,11 @@ export default function AdminOrgsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-red-200">
+          <Card className="rounded-[30px] border-red-200 shadow-sm">
             <CardContent className="space-y-4 p-6">
               <div>
                 <p className="page-eyebrow text-red-700">Danger zone</p>
-                <h2 className="text-2xl text-red-900">Clear tenant data</h2>
+                <h2 className="text-2xl font-black tracking-tight text-red-900">Clear tenant data</h2>
                 <p className="mt-2 text-sm leading-6 text-red-800">
                   Permanently clears tenant data including organizations, client users, leads, call logs, and subscriptions. Admin users are preserved.
                 </p>

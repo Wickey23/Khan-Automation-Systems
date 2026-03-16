@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Lock, MessageSquareText, PhoneCall, Settings2, Users2, Wallet, LayoutDashboard, ClipboardCheck, CalendarClock, UserRoundSearch, Megaphone } from "lucide-react";
+import { BarChart3, Bell, Lock, LogOut, MessageSquareText, PhoneCall, Search, Settings2, Users2, Wallet, LayoutDashboard, ClipboardCheck, CalendarClock, UserRoundSearch, Megaphone } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus, getMe } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -234,71 +234,128 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const primaryNavItems = navItems.filter((item) => primaryNavHrefs.has(item.href));
   const secondaryNavItems = navItems.filter((item) => !primaryNavHrefs.has(item.href));
+  const currentPageLabel =
+    navItems.find((item) => pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`)))?.label || "Front Desk";
 
   return (
     <ClientGuard>
-      <div className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-        <div className="app-portal-shell">
-          <div className="relative grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
-          <aside className="app-sidebar-shell xl:sticky xl:top-24">
-            <div className="rounded-[12px] border border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Client portal</p>
-              <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-white">Front Desk OS</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Calls, texts, bookings, and follow-up work in one workspace.
-              </p>
-            </div>
-            <div className="px-3 pb-1 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Live work</p>
-            </div>
-            <nav className="mt-2 space-y-4">
-              <div className="grid gap-1">
-                {primaryNavItems.filter((item) => !item.comingSoon).map(renderNavItem)}
-              </div>
-              <div className="border-t pt-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Upcoming</p>
-                <div className="grid gap-1">
-                  {primaryNavItems.filter((item) => item.comingSoon).map(renderNavItem)}
+      <div className="min-h-screen bg-[#f5f7f8]">
+        <div className="flex min-h-screen">
+          <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white xl:flex xl:flex-col">
+            <div className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-sky-200/70">
+                  <LayoutDashboard className="h-5 w-5" />
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-base font-bold leading-none text-slate-900">Front Desk OS</h1>
+                  <p className="text-xs font-medium text-slate-500">Reception Manager</p>
                 </div>
               </div>
-              <div className="border-t pt-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Setup & management</p>
-                <div className="grid gap-1">
-                  {secondaryNavItems.map(renderNavItem)}
-                </div>
+            </div>
+
+            <nav className="flex-1 space-y-1 overflow-y-auto px-4 pb-6">
+              <div className="pb-2">
+                <p className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Workspace</p>
               </div>
+              {primaryNavItems.filter((item) => !item.comingSoon).map(renderNavItem)}
+              <div className="border-t border-slate-200 pt-4">
+                <p className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Upcoming</p>
+              </div>
+              {primaryNavItems.filter((item) => item.comingSoon).map(renderNavItem)}
+              <div className="border-t border-slate-200 pt-4">
+                <p className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Administration</p>
+              </div>
+              {secondaryNavItems.map(renderNavItem)}
             </nav>
-            <div className="mt-5 rounded-[16px] border border-slate-200 bg-slate-50 px-4 py-4 shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">How work flows</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">Work the live queue, then move the request forward.</p>
-              <p className="mt-1 text-sm leading-6 text-slate-700">
-                Start in Front Desk for the clearest priorities, switch into the queue that owns the next step, then finish the request as booked or resolved.
-              </p>
-            </div>
-            <div className="mt-5 border-t border-slate-200/80 pt-4">
-              <Link href="/auth/logout" className="inline-flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50 hover:text-slate-950">
-                Logout
-              </Link>
+
+            <div className="border-t border-slate-200 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200 text-xs font-bold text-slate-600">
+                    {currentRole?.slice(0, 1) || "A"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-slate-900">Workspace User</p>
+                    <p className="truncate text-xs text-slate-500">{currentRole?.replaceAll("_", " ") || "Operator"}</p>
+                  </div>
+                </div>
+                <Link
+                  href="/auth/logout"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </Link>
+              </div>
             </div>
           </aside>
-          <main className="app-main-shell">
-            {modeBanner ? (
-              <div className="app-banner app-banner-primary">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{modeBanner.text}</span>
-                  <Link href={modeBanner.ctaHref} className="rounded-[10px] border border-blue-300/90 bg-white/90 px-3 py-1.5 text-xs font-semibold text-blue-950 shadow-none">
-                    {modeBanner.ctaLabel}
-                  </Link>
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur lg:px-8">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">{currentPageLabel}</h2>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Front Desk Workspace</p>
+                </div>
+                <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 md:inline-flex">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  System Live
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="hidden md:block">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      readOnly
+                      value=""
+                      placeholder="Search leads, calls, customers..."
+                      className="w-64 rounded-xl border-none bg-slate-100 py-2 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                    />
+                  </div>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <Bell className="h-5 w-5" />
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <MessageSquareText className="h-5 w-5" />
+                </div>
+                <div className="hidden h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 md:flex">
+                  <Settings2 className="h-5 w-5" />
+                </div>
+                <div className="hidden items-center gap-3 pl-2 md:flex">
+                  <div className="text-right">
+                    <p className="text-sm font-bold leading-none text-slate-900">Workspace User</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      {currentRole?.replaceAll("_", " ") || "Operator"}
+                    </p>
+                  </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-xs font-bold text-slate-600">
+                    {currentRole?.slice(0, 1) || "A"}
+                  </div>
                 </div>
               </div>
-            ) : null}
-            {accessWarning ? (
-              <div className="app-banner app-banner-warning">
-                {accessWarning} <Link href="/app/onboarding" className="font-medium underline">Go to onboarding</Link>
-              </div>
-            ) : null}
-            {children}
-          </main>
+            </header>
+
+            <main className="flex-1 space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+              {modeBanner ? (
+                <div className="app-banner app-banner-primary">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{modeBanner.text}</span>
+                    <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                      {modeBanner.ctaLabel}
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+              {accessWarning ? (
+                <div className="app-banner app-banner-warning">
+                  {accessWarning} <Link href="/app/onboarding" className="font-medium underline">Go to onboarding</Link>
+                </div>
+              ) : null}
+              {children}
+            </main>
           </div>
         </div>
       </div>

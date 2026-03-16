@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Bell, Bot, Calendar, Clock3, Phone, Shield, User, Zap } from "lucide-react";
 import {
   connectGoogleCalendar,
   connectOutlookCalendar,
@@ -669,6 +670,77 @@ export default function AppSettingsPage() {
           }
         ]}
       />
+
+      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="border-b border-slate-200 bg-slate-50/60 p-5 lg:border-b-0 lg:border-r">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Control Center</p>
+              <h2 className="text-lg font-black tracking-tight text-slate-900">Receptionist settings</h2>
+              <p className="text-sm text-slate-500">Move through the main configuration areas the same way the export-5 control center was organized.</p>
+            </div>
+            <div className="mt-5 space-y-2">
+              {[
+                { label: "Operator Profile", icon: User },
+                { label: "AI Identity & Voice", icon: Bot },
+                { label: "Operational Hours", icon: Clock3 },
+                { label: "Human Handoff Rules", icon: Zap },
+                { label: "Telephony Setup", icon: Phone },
+                { label: "Calendar Integration", icon: Calendar },
+                { label: "Notifications", icon: Bell },
+                { label: "Security", icon: Shield }
+              ].map((item, index) => {
+                const Icon = item.icon;
+                const active = index === 1;
+                return (
+                  <div
+                    key={item.label}
+                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                      active ? "border-slate-200 bg-white text-primary shadow-sm" : "border-transparent bg-transparent text-slate-500"
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-slate-400"}`} />
+                    <span>{item.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+
+          <div className="p-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "AI identity",
+                  value: state.voiceRoutingMode === "AI_FIRST" ? "AI-first" : "Hybrid routing",
+                  detail: "Voice, prompt, and call presentation"
+                },
+                {
+                  label: "Hours",
+                  value: `${openDaysCount} open day${openDaysCount === 1 ? "" : "s"}`,
+                  detail: `${state.timezone} workspace timezone`
+                },
+                {
+                  label: "Calendar",
+                  value: primaryCalendarConnection ? "Connected" : "Manual",
+                  detail: primaryCalendarConnection ? primaryCalendarConnection.provider : "No live provider yet"
+                },
+                {
+                  label: "Alerts",
+                  value: readinessHints.emails.length + readinessHints.phones.length > 0 ? "Configured" : "Needs routing",
+                  detail: `${readinessHints.emails.length + readinessHints.phones.length} active contact point${readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}`
+                }
+              ].map((item) => (
+                <div key={item.label} className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">{item.label}</p>
+                  <p className="mt-2 text-base font-semibold text-slate-950">{item.value}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <ClientStatusGrid
         items={[

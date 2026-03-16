@@ -548,25 +548,53 @@ export default function AdminOrgDetailPage() {
 
   return (
     <AdminGuard>
-      <div className="container py-10">
+      <div className="page-shell space-y-6 py-10">
         <AdminTopTabs className="mb-3" backFallbackHref="/admin/orgs" />
-        <Link href="/admin/orgs" className="text-sm text-primary">
-          Back to organizations
-        </Link>
-        <h1 className="mt-3 text-3xl font-bold">{org?.name || "Organization"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Live: {org?.live ? "Yes" : "No"}</p>
-        <p className="mt-1 text-sm text-amber-700">Next required action: {nextAction}</p>
-        {org?.status === "TESTING" ? (
-          <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-            Testing Mode. Complete test runs and notifications before go-live.
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-950 px-8 py-6 text-white">
+            <div className="space-y-2">
+              <Link href="/admin/orgs" className="text-sm font-medium text-primary transition hover:text-sky-300">
+                Back to organizations
+              </Link>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Organization detail</p>
+                <h1 className="mt-1 text-3xl font-black tracking-tight">{org?.name || "Organization"}</h1>
+                <p className="mt-1 text-sm text-slate-400">
+                  Live: {org?.live ? "Yes" : "No"} | Next required action: {nextAction}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${
+                org?.status === "LIVE"
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : org?.status === "TESTING"
+                    ? "bg-sky-500/15 text-sky-300"
+                    : org?.status === "PAUSED"
+                      ? "bg-amber-500/15 text-amber-300"
+                      : "bg-white/10 text-slate-200"
+              }`}>
+                {org?.status || "Unknown"}
+              </span>
+              <Button asChild className="rounded-2xl bg-primary px-5 shadow-lg shadow-sky-200/40 hover:bg-sky-500">
+                <Link href={`/admin/orgs/${id}/testing`}>Open testing lab</Link>
+              </Button>
+            </div>
           </div>
-        ) : null}
-        {org?.status === "PAUSED" ? (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Paused mode. Runtime is limited until billing and readiness are restored.
-          </div>
-        ) : null}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+          {(org?.status === "TESTING" || org?.status === "PAUSED") ? (
+            <div className={`border-b px-8 py-3 text-sm ${
+              org?.status === "TESTING"
+                ? "border-blue-200 bg-blue-50 text-blue-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}>
+              {org?.status === "TESTING"
+                ? "Testing Mode. Complete test runs and notifications before go-live."
+                : "Paused mode. Runtime is limited until billing and readiness are restored."}
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 px-8 py-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border bg-white p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
             <p className="mt-1 text-lg font-semibold">{org?.status || "-"}</p>
@@ -585,9 +613,10 @@ export default function AdminOrgDetailPage() {
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Client Users</p>
             <p className="mt-1 text-lg font-semibold">{org?.users?.length || 0}</p>
           </div>
-        </div>
+          </div>
+        </section>
 
-        <div className="mt-6 grid gap-6">
+        <div className="grid gap-6">
           <section className="rounded-lg border bg-white p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Readiness</h2>
