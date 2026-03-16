@@ -142,8 +142,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-slate-200 bg-white p-4 shadow-2xl">
-              <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-6">
+            <div className="rounded-[2.5rem] border border-slate-200 bg-white p-5 shadow-2xl">
+              <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-7">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Front Desk OS</p>
@@ -154,49 +154,77 @@ export default function HomePage() {
                     Live
                   </span>
                 </div>
-                <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-                  <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="rounded-xl bg-sky-50 px-3 py-2 text-sm font-bold text-[#3caff6]">Overview</div>
-                    <div className="px-3 py-2 text-sm font-medium text-slate-500">Calls</div>
-                    <div className="px-3 py-2 text-sm font-medium text-slate-500">Leads</div>
-                    <div className="px-3 py-2 text-sm font-medium text-slate-500">Messages</div>
-                    <div className="px-3 py-2 text-sm font-medium text-slate-500">Booking Queue</div>
+
+                <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">Queues</p>
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-sm font-bold text-[#3caff6]">Calls Requiring Review</div>
+                      <div className="px-3 py-2.5 text-sm font-medium text-slate-500">Lead Follow-up</div>
+                      <div className="px-3 py-2.5 text-sm font-medium text-slate-500">Missed-call SMS</div>
+                      <div className="px-3 py-2.5 text-sm font-medium text-slate-500">Booking Requests</div>
+                    </div>
                   </div>
+
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-3">
-                      {["Urgent Actions", "Calls Today", "Bookings"].map((item, index) => (
-                        <div key={item} className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{item}</p>
-                          <p className="mt-2 text-3xl font-black text-slate-900">{index === 0 ? "12" : index === 1 ? "48" : "15"}</p>
+                      {[
+                        ["Urgent", "12"],
+                        ["Awaiting Reply", "7"],
+                        ["Booked Today", "15"]
+                      ].map((item) => (
+                        <div key={item[0]} className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{item[0]}</p>
+                          <p className="mt-2 text-3xl font-black text-slate-900">{item[1]}</p>
                         </div>
                       ))}
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400">
-                          Action Needed Queue
+
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <div className="mb-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Current Focus</p>
+                            <p className="mt-1 text-lg font-bold text-slate-900">Sarah Smith</p>
+                          </div>
+                          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                            Booking Request
+                          </span>
                         </div>
-                        <div className="divide-y divide-slate-100">
-                          {[
-                            ["Urgent", "Missed Call", "Call Back"],
-                            ["Pending", "New Lead", "Process"],
-                            ["Follow-up", "SMS Sent", "Remind"]
-                          ].map((row) => (
-                            <div key={row[1]} className="grid grid-cols-[100px_minmax(0,1fr)_110px] items-center gap-3 px-4 py-3 text-sm">
-                              <span className="w-fit rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">{row[0]}</span>
-                              <span className="font-medium text-slate-700">{row[1]}</span>
-                              <span className="text-right text-xs font-bold text-[#3caff6]">{row[2]}</span>
+
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">AI Summary</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                              Caller wants a Saturday morning deep-cleaning slot and confirmed a strong preference for hypoallergenic products.
+                            </p>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-2xl border border-slate-200 p-4">
+                              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Service Type</p>
+                              <p className="mt-2 text-sm font-bold text-slate-900">Deep Cleaning</p>
                             </div>
-                          ))}
+                            <div className="rounded-2xl border border-slate-200 p-4">
+                              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Preferred Time</p>
+                              <p className="mt-2 text-sm font-bold text-slate-900">Saturday, 10:00 AM</p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <span className="inline-flex rounded-xl bg-[#3caff6] px-4 py-2 text-sm font-bold text-white">Call Back</span>
+                            <span className="inline-flex rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700">Send SMS</span>
+                          </div>
                         </div>
                       </div>
+
                       <div className="rounded-2xl border border-slate-200 bg-white p-4">
                         <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">Recent Activity</p>
                         <div className="space-y-4">
                           {[
-                            ["Call logged", "Incoming call handled by AI agent."],
-                            ["Booking confirmed", "Requested appointment moved into review."],
-                            ["SMS response", "Customer asked about earlier availability."]
+                            ["Call logged", "AI handled the call and generated a summary."],
+                            ["Lead qualified", "Urgent booking request routed into operator review."],
+                            ["Follow-up ready", "SMS draft prepared for immediate response."]
                           ].map((item) => (
                             <div key={item[0]} className="flex gap-3">
                               <div className="mt-1 h-2 w-2 rounded-full bg-[#3caff6]" />
@@ -293,8 +321,8 @@ export default function HomePage() {
                 and booking triage while giving admins reporting, testing, and org-level controls.
               </p>
             </div>
-            <div className="rounded-[2.5rem] border border-slate-200 bg-slate-900 p-4 shadow-2xl">
-              <div className="rounded-[2rem] border border-white/10 bg-[#101b22] p-6">
+            <div className="rounded-[2.5rem] border border-slate-200 bg-slate-900 p-5 shadow-2xl">
+              <div className="rounded-[2rem] border border-white/10 bg-[#101b22] p-7">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Internal Control Plane</p>
@@ -302,36 +330,62 @@ export default function HomePage() {
                   </div>
                   <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white">Internal Only</span>
                 </div>
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                  <div className="space-y-4 rounded-2xl bg-white p-4 text-slate-900">
+
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                  <div className="rounded-2xl bg-white p-5 text-slate-900">
                     <div className="grid gap-3 sm:grid-cols-3">
-                      {["Engine Healthy", "22 min ago", "No Quarantine"].map((item) => (
-                        <div key={item} className="rounded-2xl border border-slate-200 p-4">
-                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{item}</p>
+                      {[
+                        ["Reporting Engine", "Healthy"],
+                        ["Last Global Batch", "22 min ago"],
+                        ["Quarantine", "Clear"]
+                      ].map((item) => (
+                        <div key={item[0]} className="rounded-2xl border border-slate-200 p-4">
+                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{item[0]}</p>
+                          <p className="mt-3 text-lg font-bold text-slate-900">{item[1]}</p>
                         </div>
                       ))}
                     </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {["Daily Operational Health", "Billing Audit", "Readiness Baseline"].map((item) => (
-                        <div key={item} className="rounded-2xl border border-slate-200 p-4">
-                          <p className="text-sm font-bold">{item}</p>
-                          <div className="mt-4 flex gap-2">
-                            <span className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-bold text-[#3caff6]">Configure</span>
-                            <span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">Preview</span>
-                          </div>
+
+                    <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+                      <div className="mb-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Report Definitions</p>
+                          <p className="mt-1 text-lg font-bold text-slate-900">Operational diagnostics ready to run</p>
                         </div>
-                      ))}
+                        <span className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-bold text-[#3caff6]">Create Report</span>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {[
+                          ["Daily Health", "Latency, call quality, drop-off metrics"],
+                          ["Billing Audit", "Failures, blocks, and plan exceptions"],
+                          ["Readiness Baseline", "Provisioning and rollout status"]
+                        ].map((item) => (
+                          <div key={item[0]} className="rounded-2xl bg-slate-50 p-4">
+                            <p className="text-sm font-bold text-slate-900">{item[0]}</p>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">{item[1]}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-2xl bg-white/5 p-4 text-white">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Recipients</p>
-                    <div className="mt-4 space-y-3">
-                      {["Founder", "Ops Lead", "Support"].map((item) => (
-                        <div key={item} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-sm font-bold">{item}</p>
-                          <p className="mt-1 text-xs text-slate-400">Scheduled report delivery</p>
-                        </div>
-                      ))}
+
+                  <div className="space-y-4 rounded-2xl bg-white/5 p-4 text-white">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Recipients</p>
+                      <div className="mt-3 space-y-3">
+                        {["Founder", "Ops Lead", "Support"].map((item) => (
+                          <div key={item} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-sm font-bold">{item}</p>
+                            <p className="mt-1 text-xs text-slate-400">Scheduled report delivery</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                      <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Batch Controls</p>
+                      <p className="mt-2 text-sm font-medium text-white">Validation clear. Next run scheduled and monitored.</p>
                     </div>
                   </div>
                 </div>
