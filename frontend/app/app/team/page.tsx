@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { CheckCircle2, Clock3, Filter, Mail, MoreVertical, Plus, Search, Shield, Users } from "lucide-react";
 import {
   fetchTeamMembers,
   getBillingStatus,
@@ -15,7 +16,7 @@ import type { TeamMember } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
+import { ClientGateCard } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, PageHelpFab } from "@/components/ui/page";
@@ -53,6 +54,8 @@ export default function TeamPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [proEnabled, setProEnabled] = useState(true);
   const [roleBlocked, setRoleBlocked] = useState(false);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<"all" | "admins" | "operators">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,6 +148,21 @@ export default function TeamPage() {
   );
   const usedSeats = (seats.activeMembers ?? activeCount) + (seats.pendingInvites ?? pendingCount);
   const seatsFull = usedSeats >= seats.allowedSeats;
+  const visibleMembers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return members.filter((member) => {
+      const email = String(member.user?.email || member.invitedEmail || "").toLowerCase();
+      const role = String(member.role || "").toLowerCase();
+      const matchesSearch = !term || email.includes(term) || role.includes(term);
+      const matchesView =
+        view === "all"
+          ? true
+          : view === "admins"
+            ? member.role === "ADMIN"
+            : member.role === "MANAGER" || member.role === "VIEWER";
+      return matchesSearch && matchesView;
+    });
+  }, [members, search, view]);
 
   async function onInvite() {
     if (!inviteEmail.trim()) return;
@@ -246,73 +264,205 @@ export default function TeamPage() {
         ]}
       />
 
-      <ClientStatusGrid
-        items={[
-          {
-            label: "Team access",
-            value: roleBlocked ? "Locked" : "Ready",
-            detail: roleBlocked ? "This user cannot manage team access in the workspace." : "This workspace can review people, seats, and routing ownership here.",
-            tone: roleBlocked ? "warning" : "success"
-          },
-          {
-            label: "Plan access",
-            value: proEnabled ? "Active" : "Locked",
-            detail: proEnabled ? "Invites and multi-user seat management are available." : "Upgrade to unlock multi-user team management.",
-            tone: proEnabled ? "success" : "warning"
-          },
-          {
-            label: "Active members",
-            value: seats.activeMembers ?? activeCount,
-            detail: "Current people with active workspace access."
-          },
-          {
-            label: "Used seats",
-            value: usedSeats,
-            detail: `${seats.allowedSeats} allowed seat${seats.allowedSeats === 1 ? "" : "s"} in the current plan.`
-          }
-        ]}
-      />
+      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-6">
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Team Management</h2>
+            <p className="mt-1 text-sm text-slate-500">Manage your team members, roles, and permissions.</p>
+          </div>
+          {canManage && proEnabled && !roleBlocked ? (
+            <Button onClick={() => void onInvite()} disabled={inviting || seatsFull || !inviteEmail.trim()} className="gap-2">
+              <Plus className="h-4 w-4" />
+              {inviting ? "Sending..." : "Invite Member"}
+            </Button>
+          ) : null}
+        </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-        <Card className={frontDeskWorkspaceCardClass("hero")}>
-          <CardHeader className="pb-3">
-            <CardTitle>Routing at a glance</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-sm md:grid-cols-3">
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="page-eyebrow">Call routing</p>
-              <p className="mt-2 font-medium text-foreground">Review transfer destinations and after-hours behavior.</p>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search members..."
+                className="w-80 rounded-xl border-slate-200 bg-slate-50 pl-10"
+              />
             </div>
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="page-eyebrow">Alerts</p>
-              <p className="mt-2 font-medium text-foreground">Keep the right people informed when requests need follow-up.</p>
+            <div className="h-8 w-px bg-slate-200" />
+            <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+              {[
+                { key: "all", label: "All Members" },
+                { key: "admins", label: "Admins" },
+                { key: "operators", label: "Operators" }
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setView(item.key as typeof view)}
+                  className={`rounded-md px-4 py-1.5 text-xs font-bold ${
+                    view === item.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="page-eyebrow">Escalation</p>
-              <p className="mt-2 font-medium text-foreground">Use assistant behavior and routing rules to control urgent handoffs.</p>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <button type="button" className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:text-primary">
+            <Filter className="h-4 w-4" />
+          </button>
+        </div>
 
-        <Card className={frontDeskWorkspaceCardClass("subtle")}>
-          <CardHeader className="pb-3">
-            <CardTitle>Quick links</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p className="text-muted-foreground">
-              Routing behavior lives across assistant setup, notifications, and your active communication channels.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/app/settings" className="rounded-xl border border-slate-200/90 bg-white/[0.85] px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
-                Open Assistant Settings
-              </Link>
-              <Link href="/app/messages" className="rounded-xl border border-slate-200/90 bg-white/[0.85] px-3 py-2 font-medium text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 hover:text-slate-950">
-                Open Messages
-              </Link>
+        <div className="p-8">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            {loading ? (
+              <div className={frontDeskLoadingCardClass()}>
+                <div className="space-y-3">
+                  <div className={frontDeskSkeletonLineClass("md")} />
+                  <div className={frontDeskSkeletonLineClass()} />
+                  <div className={frontDeskSkeletonLineClass("lg")} />
+                </div>
+              </div>
+            ) : (
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="px-8 py-4">Member</th>
+                    <th className="px-8 py-4">Role</th>
+                    <th className="px-8 py-4">Status</th>
+                    <th className="px-8 py-4">Last Active</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {visibleMembers.map((member) => {
+                    const email = member.user?.email || member.invitedEmail || "Pending invite";
+                    const initials = email.slice(0, 2).toUpperCase();
+                    const isPending = member.status === "INVITED";
+                    const isSelf = member.user?.id === currentUserId;
+                    const roleLabel =
+                      member.role === "ADMIN" ? "Admin" : member.role === "MANAGER" ? "Operator" : "Viewer";
+
+                    return (
+                      <tr key={member.id} className="group hover:bg-slate-50 transition-colors">
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 font-bold text-primary shadow-sm">
+                              {initials}
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900">{email.split("@")[0]}</h4>
+                              <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                                <Mail className="h-3 w-3" />
+                                {email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-slate-400" />
+                            {canManage ? (
+                              <select
+                                className="h-8 rounded-md border bg-background px-2 text-xs font-bold"
+                                value={toRoleInput(member.role)}
+                                onChange={(event) => void onRoleChange(member, event.target.value as "admin" | "manager" | "viewer")}
+                                disabled={savingId === member.id || isSelf}
+                                title={isSelf ? "You cannot change your own role." : undefined}
+                              >
+                                <option value="admin">Admin</option>
+                                <option value="manager">Manager</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                            ) : (
+                              <span className="text-sm font-bold text-slate-700">{roleLabel}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isPending ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
+                            {isPending ? <Clock3 className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                            {isPending ? "Pending" : "Active"}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                            <Clock3 className="h-4 w-4" />
+                            {formatDate(member.acceptedAt || member.invitedAt)}
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 text-right">
+                          {canManage && proEnabled ? (
+                            <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                              {isPending ? (
+                                <Button size="sm" variant="outline" onClick={() => void onResend(member)} disabled={savingId === member.id}>
+                                  Resend
+                                </Button>
+                              ) : null}
+                              {isSelf ? (
+                                <span className="text-xs text-muted-foreground">Current user</span>
+                              ) : (
+                                <Button size="sm" variant="outline" onClick={() => void onRemove(member)} disabled={savingId === member.id}>
+                                  Remove
+                                </Button>
+                              )}
+                              <button type="button" className="rounded-lg p-2 text-slate-400 transition hover:bg-primary/5 hover:text-primary">
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!visibleMembers.length ? (
+                    <tr>
+                      <td className="px-8 py-8" colSpan={5}>
+                        <div className={frontDeskEmptyStateClass()}>
+                          No matching team members yet. Invited teammates and active operators will appear here once the office starts sharing access.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
+            <div className="flex items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Users className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Total Members</p>
+                <p className="text-3xl font-extrabold text-slate-900">{members.length}</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                <CheckCircle2 className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Active Now</p>
+                <p className="text-3xl font-extrabold text-slate-900">{seats.activeMembers ?? activeCount}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                <Clock3 className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Pending Invites</p>
+                <p className="text-3xl font-extrabold text-slate-900">{seats.pendingInvites ?? pendingCount}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {roleBlocked ? (
         <ClientGateCard
@@ -414,100 +564,6 @@ export default function TeamPage() {
         </Card>
       ) : null}
 
-      <Card className={`${frontDeskWorkspaceCardClass("default")} ${!proEnabled || roleBlocked ? "opacity-60" : ""}`}>
-        <CardHeader className="pb-3">
-          <CardTitle>Team members and role coverage</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className={frontDeskLoadingCardClass()}>
-              <div className="space-y-3">
-                <div className={frontDeskSkeletonLineClass("md")} />
-                <div className={frontDeskSkeletonLineClass()} />
-                <div className={frontDeskSkeletonLineClass("lg")} />
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="border-b bg-muted/30">
-                  <tr>
-                    <th className="p-2">Email</th>
-                    <th className="p-2">Role</th>
-                    <th className="p-2">Status</th>
-                    <th className="p-2">Invited</th>
-                    <th className="p-2">Joined</th>
-                    <th className="p-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((member) => (
-                    <tr key={member.id} className="border-b">
-                      <td className="p-2">{member.user?.email || member.invitedEmail}</td>
-                      <td className="p-2">
-                        {canManage ? (
-                          (() => {
-                            const isSelf = member.user?.id === currentUserId;
-                            return (
-                          <select
-                            className="h-8 rounded-md border bg-background px-2 text-xs"
-                            value={toRoleInput(member.role)}
-                            onChange={(event) =>
-                              void onRoleChange(member, event.target.value as "admin" | "manager" | "viewer")
-                            }
-                            disabled={savingId === member.id || isSelf}
-                            title={isSelf ? "You cannot change your own role." : undefined}
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="manager">Manager</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
-                            );
-                          })()
-                        ) : (
-                          member.role
-                        )}
-                      </td>
-                      <td className="p-2">{member.status}</td>
-                      <td className="p-2">{formatDate(member.invitedAt)}</td>
-                      <td className="p-2">{formatDate(member.acceptedAt)}</td>
-                      <td className="p-2">
-                        {canManage && proEnabled ? (
-                          <div className="flex gap-2">
-                            {member.status === "INVITED" ? (
-                              <Button size="sm" variant="outline" onClick={() => void onResend(member)} disabled={savingId === member.id}>
-                                Resend
-                              </Button>
-                            ) : null}
-                            {member.user?.id === currentUserId ? (
-                              <span className="text-xs text-muted-foreground">Current user</span>
-                            ) : (
-                              <Button size="sm" variant="outline" onClick={() => void onRemove(member)} disabled={savingId === member.id}>
-                                Remove
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {!members.length ? (
-                    <tr>
-                      <td className="p-2 text-muted-foreground" colSpan={6}>
-                        <div className={frontDeskEmptyStateClass()}>
-                          No team members yet. Invited teammates and active operators will appear here once the office starts sharing access.
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
