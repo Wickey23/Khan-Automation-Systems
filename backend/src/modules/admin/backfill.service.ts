@@ -53,7 +53,7 @@ function normalizeOutcome(value: string) {
 async function fetchVapiCalls(): Promise<Array<Record<string, unknown>>> {
   if (!env.VAPI_API_KEY) return [];
   const headers = { Authorization: `Bearer ${env.VAPI_API_KEY}` };
-  const endpoints = ["https://api.vapi.ai/call?limit=100", "https://api.vapi.ai/calls?limit=100"];
+  const endpoints = ["https://api.vapi.ai/call?limit=50", "https://api.vapi.ai/calls?limit=50"];
 
   for (const url of endpoints) {
     try {
@@ -269,7 +269,7 @@ export async function backfillMissedVapiCalls(
   const unresolved = await prisma.auditLog.findMany({
     where: { action: "VAPI_WEBHOOK_UNRESOLVED" },
     orderBy: { createdAt: "asc" },
-    take: 500
+    take: 100
   });
 
   let resolved = 0;

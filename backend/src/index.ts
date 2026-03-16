@@ -452,7 +452,7 @@ function startSecuritySignalRetentionWorker() {
 
 function startFinalizeBookingWorker() {
   const interval = Number.parseInt(env.FINALIZE_BOOKING_WORKER_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 500) return;
+  if (!Number.isFinite(interval) || interval < 5_000) return;
   finalizeBookingTimer = setInterval(() => {
     if (isFinalizeBookingWorkerRunning) return;
     isFinalizeBookingWorkerRunning = true;
@@ -482,7 +482,7 @@ function startFinalizeBookingWorker() {
 function startOutreachRunnerWorker() {
   if (env.OUTREACH_RUNNER_ENABLED !== "true") return;
   const interval = Number.parseInt(env.OUTREACH_RUNNER_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 1000) return;
+  if (!Number.isFinite(interval) || interval < 60_000) return;
   outreachRunnerTimer = setInterval(() => {
     if (isOutreachRunnerWorkerRunning) return;
     isOutreachRunnerWorkerRunning = true;
