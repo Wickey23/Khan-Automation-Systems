@@ -54,7 +54,7 @@ export default function ContactPage() {
                 </p>
                 <p className="flex items-center gap-3 font-bold text-slate-700">
                   <Phone size={18} className="text-[#3caff6]" />
-                  Contact sales for your routing and setup plan
+                  hello@khansystems.com
                 </p>
               </div>
             </div>

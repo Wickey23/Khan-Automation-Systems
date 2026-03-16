@@ -59,7 +59,7 @@ export function PublicFooter() {
         </div>
       </div>
       <div className="mx-auto mt-24 max-w-7xl border-t border-slate-100 pt-8 text-center">
-        <p className="text-xs font-medium text-slate-400">© 2026 Front Desk OS by Khan Systems. All rights reserved.</p>
+        <p className="text-xs font-medium text-slate-400">&copy; 2026 Front Desk OS by Khan Systems. All rights reserved.</p>
       </div>
     </footer>
   );
