@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Calendar, Mail, MessageSquare, Phone, Send, ShieldCheck } from "lucide-react";
 import { PublicFooter } from "@/components/site/public-footer";
 import { PublicNav } from "@/components/site/public-nav";
+import { siteContact } from "@/lib/site-contact";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -50,11 +51,11 @@ export default function ContactPage() {
               <div className="space-y-2">
                 <p className="flex items-center gap-3 font-bold text-slate-700">
                   <Mail size={18} className="text-[#3caff6]" />
-                  hello@khansystems.com
+                  {siteContact.generalEmail}
                 </p>
                 <p className="flex items-center gap-3 font-bold text-slate-700">
                   <Phone size={18} className="text-[#3caff6]" />
-                  hello@khansystems.com
+                  {siteContact.supportEmail}
                 </p>
               </div>
             </div>

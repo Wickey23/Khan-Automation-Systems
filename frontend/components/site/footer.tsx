@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/site/brand-mark";
 import { siteConfig } from "@/lib/config";
+import { siteContact } from "@/lib/site-contact";
 
 export function Footer() {
   return (
@@ -13,7 +14,7 @@ export function Footer() {
         </div>
         <div className="space-y-2 text-sm">
           <p className="font-medium">Legal & Contact</p>
-          <p className="text-muted-foreground">hello@khanautomationsystems.com</p>
+          <p className="text-muted-foreground">{siteContact.generalEmail}</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/privacy" className="text-muted-foreground hover:text-foreground">
               Privacy Policy

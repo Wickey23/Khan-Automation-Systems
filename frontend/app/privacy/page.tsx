@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Eye, FileText, Lock, Shield } from "lucide-react";
 import { PublicFooter } from "@/components/site/public-footer";
 import { PublicNav } from "@/components/site/public-nav";
+import { siteContact } from "@/lib/site-contact";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -97,7 +98,7 @@ export default function PrivacyPage() {
             <section className="rounded-3xl border border-slate-200 bg-white p-8">
               <h2 className="mb-4 text-xl font-bold text-slate-900">Contact Privacy Team</h2>
               <p className="mb-4 text-slate-600">Questions about privacy or data handling can be sent to our privacy contact.</p>
-              <p className="font-bold text-[#3caff6]">privacy@khansystems.com</p>
+              <p className="font-bold text-[#3caff6]">{siteContact.privacyEmail}</p>
             </section>
           </div>
         </div>
