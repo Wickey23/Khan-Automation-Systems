@@ -3,721 +3,363 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, UserRoundSearch } from "lucide-react";
-import { fetchCustomerBase, fetchOrgLeads, getBillingStatus, getMe, updateLeadPipelineStage } from "@/lib/api";
-import { resolvePlanFeatures } from "@/lib/plan-features";
-import { clientBadgeClass } from "@/lib/client-badges";
-import type { CustomerBaseRecord, FrontDeskPriority, Lead } from "@/lib/types";
-import { useToast } from "@/components/site/toast-provider";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ClientModuleTabs } from "@/components/ui/client-module";
-import { Input } from "@/components/ui/input";
-import { PageHelpFab } from "@/components/ui/page";
 import {
-  frontDeskActionBadgeClass,
-  frontDeskCardClass,
-  frontDeskContextPanelClass,
-  frontDeskEmptyStateClass,
-  frontDeskLoadingCardClass,
-  frontDeskMetricCardClass,
-  frontDeskOutcomeSurfaceClass,
-  frontDeskOutcomeBadgeMeta,
-  frontDeskPriorityBadgeClass,
-  frontDeskPriorityMeta,
-  frontDeskWorkspaceCardClass,
-  frontDeskSkeletonLineClass
-} from "@/lib/front-desk-ui";
+  AlertCircle,
+  ArrowRight,
+  Calendar,
+  Mail,
+  MessageSquare,
+  Phone,
+  Plus,
+  Search,
+  Sparkles,
+  Tag,
+  User
+} from "lucide-react";
+import { fetchOrgLeads, getMe, updateLeadPipelineStage } from "@/lib/api";
+import type { FrontDeskPriority, Lead } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-const pipelineStages = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"] as const;
-const queueStates = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
-type PipelineStage = (typeof pipelineStages)[number];
+type PipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
-function prettyStage(value: string) {
-  return value.replaceAll("_", " ").toLowerCase();
+function initials(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("") || "FD";
 }
 
-function frontDeskPriorityWeight(priority: FrontDeskPriority | undefined) {
-  if (priority === "urgent") return 0;
-  if (priority === "high") return 1;
-  if (priority === "normal") return 2;
-  return 3;
+function leadName(lead: Lead) {
+  return String(lead.name || lead.phone || lead.email || "Unknown lead").trim();
 }
 
-function frontDeskStateWeight(state: string | undefined) {
-  if (state === "needs_follow_up") return 0;
-  if (state === "contacted") return 1;
-  if (state === "booked") return 2;
-  if (state === "closed") return 3;
-  if (state === "spam") return 4;
-  return 1;
-}
-
-function frontDeskTone(lead: Lead) {
-  if (lead.frontDesk?.frontDeskPriority === "urgent") return "critical";
-  if (lead.frontDesk?.frontDeskPriority === "high") return "warning";
-  if (lead.frontDesk?.state === "booked") return "booking";
-  if (lead.frontDesk?.state === "contacted") return "pending";
-  if (lead.frontDesk?.state === "closed") return "success";
-  if (lead.frontDesk?.state === "spam") return "neutral";
-  return leadStatusTone(lead.status);
-}
-
-function frontDeskStateLabel(lead: Lead) {
-  switch (lead.frontDesk?.state) {
-    case "needs_follow_up":
-      return "Needs follow-up";
-    case "contacted":
-      return "Contacted";
-    case "booked":
-      return "Booked";
-    case "closed":
-      return "Resolved";
-    case "spam":
-      return "Spam";
-    default:
-      return lead.status;
-  }
-}
-
-function frontDeskPriorityLabel(lead: Lead) {
-  return frontDeskPriorityMeta(lead.frontDesk?.frontDeskPriority).label;
-}
-
-function leadWorkTypeLabel(lead: Lead) {
-  if (lead.frontDesk?.recommendedAction === "Call back now") return "Callback";
-  if (lead.frontDesk?.recommendedAction === "Offer times" || lead.pipelineStage === "NEEDS_SCHEDULING") return "Scheduling";
-  if (lead.frontDesk?.state === "booked") return "Booked work";
+function leadStatus(lead: Lead) {
+  if (lead.frontDesk?.state === "needs_follow_up") return "New Inquiry";
+  if (lead.frontDesk?.state === "contacted") return "Awaiting Reply";
+  if (lead.frontDesk?.state === "booked") return "Qualified";
   if (lead.frontDesk?.state === "closed") return "Resolved";
   if (lead.frontDesk?.state === "spam") return "Spam";
-  return "General follow-up";
+  return lead.status.replaceAll("_", " ");
 }
 
-function queueStateLabel(value: (typeof queueStates)[number]) {
-  switch (value) {
-    case "needs_follow_up":
-      return "Needs follow-up";
-    case "contacted":
-      return "Contacted";
-    case "booked":
-      return "Booked";
-    case "closed":
-      return "Resolved";
-    case "spam":
-      return "Spam";
-    default:
-      return "All queue states";
-  }
+function leadUrgency(priority?: FrontDeskPriority) {
+  if (priority === "urgent") return { label: "High", color: "text-red-600", bg: "bg-red-50" };
+  if (priority === "high") return { label: "Medium", color: "text-amber-600", bg: "bg-amber-50" };
+  if (priority === "normal") return { label: "Medium", color: "text-amber-600", bg: "bg-amber-50" };
+  return { label: "Low", color: "text-slate-600", bg: "bg-slate-50" };
 }
 
-function formatActivityLabel(lead: Lead) {
-  if (!lead.frontDesk?.lastActivityAt) return `Created ${new Date(lead.createdAt).toLocaleDateString()}`;
-  const kind = lead.frontDesk.lastActivityType ? lead.frontDesk.lastActivityType.replaceAll("_", " ") : "activity";
-  return `Last ${kind} ${new Date(lead.frontDesk.lastActivityAt).toLocaleDateString()}`;
+function leadSummary(lead: Lead) {
+  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "No lead summary available yet.";
 }
 
-function summarizeLead(lead: Lead) {
-  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "No service details yet.";
+function leadSource(lead: Lead) {
+  if (lead.source === "PHONE_CALL") return "Direct Dial";
+  if (lead.source === "SMS") return "SMS";
+  if (lead.source === "WEB_FORM") return "Web Form";
+  return lead.source || lead.sourcePage || "Lead Queue";
 }
 
-function latestLeadMovementLabel(lead: Lead) {
-  if (lead.latestAppointmentRequestId && lead.frontDesk?.recommendedAction === "Offer times") {
-    return "Booking follow-up in progress";
-  }
-  if (lead.latestMessageThreadId && lead.frontDesk?.state === "needs_follow_up") {
-    return "Customer replied";
-  }
-  if (lead.frontDesk?.state === "contacted") {
-    return "Office sent follow-up";
-  }
-  return formatActivityLabel(lead);
+function leadRecommendedAction(lead: Lead) {
+  return lead.frontDesk?.recommendedAction || (lead.pipelineStage === "NEEDS_SCHEDULING" ? "Book Appointment" : "Review Lead");
 }
 
-function leadNextActionLabel(lead: Lead) {
-  if (lead.latestAppointmentRequestId && lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied") {
-    return "Review reply";
-  }
-  return lead.frontDesk?.recommendedAction || "Review request";
-}
-
-function leadStatusTone(status: Lead["status"]) {
-  switch (status) {
-    case "NEW":
-      return "warning";
-    case "CONTACTED":
-    case "QUALIFIED":
-      return "pending";
-    case "WON":
-      return "success";
-    case "LOST":
-      return "critical";
-    default:
-      return "neutral";
-  }
-}
-
-function leadQuickActions(lead: Lead): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
-  if (lead.frontDesk?.state === "spam") {
-    return [{ label: "Mark resolved", stage: "COMPLETED", tone: "outline" }];
-  }
-  if (lead.frontDesk?.state === "booked" || lead.pipelineStage === "SCHEDULED") {
-    return [
-      { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
-      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
-    ];
-  }
-  if (lead.frontDesk?.recommendedAction === "Offer times" || lead.pipelineStage === "NEEDS_SCHEDULING") {
-    return [
-      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
-      { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
-    ];
-  }
-  if (lead.frontDesk?.state === "contacted") {
-    return [
-      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
-      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
-    ];
-  }
-  return [
-    { label: "Keep open", stage: "NEW_LEAD", tone: "outline" },
-    { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" }
-  ];
-}
-
-function leadOutcomeNote(lead: Lead) {
-  if (lead.frontDesk?.state === "booked") {
-    return "This request is already booked. Use the linked booking or inbox thread only if the office needs to confirm details.";
-  }
-  if (lead.frontDesk?.state === "closed") {
-    return "This request is already resolved. Review the linked records only if the office needs to double-check the outcome.";
-  }
-  return null;
-}
-
-function leadOutcomeListNote(lead: Lead) {
-  if (lead.frontDesk?.state === "booked") return "Booked work already confirmed.";
-  if (lead.frontDesk?.state === "closed") return "Handled and resolved by the office.";
-  return null;
-}
-
-function leadOutcomeBadge(lead: Lead) {
-  if (lead.frontDesk?.state === "booked") return frontDeskOutcomeBadgeMeta("booked");
-  if (lead.frontDesk?.state === "closed") return frontDeskOutcomeBadgeMeta("resolved");
-  if (lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied") return frontDeskOutcomeBadgeMeta("saved");
-  return null;
+function activityLabel(lead: Lead) {
+  const value = lead.frontDesk?.lastActivityAt || lead.updatedAt || lead.createdAt;
+  const mins = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+  if (mins < 60) return `${mins || 1} mins ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hrs ago`;
+  return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 export default function AppLeadsPage() {
-  const { showToast } = useToast();
   const searchParams = useSearchParams();
   const highlightedLeadId = searchParams.get("leadId") || "";
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
-  const [plan, setPlan] = useState<"NONE" | "STARTER" | "PRO">("NONE");
-  const [role, setRole] = useState<"CLIENT" | "CLIENT_STAFF" | "CLIENT_ADMIN" | "ADMIN" | "SUPER_ADMIN" | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [queueFilter, setQueueFilter] = useState<(typeof queueStates)[number]>("ALL");
-  const [pipelineAvailable, setPipelineAvailable] = useState(true);
-  const [savingPipelineLeadId, setSavingPipelineLeadId] = useState<string | null>(null);
-  const [view, setView] = useState<"OPEN_LEADS" | "CUSTOMERS">("OPEN_LEADS");
+  const [selectedLeadId, setSelectedLeadId] = useState<string>("");
+  const [canEdit, setCanEdit] = useState(false);
+  const [savingStage, setSavingStage] = useState<PipelineStage | null>(null);
 
   useEffect(() => {
-    void Promise.all([fetchOrgLeads(), getBillingStatus(), getMe(), fetchCustomerBase().catch(() => null)])
-      .then(([leadData, billing, me, customerBaseData]) => {
-        setLeads(leadData.leads || []);
-        setPipelineAvailable(leadData.pipelineFeatureEnabled !== false);
-        const features = resolvePlanFeatures({ plan: billing.subscription?.plan, status: billing.subscription?.status });
-        setPlan(features.plan);
-        setRole(me.user.role);
-        setCustomers(customerBaseData?.customers || []);
-      })
-      .catch(() => {
-        setLeads([]);
-        setCustomers([]);
-        setPlan("NONE");
-        setRole(null);
-        setPipelineAvailable(false);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    void getMe()
+      .then((me) => setCanEdit(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role)))
+      .catch(() => setCanEdit(false));
   }, []);
 
   useEffect(() => {
-    if (!highlightedLeadId) return;
-    setQuery(highlightedLeadId);
-    setView("OPEN_LEADS");
+    let active = true;
+    setLoading(true);
+    void fetchOrgLeads()
+      .then((data) => {
+        if (!active) return;
+        setLeads(data.leads || []);
+        setSelectedLeadId((current) => highlightedLeadId || current || data.leads?.[0]?.id || "");
+      })
+      .catch(() => {
+        if (!active) return;
+        setLeads([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [highlightedLeadId]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const filteredLeads = useMemo(() => {
+    const term = query.trim().toLowerCase();
     return leads.filter((lead) => {
-      if (queueFilter !== "ALL" && lead.frontDesk?.state !== queueFilter) return false;
-      if (!q) return true;
-      return [lead.id, lead.name, lead.business, lead.phone || "", lead.email || "", lead.source || "", lead.status, lead.message || "", summarizeLead(lead), leadNextActionLabel(lead), lead.frontDesk?.state || ""]
+      if (!term) return true;
+      return [
+        lead.id,
+        leadName(lead),
+        lead.phone,
+        lead.email,
+        lead.business,
+        leadSource(lead),
+        leadSummary(lead),
+        leadRecommendedAction(lead)
+      ]
         .join(" ")
         .toLowerCase()
-        .includes(q);
-    }).sort((a, b) => {
-      const stateDelta = frontDeskStateWeight(a.frontDesk?.state) - frontDeskStateWeight(b.frontDesk?.state);
-      if (stateDelta !== 0) return stateDelta;
-      const priorityDelta = frontDeskPriorityWeight(a.frontDesk?.frontDeskPriority) - frontDeskPriorityWeight(b.frontDesk?.frontDeskPriority);
-      if (priorityDelta !== 0) return priorityDelta;
-      return new Date(b.frontDesk?.lastActivityAt || b.updatedAt).getTime() - new Date(a.frontDesk?.lastActivityAt || a.updatedAt).getTime();
+        .includes(term);
     });
-  }, [leads, query, queueFilter]);
+  }, [leads, query]);
 
-  const customerFiltered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((customer) =>
-      [customer.displayName, customer.phoneNumber, customer.lastOutcome || ""].join(" ").toLowerCase().includes(q)
-    );
-  }, [customers, query]);
+  const selectedLead =
+    filteredLeads.find((lead) => lead.id === selectedLeadId) ||
+    leads.find((lead) => lead.id === selectedLeadId) ||
+    filteredLeads[0] ||
+    leads[0] ||
+    null;
 
-  const planLabel = plan === "PRO" ? "Pro" : plan === "STARTER" ? "Standard" : "No active plan";
-  const canEditPipeline = role === "CLIENT_STAFF" || role === "CLIENT_ADMIN" || role === "ADMIN" || role === "SUPER_ADMIN";
-
-  async function onPipelineChange(leadId: string, pipelineStage: (typeof pipelineStages)[number]) {
-    if (!canEditPipeline || !pipelineAvailable) return;
-    setSavingPipelineLeadId(leadId);
+  async function setStage(stage: PipelineStage) {
+    if (!selectedLead || !canEdit) return;
+    setSavingStage(stage);
     try {
-      await updateLeadPipelineStage(leadId, pipelineStage);
-      setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, pipelineStage } : lead)));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Try again.";
-      if (message.toLowerCase().includes("pipeline feature is disabled")) setPipelineAvailable(false);
-      showToast({ title: "Could not update pipeline stage", description: message, variant: "error" });
+      await updateLeadPipelineStage(selectedLead.id, stage);
+      setLeads((current) => current.map((lead) => (lead.id === selectedLead.id ? { ...lead, pipelineStage: stage } : lead)));
     } finally {
-      setSavingPipelineLeadId(null);
+      setSavingStage(null);
     }
   }
 
-  const stats =
-    view === "OPEN_LEADS"
-      ? [
-          { label: "Plan", value: planLabel },
-          { label: "Need follow-up", value: filtered.filter((lead) => lead.frontDesk?.needsFollowUp).length },
-          { label: "Urgent", value: filtered.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent").length },
-          { label: "Need scheduling", value: filtered.filter((lead) => lead.pipelineStage === "NEEDS_SCHEDULING" || lead.frontDesk?.recommendedAction === "Offer times").length }
-        ]
-      : [
-          { label: "Plan", value: planLabel },
-          { label: "Known customers", value: customerFiltered.length },
-          { label: "Repeat callers", value: customerFiltered.filter((customer) => customer.totalCalls > 1).length },
-          { label: "VIP", value: customerFiltered.filter((customer) => customer.flaggedVIP).length }
-        ];
-
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <UserRoundSearch className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Follow-up Queue</p>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900">Lead Queue</h1>
-            </div>
-          </div>
-          <label className="relative hidden md:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input readOnly value="" placeholder="Search leads..." className="h-10 w-64 rounded-2xl border-slate-200 bg-slate-50 pl-10" />
-          </label>
-        </div>
-        <div className="grid gap-4 px-6 py-5 md:grid-cols-4">
-          {stats.map((item) => (
-            <div key={item.label} className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">{item.label}</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{item.value}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {item.label === "Plan"
-                  ? "Current workspace package and feature tier."
-                  : item.label === "Need follow-up"
-                    ? "Requests still waiting on office action."
-                    : item.label === "Urgent"
-                      ? "Highest-priority items in the current queue."
-                      : item.label === "Need scheduling"
-                        ? "Leads nearest to booking."
-                        : "Saved customer context."}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <ClientModuleTabs
-        items={[
-          { value: "OPEN_LEADS", label: "Follow-up", badge: filtered.length },
-          { value: "CUSTOMERS", label: "Customers", badge: customerFiltered.length, disabled: plan !== "PRO", title: plan !== "PRO" ? "Upgrade to Pro to unlock customer memory." : undefined }
-        ]}
-        value={view}
-        onChange={setView}
-      />
-
-      <PageHelpFab
-        items={[
-          { label: "Use this page", text: "Work open requests that still need callback, scheduling, reply handling, or final resolution." },
-          { label: "Start here", text: "Open the freshest request first, confirm the latest movement, then choose the next step." },
-          { label: "Go next", text: "Move to Inbox for live customer replies or Booking Queue once the request is ready for scheduling." }
-        ]}
-      />
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
-        <div className={`${frontDeskWorkspaceCardClass("hero")} p-6 sm:p-7`}>
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Queue summary</p>
-              <p className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-slate-900">
-                {view === "OPEN_LEADS"
-                  ? filtered.length
-                    ? `${filtered.length} open requests are in the queue`
-                    : "No open requests need follow-up right now"
-                  : `${customerFiltered.length} known customers are in memory`}
-              </p>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                {view === "OPEN_LEADS"
-                  ? "Search, open the freshest request, and move it forward."
-                  : "Open customer memory when you need repeat-caller context."}
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-              {stats.map((item) => (
-                <div key={item.label} className={frontDeskMetricCardClass()}>
-                  <div className="p-5">
-                    <p className="page-eyebrow">{item.label}</p>
-                    <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{item.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className={`${frontDeskWorkspaceCardClass("default")} p-5`}>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Queue controls</p>
-              <p className="text-base font-semibold text-slate-900">Search the queue, change the current view, and keep customer memory close at hand.</p>
-            </div>
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={view === "OPEN_LEADS" ? "Search by name, business, phone, email, or source" : "Search customers by name or phone"}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              {view === "OPEN_LEADS" ? (
-                <label className="text-sm">
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">Queue state</span>
-                  <select
-                    value={queueFilter}
-                    onChange={(event) => setQueueFilter(event.target.value as (typeof queueStates)[number])}
-                    className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                  >
-                    {queueStates.map((state) => (
-                      <option key={state} value={state}>
-                        {queueStateLabel(state)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                  Pro customer memory view
-                </div>
-              )}
-              <div className="rounded-2xl border border-slate-200/90 bg-white/70 px-4 py-4 text-sm text-slate-700">
-                <p className="page-eyebrow">Customer memory</p>
-                <p className="mt-2 leading-6">
-                  Keep repeat callers and prior outcomes nearby when the office needs more context before responding.
-                </p>
-                <div className="mt-3">
-                  {plan === "PRO" ? (
-                    <Button asChild variant="outline" className="w-full">
-                      <Link href="/app/customer-base">Open customer memory</Link>
-                    </Button>
-                  ) : (
-                    <Button asChild className="w-full">
-                      <Link href="/app/billing">Upgrade to Pro</Link>
-                    </Button>
-                  )}
-                </div>
+    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+            <div className="flex items-center gap-4">
+              <h1 className="text-lg font-bold text-slate-900">Lead Queue</h1>
+              <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                <button className="rounded-md bg-white px-3 py-1 text-xs font-bold text-primary shadow-sm">Active Leads ({filteredLeads.length})</button>
+                <button className="px-3 py-1 text-xs font-medium text-slate-500">Archived</button>
               </div>
             </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search leads..."
+                  className="h-8 w-64 rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs outline-none focus:border-primary"
+                />
+              </div>
+              <button className="flex h-8 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-bold text-white shadow-sm hover:bg-primary/90">
+                <Plus className="h-3.5 w-3.5" />
+                Add Lead
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            <table className="w-full border-collapse text-left">
+              <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <tr>
+                  <th className="px-6 py-3">Lead Info</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Urgency</th>
+                  <th className="px-6 py-3">Last Activity</th>
+                  <th className="px-6 py-3 text-right">Recommended Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td className="px-6 py-10 text-sm text-slate-500" colSpan={5}>Loading leads...</td></tr>
+                ) : filteredLeads.length ? (
+                  filteredLeads.map((lead) => {
+                    const urgency = leadUrgency(lead.frontDesk?.frontDeskPriority);
+                    const selected = selectedLead?.id === lead.id;
+                    return (
+                      <tr
+                        key={lead.id}
+                        onClick={() => setSelectedLeadId(lead.id)}
+                        className={cn("group cursor-pointer transition-colors hover:bg-slate-50", selected && "bg-primary/5")}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold shadow-sm",
+                              selected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
+                            )}>
+                              {initials(leadName(lead))}
+                            </div>
+                            <div>
+                              <div className="text-sm font-bold text-slate-900">{leadName(lead)}</div>
+                              <div className="text-[11px] font-medium text-slate-500">{lead.phone || lead.email || "No contact info"}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Tag className="h-3 w-3 text-slate-400" />
+                            <span className="text-xs font-bold text-slate-600">{leadStatus(lead)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", urgency.bg, urgency.color)}>
+                            <AlertCircle className="h-2.5 w-2.5" />
+                            {urgency.label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-[11px] font-bold uppercase tracking-tighter text-slate-400">{activityLabel(lead)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button className={cn(
+                            "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all",
+                            lead.frontDesk?.frontDeskPriority === "urgent"
+                              ? "bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          )}>
+                            {leadRecommendedAction(lead)}
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr><td className="px-6 py-10 text-sm text-slate-500" colSpan={5}>No leads match this search.</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
 
-      {!pipelineAvailable && view === "OPEN_LEADS" ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Pipeline stage controls are currently disabled for this workspace.
-        </div>
-      ) : null}
+        <aside className="hidden w-96 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 xl:flex">
+          {selectedLead ? (
+            <>
+              <div className="border-b border-slate-200 bg-white p-6">
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-xl font-extrabold text-primary shadow-sm">
+                    {initials(leadName(selectedLead))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition-all hover:border-primary hover:text-primary"><Phone className="h-4 w-4" /></button>
+                    <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition-all hover:border-primary hover:text-primary"><MessageSquare className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-900">{leadName(selectedLead)}</h2>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                  Lead via {leadSource(selectedLead)} - {activityLabel(selectedLead)}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider", leadUrgency(selectedLead.frontDesk?.frontDeskPriority).bg, leadUrgency(selectedLead.frontDesk?.frontDeskPriority).color)}>
+                    <AlertCircle className="h-2.5 w-2.5" />
+                    {leadUrgency(selectedLead.frontDesk?.frontDeskPriority).label} Urgency
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <Tag className="h-2.5 w-2.5" />
+                    {leadStatus(selectedLead)}
+                  </span>
+                </div>
+              </div>
 
-      {!canEditPipeline && view === "OPEN_LEADS" ? (
-        <div className="rounded-2xl border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          Your role has read-only access to lead pipeline stages.
-        </div>
-      ) : null}
+              <div className="flex-1 space-y-8 overflow-y-auto p-6">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Operator Context</h4>
+                  </div>
+                  <p className="text-sm font-medium italic leading-relaxed text-slate-700">&ldquo;{leadSummary(selectedLead)}&rdquo;</p>
+                </div>
 
-      {view === "OPEN_LEADS" ? (
-        <div className="space-y-3">
-          {loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className={frontDeskLoadingCardClass()}>
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className={frontDeskSkeletonLineClass("md")} />
-                          <div className={frontDeskSkeletonLineClass("sm")} />
-                        </div>
-                        <div className="flex gap-2">
-                          <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200/90" />
-                          <div className="h-6 w-24 animate-pulse rounded-full bg-slate-200/90" />
-                        </div>
+                <div>
+                  <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Lead Details</h3>
+                  <div className="space-y-4 px-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Phone className="h-3.5 w-3.5" /></div>
+                      <div>
+                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Phone</p>
+                        <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "N/A"}</p>
                       </div>
-                      <div className="h-6 w-36 animate-pulse rounded-full bg-slate-200/90" />
-                      <div className={frontDeskSkeletonLineClass()} />
-                      <div className={frontDeskSkeletonLineClass("lg")} />
                     </div>
-                    <div className={frontDeskLoadingCardClass()}>
-                      <div className="space-y-3">
-                        <div className={frontDeskSkeletonLineClass("sm")} />
-                        <div className="h-10 animate-pulse rounded-xl bg-slate-200/90" />
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Mail className="h-3.5 w-3.5" /></div>
+                      <div>
+                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</p>
+                        <p className="text-xs font-bold text-slate-900">{selectedLead.email || "N/A"}</p>
                       </div>
                     </div>
-                    <div className={frontDeskLoadingCardClass()}>
-                      <div className="space-y-3">
-                        <div className={frontDeskSkeletonLineClass("sm")} />
-                        <div className={frontDeskSkeletonLineClass("md")} />
-                        <div className={frontDeskSkeletonLineClass("lg")} />
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><User className="h-3.5 w-3.5" /></div>
+                      <div>
+                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Source</p>
+                        <p className="text-xs font-bold text-slate-900">{leadSource(selectedLead)}</p>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : filtered.length ? (
-            filtered.map((lead) => (
-                <Card key={lead.id} className={`${frontDeskCardClass("default")} ${
-                  lead.frontDesk?.state === "closed"
-                    ? frontDeskOutcomeSurfaceClass("resolved")
-                    : lead.frontDesk?.state === "booked"
-                      ? frontDeskOutcomeSurfaceClass("booked")
-                      : lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied"
-                        ? frontDeskOutcomeSurfaceClass("saved")
-                        : frontDeskOutcomeSurfaceClass("active")
-                } ${lead.id === highlightedLeadId ? "border-primary ring-1 ring-primary/20 shadow-[0_10px_24px_rgba(31,58,138,0.08)]" : ""}`}>
-                <CardContent className="space-y-5 p-5 sm:p-6">
-                  <div className="flex flex-col gap-4 border-b border-border/60 pb-5 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <p className="text-[20px] font-semibold tracking-[-0.02em] text-foreground">{lead.name}</p>
-                        <p className="text-sm text-muted-foreground">{lead.business}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(leadNextActionLabel(lead))}`}>
-                          {leadNextActionLabel(lead)}
-                        </span>
-                        <Badge className={clientBadgeClass(frontDeskTone(lead))}>{leadWorkTypeLabel(lead)}</Badge>
-                        <Badge className={clientBadgeClass(frontDeskTone(lead))}>{frontDeskStateLabel(lead)}</Badge>
-                        <Badge className={frontDeskPriorityBadgeClass(lead.frontDesk?.frontDeskPriority)}>{frontDeskPriorityLabel(lead)}</Badge>
-                        {leadOutcomeBadge(lead) ? (
-                          <Badge className={clientBadgeClass(leadOutcomeBadge(lead)!.tone)}>{leadOutcomeBadge(lead)!.label}</Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="grid gap-2 sm:flex sm:flex-wrap xl:justify-end">
-                      {leadQuickActions(lead).map((action) => (
-                        <Button
-                          key={`${lead.id}-${action.stage}`}
-                          size="sm"
-                          variant={action.tone}
-                          className="w-full sm:w-auto"
-                          disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
-                          onClick={() => void onPipelineChange(lead.id, action.stage)}
-                        >
-                          {action.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
-                          <p className="page-eyebrow">Contact</p>
-                          <p className="text-sm font-medium text-foreground">{lead.phone || lead.email || "No contact info"}</p>
-                        </div>
-                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
-                          <p className="page-eyebrow">Service request</p>
-                          <p className="text-sm text-foreground">{summarizeLead(lead)}</p>
-                        </div>
-                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
-                          <p className="page-eyebrow">Urgency</p>
-                          <p className="text-sm text-foreground">{lead.urgency || lead.frontDesk?.frontDeskPriority || "normal"}</p>
-                        </div>
-                        <div className={`${frontDeskContextPanelClass()} space-y-1`}>
-                          <p className="page-eyebrow">Latest movement</p>
-                          <p className="text-sm text-foreground">{latestLeadMovementLabel(lead)}</p>
-                        </div>
-                    </div>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,320px)] xl:items-start">
-                      <div className="grid gap-4">
-                        <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div className="space-y-1">
-                              <p className="page-eyebrow">Customer context</p>
-                              <p className="font-medium text-foreground">{lead.name || "Unknown customer"}</p>
-                              <p className="text-muted-foreground">Source: {lead.source || "-"}</p>
-                              <p className="text-muted-foreground">Pipeline: {prettyStage(lead.pipelineStage || "NEW_LEAD")}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="page-eyebrow">Why this matters now</p>
-                              <p className="text-muted-foreground">
-                                {leadNextActionLabel(lead)}. Stay in Lead Queue while the office still needs to decide the next follow-up, scheduling, or resolution step for this request.
-                              </p>
-                            </div>
-                          </div>
-                          {leadOutcomeListNote(lead) ? (
-                            <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-xs text-muted-foreground">
-                              {leadOutcomeListNote(lead)}
-                            </div>
-                          ) : null}
-                          {leadOutcomeNote(lead) ? <p className="text-sm text-muted-foreground">{leadOutcomeNote(lead)}</p> : null}
-                        </div>
-
-                        {(lead.latestMessageThreadId || lead.latestCallId || lead.latestAppointmentRequestId) ? (
-                          <div className={`${frontDeskContextPanelClass()} space-y-2 text-sm`}>
-                            <p className="page-eyebrow">Related workspaces</p>
-                            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                              {lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? (
-                                <Button asChild size="sm" className="w-full justify-start">
-                                  <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
-                                </Button>
-                              ) : null}
-                              {lead.latestAppointmentRequestId ? (
-                                <Button
-                                  asChild
-                                  size="sm"
-                                  variant={lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied" ? "outline" : "default"}
-                                  className="w-full justify-start"
-                                >
-                                  <Link href={`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`}>Open booking</Link>
-                                </Button>
-                              ) : null}
-                              {lead.latestCallId ? (
-                                <Button
-                                  asChild
-                                  size="sm"
-                                  variant={
-                                    lead.latestMessageThreadId && latestLeadMovementLabel(lead) === "Customer replied"
-                                      ? "outline"
-                                      : !lead.latestAppointmentRequestId && lead.frontDesk?.recommendedAction === "Call back now"
-                                        ? "default"
-                                        : "outline"
-                                  }
-                                  className="w-full justify-start"
-                                >
-                                  <Link href={`/app/calls?callId=${encodeURIComponent(lead.latestCallId)}`}>Open call</Link>
-                                </Button>
-                              ) : null}
-                              {lead.latestMessageThreadId && latestLeadMovementLabel(lead) !== "Customer replied" ? (
-                                <Button asChild size="sm" variant="outline" className="w-full justify-start">
-                                  <Link href={`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`}>Open inbox</Link>
-                                </Button>
-                              ) : null}
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className={`${frontDeskContextPanelClass()} space-y-4 text-sm`}>
-                        <div className="space-y-2">
-                          <p className="page-eyebrow">Next stage</p>
-                          <select
-                            value={lead.pipelineStage || "NEW_LEAD"}
-                            onChange={(event) => void onPipelineChange(lead.id, event.target.value as (typeof pipelineStages)[number])}
-                            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                            disabled={!canEditPipeline || !pipelineAvailable || savingPipelineLeadId === lead.id}
-                          >
-                            {pipelineStages.map((stage) => (
-                              <option key={stage} value={stage}>
-                                {prettyStage(stage)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {lead.classification ? (
-                          <p className="text-xs text-muted-foreground">
-                            Classified as {lead.classification.toLowerCase()} {typeof lead.classificationConfidence === "number" ? `(${Math.round(lead.classificationConfidence * 100)}%)` : ""}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className={frontDeskEmptyStateClass()}>
-              No open requests are waiting right now. Missed calls, SMS replies, and new inquiries will appear here so the office can follow up.
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {loading ? (
-            <div className="space-y-3">
-              {[0, 1].map((item) => (
-                <div key={item} className={frontDeskLoadingCardClass()}>
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Primary Action</h3>
                   <div className="space-y-3">
-                    <div className={frontDeskSkeletonLineClass("md")} />
-                    <div className={frontDeskSkeletonLineClass("sm")} />
-                    <div className={frontDeskSkeletonLineClass("lg")} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : customerFiltered.length ? (
-            customerFiltered.map((customer) => (
-              <Card key={customer.phoneNumber} className={frontDeskWorkspaceCardClass("subtle")}>
-                <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_220px_120px] xl:items-center">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold text-foreground">{customer.displayName}</p>
-                      {customer.flaggedVIP ? <Badge className={clientBadgeClass("booking")}>VIP</Badge> : null}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{customer.phoneNumber}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Last outcome: {customer.lastOutcome || "Unknown"} | Last seen {new Date(customer.lastCallAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>Total calls: {customer.totalCalls}</p>
-                    <p>{customer.lead ? "Linked to a lead" : "No linked lead yet"}</p>
-                  </div>
-                  <div>
-                    {customer.lead ? (
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/app/leads?leadId=${encodeURIComponent(customer.lead.id)}`}>Open lead</Link>
+                    <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90">
+                      <Phone className="h-4 w-4" />
+                      {leadRecommendedAction(selectedLead)}
+                    </button>
+                    <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50">
+                      <Calendar className="h-4 w-4" />
+                      Book Appointment
+                    </button>
+                    {selectedLead.latestMessageThreadId ? (
+                      <Button asChild variant="outline" className="w-full">
+                        <Link href={`/app/messages?threadId=${encodeURIComponent(selectedLead.latestMessageThreadId)}`}>Open inbox thread</Link>
                       </Button>
                     ) : null}
+                    {selectedLead.latestAppointmentRequestId ? (
+                      <Button asChild variant="outline" className="w-full">
+                        <Link href={`/app/appointments?requestId=${encodeURIComponent(selectedLead.latestAppointmentRequestId)}`}>Open booking request</Link>
+                      </Button>
+                    ) : null}
+                    {canEdit ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button variant="outline" disabled={savingStage === "NEEDS_SCHEDULING"} onClick={() => void setStage("NEEDS_SCHEDULING")}>
+                          Schedule
+                        </Button>
+                        <Button variant="outline" disabled={savingStage === "COMPLETED"} onClick={() => void setStage("COMPLETED")}>
+                          Resolve
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
-                </CardContent>
-              </Card>
-            ))
+                </div>
+              </div>
+            </>
           ) : (
-            <div className={frontDeskEmptyStateClass()}>No known customers yet. Customer memory appears here after repeat calls and follow-up activity.</div>
+            <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a lead to review its context and next step.</div>
           )}
-        </div>
-      )}
+        </aside>
+      </div>
     </div>
   );
 }
-

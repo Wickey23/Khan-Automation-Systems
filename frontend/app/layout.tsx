@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Footer } from "@/components/site/footer";
-import { Header } from "@/components/site/header";
+import { RootShell } from "@/components/site/root-shell";
 import { ToastProvider } from "@/components/site/toast-provider";
 import { siteConfig } from "@/lib/config";
 import "./globals.css";
@@ -32,9 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ToastProvider>
-          <Header />
-          {children}
-          <Footer />
+          <RootShell>{children}</RootShell>
         </ToastProvider>
       </body>
     </html>
