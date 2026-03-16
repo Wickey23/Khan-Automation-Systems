@@ -1,91 +1,124 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { sendSupportMessage } from "@/lib/api";
-import { useToast } from "@/components/site/toast-provider";
+import { Lock, Mail, Megaphone, PhoneCall, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { clientBadgeClass } from "@/lib/client-badges";
 
-const capabilities = [
-  { label: "Email Outreach", icon: "mail" },
-  { label: "SMS Marketing", icon: "sms" },
-  { label: "Multi-Channel", icon: "hub" }
+const launchBlocks = [
+  {
+    title: "Lead lists and import",
+    description: "Upload prospect batches, validate contact data, and prepare outreach-ready leads without mixing them into the live front-desk queues.",
+    icon: Megaphone
+  },
+  {
+    title: "Email sequences",
+    description: "Build controlled outbound sequences, preview each step, and monitor replies, failures, and unsubscribes from one place.",
+    icon: Mail
+  },
+  {
+    title: "Caller AI",
+    description: "Queue AI outreach calls during the approved daily window, review call outcomes, and monitor summaries, transcripts, and call quality.",
+    icon: PhoneCall
+  }
+];
+
+const releaseChecks = [
+  "Call completion logging has to be consistently reliable on real calls.",
+  "Transcript and summary capture need to prove out across voicemail, pickup, and transfer paths.",
+  "Call delivery and result syncing have to stay dependable before clients can run this unattended."
 ];
 
 export default function AppOutreachPage() {
-  const { showToast } = useToast();
-  const [joining, setJoining] = useState(false);
-
-  async function joinWaitlist() {
-    setJoining(true);
-    try {
-      await sendSupportMessage(
-        "Outreach waitlist request",
-        "Please add this workspace to the outreach feature waitlist and notify me when client rollout begins."
-      );
-      showToast({
-        title: "Waitlist request sent",
-        description: "The product team has been notified that this workspace wants outreach access."
-      });
-    } catch (error) {
-      showToast({
-        title: "Could not join waitlist",
-        description: error instanceof Error ? error.message : "Try again.",
-        variant: "error"
-      });
-    } finally {
-      setJoining(false);
-    }
-  }
-
   return (
-    <div className="flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-[560px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_36px_rgba(15,23,42,0.10)]">
-        <div className="p-1">
-          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 to-primary/30">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[96px] text-primary/40">construction</span>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Growth workspace"
+        title="Outreach"
+        description="Outbound email and AI calling will live here once the system is fully hardened for client use."
+        actions={
+          <Badge className={clientBadgeClass("pending")}>
+            Coming soon
+          </Badge>
+        }
+      />
+
+      <PageHelpFab
+        title="What this workspace will cover"
+        items={[
+          { label: "What belongs here", text: "Client-managed prospecting, outbound follow-up, and campaign monitoring will live in Outreach rather than in the live front-desk queues." },
+          { label: "Current state", text: "The engine exists internally, but it is still being proven with supervised real-world runs before client activation." },
+          { label: "Go next", text: "Use Calls, Leads, and Inbox for live front-desk work today. Outreach will open after reliability and monitoring are fully proven." }
+        ]}
+      />
+
+      <Card className="border-amber-200/90 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]">
+        <CardContent className="flex flex-col gap-4 px-5 py-5 text-sm text-amber-950 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+          <div className="flex gap-3">
+            <div className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/80 bg-white/80">
+              <Lock className="h-4 w-4" />
             </div>
-            <div className="absolute bottom-4 right-4 rounded bg-primary px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
-              Under Development
+            <div className="space-y-1.5">
+              <p className="font-semibold">Client activation is locked for now.</p>
+              <p className="max-w-3xl leading-6 text-amber-900/90">
+                Outreach is being held behind a coming-soon release until call outcomes, transcript capture, and overall delivery reliability are consistently trustworthy in supervised use.
+              </p>
             </div>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="border-amber-300 bg-white/85 text-amber-950 hover:bg-white">
+              <Link href="/app/calls">Open Call Queue</Link>
+            </Button>
+            <Button asChild variant="outline" className="border-amber-300 bg-white/85 text-amber-950 hover:bg-white">
+              <Link href="/app/leads">Open Lead Queue</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <div className="grid gap-4 lg:grid-cols-3">
+          {launchBlocks.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Card key={item.title}>
+                <CardHeader className="space-y-4">
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-2">
+                    <CardTitle className="text-xl">{item.title}</CardTitle>
+                    <p className="text-sm leading-6 text-slate-600">{item.description}</p>
+                  </div>
+                </CardHeader>
+              </Card>
+            );
+          })}
         </div>
 
-        <div className="px-8 py-10 text-center">
-          <span className="mb-6 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
-            Coming Soon
-          </span>
-          <h1 className="text-3xl font-extrabold tracking-[-0.04em] text-slate-950">Gated for Scale</h1>
-          <p className="mx-auto mt-4 max-w-[420px] text-base leading-relaxed text-slate-600">
-            We&apos;re putting the finishing touches on outreach tools so they scale cleanly with your business. Join the waitlist to be first when the marketing suite opens.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Button className="min-w-[160px] flex-1" onClick={() => void joinWaitlist()} disabled={joining}>
-              {joining ? "Joining..." : "Join the Waitlist"}
-            </Button>
-            <Button asChild variant="secondary" className="min-w-[160px] flex-1">
-              <Link href="/app">Back to Overview</Link>
-            </Button>
-          </div>
-
-          <p className="mt-8 text-xs italic text-slate-400">estimated availability: after reliability sign-off</p>
-        </div>
-      </div>
-
-      <div className="mt-12 flex items-center justify-center gap-8 opacity-50">
-        {capabilities.map((capability, index) => (
-          <div key={capability.label} className="flex items-center gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <span className="material-symbols-outlined text-slate-400">{capability.icon}</span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{capability.label}</span>
+        <Card>
+          <CardHeader className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <Badge className={clientBadgeClass("pending")}>Release gate</Badge>
             </div>
-            {index < capabilities.length - 1 ? <div className="h-4 w-px bg-slate-300" /> : null}
-          </div>
-        ))}
+            <CardTitle className="text-xl">What still has to be proven</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-slate-700">
+            {releaseChecks.map((item) => (
+              <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 leading-6">
+                {item}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
+

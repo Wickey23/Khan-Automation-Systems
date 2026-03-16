@@ -2,119 +2,373 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { fetchOrgMessages, getMe, sendOrgMessage } from "@/lib/api";
-import type { OrgMessageThread } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { fetchOrgMessages, fetchOrgMessagingReadiness, getBillingStatus, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
+import { clientBadgeClass } from "@/lib/client-badges";
+import { resolvePlanFeatures } from "@/lib/plan-features";
+import type { OrgMessageThread, OrgMessagingReadiness } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/ui/page";
-import { clientBadgeClass } from "@/lib/client-badges";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientGateCard, ClientModuleTabs } from "@/components/ui/client-module";
+import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { connectedNumberProviderDetail, connectedNumberProviderLabel, messagingReadinessLabel, subscriptionStatusLabel } from "@/lib/client-status-language";
+import {
+  frontDeskActionBadgeClass,
+  frontDeskContextPanelClass,
+  frontDeskEmptyStateClass,
+  frontDeskLoadingCardClass,
+  frontDeskOutcomeSurfaceClass,
+  frontDeskOutcomeBadgeMeta,
+  frontDeskPriorityMeta,
+  frontDeskWorkspaceCardClass,
+  frontDeskSkeletonLineClass
+} from "@/lib/front-desk-ui";
 
 type ThreadFilter = "ALL" | "needs_follow_up" | "contacted" | "booked" | "closed" | "spam";
+type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
+
+function normalizePhoneMatch(value: string | null | undefined) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function isPlaceholderName(value: string | null | undefined) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return !normalized || normalized === "unknown contact" || normalized === "unknown caller" || normalized === "not provided";
+}
+
+function extractNameFromSummary(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const calledMatch = text.match(/^(.+?) called\b/i);
+  if (calledMatch?.[1]) return calledMatch[1].trim();
+  const quoteMatch = text.match(/^["']?([^"']{2,60})["']?\s+(?:requested|needs|asked)/i);
+  if (quoteMatch?.[1]) return quoteMatch[1].trim();
+  return null;
+}
+
+function frontDeskPriorityWeight(thread: OrgMessageThread) {
+  const priority = thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority;
+  if (priority === "urgent") return 0;
+  if (priority === "high") return 1;
+  if (priority === "normal") return 2;
+  return 3;
+}
 
 function threadFrontDesk(thread: OrgMessageThread) {
   return thread.frontDesk || thread.lead?.frontDesk || null;
 }
 
-function threadName(thread: OrgMessageThread) {
-  return thread.contactName || thread.lead?.name || thread.contactPhone;
+function threadDisplayName(thread: OrgMessageThread) {
+  if (!isPlaceholderName(thread.contactName)) return String(thread.contactName).trim();
+  if (!isPlaceholderName(thread.lead?.name)) return String(thread.lead?.name).trim();
+  return extractNameFromSummary(threadFrontDesk(thread)?.summary) || "Unknown contact";
 }
 
-function latestPreview(thread: OrgMessageThread) {
+function threadDisplayAction(thread: OrgMessageThread) {
+  const action = threadNextActionLabel(thread);
+  if ((action === "No action needed" || action === "Ignore") && threadQuickActions(thread).length) {
+    return threadQuickActions(thread)[0].label;
+  }
+  return action;
+}
+
+function threadDisplaySummary(thread: OrgMessageThread) {
+  return threadFrontDesk(thread)?.summary || getLatestMessagePreview(thread);
+}
+
+function threadStateWeight(thread: OrgMessageThread) {
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "needs_follow_up") return 0;
+  if (state === "contacted") return 1;
+  if (state === "booked") return 2;
+  if (state === "closed") return 3;
+  if (state === "spam") return 4;
+  return 1;
+}
+
+function getThreadStateBadge(thread: OrgMessageThread) {
+  const frontDesk = threadFrontDesk(thread);
+  if (frontDesk?.state === "needs_follow_up") return { label: "Needs follow-up", tone: "warning" as const };
+  if (frontDesk?.state === "contacted") return { label: "Contacted", tone: "pending" as const };
+  if (frontDesk?.state === "booked") return { label: "Booked", tone: "booking" as const };
+  if (frontDesk?.state === "closed") return { label: "Resolved", tone: "success" as const };
+  if (frontDesk?.state === "spam") return { label: "Spam", tone: "neutral" as const };
+  return null;
+}
+
+function formatWhen(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function containsBookingLanguage(value: string) {
+  return /appointment|slot|schedule|opening|reply with|confirm|book/i.test(value);
+}
+
+function containsAutomationLanguage(value: string) {
+  return /thanks for calling|team will|follow up|request received|next available|service update/i.test(value);
+}
+
+function getThreadDeliveryBadge(thread: OrgMessageThread) {
+  const outboundMessages = [...thread.messages].filter((message) => message.direction === "OUTBOUND");
+  if (!outboundMessages.length) return null;
+  if (outboundMessages.some((message) => message.status === "FAILED")) {
+    return { label: "Failed", tone: "failed" as const };
+  }
+  const latestOutbound = outboundMessages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  if (latestOutbound.status === "QUEUED" || latestOutbound.status === "SENT") {
+    return { label: "Pending", tone: "pending" as const };
+  }
+  return null;
+}
+
+function getMessageBadge(message: OrgMessageThread["messages"][number]) {
+  if (message.status === "FAILED") return { label: "Failed", tone: "failed" as const };
+  if (message.status === "QUEUED" || message.status === "SENT") return { label: "Pending", tone: "pending" as const };
+  if (message.direction === "OUTBOUND" && containsBookingLanguage(message.body)) return { label: "Booking", tone: "booking" as const };
+  if (message.direction === "OUTBOUND" && containsAutomationLanguage(message.body)) return { label: "Automated", tone: "automated" as const };
+  if (message.direction === "OUTBOUND") return { label: "Manual", tone: "manual" as const };
+  return { label: "Reply", tone: "neutral" as const };
+}
+
+function getLatestMessagePreview(thread: OrgMessageThread) {
   const latest = [...thread.messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-  if (!latest) return "No message preview yet.";
-  return latest.body.length > 90 ? `${latest.body.slice(0, 90).trim()}...` : latest.body;
+  if (!latest?.body) return "No message preview yet.";
+  return latest.body.length > 88 ? `${latest.body.slice(0, 88).trim()}...` : latest.body;
 }
 
-function latestDirection(thread: OrgMessageThread) {
+function latestThreadDirection(thread: OrgMessageThread) {
   const latest = [...thread.messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
   if (!latest) return "No recent messages";
   return latest.direction === "INBOUND" ? "Customer replied" : "Office sent follow-up";
 }
 
-function nextAction(thread: OrgMessageThread) {
-  if (thread.latestAppointmentRequestId && latestDirection(thread) === "Customer replied") return "Review reply";
+function threadNextActionLabel(thread: OrgMessageThread) {
+  if (thread.latestAppointmentRequestId && latestThreadDirection(thread) === "Customer replied") {
+    return "Review reply";
+  }
   return threadFrontDesk(thread)?.recommendedAction || "Review thread";
 }
 
-function stateTone(thread: OrgMessageThread) {
-  const state = threadFrontDesk(thread)?.state;
-  if (state === "booked") return "booking" as const;
-  if (state === "closed") return "success" as const;
-  if (state === "spam") return "neutral" as const;
-  if (state === "needs_follow_up") return "warning" as const;
-  return "pending" as const;
+function threadPriorityLabel(thread: OrgMessageThread) {
+  return frontDeskPriorityMeta(threadFrontDesk(thread)?.frontDeskPriority).label;
 }
 
-function stateLabel(thread: OrgMessageThread) {
+function threadStateLabel(thread: OrgMessageThread) {
+  return getThreadStateBadge(thread)?.label || "Open";
+}
+
+function threadQuickActions(thread: OrgMessageThread | null): Array<{ label: string; stage: PipelineStage; tone: "default" | "outline" }> {
+  if (!thread?.leadId) return [];
   const state = threadFrontDesk(thread)?.state;
-  if (state === "needs_follow_up") return "Action needed";
-  if (state === "contacted") return "In progress";
-  if (state === "booked") return "Confirmed";
-  if (state === "closed") return "Resolved";
-  if (state === "spam") return "Spam";
-  return "Open";
+  const action = threadFrontDesk(thread)?.recommendedAction;
+  if (state === "booked") {
+    return [
+      { label: "Mark booked", stage: "SCHEDULED", tone: "default" },
+      { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
+    ];
+  }
+  if (state === "contacted" || action === "Offer times") {
+    return [
+      { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
+      { label: "Mark booked", stage: "SCHEDULED", tone: "outline" }
+    ];
+  }
+  return [
+    { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
+    { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
+  ];
+}
+
+function threadOutcomeNote(thread: OrgMessageThread | null) {
+  if (!thread) return null;
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "booked") {
+    return "This conversation is already tied to booked work. Review the thread only if the office needs to confirm the appointment details.";
+  }
+  if (state === "closed") {
+    return "This conversation is already resolved. Review it only if the office needs to revisit the outcome.";
+  }
+  return null;
+}
+
+function threadOutcomeBadge(thread: OrgMessageThread) {
+  const state = threadFrontDesk(thread)?.state;
+  if (state === "booked") return frontDeskOutcomeBadgeMeta("booked");
+  if (state === "closed") return frontDeskOutcomeBadgeMeta("resolved");
+  if (latestThreadDirection(thread) === "Customer replied") return frontDeskOutcomeBadgeMeta("saved");
+  return null;
 }
 
 export default function AppMessagesPage() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
   const deepLinkedThreadId = searchParams.get("threadId") || "";
+  const deepLinkedContactPhone = searchParams.get("contactPhone") || "";
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState(deepLinkedThreadId);
+  const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<string | null>(null);
+  const [assignedNumberProvider, setAssignedNumberProvider] = useState<"TWILIO" | "VAPI" | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<ThreadFilter>("ALL");
+  const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [canSend, setCanSend] = useState(false);
+  const [threadFilter, setThreadFilter] = useState<ThreadFilter>("ALL");
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [canSendMessages, setCanSendMessages] = useState(false);
+  const [messagingReadiness, setMessagingReadiness] = useState<OrgMessagingReadiness | null>(null);
+  const [canEditPipeline, setCanEditPipeline] = useState(false);
+  const [savingLeadStage, setSavingLeadStage] = useState<PipelineStage | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [messagesData, billingData, readinessData, me] = await Promise.all([
+        fetchOrgMessages(),
+        getBillingStatus(),
+        fetchOrgMessagingReadiness(),
+        getMe()
+      ]);
+      const subscription = billingData.subscription;
+      const featureAccess = resolvePlanFeatures({
+        plan: subscription?.plan,
+        status: subscription?.status
+      });
+
+      setSubscriptionStatus(subscription?.status || null);
+      setCanSendMessages(featureAccess.messaging);
+      setMessagingReadiness(readinessData);
+      setCanEditPipeline(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
+
+      const data = messagesData;
+      setThreads(data.threads);
+      setAssignedPhoneNumber(data.assignedPhoneNumber);
+      setAssignedNumberProvider(data.assignedNumberProvider);
+      setSelectedId((current) => {
+        if (deepLinkedThreadId) {
+          return data.threads.some((thread) => thread.id === deepLinkedThreadId) ? deepLinkedThreadId : current || data.threads[0]?.id || "";
+        }
+        if (deepLinkedContactPhone) {
+          const matchedThread = data.threads.find(
+            (thread) => normalizePhoneMatch(thread.contactPhone) === normalizePhoneMatch(deepLinkedContactPhone)
+          );
+          if (matchedThread) return matchedThread.id;
+        }
+        return current || data.threads[0]?.id || "";
+      });
+    } catch {
+      setThreads([]);
+      setAssignedPhoneNumber(null);
+      setAssignedNumberProvider(null);
+      setSubscriptionStatus(null);
+      setCanSendMessages(false);
+      setMessagingReadiness(null);
+      setCanEditPipeline(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [deepLinkedContactPhone, deepLinkedThreadId]);
 
   useEffect(() => {
-    void Promise.all([fetchOrgMessages(), getMe()])
-      .then(([data, me]) => {
-        const rows = data.threads || [];
-        setThreads(rows);
-        setCanSend(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
-        setSelectedId((current) => current || rows[0]?.id || "");
-      })
-      .catch(() => {
-        setThreads([]);
-        setCanSend(false);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    if (deepLinkedThreadId) {
+      setSelectedId(deepLinkedThreadId);
+      return;
+    }
+    if (!deepLinkedContactPhone) return;
+    setSelectedId((current) => {
+      const matchedThread = threads.find(
+        (thread) => normalizePhoneMatch(thread.contactPhone) === normalizePhoneMatch(deepLinkedContactPhone)
+      );
+      return matchedThread?.id || current;
+    });
+  }, [deepLinkedContactPhone, deepLinkedThreadId, threads]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return [...threads]
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const selected = useMemo(() => threads.find((thread) => thread.id === selectedId) || null, [threads, selectedId]);
+  const filteredThreads = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const matched = !query
+      ? threads
+      : threads.filter((thread) =>
+          [
+            thread.contactName,
+            thread.lead?.name,
+            thread.contactPhone,
+            getLatestMessagePreview(thread),
+            threadFrontDesk(thread)?.summary || "",
+            threadNextActionLabel(thread)
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query))
+        );
+    return [...matched]
       .filter((thread) => {
-        if (filter !== "ALL" && threadFrontDesk(thread)?.state !== filter) return false;
-        if (!q) return true;
-        return [threadName(thread), thread.contactPhone, latestPreview(thread), nextAction(thread)].join(" ").toLowerCase().includes(q);
+        if (threadFilter === "ALL") return true;
+        return (threadFrontDesk(thread)?.state || "closed") === threadFilter;
       })
-      .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-  }, [filter, search, threads]);
-
-  const selected = useMemo(
-    () => filtered.find((thread) => thread.id === selectedId) || filtered[0] || null,
-    [filtered, selectedId]
-  );
-
+      .sort((a, b) => {
+        const stateDelta = threadStateWeight(a) - threadStateWeight(b);
+        if (stateDelta !== 0) return stateDelta;
+        const priorityDelta = frontDeskPriorityWeight(a) - frontDeskPriorityWeight(b);
+        if (priorityDelta !== 0) return priorityDelta;
+        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+      });
+  }, [search, threadFilter, threads]);
   async function onSend() {
-    if (!selected || !canSend || !body.trim()) return;
+    if (!canSendMessages) {
+      showToast({
+        title: "Pro required",
+        description: "Outbound messaging is available on Pro with an active subscription.",
+        variant: "error"
+      });
+      return;
+    }
+    if (!to.trim() || !body.trim()) {
+      showToast({ title: "Missing fields", description: "Add recipient and message body.", variant: "error" });
+      return;
+    }
     setSending(true);
     try {
-      await sendOrgMessage({ to: selected.contactPhone, body: body.trim(), leadId: selected.leadId || undefined });
-      showToast({ title: "Message queued" });
+      await sendOrgMessage({
+        to: to.trim(),
+        body: body.trim(),
+        leadId: selected?.leadId || undefined
+      });
       setBody("");
-      const refreshed = await fetchOrgMessages();
-      setThreads(refreshed.threads || []);
+      await load();
+      showToast({ title: "Message queued" });
     } catch (error) {
-      showToast({ title: "Send failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
+      const message = error instanceof Error ? error.message : "Failed to send message.";
+      showToast({
+        title: "Send failed",
+        description: message,
+        variant: "error"
+      });
     } finally {
       setSending(false);
+    }
+  }
+
+  async function onQuickAction(stage: PipelineStage) {
+    if (!selected?.leadId || !canEditPipeline) return;
+    setSavingLeadStage(stage);
+    try {
+      await updateLeadPipelineStage(selected.leadId, stage);
+      await load();
+      showToast({ title: "Follow-up state updated" });
+    } catch (error) {
+      showToast({
+        title: "Could not update lead state",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "error"
+      });
+    } finally {
+      setSavingLeadStage(null);
     }
   }
 
@@ -123,193 +377,368 @@ export default function AppMessagesPage() {
       <PageHeader
         eyebrow="Reply workspace"
         title="Inbox"
-        description="Use Inbox when the latest customer movement is a text reply and the office needs to continue the conversation without losing lead or booking context."
+        description="Work live customer replies here."
+        actions={
+          <Button type="button" variant="outline" onClick={() => void load()}>
+            Refresh inbox
+          </Button>
+        }
       />
 
-      <div className="grid gap-0 overflow-hidden rounded-[16px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.07)] xl:grid-cols-[340px_minmax(0,1fr)_300px]">
-        <div className="border-r border-slate-200 bg-white">
-          <div className="space-y-4 border-b border-slate-200 p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-950">Messages</h2>
+      <ClientModuleTabs
+        items={[
+          { value: "ALL", label: "All threads", badge: threads.length },
+          { value: "needs_follow_up", label: "Needs reply", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "needs_follow_up").length },
+          { value: "contacted", label: "Contacted", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "contacted").length },
+          { value: "booked", label: "Booked", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "booked").length },
+          { value: "closed", label: "Resolved", badge: threads.filter((thread) => (threadFrontDesk(thread)?.state || "closed") === "closed").length }
+        ]}
+        value={threadFilter}
+        onChange={setThreadFilter}
+      />
+
+      <PageHelpFab
+        items={[
+          { label: "Use this page", text: "Stay in Inbox when the newest customer movement is a text reply or a manual follow-up conversation." },
+          { label: "Start here", text: "Open the thread, confirm the customer case and next step, then reply from the composer on the right." },
+          { label: "Go next", text: "Jump to Lead Queue or Booking Queue only when this reply needs broader follow-up or scheduling." }
+        ]}
+      />
+
+      {!canSendMessages ? (
+        <ClientGateCard
+          title="Outbound texting is locked on the current plan."
+          description="You can still review customer replies here, but the office cannot send outbound texts until messaging is unlocked in Billing."
+          badgeLabel="Locked"
+          badgeTone="warning"
+          actions={[{ href: "/app/billing", label: "Open Billing" }]}
+        />
+      ) : !assignedPhoneNumber ? (
+        <Card className={frontDeskWorkspaceCardClass("subtle")}>
+          <CardContent className="flex flex-col gap-2 p-4 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-slate-950">{connectedNumberProviderLabel(assignedNumberProvider)} not assigned</p>
+              <p className="text-slate-600">{connectedNumberProviderDetail(assignedNumberProvider)}</p>
             </div>
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations..." />
-            <div className="flex gap-2">
-              {[
-                { label: "Action Needed", value: "needs_follow_up" },
-                { label: "All", value: "ALL" },
-                { label: "Resolved", value: "closed" }
-              ].map((tab) => (
-                <button
-                  key={tab.label}
-                  type="button"
-                  onClick={() => setFilter(tab.value as ThreadFilter)}
-                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold ${
-                    filter === tab.value ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <p className="text-xs text-slate-500">{subscriptionStatusLabel(subscriptionStatus)} • {messagingReadinessLabel(messagingReadiness?.state)}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:gap-5">
+        <Card className={`${frontDeskWorkspaceCardClass("default")} self-start overflow-hidden`}>
+          <CardHeader className="pb-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-lg">Threads</CardTitle>
+                <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {filteredThreads.length}
+                </span>
+              </div>
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search contact or message"
+                  className="h-11 w-full rounded-xl border bg-background pl-10 pr-3 text-sm"
+                />
+              </label>
             </div>
-          </div>
-          <div className="max-h-[720px] overflow-auto">
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[620px] overflow-auto">
             {loading ? (
-              <div className="p-4 text-sm text-slate-500">Loading threads...</div>
-            ) : filtered.length ? (
-              filtered.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  onClick={() => setSelectedId(thread.id)}
-                  className={`w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50 ${
-                    selected?.id === thread.id ? "border-l-4 border-l-blue-700 bg-blue-50/60" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-950">{threadName(thread)}</p>
-                      <p className="mt-1 line-clamp-1 text-xs text-slate-600">{latestPreview(thread)}</p>
+              <div className="m-5 space-y-3">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className={frontDeskLoadingCardClass()}>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className={frontDeskSkeletonLineClass("md")} />
+                          <div className={frontDeskSkeletonLineClass("sm")} />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200/90" />
+                          <div className="h-6 w-24 animate-pulse rounded-full bg-slate-200/90" />
+                        </div>
+                      </div>
+                      <div className="h-6 w-32 animate-pulse rounded-full bg-slate-200/90" />
+                      <div className={frontDeskSkeletonLineClass()} />
                     </div>
-                    <span className="text-[10px] font-medium text-slate-500">{new Date(thread.lastMessageAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {thread.lead ? <Badge className={clientBadgeClass("pending")}>Lead: {thread.lead.name}</Badge> : null}
-                    {thread.latestAppointmentRequestId ? <Badge className={clientBadgeClass("warning")}>Request linked</Badge> : null}
-                    <Badge className={clientBadgeClass(stateTone(thread))}>{stateLabel(thread)}</Badge>
-                  </div>
-                </button>
+                ))}
+              </div>
+            ) : !filteredThreads.length ? (
+              <div className={`${frontDeskEmptyStateClass()} m-5`}>
+                No SMS conversations are active yet. Missed-call recovery texts, booking replies, and customer follow-up threads will appear here when the office needs to respond.
+              </div>
+            ) : (
+              filteredThreads.map((thread) => (
+                (() => {
+                  const deliveryBadge = getThreadDeliveryBadge(thread);
+                  return (
+                    <button
+                      key={thread.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(thread.id);
+                        setTo(thread.contactPhone || "");
+                      }}
+                      className={`w-full border-t px-5 py-4 text-left transition-colors first:border-t-0 hover:bg-muted/30 ${
+                        threadFrontDesk(thread)?.state === "closed"
+                          ? frontDeskOutcomeSurfaceClass("resolved")
+                          : threadFrontDesk(thread)?.state === "booked"
+                            ? frontDeskOutcomeSurfaceClass("booked")
+                            : latestThreadDirection(thread) === "Customer replied"
+                              ? frontDeskOutcomeSurfaceClass("saved")
+                              : frontDeskOutcomeSurfaceClass("active")
+                      } ${
+                        selectedId === thread.id ? "bg-primary/[0.06]" : ""
+                      } ${selectedId === thread.id ? "shadow-[inset_0_0_0_1px_rgba(31,58,138,0.14)]" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">{threadDisplayName(thread)}</p>
+                            {threadOutcomeBadge(thread) ? (
+                              <Badge className={clientBadgeClass(threadOutcomeBadge(thread)!.tone)}>{threadOutcomeBadge(thread)!.label}</Badge>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{thread.contactPhone}</p>
+                          <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-800">{threadDisplaySummary(thread)}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>{threadStateLabel(thread)}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span>{latestThreadDirection(thread)}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span>Updated {formatWhen(thread.lastMessageAt)}</span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${frontDeskActionBadgeClass(threadDisplayAction(thread))}`}>
+                            {threadDisplayAction(thread)}
+                          </span>
+                          {deliveryBadge ? (
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(deliveryBadge.tone)}`}>
+                              {deliveryBadge.label}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })()
               ))
-            ) : (
-              <div className="empty-state m-4">No active message threads.</div>
             )}
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="flex min-h-[760px] flex-col bg-slate-50">
-          <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-            {selected ? (
-              <>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-950">{threadName(selected)}</h3>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">SMS channel • {latestDirection(selected)}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={selected.latestAppointmentRequestId ? `/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}` : "/app/appointments"}>
-                      Book now
-                    </Link>
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-slate-500">Select a thread</p>
-            )}
-          </header>
-
-          <div className="flex-1 space-y-6 overflow-auto p-6">
-            {selected ? (
-              <>
-                {[...selected.messages]
-                  .reverse()
-                  .map((message) => (
-                    <div key={message.id} className={`flex ${message.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] rounded-[14px] border px-4 py-3 text-sm leading-6 ${
-                        message.direction === "OUTBOUND" ? "border-blue-200 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-800"
-                      }`}>
-                        <p>{message.body}</p>
-                        <p className={`mt-2 text-[10px] ${message.direction === "OUTBOUND" ? "text-blue-100" : "text-slate-400"}`}>
-                          {new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                        </p>
+        <div className="min-w-0">
+          <Card className={`${frontDeskWorkspaceCardClass("default")} min-w-0 overflow-hidden`}>
+            <CardHeader className="pb-3">
+              <div className="space-y-2">
+                <CardTitle className="text-lg">Conversation</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {selected ? `${threadDisplayName(selected)} • ${selected.contactPhone}` : "Select a thread to inspect the full conversation."}
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-4">
+              {loading ? (
+                <div className="space-y-4">
+                  <div className={frontDeskLoadingCardClass()}>
+                    <div className="space-y-3">
+                      <div className={frontDeskSkeletonLineClass("sm")} />
+                      <div className={frontDeskSkeletonLineClass("md")} />
+                      <div className={frontDeskSkeletonLineClass()} />
+                    </div>
+                  </div>
+                  {[0, 1].map((item) => (
+                    <div key={item} className={frontDeskLoadingCardClass()}>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="h-5 w-20 animate-pulse rounded-full bg-slate-200/90" />
+                          <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/90" />
+                        </div>
+                        <div className={frontDeskSkeletonLineClass()} />
+                        <div className={frontDeskSkeletonLineClass("lg")} />
                       </div>
                     </div>
                   ))}
-              </>
-            ) : (
-              <div className="empty-state">Open a thread to review the conversation and reply.</div>
-            )}
-          </div>
-
-          <div className="border-t border-slate-200 bg-white p-4">
-            <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3">
-              <textarea
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                placeholder={selected ? `Type your message to ${threadName(selected)}...` : "Select a thread first"}
-                disabled={!selected || !canSend || sending}
-                className="min-h-[100px] w-full resize-none border-none bg-transparent p-2 text-sm focus:ring-0"
-              />
-              <div className="flex items-center justify-between border-t border-slate-200 pt-3">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">SMS Channel</span>
-                <Button onClick={() => void onSend()} disabled={!selected || !canSend || sending}>
-                  {sending ? "Sending..." : "Send"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <aside className="hidden border-l border-slate-200 bg-white xl:flex xl:flex-col">
-          {selected ? (
-            <>
-              <div className="border-b border-slate-200 p-6 text-center">
-                <div className="mx-auto mb-4 inline-flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl font-semibold text-blue-700">
-                  {threadName(selected).slice(0, 2).toUpperCase()}
                 </div>
-                <h2 className="text-base font-semibold text-slate-950">{threadName(selected)}</h2>
-                <p className="text-xs text-slate-500">{selected.contactPhone}</p>
-              </div>
-              <div className="flex-1 space-y-6 overflow-auto p-4">
-                <section>
-                  <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Lead Details</h4>
-                  <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-sm">
-                    <div className="space-y-2">
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">Status</span>
-                        <span className="font-medium text-slate-950">{stateLabel(selected)}</span>
+              ) : !selected ? (
+                <div className={frontDeskEmptyStateClass()}>Select a thread to review the customer context first, then decide whether the office should reply, schedule, or resolve the request.</div>
+              ) : !selected.messages.length ? (
+                <div className={frontDeskEmptyStateClass()}>This thread has no messages yet. New inbound replies and outbound follow-up will appear here when the conversation starts.</div>
+              ) : (
+                <>
+                {threadFrontDesk(selected) ? (
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="space-y-4">
+                      <div className={frontDeskContextPanelClass()}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="space-y-2">
+                            <p className="text-xl font-semibold text-slate-950">{threadDisplayName(selected)}</p>
+                            <p className="text-sm text-muted-foreground">{selected.contactPhone}</p>
+                          </div>
+                          <div className="min-w-[220px] rounded-[12px] border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Next step</p>
+                            <p className="mt-2 text-base font-semibold text-slate-950">{threadDisplayAction(selected)}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-[12px] border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Summary</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-900">{threadDisplaySummary(selected)}</p>
+                          </div>
+                          <div className="rounded-[12px] border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Status</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge className={clientBadgeClass(frontDeskPriorityMeta(threadFrontDesk(selected)?.frontDeskPriority).tone)}>
+                                {threadPriorityLabel(selected)}
+                              </Badge>
+                              <Badge className={clientBadgeClass(getThreadStateBadge(selected)?.tone || "neutral")}>
+                                {threadStateLabel(selected)}
+                              </Badge>
+                              <Badge className={clientBadgeClass("pending")}>{latestThreadDirection(selected)}</Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {threadOutcomeNote(selected) ? (
+                          <div className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+                            {threadOutcomeNote(selected)}
+                          </div>
+                        ) : null}
                       </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">Next action</span>
-                        <span className="font-medium text-slate-950">{nextAction(selected)}</span>
+
+                      <div className={frontDeskWorkspaceCardClass("subtle")}>
+                        <div className="border-b border-border/60 px-5 py-4">
+                          <p className="page-eyebrow">Timeline</p>
+                        </div>
+                        <div className="max-h-[620px] space-y-3 overflow-auto px-5 py-4 pr-4">
+                          {[...selected.messages]
+                            .reverse()
+                            .map((message) => {
+                              const badge = getMessageBadge(message);
+                              return (
+                                <div
+                                  key={message.id}
+                                  className={`max-w-full sm:max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
+                                    message.direction === "OUTBOUND" ? "ml-auto bg-blue-50/70" : "bg-zinc-50/70"
+                                  }`}
+                                >
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${clientBadgeClass(badge.tone)}`}>
+                                      {badge.label}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {message.direction === "OUTBOUND" ? "Office to customer" : "Customer to office"}
+                                    </span>
+                                  </div>
+                                  <p className="whitespace-pre-wrap leading-6">{message.body}</p>
+                                  <p className="mt-2 text-xs text-muted-foreground">{formatWhen(message.createdAt)}</p>
+                                </div>
+                              );
+                            })}
+                        </div>
                       </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">Lead</span>
-                        <span className="font-medium text-slate-950">{selected.lead?.name || "Not linked"}</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      {selected.leadId && canEditPipeline ? (
+                        <div className="rounded-[12px] border border-slate-200 bg-white px-5 py-4">
+                          <p className="page-eyebrow">Actions</p>
+                          <div className="mt-3 grid gap-2">
+                            {threadQuickActions(selected).map((action) => (
+                              <Button
+                                key={`${selected.id}-${action.stage}`}
+                                size="sm"
+                                variant={action.tone}
+                                className="justify-start"
+                                disabled={savingLeadStage === action.stage}
+                                onClick={() => void onQuickAction(action.stage)}
+                              >
+                                {action.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {(selected.latestAppointmentRequestId || selected.leadId || selected.latestCallId) ? (
+                        <div className="rounded-[12px] border border-slate-200 bg-white px-5 py-4">
+                          <p className="page-eyebrow">Related</p>
+                          <div className="mt-3 grid gap-2">
+                            {selected.latestAppointmentRequestId ? (
+                              <Button asChild size="sm" variant={latestThreadDirection(selected) === "Customer replied" ? "default" : "outline"} className="justify-start">
+                                <Link href={`/app/appointments?requestId=${encodeURIComponent(selected.latestAppointmentRequestId)}`}>Open booking queue</Link>
+                              </Button>
+                            ) : null}
+                            {selected.leadId ? (
+                              <Button asChild size="sm" variant={!selected.latestAppointmentRequestId ? "default" : "outline"} className="justify-start">
+                                <Link href={`/app/leads?leadId=${encodeURIComponent(selected.leadId)}`}>Open lead queue</Link>
+                              </Button>
+                            ) : null}
+                            {selected.latestCallId ? (
+                              <Button asChild size="sm" variant="outline" className="justify-start">
+                                <Link href={`/app/calls?callId=${encodeURIComponent(selected.latestCallId)}`}>Open call queue</Link>
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-[12px] border border-slate-200 bg-white px-5 py-4">
+                        <div className="space-y-1">
+                          <p className="page-eyebrow">Reply</p>
+                          <p className="text-sm text-muted-foreground">Send a manual follow-up.</p>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          <label className="grid gap-1.5 text-sm">
+                            <span className="page-eyebrow">To</span>
+                            <input
+                              value={to}
+                              onChange={(event) => setTo(event.target.value)}
+                              placeholder="+15163067876"
+                              disabled={!canSendMessages || sending}
+                              className="h-11 rounded-xl border bg-background px-3 text-sm"
+                            />
+                          </label>
+                          <label className="grid gap-1.5 text-sm">
+                            <span className="page-eyebrow">Message</span>
+                            <textarea
+                              value={body}
+                              onChange={(event) => setBody(event.target.value)}
+                              placeholder="Type an outbound message..."
+                              disabled={!canSendMessages || sending}
+                              className="min-h-[220px] rounded-xl border bg-background px-3 py-3 text-sm"
+                            />
+                          </label>
+                          <Button
+                            type="button"
+                            onClick={() => void onSend()}
+                            disabled={sending || !canSendMessages}
+                            title={!canSendMessages ? "Upgrade to Pro to enable outbound SMS." : "Send message"}
+                            className="w-full"
+                          >
+                            {!canSendMessages ? "Upgrade to Pro to send" : sending ? "Sending..." : "Send message"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </section>
-
-                <section>
-                  <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Booking Context</h4>
-                  <div className="space-y-3">
-                    <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
-                        {selected.latestAppointmentRequestId ? "Pending Request" : "No active booking request"}
-                      </p>
-                      <p className="mt-1 text-xs text-amber-900">
-                        {selected.latestAppointmentRequestId ? "This thread is linked to the booking workflow." : "Open Booking Queue if the office needs to schedule work from this conversation."}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Internal Notes</h4>
-                  <div className="rounded-[12px] border-l-2 border-blue-700 bg-slate-50 p-3 text-[11px] italic leading-6 text-slate-600">
-                    {threadFrontDesk(selected)?.summary || "No internal summary yet."}
-                  </div>
-                </section>
+                ) : null}
+                </>
+              )}
               </div>
-              <div className="border-t border-slate-200 p-4">
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={selected.leadId ? `/app/leads?leadId=${encodeURIComponent(selected.leadId)}` : "/app/leads"}>View lead profile</Link>
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="empty-state m-4">Select a thread to inspect lead and booking context.</div>
-          )}
-        </aside>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

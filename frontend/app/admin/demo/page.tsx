@@ -20,20 +20,29 @@ function extractField(text: string, patterns: RegExp[]) {
 
 function deriveDemoSummary(call: DemoCallLog) {
   const source = `${call.aiSummary || ""}\n${call.transcript || ""}`;
-  const callerName = extractField(source, [/name[:\s-]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i, /this is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i]);
-  const serviceRequested = extractField(source, [/service(?: requested)?[:\s-]+([^\n.]+)/i, /issue(?: summary)?[:\s-]+([^\n.]+)/i, /need help with\s+([^\n.]+)/i]);
+  const callerName = extractField(source, [
+    /name[:\s-]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i,
+    /this is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i
+  ]);
+  const serviceRequested = extractField(source, [
+    /service(?: requested)?[:\s-]+([^\n.]+)/i,
+    /issue(?: summary)?[:\s-]+([^\n.]+)/i,
+    /need help with\s+([^\n.]+)/i
+  ]);
   const urgency = extractField(source, [/urgency[:\s-]+([^\n.]+)/i, /(urgent|emergency|asap|today)/i]);
-  return {
-    callerName,
-    serviceRequested,
-    urgency,
-    followUp:
-      call.outcome === "MISSED" || call.outcome === "MESSAGE_TAKEN" || call.outcome === "APPOINTMENT_REQUEST"
-        ? "Team should follow up"
-        : call.outcome === "SPAM"
-          ? "No action needed"
-          : "Review outcome"
-  };
+  const serviceLocation = extractField(source, [/address[:\s-]+([^\n.]+)/i, /located at\s+([^\n.]+)/i]);
+  const appointmentRequested =
+    /appointment requested[:\s-]+yes/i.test(source) ||
+    /schedule|book|appointment/i.test(source) ||
+    call.outcome === "APPOINTMENT_REQUEST";
+  const summary = call.aiSummary || serviceRequested || "Structured summary not available yet.";
+  const followUp =
+    call.outcome === "MISSED" || call.outcome === "MESSAGE_TAKEN" || call.outcome === "APPOINTMENT_REQUEST"
+      ? "Team should follow up"
+      : call.outcome === "SPAM"
+        ? "No action needed"
+        : "Review outcome";
+  return { callerName, serviceRequested, urgency, serviceLocation, appointmentRequested, summary, followUp };
 }
 
 export default function AdminDemoPage() {
@@ -47,8 +56,12 @@ export default function AdminDemoPage() {
   const [assistants, setAssistants] = useState<Array<{ id: string; name: string }>>([]);
   const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; number: string; provider: string }>>([]);
   const [demoTitle, setDemoTitle] = useState("Voice Demo (Call From Your Phone)");
-  const [demoSubtitle, setDemoSubtitle] = useState("Call the demo line and ask questions naturally. The assistant responds live.");
-  const [demoQuestionsText, setDemoQuestionsText] = useState("What services do you offer?\nWhat are your hours?\nCan I schedule an appointment?");
+  const [demoSubtitle, setDemoSubtitle] = useState(
+    "Call the demo line and ask questions naturally. The assistant responds live."
+  );
+  const [demoQuestionsText, setDemoQuestionsText] = useState(
+    "What services do you offer?\nWhat are your hours?\nCan I schedule an appointment?"
+  );
   const [callsLoading, setCallsLoading] = useState(true);
   const [calls, setCalls] = useState<DemoCallLog[]>([]);
 
@@ -61,8 +74,15 @@ export default function AdminDemoPage() {
         setDemoVapiAssistantId(data.demoVapiAssistantId || "");
         setDemoVapiPhoneNumberId(data.demoVapiPhoneNumberId || "");
         setDemoTitle(data.demoTitle || "Voice Demo (Call From Your Phone)");
-        setDemoSubtitle(data.demoSubtitle || "Call the demo line and ask questions naturally. The assistant responds live.");
-        setDemoQuestionsText((data.demoQuestions?.length ? data.demoQuestions : ["What services do you offer?", "What are your hours?", "Can I schedule an appointment?"]).join("\n"));
+        setDemoSubtitle(
+          data.demoSubtitle || "Call the demo line and ask questions naturally. The assistant responds live."
+        );
+        setDemoQuestionsText(
+          (data.demoQuestions?.length
+            ? data.demoQuestions
+            : ["What services do you offer?", "What are your hours?", "Can I schedule an appointment?"]
+          ).join("\n")
+        );
       })
       .catch((error) => {
         if (!active) return;
@@ -73,7 +93,8 @@ export default function AdminDemoPage() {
         });
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (!active) return;
+        setLoading(false);
       });
 
     void fetchAdminVapiResources()
@@ -89,7 +110,6 @@ export default function AdminDemoPage() {
         setAssistants([]);
         setPhoneNumbers([]);
       });
-
     return () => {
       active = false;
     };
@@ -120,7 +140,12 @@ export default function AdminDemoPage() {
   async function onSave() {
     setSaving(true);
     try {
-      const demoQuestions = demoQuestionsText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 12);
+      const demoQuestions = demoQuestionsText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 12);
+
       await updateAdminDemoConfig({
         demoNumber: demoNumber.trim(),
         demoVapiAssistantId: demoVapiAssistantId.trim(),
@@ -129,7 +154,11 @@ export default function AdminDemoPage() {
         demoSubtitle: demoSubtitle.trim(),
         demoQuestions
       });
-      showToast({ title: "Demo config saved", description: "Homepage voice demo now uses these settings." });
+
+      showToast({
+        title: "Demo config saved",
+        description: "Homepage voice demo now uses these settings."
+      });
     } catch (error) {
       showToast({
         title: "Save failed",
@@ -143,159 +172,159 @@ export default function AdminDemoPage() {
 
   return (
     <AdminGuard>
-      <div className="page-shell space-y-6">
-        <AdminTopTabs />
+      <div className="container py-10">
+        <AdminTopTabs className="mb-3" />
+        <h1 className="text-3xl font-bold">Demo Configuration</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure the public voice demo block shown on the landing page and review structured demo call results.
+        </p>
 
-        <section className="rounded-[18px] border border-slate-300 bg-white px-6 py-5 shadow-[0_14px_32px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                Internal Only
-              </div>
-              <h1 className="text-3xl font-semibold tracking-[-0.05em] text-slate-950">Demo Environment Management</h1>
-              <p className="max-w-3xl text-sm text-slate-600">
-                Configure sandbox instances, AI persona behavior, and the public sales demo line from one admin surface.
-              </p>
+        <div className="mt-5 rounded-lg border bg-white p-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Select Vapi assistant</label>
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={demoVapiAssistantId}
+                onChange={(event) => setDemoVapiAssistantId(event.target.value)}
+                disabled={loading || !vapiConfigured}
+              >
+                <option value="">Select assistant</option>
+                {assistants.map((assistant) => (
+                  <option key={assistant.id} value={assistant.id}>
+                    {assistant.name} ({assistant.id})
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => void loadDemoCalls()}>
-                Export Logs
-              </Button>
-              <Button onClick={() => void onSave()} disabled={loading || saving}>
-                {saving ? "Saving..." : "Provision New Demo"}
-              </Button>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Select Vapi number</label>
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={demoVapiPhoneNumberId}
+                onChange={(event) => setDemoVapiPhoneNumberId(event.target.value)}
+                disabled={loading || !vapiConfigured}
+              >
+                <option value="">Select number</option>
+                {phoneNumbers.map((number) => (
+                  <option key={number.id} value={number.id}>
+                    {number.number} ({number.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Resolved demo number (E.164)</label>
+              <Input value={demoNumber} readOnly disabled />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Demo title</label>
+              <Input value={demoTitle} onChange={(event) => setDemoTitle(event.target.value)} disabled={loading} />
             </div>
           </div>
-        </section>
+          {!vapiConfigured ? (
+            <p className="mt-2 text-xs text-amber-600">
+              Vapi API key is not configured on backend. Set it first to load assistants and numbers.
+            </p>
+          ) : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Active Demo Orgs", value: 42, detail: "+4 this week" },
-            { label: "Avg Call Duration", value: "18m 42s", detail: "Stable" },
-            { label: "Active Presets", value: 12, detail: "2 need updates" },
-            { label: "Success Rate", value: "89%", detail: "+2% from avg" }
-          ].map((item) => (
-            <div key={item.label} className="rounded-[18px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-              <p className="mt-4 text-3xl font-semibold tracking-[-0.06em] text-slate-950">{item.value}</p>
-              <p className="mt-2 text-sm text-slate-500">{item.detail}</p>
+          <div className="mt-4">
+            <label className="mb-1 block text-sm font-medium">Demo subtitle</label>
+            <Textarea
+              value={demoSubtitle}
+              onChange={(event) => setDemoSubtitle(event.target.value)}
+              rows={3}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="mt-4">
+            <label className="mb-1 block text-sm font-medium">Suggested questions (one per line)</label>
+            <Textarea
+              value={demoQuestionsText}
+              onChange={(event) => setDemoQuestionsText(event.target.value)}
+              rows={5}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              These are shown as prompts to help visitors test the call demo.
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <Button onClick={() => void onSave()} disabled={loading || saving}>
+              {saving ? "Saving..." : "Save demo config"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-lg border bg-white p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Demo Call Logs</h2>
+              <p className="text-sm text-muted-foreground">
+                Calls made to the demo assistant or number. Each result is shaped to show what the office sees after a missed or handled call.
+              </p>
             </div>
-          ))}
-        </section>
+            <Button variant="outline" onClick={() => void loadDemoCalls()} disabled={callsLoading}>
+              {callsLoading ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
 
-        <section className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
-          <div className="space-y-6">
-            <div className="overflow-hidden rounded-[18px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-950">Live Demo Instances</h2>
-                <Button variant="outline" size="sm">View All Instances</Button>
-              </div>
-              <div className="p-6 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Select Vapi assistant</label>
-                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={demoVapiAssistantId} onChange={(event) => setDemoVapiAssistantId(event.target.value)} disabled={loading || !vapiConfigured}>
-                    <option value="">Select assistant</option>
-                    {assistants.map((assistant) => (
-                      <option key={assistant.id} value={assistant.id}>{assistant.name} ({assistant.id})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Select Vapi number</label>
-                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={demoVapiPhoneNumberId} onChange={(event) => setDemoVapiPhoneNumberId(event.target.value)} disabled={loading || !vapiConfigured}>
-                    <option value="">Select number</option>
-                    {phoneNumbers.map((number) => (
-                      <option key={number.id} value={number.id}>{number.number} ({number.id})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Resolved demo number</label>
-                  <Input value={demoNumber} readOnly disabled />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Demo title</label>
-                  <Input value={demoTitle} onChange={(event) => setDemoTitle(event.target.value)} disabled={loading} />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-sm font-medium">Demo subtitle</label>
-                  <Textarea value={demoSubtitle} onChange={(event) => setDemoSubtitle(event.target.value)} rows={3} disabled={loading} />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-sm font-medium">Suggested questions</label>
-                  <Textarea value={demoQuestionsText} onChange={(event) => setDemoQuestionsText(event.target.value)} rows={5} disabled={loading} />
-                </div>
-              </div>
-            </div>
-
-            <div className="overflow-hidden rounded-[18px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-950">Recent Demo Call Logs</h2>
-                <Button variant="outline" size="sm" onClick={() => void loadDemoCalls()}>{callsLoading ? "Refreshing..." : "Refresh"}</Button>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {calls.map((call) => {
+          <div className="space-y-3">
+            {calls.map((call) => (
+              <div key={call.id} className="rounded-md border p-3">
+                {(() => {
                   const structured = deriveDemoSummary(call);
                   return (
-                    <div key={call.id} className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-semibold text-slate-950">{structured.callerName || call.fromNumber}</p>
-                          <p className="text-xs text-slate-500">{call.outcome || "UNKNOWN"} • {new Date(call.startedAt).toLocaleString()}</p>
+                    <>
+                      <div className="mb-3 rounded-md border bg-muted/20 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Structured intake result</p>
+                        <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                          <p><span className="text-muted-foreground">Caller:</span> {structured.callerName || call.fromNumber}</p>
+                          <p><span className="text-muted-foreground">Service:</span> {structured.serviceRequested || "Not captured"}</p>
+                          <p><span className="text-muted-foreground">Urgency:</span> {structured.urgency || "Standard"}</p>
+                          <p><span className="text-muted-foreground">Location:</span> {structured.serviceLocation || "Not captured"}</p>
+                          <p><span className="text-muted-foreground">Appointment requested:</span> {structured.appointmentRequested ? "Yes" : "No"}</p>
+                          <p><span className="text-muted-foreground">Next step:</span> {structured.followUp}</p>
                         </div>
-                        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                          {structured.followUp}
-                        </span>
+                        <p className="mt-2 text-sm">{structured.summary}</p>
                       </div>
-                      <p className="mt-3 text-sm text-slate-700">{structured.serviceRequested || call.aiSummary || "Structured summary not available yet."}</p>
-                      <div className="mt-3 grid gap-2 text-xs text-slate-500 md:grid-cols-4">
-                        <p>Urgency: {structured.urgency || "Standard"}</p>
-                        <p>Duration: {call.durationSec ? `${call.durationSec}s` : "-"}</p>
-                        <p>Success: {call.successEvaluation ?? "-"}</p>
-                        <p>Call ID: {call.providerCallId}</p>
-                      </div>
-                    </div>
+                    </>
                   );
-                })}
-                {!callsLoading && !calls.length ? (
-                  <div className="p-6 text-sm text-slate-500">No demo calls logged yet.</div>
+                })()}
+                <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <p><span className="text-muted-foreground">Started:</span> {new Date(call.startedAt).toLocaleString()}</p>
+                  <p><span className="text-muted-foreground">From:</span> {call.fromNumber}</p>
+                  <p><span className="text-muted-foreground">To:</span> {call.toNumber}</p>
+                  <p><span className="text-muted-foreground">Status:</span> {call.status || "-"}</p>
+                  <p><span className="text-muted-foreground">Outcome:</span> {call.outcome || "-"}</p>
+                  <p><span className="text-muted-foreground">Duration:</span> {call.durationSec ? `${call.durationSec}s` : "-"}</p>
+                  <p><span className="text-muted-foreground">Success:</span> {typeof call.successEvaluation === "number" ? `${call.successEvaluation}` : "-"}</p>
+                  <p className="truncate"><span className="text-muted-foreground">Call ID:</span> {call.providerCallId}</p>
+                </div>
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded-md border bg-muted/20 p-2">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</p>
+                    <p className="whitespace-pre-wrap text-sm">{call.aiSummary || "-"}</p>
+                  </div>
+                  <div className="rounded-md border bg-muted/20 p-2">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transcript</p>
+                    <p className="max-h-36 overflow-auto whitespace-pre-wrap text-sm">{call.transcript || "-"}</p>
+                  </div>
+                </div>
+                {call.recordingUrl ? (
+                  <a className="mt-2 inline-block text-sm text-primary underline" href={call.recordingUrl} target="_blank" rel="noreferrer">
+                    Open recording
+                  </a>
                 ) : null}
               </div>
-            </div>
+            ))}
+            {!callsLoading && !calls.length ? (
+              <p className="text-sm text-muted-foreground">No demo calls logged yet.</p>
+            ) : null}
           </div>
-
-          <div className="space-y-6">
-            <div className="rounded-[18px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-              <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-950">AI Persona Presets</h2>
-              <div className="mt-4 space-y-3">
-                {[
-                  ["Aggressive Booking", "Pushes for next steps in the first 5 minutes."],
-                  ["Drunk Simulator", "Tests interruption handling and rational recovery."],
-                  ["No-Budget Skeptic", "Stress-tests ROI and price objection flows."],
-                  ["The Fanboy", "Checks if reps skip required discovery steps."]
-                ].map(([title, body], index) => (
-                  <div key={title} className={`rounded-xl border p-3 ${index === 0 ? "border-primary bg-primary/5" : "border-slate-200"}`}>
-                    <p className={`text-sm font-semibold ${index === 0 ? "text-primary" : "text-slate-950"}`}>{title}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[22px] bg-slate-950 p-6 text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
-              <h2 className="text-2xl font-semibold tracking-[-0.04em]">Quick Demo Instance</h2>
-              <p className="mt-2 text-sm text-slate-300">
-                Deploy a fresh demo environment with pre-populated dummy data and an active sales pipeline in seconds.
-              </p>
-              <Button className="mt-6 w-full" onClick={() => void onSave()} disabled={loading || saving}>
-                {saving ? "Deploying..." : "Deploy Now"}
-              </Button>
-              {!vapiConfigured ? (
-                <p className="mt-3 text-xs text-amber-300">Vapi API key is not configured on backend. Set it first to load assistants and numbers.</p>
-              ) : null}
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
     </AdminGuard>
   );

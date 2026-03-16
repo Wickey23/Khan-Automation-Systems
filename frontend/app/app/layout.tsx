@@ -63,11 +63,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [modeBanner, setModeBanner] = useState<{ text: string; ctaLabel: string; ctaHref: string } | null>(null);
-  const [setupOverlay, setSetupOverlay] = useState<{
-    title: string;
-    body: string;
-    steps: Array<{ label: string; done: boolean }>;
-  } | null>(null);
   const [currentPlan, setCurrentPlan] = useState<PlanTier>(null);
   const [currentRole, setCurrentRole] = useState<ClientRole | null>(null);
   const [features, setFeatures] = useState<OrgFeatureState>({
@@ -77,7 +72,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setAccessWarning(null);
     setModeBanner(null);
-    setSetupOverlay(null);
     if (pathname === "/app/onboarding") return;
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus(), getMe()])
       .then(([onboarding, orgProfile, billing, me]) => {
@@ -158,28 +152,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
         if (!onboardingDone) {
           setAccessWarning("Finish onboarding to unlock live configuration and full automation features.");
-          setSetupOverlay({
-            title: "Almost there! Just a few more steps to go.",
-            body: "Your Front Desk OS is currently inactive. Complete the remaining setup steps before the system starts handling calls, messages, and booking requests.",
-            steps: [
-              { label: "Provision a business phone number", done: Boolean(orgProfile.assignedPhoneNumber) },
-              { label: "Configure AI response personality", done: onboardingDone },
-              { label: "Account creation", done: true }
-            ]
-          });
         }
       })
       .catch(() => {
         setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
-        setSetupOverlay({
-          title: "Configuration check could not complete.",
-          body: "We could not verify whether this workspace finished setup. Review onboarding before using live runtime workflows.",
-          steps: [
-            { label: "Provision a business phone number", done: false },
-            { label: "Configure AI response personality", done: false },
-            { label: "Account creation", done: true }
-          ]
-        });
         setCurrentPlan(null);
         setCurrentRole(null);
         setFeatures({
@@ -321,73 +297,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {accessWarning} <Link href="/app/onboarding" className="font-medium underline">Go to onboarding</Link>
               </div>
             ) : null}
-            <div className="relative">
-              {setupOverlay ? <div className="pointer-events-none opacity-40 blur-[1px]">{children}</div> : children}
-              {setupOverlay ? (
-                <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-100/30 p-6 backdrop-blur-[2px]">
-                  <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                    <div className="flex items-center gap-3 border-b border-amber-100 bg-amber-50 px-6 py-4">
-                      <span className="material-symbols-outlined text-amber-500">warning</span>
-                      <p className="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">Operations are Paused</p>
-                    </div>
-                    <div className="p-8 md:p-12">
-                      <div className="flex flex-col items-center gap-8 lg:flex-row">
-                        <div className="flex-1 space-y-4">
-                          <h2 className="text-3xl font-extrabold tracking-[-0.04em] text-slate-950">{setupOverlay.title}</h2>
-                          <p className="text-lg text-slate-600">{setupOverlay.body}</p>
-                          <div className="space-y-3 pt-4">
-                            {setupOverlay.steps.map((step) => (
-                              <div key={step.label} className="flex items-center gap-3 text-slate-700">
-                                <div className={`flex h-6 w-6 items-center justify-center rounded-full ${step.done ? "bg-green-100" : "bg-slate-100"}`}>
-                                  <span className={`material-symbols-outlined text-sm ${step.done ? "text-green-500" : "text-slate-400"}`}>
-                                    {step.done ? "check" : "close"}
-                                  </span>
-                                </div>
-                                <span className={`text-sm font-medium ${step.done ? "text-slate-400 line-through" : ""}`}>{step.label}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex flex-col gap-4 pt-6 sm:flex-row">
-                            <Link
-                              href="/app/onboarding"
-                              className="inline-flex items-center justify-center rounded-xl bg-primary px-8 py-4 font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
-                            >
-                              Complete Setup Wizard
-                              <span className="material-symbols-outlined ml-2">arrow_forward</span>
-                            </Link>
-                            <Link
-                              href="/app/settings"
-                              className="inline-flex items-center justify-center rounded-xl bg-slate-100 px-8 py-4 font-bold text-slate-700 transition-all hover:bg-slate-200"
-                            >
-                              Contact Support
-                            </Link>
-                          </div>
-                        </div>
-                        <div className="hidden h-64 w-64 flex-shrink-0 lg:block">
-                          <div className="relative flex h-full w-full items-center justify-center rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/30">
-                            <div className="absolute -right-4 -top-4 rounded-xl border border-slate-100 bg-white p-3 shadow-xl">
-                              <span className="material-symbols-outlined text-4xl text-primary">phone_in_talk</span>
-                            </div>
-                            <div className="absolute -bottom-4 -left-4 rounded-xl border border-slate-100 bg-white p-3 shadow-xl">
-                              <span className="material-symbols-outlined text-4xl text-amber-500">robot_2</span>
-                            </div>
-                            <div className="flex flex-col items-center p-6 text-center">
-                              <span className="material-symbols-outlined mb-2 text-6xl text-slate-400">construction</span>
-                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Awaiting Setup</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="border-t border-slate-100 bg-slate-50 px-8 py-4 text-center">
-                      <p className="text-xs text-slate-500">
-                        Setup usually takes less than 5 minutes. Need help? Check the <Link href="/app/onboarding" className="text-primary hover:underline">setup wizard</Link>.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            {children}
           </main>
           </div>
         </div>

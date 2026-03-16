@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Bolt, Building2, CalendarDays, FileText, Bell } from "lucide-react";
 import { fetchOrgOnboarding, previewOrgOnboarding, saveOrgOnboarding, submitOrgOnboarding } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, SectionHeading, PageHelpFab } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
+import Link from "next/link";
 import { clientBadgeClass } from "@/lib/client-badges";
+import { frontDeskContextPanelClass, frontDeskEmptyStateClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type FormState = {
   legalBusinessName: string;
@@ -81,13 +83,25 @@ function hasText(value: string) {
   return Boolean(value.trim());
 }
 
+function sectionReady(values: string[], mode: "all" | "any" = "all") {
+  return mode === "all" ? values.every(hasText) : values.some(hasText);
+}
+
 function statusTone(status: string) {
   if (status === "SUBMITTED") return "success" as const;
   if (status === "DRAFT") return "pending" as const;
   return "warning" as const;
 }
 
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+function OnboardingField({
+  label,
+  children,
+  hint
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+}) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -100,9 +114,9 @@ function Field({ label, children, hint }: { label: string; children: React.React
 export default function AppOnboardingPage() {
   const { showToast } = useToast();
   const [state, setState] = useState<FormState>(defaultState);
-  const [status, setStatus] = useState("DRAFT");
+  const [status, setStatus] = useState<string>("DRAFT");
   const [saving, setSaving] = useState(false);
-  const [buildSheet, setBuildSheet] = useState<string>("");
+  const [previewJson, setPreviewJson] = useState<string>("");
 
   useEffect(() => {
     void fetchOrgOnboarding()
@@ -121,7 +135,6 @@ export default function AppOnboardingPage() {
         const notifications = (answers.notifications || {}) as Record<string, unknown>;
         const tools = (answers.existingTools || {}) as Record<string, unknown>;
         const demo = (answers.demoTestMode || {}) as Record<string, unknown>;
-
         setState((prev) => ({
           ...prev,
           legalBusinessName: String(profile.legalBusinessName || ""),
@@ -143,7 +156,9 @@ export default function AppOnboardingPage() {
               : "not_sure",
           bookingAppName: String(booking.bookingAppName || ""),
           bookingAppMode:
-            booking.bookingAppMode === "direct_booking" || booking.bookingAppMode === "staff_review" || booking.bookingAppMode === "link_only"
+            booking.bookingAppMode === "direct_booking" ||
+            booking.bookingAppMode === "staff_review" ||
+            booking.bookingAppMode === "link_only"
               ? booking.bookingAppMode
               : "staff_review",
           bookingLink: String(booking.bookingLink || ""),
@@ -157,7 +172,9 @@ export default function AppOnboardingPage() {
           diagnosticsPolicy: String(policies.diagnosticsPolicy || ""),
           managerEmails: Array.isArray(notifications.managerEmails) ? notifications.managerEmails.join("\n") : "",
           managerPhones: Array.isArray(notifications.managerPhones) ? notifications.managerPhones.join("\n") : "",
-          leadSummaryRecipients: Array.isArray(notifications.leadSummaryRecipients) ? notifications.leadSummaryRecipients.join("\n") : "",
+          leadSummaryRecipients: Array.isArray(notifications.leadSummaryRecipients)
+            ? notifications.leadSummaryRecipients.join("\n")
+            : "",
           shopManagementSystem: String(tools.shopManagementSystem || ""),
           crm: String(tools.crm || ""),
           websiteForm: String(tools.websiteForm || ""),
@@ -222,53 +239,34 @@ export default function AppOnboardingPage() {
     [state]
   );
 
-  const steps = useMemo(
+  const setupSections = useMemo(
     () => [
       {
-        key: "business",
-        label: "Business Profile",
-        sublabel: "Step 01 / Completed",
-        icon: Building2,
-        active: false,
-        complete: hasText(state.legalBusinessName) && hasText(state.displayName) && hasText(state.industry)
+        label: "Business profile",
+        detail: "Identity, address, and service area.",
+        complete: sectionReady([state.legalBusinessName, state.displayName, state.industry, state.address, state.serviceArea])
       },
       {
-        key: "operations",
-        label: "Operations (AI Setup)",
-        sublabel: "Step 02 / Active",
-        icon: Bolt,
-        active: true,
-        complete: hasText(state.services) || hasText(state.transferNumbers) || hasText(state.afterHoursInstructions)
+        label: "Operations and booking",
+        detail: "Services, booking flow, after-hours, and transfers.",
+        complete: sectionReady([state.services, state.afterHoursInstructions, state.transferNumbers], "any")
       },
       {
-        key: "booking",
-        label: "Booking Rules",
-        sublabel: "Step 03 / In Progress",
-        icon: CalendarDays,
-        active: false,
-        complete: hasText(state.bookingAppName) || hasText(state.bookingLink) || hasText(state.appointmentDurationMin)
+        label: "Policies and alerts",
+        detail: "Policies and who gets notified.",
+        complete: sectionReady([state.warrantyPolicy, state.cancellationPolicy, state.managerEmails], "any")
       },
       {
-        key: "policies",
-        label: "Policies",
-        sublabel: "Step 04 / In Progress",
-        icon: FileText,
-        active: false,
-        complete: hasText(state.warrantyPolicy) || hasText(state.cancellationPolicy) || hasText(state.diagnosticsPolicy)
-      },
-      {
-        key: "notifications",
-        label: "Notifications",
-        sublabel: "Step 05 / In Progress",
-        icon: Bell,
-        active: false,
-        complete: hasText(state.managerEmails) || hasText(state.managerPhones) || hasText(state.leadSummaryRecipients)
+        label: "Existing systems",
+        detail: "CRM, shop system, and forms.",
+        complete: sectionReady([state.shopManagementSystem, state.crm, state.websiteForm], "any")
       }
     ],
     [state]
   );
 
-  const completionPercent = Math.round((steps.filter((step) => step.complete).length / steps.length) * 100);
+  const completedSections = setupSections.filter((section) => section.complete).length;
+  const completionPercent = Math.round((completedSections / setupSections.length) * 100);
 
   async function onSaveDraft() {
     setSaving(true);
@@ -288,7 +286,7 @@ export default function AppOnboardingPage() {
     try {
       const res = await submitOrgOnboarding(answers);
       setStatus(res.submission.status);
-      showToast({ title: "Setup submitted for review" });
+      showToast({ title: "Onboarding submitted", description: "Our team will review and configure your AI system." });
     } catch (error) {
       showToast({ title: "Submit failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
     } finally {
@@ -300,8 +298,8 @@ export default function AppOnboardingPage() {
     setSaving(true);
     try {
       const res = await previewOrgOnboarding(answers);
-      setBuildSheet(JSON.stringify(res.configPackage, null, 2));
-      showToast({ title: "Build sheet generated" });
+      setPreviewJson(JSON.stringify(res.configPackage, null, 2));
+      showToast({ title: "Configuration package preview generated" });
     } catch (error) {
       showToast({ title: "Preview failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
     } finally {
@@ -312,217 +310,267 @@ export default function AppOnboardingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Configuration"
-        title="Onboarding Wizard"
-        description="Configure the receptionist around the office's real booking, routing, policy, and notification workflow before go-live."
+        eyebrow="Workspace setup"
+        title="Setup Wizard"
+        description={`Status: ${status}. Teach the receptionist how your office operates before live calls, texts, and booking requests start flowing into the front desk.`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={onSaveDraft} disabled={saving}>
-              {saving ? "Saving..." : "Save progress"}
-            </Button>
-            <Button onClick={onPreview} disabled={saving}>
-              Preview build sheet
-            </Button>
+            <Button variant="outline" onClick={onPreview} disabled={saving}>Preview build sheet</Button>
+            <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
           </div>
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_360px] xl:items-start">
-        <aside className="rounded-[16px] border border-slate-300 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-          <div className="p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Configuration</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">Onboarding Wizard</h2>
-            <div className="mt-8 space-y-1">
-              {steps.map((step) => {
-                const Icon = step.icon;
-                return (
-                  <div
-                    key={step.key}
-                    className={`flex items-center gap-4 rounded-[12px] border px-4 py-3 ${
-                      step.active ? "border-blue-200 bg-blue-50" : "border-transparent"
-                    }`}
-                  >
-                    <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[10px] ${
-                      step.complete ? "bg-emerald-50 text-emerald-700" : step.active ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
-                    }`}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-950">{step.label}</p>
-                      <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${step.active ? "text-blue-700" : "text-slate-500"}`}>
-                        {step.sublabel}
-                      </p>
-                    </div>
+      <PageHelpFab
+        items={[
+          {
+            label: "Use this page",
+            text: "Use Setup Wizard before going live so calls, texts, and booking requests follow the same rules your office already uses."
+          },
+          {
+            label: "Start here",
+            text: "Complete the business profile and operations sections first, then review the build sheet preview to confirm the receptionist understands the business."
+          },
+          {
+            label: "Go next",
+            text: "After setup is complete, move into Front Desk, Call Queue, Inbox, and Booking Queue to work the live requests that start coming in."
+          }
+        ]}
+      />
+
+      <ClientStatusGrid
+        items={[
+          {
+            label: "Setup status",
+            value: status.replaceAll("_", " "),
+            detail: status === "SUBMITTED" ? "The setup package has been submitted for review." : "Keep filling this out until the receptionist rules match how the office actually operates.",
+            tone: statusTone(status)
+          },
+          {
+            label: "Call mode",
+            value: state.testMode ? "Testing" : "Live-ready",
+            detail: state.testMode ? "Use testing while validating flows and wording before go-live." : "This setup is aimed at live production behavior.",
+            tone: state.testMode ? "pending" : "success"
+          },
+          {
+            label: "Business profile",
+            value: sectionReady([state.legalBusinessName, state.displayName, state.industry], "all") ? "Ready" : "In progress",
+            detail: "Legal name, display name, and industry are the minimum business identity fields for launch.",
+            tone: sectionReady([state.legalBusinessName, state.displayName, state.industry], "all") ? "success" : "pending"
+          },
+          {
+            label: "Booking setup",
+            value: sectionReady([state.bookingMethod, state.services], "all") ? "In progress" : "Not configured",
+            detail: "Booking details determine whether requests move cleanly into scheduling work.",
+            tone: sectionReady([state.bookingMethod, state.services], "all") ? "pending" : "warning"
+          }
+        ]}
+      />
+
+      <Card className={frontDeskWorkspaceCardClass("hero")}>
+        <CardContent className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.1fr)_360px] xl:items-start">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="page-eyebrow">How setup works</p>
+              <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-slate-950 sm:text-[34px]">
+                Build the receptionist around how your office already operates.
+              </h2>
+              <p className="max-w-3xl text-[15px] leading-7 text-slate-600">
+                Complete the sections below once so live calls, text follow-up, and booking requests land in the right queues with the right business rules from day one.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Current status</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge className={clientBadgeClass(statusTone(status))}>{status.replaceAll("_", " ")}</Badge>
+                  <Badge className={clientBadgeClass(state.testMode ? "automated" : "neutral")}>
+                    {state.testMode ? "Test mode on" : "Live mode"}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm text-slate-600">
+                  {status === "SUBMITTED"
+                    ? "Your setup package has been submitted for review."
+                    : "Keep saving as you go, then preview the build sheet before submitting."}
+                </p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">Completion</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{completionPercent}%</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {completedSections} of {setupSections.length} setup sections are materially filled in.
+                </p>
+              </div>
+              <div className={frontDeskContextPanelClass()}>
+                <p className="page-eyebrow">What this affects</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  Front Desk, Call Queue, Inbox, and Booking Queue all rely on this setup to summarize calls correctly and route follow-up work to the right place.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`${frontDeskContextPanelClass()} space-y-4`}>
+            <div className="space-y-1">
+              <p className="page-eyebrow">Setup checklist</p>
+              <p className="text-sm text-slate-600">Use this panel to see what still needs office input before go-live.</p>
+            </div>
+            <div className="space-y-3">
+              {setupSections.map((section) => (
+                <div key={section.label} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-950">{section.label}</p>
+                    <p className="text-xs leading-5 text-slate-600">{section.detail}</p>
                   </div>
-                );
-              })}
+                  <Badge className={clientBadgeClass(section.complete ? "success" : "pending")}>
+                    {section.complete ? "Ready" : "Needs input"}
+                  </Badge>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="border-t border-slate-200 bg-slate-50 px-6 py-5">
-            <div className="flex items-end justify-between gap-3">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Progress</span>
-              <span className="text-lg font-semibold text-blue-700">{completionPercent}%</span>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full bg-blue-700" style={{ width: `${completionPercent}%` }} />
-            </div>
-          </div>
-        </aside>
+        </CardContent>
+      </Card>
 
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
         <div className="space-y-6">
-          <div className="flex items-start justify-between gap-4 rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-            <div>
-              <h2 className="text-4xl font-semibold uppercase tracking-[-0.05em] text-slate-950">Operations Setup</h2>
-              <p className="mt-2 text-base text-slate-600">Configure the AI-driven front desk routing, booking handoff, and business rules.</p>
-            </div>
-            <Badge className={clientBadgeClass(statusTone(status))}>{status}</Badge>
-          </div>
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 1" title="Business Profile" description="Set the core business identity the receptionist should use on every request." />
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <OnboardingField label="Legal business name"><Input value={state.legalBusinessName} onChange={(e)=>setState((p)=>({...p,legalBusinessName:e.target.value}))} /></OnboardingField>
+              <OnboardingField label="Display name"><Input value={state.displayName} onChange={(e)=>setState((p)=>({...p,displayName:e.target.value}))} /></OnboardingField>
+              <OnboardingField label="Industry"><Input value={state.industry} onChange={(e)=>setState((p)=>({...p,industry:e.target.value}))} /></OnboardingField>
+              <OnboardingField label="Website"><Input value={state.website} onChange={(e)=>setState((p)=>({...p,website:e.target.value}))} /></OnboardingField>
+              <div className="sm:col-span-2"><OnboardingField label="Business address"><Input value={state.address} onChange={(e)=>setState((p)=>({...p,address:e.target.value}))} /></OnboardingField></div>
+              <div className="sm:col-span-2"><OnboardingField label="Service area" hint="List cities, counties, or neighborhoods the office actually serves."><Input value={state.serviceArea} onChange={(e)=>setState((p)=>({...p,serviceArea:e.target.value}))} /></OnboardingField></div>
+            </CardContent>
+          </Card>
 
-          <section className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-            <div className="mb-6 flex items-center gap-2 border-b border-slate-200 pb-4">
-              <Bolt className="h-5 w-5 text-blue-700" />
-              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-950">AI Voice Personalization</h3>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Field label="Agent Name">
-                  <Input value={state.displayName || "Front Desk"} onChange={(e) => setState((p) => ({ ...p, displayName: e.target.value }))} />
-                </Field>
-              </div>
-              <Field label="Legal business name">
-                <Input value={state.legalBusinessName} onChange={(e) => setState((p) => ({ ...p, legalBusinessName: e.target.value }))} />
-              </Field>
-              <Field label="Industry">
-                <Input value={state.industry} onChange={(e) => setState((p) => ({ ...p, industry: e.target.value }))} />
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label="Service area">
-                  <Input value={state.serviceArea} onChange={(e) => setState((p) => ({ ...p, serviceArea: e.target.value }))} />
-                </Field>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-            <div className="mb-6 flex items-center gap-2 border-b border-slate-200 pb-4">
-              <CalendarDays className="h-5 w-5 text-blue-700" />
-              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-950">Routing Logic</h3>
-            </div>
-            <div className="space-y-4">
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 2" title="Operations and Booking" description="Tell the receptionist how services, scheduling, transfers, and after-hours follow-up should work." />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <OnboardingField label="Services offered (one per line)" hint="Use the same language the office uses when categorizing requests.">
+                <Textarea value={state.services} onChange={(e)=>setState((p)=>({...p,services:e.target.value}))} className="min-h-[140px]" />
+              </OnboardingField>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Booking workflow">
+                <OnboardingField label="Do you currently use a booking app?">
+                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={state.usesBookingApp} onChange={(e) => setState((p) => ({ ...p, usesBookingApp: e.target.value as FormState["usesBookingApp"] }))}>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="not_sure">Not sure</option>
+                  </select>
+                </OnboardingField>
+                <OnboardingField label="Booking app" hint="Examples: Jobber, Housecall Pro, ServiceTitan, Calendly.">
+                  <Input value={state.bookingAppName} onChange={(e) => setState((p) => ({ ...p, bookingAppName: e.target.value }))} />
+                </OnboardingField>
+                <OnboardingField label="How should AI handle bookings?">
+                  <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={state.bookingAppMode} onChange={(e) => setState((p) => ({ ...p, bookingAppMode: e.target.value as FormState["bookingAppMode"] }))}>
+                    <option value="staff_review">Create booking request for staff review</option>
+                    <option value="direct_booking">Book directly in existing app or calendar</option>
+                    <option value="link_only">Send booking link only</option>
+                  </select>
+                </OnboardingField>
+                <OnboardingField label="Booking workflow">
                   <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={state.bookingMethod} onChange={(e) => setState((p) => ({ ...p, bookingMethod: e.target.value as FormState["bookingMethod"] }))}>
                     <option value="manager_notify">Manager notify</option>
                     <option value="manual">Manual booking</option>
                     <option value="google_calendar">Google Calendar</option>
                   </select>
-                </Field>
-                <Field label="Booking app in use">
-                  <Input value={state.bookingAppName} onChange={(e) => setState((p) => ({ ...p, bookingAppName: e.target.value }))} placeholder="Jobber, Housecall Pro, ServiceTitan..." />
-                </Field>
+                </OnboardingField>
+                <OnboardingField label="Booking link"><Input value={state.bookingLink} onChange={(e) => setState((p) => ({ ...p, bookingLink: e.target.value }))} placeholder="https://..." /></OnboardingField>
+                <OnboardingField label="Calendar or account email"><Input value={state.bookingAccountEmail} onChange={(e) => setState((p) => ({ ...p, bookingAccountEmail: e.target.value }))} placeholder="scheduler@company.com" /></OnboardingField>
+                <OnboardingField label="Default appointment duration (minutes)"><Input type="number" min={0} value={state.appointmentDurationMin} onChange={(e) => setState((p) => ({ ...p, appointmentDurationMin: e.target.value }))} placeholder="60" /></OnboardingField>
+                <OnboardingField label="Buffer between appointments (minutes)"><Input type="number" min={0} value={state.appointmentBufferMin} onChange={(e) => setState((p) => ({ ...p, appointmentBufferMin: e.target.value }))} placeholder="15" /></OnboardingField>
               </div>
-              <Field label="Services handled by the receptionist" hint="One service or request type per line.">
-                <Textarea value={state.services} onChange={(e) => setState((p) => ({ ...p, services: e.target.value }))} className="min-h-[120px]" />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="After-hours instructions">
-                  <Textarea value={state.afterHoursInstructions} onChange={(e) => setState((p) => ({ ...p, afterHoursInstructions: e.target.value }))} className="min-h-[120px]" />
-                </Field>
-                <Field label="Transfer numbers">
-                  <Textarea value={state.transferNumbers} onChange={(e) => setState((p) => ({ ...p, transferNumbers: e.target.value }))} className="min-h-[120px]" />
-                </Field>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <OnboardingField label="After-hours instructions"><Textarea value={state.afterHoursInstructions} onChange={(e)=>setState((p)=>({...p,afterHoursInstructions:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+                <OnboardingField label="Holiday policy"><Textarea value={state.holidayPolicy} onChange={(e)=>setState((p)=>({...p,holidayPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+                <OnboardingField label="Transfer numbers (one per line)"><Textarea value={state.transferNumbers} onChange={(e)=>setState((p)=>({...p,transferNumbers:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+                <OnboardingField label="Custom intake questions (one per line)"><Textarea value={state.customQuestions} onChange={(e)=>setState((p)=>({...p,customQuestions:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
               </div>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
-          <section className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Booking link">
-                <Input value={state.bookingLink} onChange={(e) => setState((p) => ({ ...p, bookingLink: e.target.value }))} placeholder="https://..." />
-              </Field>
-              <Field label="Calendar/account email">
-                <Input value={state.bookingAccountEmail} onChange={(e) => setState((p) => ({ ...p, bookingAccountEmail: e.target.value }))} placeholder="dispatch@company.com" />
-              </Field>
-              <Field label="Appointment duration (min)">
-                <Input type="number" min={0} value={state.appointmentDurationMin} onChange={(e) => setState((p) => ({ ...p, appointmentDurationMin: e.target.value }))} />
-              </Field>
-              <Field label="Buffer between appointments (min)">
-                <Input type="number" min={0} value={state.appointmentBufferMin} onChange={(e) => setState((p) => ({ ...p, appointmentBufferMin: e.target.value }))} />
-              </Field>
-              <Field label="Policies">
-                <Textarea value={state.cancellationPolicy} onChange={(e) => setState((p) => ({ ...p, cancellationPolicy: e.target.value }))} className="min-h-[110px]" />
-              </Field>
-              <Field label="Notifications">
-                <Textarea value={state.managerEmails} onChange={(e) => setState((p) => ({ ...p, managerEmails: e.target.value }))} className="min-h-[110px]" />
-              </Field>
-            </div>
-          </section>
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 3" title="Policies and Notifications" description="Set the policies and alert recipients that guide follow-up once requests start landing in the queues." />
+            </CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-2">
+              <OnboardingField label="Warranty policy"><Textarea value={state.warrantyPolicy} onChange={(e)=>setState((p)=>({...p,warrantyPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Cancellation policy"><Textarea value={state.cancellationPolicy} onChange={(e)=>setState((p)=>({...p,cancellationPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Diagnostics policy"><Textarea value={state.diagnosticsPolicy} onChange={(e)=>setState((p)=>({...p,diagnosticsPolicy:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Lead summary recipients"><Textarea value={state.leadSummaryRecipients} onChange={(e)=>setState((p)=>({...p,leadSummaryRecipients:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Manager emails"><Textarea value={state.managerEmails} onChange={(e)=>setState((p)=>({...p,managerEmails:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+              <OnboardingField label="Manager phones"><Textarea value={state.managerPhones} onChange={(e)=>setState((p)=>({...p,managerPhones:e.target.value}))} className="min-h-[130px]" /></OnboardingField>
+            </CardContent>
+          </Card>
 
-          <div className="flex flex-wrap gap-3">
-            <Button className="min-w-[220px]" onClick={onSubmit} disabled={saving}>
-              Submit for review
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/app">Back to Front Desk</Link>
-            </Button>
-          </div>
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-3">
+              <SectionHeading eyebrow="Section 4" title="Existing Systems" description="Document the tools and channels your office already uses so the receptionist fits into the current workflow." />
+            </CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-2">
+              <OnboardingField label="Shop management system"><Input value={state.shopManagementSystem} onChange={(e)=>setState((p)=>({...p,shopManagementSystem:e.target.value}))} placeholder="Housecall Pro, Jobber, ServiceTitan, etc." /></OnboardingField>
+              <OnboardingField label="CRM"><Input value={state.crm} onChange={(e)=>setState((p)=>({...p,crm:e.target.value}))} placeholder="HubSpot, Salesforce, custom CRM, etc." /></OnboardingField>
+              <div className="lg:col-span-2"><OnboardingField label="Website form or lead-source notes"><Textarea value={state.websiteForm} onChange={(e)=>setState((p)=>({...p,websiteForm:e.target.value}))} className="min-h-[120px]" /></OnboardingField></div>
+            </CardContent>
+          </Card>
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-24">
-          <div className="rounded-[16px] border border-slate-300 bg-slate-50 p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Build Sheet</h3>
-              <button type="button" onClick={() => void onPreview()} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">
-                Refresh
-              </button>
+        <div className="space-y-6 xl:sticky xl:top-24">
+          <div className={`${frontDeskContextPanelClass()} space-y-4`}>
+            <div className="space-y-1">
+              <p className="page-eyebrow">Submit and review</p>
+              <p className="text-sm text-slate-600">Save progress, preview the generated build sheet, then submit the package when the office rules are ready for review.</p>
             </div>
-            <div className="mt-4 rounded-[14px] border border-slate-300 bg-white p-5">
-              <div className="border-b border-slate-200 pb-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Status: <span className="text-amber-600">{status === "SUBMITTED" ? "Awaiting Review" : "Awaiting Build"}</span>
-                </p>
-                <p className="mt-2 text-lg font-semibold tracking-[-0.04em] text-slate-950">FRONT_DESK_CONFIG</p>
+            <div className="grid gap-3">
+              <Button className="w-full" onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
+              <Button className="w-full" variant="outline" onClick={onPreview} disabled={saving}>Preview build sheet</Button>
+              <Link href="/app/onboarding/preview"><Button className="w-full" type="button" variant="outline">Open build sheet page</Button></Link>
+              <Button className="w-full" variant="outline" onClick={onSubmit} disabled={saving}>Submit setup package</Button>
+            </div>
+          </div>
+
+          <div className={`${frontDeskContextPanelClass()} space-y-3`}>
+            <p className="page-eyebrow">Go-live checklist</p>
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-950">1. Business profile is accurate</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Business name, address, website, and service area should match how the office represents itself publicly.</p>
               </div>
-              <div className="mt-4 space-y-4 text-sm">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Infrastructure</p>
-                  <div className="mt-2 space-y-2 text-slate-700">
-                    <div className="flex items-center justify-between">
-                      <span>Booking mode</span>
-                      <span className="font-medium text-slate-950">{state.bookingMethod.replaceAll("_", " ")}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Test mode</span>
-                      <span className="font-medium text-slate-950">{state.testMode ? "Enabled" : "Disabled"}</span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Active Logic Modules</p>
-                  <ul className="mt-2 space-y-2 text-[12px] font-medium text-slate-700">
-                    <li>NLP conversational core</li>
-                    <li>Intent detection engine</li>
-                    <li>{hasText(state.managerEmails) ? "Notification routing" : "Notification routing pending"}</li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Agent Persona</p>
-                  <div className="mt-2 rounded-[12px] border border-slate-200 bg-slate-50 p-4 text-xs italic leading-6 text-slate-600">
-                    The agent identifies as {state.displayName || "Front Desk"}. Routing is based on {state.bookingMethod.replaceAll("_", " ")} and the current office transfer rules.
-                  </div>
-                </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-950">2. Booking workflow is realistic</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Choose the booking approach the office can actually support so requests land in the right queue.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-950">3. Alert recipients are ready</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Manager emails and phones should route live follow-up to the right people on day one.</p>
               </div>
             </div>
           </div>
 
-          {buildSheet ? (
-            <div className="rounded-[16px] border border-slate-300 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Generated package</p>
-              <pre className="mt-4 max-h-[420px] overflow-auto rounded-[14px] bg-slate-950 p-4 text-xs leading-6 text-slate-100">{buildSheet}</pre>
+          {previewJson ? (
+            <Card className={frontDeskWorkspaceCardClass("subtle")}>
+              <CardHeader className="pb-3">
+                <CardTitle>Build sheet preview</CardTitle>
+                <p className="text-sm text-muted-foreground">Review the generated setup package before submitting it for configuration.</p>
+              </CardHeader>
+              <CardContent>
+                <pre className="max-h-[28rem] overflow-auto rounded-2xl border bg-slate-950 p-4 text-xs text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">{previewJson}</pre>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className={frontDeskEmptyStateClass()}>
+              Build sheet preview will appear here after you run a preview. Use it to review what the office configuration package will look like before submission.
             </div>
-          ) : null}
-        </aside>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
