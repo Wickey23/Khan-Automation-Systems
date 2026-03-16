@@ -1,51 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, Mail, Megaphone, PhoneCall, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
-import { clientBadgeClass } from "@/lib/client-badges";
+import { ArrowRight, BarChart3, Lock, Mail, Rocket, Sparkles, Target, Zap } from "lucide-react";
+import { PageHelpFab } from "@/components/ui/page";
 
 const launchBlocks = [
   {
-    title: "Lead lists and import",
-    description: "Upload prospect batches, validate contact data, and prepare outreach-ready leads without mixing them into the live front-desk queues.",
-    icon: Megaphone
+    title: "Smart Follow-ups",
+    desc: "AI-driven SMS and email sequences that adapt to lead behavior while staying separate from the live front-desk queues.",
+    icon: Zap,
+    color: "bg-amber-100 text-amber-600"
   },
   {
-    title: "Email sequences",
-    description: "Build controlled outbound sequences, preview each step, and monitor replies, failures, and unsubscribes from one place.",
-    icon: Mail
+    title: "Lead Scoring",
+    desc: "Automatically prioritize leads based on engagement and intent before they move into higher-touch sales or booking workflows.",
+    icon: Target,
+    color: "bg-emerald-100 text-emerald-600"
   },
   {
-    title: "Caller AI",
-    description: "Queue AI outreach calls during the approved daily window, review call outcomes, and monitor summaries, transcripts, and call quality.",
-    icon: PhoneCall
+    title: "Performance Analytics",
+    desc: "Track outreach ROI, conversion, and message/call performance once reliability gates are cleared for client use.",
+    icon: BarChart3,
+    color: "bg-blue-100 text-blue-600"
   }
-];
+] as const;
 
 const releaseChecks = [
-  "Call completion logging has to be consistently reliable on real calls.",
-  "Transcript and summary capture need to prove out across voicemail, pickup, and transfer paths.",
-  "Call delivery and result syncing have to stay dependable before clients can run this unattended."
+  "Call completion logging has to stay reliable on real-world outbound runs.",
+  "Transcript and summary capture need to hold up across voicemail, pickup, and transfer outcomes.",
+  "Delivery and result syncing must stay dependable before clients can run outreach unattended."
 ];
 
 export default function AppOutreachPage() {
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Growth workspace"
-        title="Outreach"
-        description="Outbound email and AI calling will live here once the system is fully hardened for client use."
-        actions={
-          <Badge className={clientBadgeClass("pending")}>
-            Coming soon
-          </Badge>
-        }
-      />
-
+    <div className="flex min-h-[calc(100vh-220px)] flex-col items-center justify-center overflow-y-auto bg-background-light px-6 py-12">
       <PageHelpFab
         title="What this workspace will cover"
         items={[
@@ -55,70 +43,104 @@ export default function AppOutreachPage() {
         ]}
       />
 
-      <Card className="border-amber-200/90 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]">
-        <CardContent className="flex flex-col gap-4 px-5 py-5 text-sm text-amber-950 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-          <div className="flex gap-3">
-            <div className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/80 bg-white/80">
-              <Lock className="h-4 w-4" />
-            </div>
-            <div className="space-y-1.5">
-              <p className="font-semibold">Client activation is locked for now.</p>
-              <p className="max-w-3xl leading-6 text-amber-900/90">
-                Outreach is being held behind a coming-soon release until call outcomes, transcript capture, and overall delivery reliability are consistently trustworthy in supervised use.
-              </p>
-            </div>
+      <div className="w-full max-w-5xl">
+        <div className="mb-16 text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-primary">
+            <Rocket className="h-3.5 w-3.5" />
+            Coming Soon
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="border-amber-300 bg-white/85 text-amber-950 hover:bg-white">
-              <Link href="/app/calls">Open Call Queue</Link>
-            </Button>
-            <Button asChild variant="outline" className="border-amber-300 bg-white/85 text-amber-950 hover:bg-white">
-              <Link href="/app/leads">Open Lead Queue</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-        <div className="grid gap-4 lg:grid-cols-3">
-          {launchBlocks.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Card key={item.title}>
-                <CardHeader className="space-y-4">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-2">
-                    <CardTitle className="text-xl">{item.title}</CardTitle>
-                    <p className="text-sm leading-6 text-slate-600">{item.description}</p>
-                  </div>
-                </CardHeader>
-              </Card>
-            );
-          })}
+          <h1 className="mb-6 text-5xl font-extrabold leading-tight tracking-tight text-slate-900">
+            Automate your <span className="text-primary">Outreach</span>
+            <br />
+            with AI-powered precision
+          </h1>
+          <p className="mx-auto max-w-2xl text-xl leading-relaxed text-slate-500">
+            We&apos;re building the outbound engine for Front Desk OS. It will automate follow-ups, re-engage cold leads,
+            and create more booked work once delivery and reporting are proven reliable enough for production use.
+          </p>
         </div>
 
-        <Card>
-          <CardHeader className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
-                <ShieldCheck className="h-4 w-4" />
+        <div className="mb-16 grid gap-8 md:grid-cols-3">
+          {launchBlocks.map((feature) => (
+            <div key={feature.title} className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-md">
+              <div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-2xl ${feature.color}`}>
+                <feature.icon className="h-6 w-6" />
               </div>
-              <Badge className={clientBadgeClass("pending")}>Release gate</Badge>
+              <h3 className="mb-3 text-lg font-bold text-slate-900">{feature.title}</h3>
+              <p className="text-sm leading-relaxed text-slate-500">{feature.desc}</p>
             </div>
-            <CardTitle className="text-xl">What still has to be proven</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-slate-700">
-            {releaseChecks.map((item) => (
-              <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 leading-6">
-                {item}
+          ))}
+        </div>
+
+        <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-12 text-center shadow-2xl">
+          <div className="pointer-events-none absolute inset-0 opacity-10">
+            <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-primary blur-3xl" />
+            <div className="absolute bottom-10 right-10 h-32 w-32 rounded-full bg-primary blur-3xl" />
+          </div>
+
+          <div className="relative z-10">
+            <h2 className="mb-4 flex items-center justify-center gap-3 text-3xl font-bold text-white">
+              <Sparkles className="text-primary" />
+              Behind a reliability gate
+            </h2>
+            <p className="mx-auto mb-8 max-w-2xl text-slate-400">
+              Outreach is intentionally held back until outbound delivery, logging, transcript capture, and follow-up
+              monitoring are consistently trustworthy in supervised use.
+            </p>
+
+            <div className="mx-auto grid max-w-3xl gap-3 text-left">
+              {releaseChecks.map((item) => (
+                <div key={item} className="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm leading-6 text-slate-200">
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/app/calls"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-slate-700"
+              >
+                Open Call Queue
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/app/leads"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+              >
+                Open Lead Queue
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-amber-200">
+              <Lock className="h-3.5 w-3.5" />
+              Client activation locked for now
+            </div>
+
+            <div className="mx-auto mt-10 flex max-w-md gap-3">
+              <div className="relative flex-1">
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="email"
+                  placeholder="Enter your email address"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-11 py-4 text-white outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary"
+                />
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-4 font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+              >
+                Join Waitlist
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              No spam. This is only for launch notice and early-access updates.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-
