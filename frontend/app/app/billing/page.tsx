@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Check, CreditCard, Download, Plus, Zap } from "lucide-react";
 import {
   createPlanChangeSession,
   createStripeCheckoutSession,
@@ -13,12 +14,9 @@ import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClientStatusGrid } from "@/components/ui/client-module";
-import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
-import { frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
-import { subscriptionStatusLabel } from "@/lib/client-status-language";
+import { frontDeskEmptyStateClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 const PLAN_COPY = {
   none: {
@@ -114,12 +112,6 @@ function statusStyles(status: string | null | undefined) {
 
 function formatStatus(status: string | null | undefined) {
   return normalizeStatus(status).replace(/_/g, " ");
-}
-
-function formatPlan(plan: OrgSubscription["plan"] | null | undefined) {
-  if (plan === "PRO") return "Growth/Pro";
-  if (plan === "STARTER") return "Standard";
-  return "No Plan";
 }
 
 function diagBadgeClass(value: BillingDiagnosticsPayload["summary"]["overall"]) {
@@ -301,6 +293,34 @@ export default function AppBillingPage() {
   const hasRealSubscription = Boolean(subscription);
   const isActiveSubscription = ACTIVE_STATUSES.has(normalizeStatus(subscription?.status));
   const showDemoCard = !subscription && demo?.mode === "GUIDED_DEMO";
+  const currentPlanKey: PlanKey = !subscription ? "none" : subscription.plan === "PRO" ? "pro" : "starter";
+  const currentPlanCopy = PLAN_COPY[currentPlanKey];
+  const maskedCustomerDigits = subscription?.stripeCustomerId ? subscription.stripeCustomerId.slice(-4) : "4242";
+  const activeFeatures = currentPlanCopy.includes.slice(0, 5);
+  const usageRows = [
+    {
+      label: "Customer Portal",
+      current: diagnostics?.summary.customerPortalReady ? 1 : 0,
+      total: 1,
+      percent: diagnostics?.summary.customerPortalReady ? 100 : 25
+    },
+    {
+      label: "Plan Change",
+      current: diagnostics?.summary.changePlanReady ? 1 : 0,
+      total: 1,
+      percent: diagnostics?.summary.changePlanReady ? 100 : 20
+    },
+    {
+      label: showDemoCard ? "Demo Calls" : "Checkout",
+      current: showDemoCard ? demo?.callsUsed ?? 0 : diagnostics?.summary.checkoutReady ? 1 : 0,
+      total: showDemoCard ? Math.max(demo?.callCap ?? 15, 1) : 1,
+      percent: showDemoCard
+        ? Math.min(100, Math.round(((demo?.callsUsed ?? 0) / Math.max(demo?.callCap ?? 15, 1)) * 100))
+        : diagnostics?.summary.checkoutReady
+          ? 100
+          : 20
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -332,40 +352,226 @@ export default function AppBillingPage() {
         ]}
       />
 
-      <ClientStatusGrid
-        items={[
-          {
-            label: "Subscription",
-            value: subscription ? formatPlan(subscription.plan) : "No plan",
-            detail: subscriptionStatusLabel(subscription?.status),
-            tone: isActiveSubscription ? "success" : "warning"
-          },
-          {
-            label: "Customer portal",
-            value: diagnostics?.summary.customerPortalReady ? "Ready" : "Needs review",
-            detail: diagnostics?.summary.customerPortalReady ? "Customers can manage billing through the hosted portal." : "Billing access needs attention before self-service updates are reliable.",
-            tone: diagnostics?.summary.customerPortalReady ? "success" : "warning"
-          },
-          {
-            label: "Plan change",
-            value: diagnostics?.summary.changePlanReady ? "Ready" : "Blocked",
-            detail: "Shows whether this workspace can safely change plan tiers right now.",
-            tone: diagnostics?.summary.changePlanReady ? "success" : "warning"
-          },
-          {
-            label: "Checkout",
-            value: diagnostics?.summary.checkoutReady ? "Ready" : "Blocked",
-            detail: showDemoCard ? "Guided demo workspaces still need a paid plan before live runtime begins." : "Shows whether this workspace can start or renew a paid subscription now.",
-            tone: diagnostics?.summary.checkoutReady ? "success" : "warning"
-          }
-        ]}
-      />
+      <section className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_360px]">
+        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50/60 p-8">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Current Plan</p>
+                <h2 className="mt-1 text-[2.1rem] font-black leading-none tracking-tight text-primary">{currentPlanCopy.title}</h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {hasRealSubscription ? (
+                <Button variant="outline" onClick={onOpenPortal} disabled={openingPortal}>
+                  {openingPortal ? "Opening..." : "Open Portal"}
+                </Button>
+              ) : null}
+              {isActiveSubscription && subscription?.plan === "STARTER" ? (
+                <Button variant="outline" onClick={() => void onChangePlan("pro")} disabled={changingPlan !== null}>
+                  {changingPlan === "pro" ? "Upgrading..." : "Change Plan"}
+                </Button>
+              ) : null}
+              {isActiveSubscription && subscription?.plan === "PRO" ? (
+                <Button variant="outline" onClick={() => void onChangePlan("starter")} disabled={changingPlan !== null}>
+                  {changingPlan === "starter" ? "Switching..." : "Change Plan"}
+                </Button>
+              ) : null}
+              {!hasRealSubscription ? (
+                <Button onClick={() => void onStartPlan("starter")} disabled={startingPlan !== null}>
+                  {startingPlan ? "Starting..." : "Start Plan"}
+                </Button>
+              ) : null}
+            </div>
+          </div>
 
-      <Card className={`${frontDeskWorkspaceCardClass("hero")} overflow-hidden`}>
-        <CardHeader>
-          <CardTitle>Current subscription</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
+          <div className="grid gap-10 p-8 md:grid-cols-[1fr_0.95fr]">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Plan Features</h3>
+              <ul className="mt-6 space-y-4">
+                {activeFeatures.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3 text-base font-medium text-slate-700">
+                    <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <Check className="h-4 w-4" />
+                    </span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Usage This Month</h3>
+                <div className="mt-5 space-y-5">
+                  {usageRows.map((row) => (
+                    <div key={row.label}>
+                      <div className="mb-2 flex items-center justify-between gap-4 text-sm font-bold">
+                        <span className="text-slate-600">{row.label}</span>
+                        <span className="text-slate-950">
+                          {row.current} / {row.total}
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${row.percent}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t border-slate-100 pt-5">
+                <p className="text-sm text-slate-500">
+                  Next billing date:{" "}
+                  <span className="font-bold text-slate-900">
+                    {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "Not scheduled"}
+                  </span>
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Status: <span className="font-bold text-slate-900">{subscription ? formatStatus(subscription.status) : "not active"}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 bg-slate-50/60 p-8">
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Payment Method</h3>
+          </div>
+          <div className="flex h-full flex-col justify-between p-8">
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
+              <div className="mb-8 flex items-center justify-between">
+                <CreditCard className="h-8 w-8 text-slate-400" />
+                <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                  Default
+                </span>
+              </div>
+              <p className="text-xl font-black tracking-[0.24em] text-slate-900">•••• •••• •••• {maskedCustomerDigits}</p>
+              <div className="mt-5 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">
+                    {diagnostics?.summary.customerPortalReady ? "Stripe portal connected" : "Portal needs review"}
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-slate-500">
+                  {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "-- / --"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <Button className="w-full" onClick={onOpenPortal} disabled={openingPortal || !hasRealSubscription}>
+                {openingPortal ? "Opening..." : "Manage in Stripe"}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => void onStartPlan(subscription?.plan === "PRO" ? "pro" : "starter")}
+                disabled={startingPlan !== null || hasRealSubscription}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {startingPlan ? "Starting..." : "Add New Card"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {showDemoCard ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm">
+          <p className="font-semibold text-amber-900">Guided Demo Mode</p>
+          <p className="mt-1 text-amber-900/90">
+            Evaluation mode only. This workspace still needs a paid subscription before live runtime begins.
+          </p>
+        </div>
+      ) : null}
+
+      {subscription?.pendingPlan ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+          <p className="text-sm font-semibold text-amber-900">Pending change</p>
+          <p className="mt-1 text-xs text-amber-900/90">
+            {subscription.pendingPlan === "STARTER" ? "Downgrade to Standard" : "Upgrade to Growth/Pro"}
+            {subscription.pendingPlanEffectiveAt
+              ? ` scheduled for ${new Date(subscription.pendingPlanEffectiveAt).toLocaleDateString()}`
+              : " scheduled for the next billing cycle"}
+            .
+          </p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
+          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 bg-white/80">
+            <CardTitle>Billing operations</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => void refreshDiagnostics()}>
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  <th className="px-6 py-4">Check</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Details</th>
+                  <th className="px-6 py-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[
+                  {
+                    label: "Customer Portal",
+                    status: diagnostics?.summary.customerPortalReady ? "Ready" : "Review",
+                    detail: diagnostics?.summary.customerPortalReady
+                      ? "Customers can manage payment methods and invoices."
+                      : "Billing access needs attention before self-service updates are reliable.",
+                    action: hasRealSubscription ? "Open Portal" : "Unavailable"
+                  },
+                  {
+                    label: "Plan Change",
+                    status: diagnostics?.summary.changePlanReady ? "Ready" : "Blocked",
+                    detail: "Confirms whether this workspace can safely switch tiers right now.",
+                    action: isActiveSubscription ? "Change Plan" : "Start Plan"
+                  },
+                  {
+                    label: "Checkout",
+                    status: diagnostics?.summary.checkoutReady ? "Ready" : "Blocked",
+                    detail: showDemoCard
+                      ? "Demo workspaces need a paid plan before live runtime begins."
+                      : "Controls whether this workspace can start or renew a paid subscription.",
+                    action: hasRealSubscription ? "Managed" : "Checkout"
+                  }
+                ].map((row) => (
+                  <tr key={row.label} className="hover:bg-slate-50/60">
+                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{row.label}</td>
+                    <td className="px-6 py-4">
+                      <Badge className={row.status === "Ready" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}>
+                        {row.status}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{row.detail}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
+                        {row.action}
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
+          <CardHeader>
+            <CardTitle>Billing diagnostics</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
           {showDemoCard ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
               <p className="text-sm font-semibold text-amber-900">Guided Demo Mode</p>
@@ -392,95 +598,8 @@ export default function AppBillingPage() {
               </div>
             </div>
           ) : null}
-            <div className="grid gap-3 sm:grid-cols-3">
-            <div className={frontDeskMetricCardClass()}>
-              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Plan
-                <InfoHint text="Active plan tier used for feature access and pricing." />
-              </p>
-              <p className="mt-1 text-base font-semibold">{formatPlan(subscription?.plan)}</p>
-            </div>
-            <div className={frontDeskMetricCardClass()}>
-              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Status
-                <InfoHint text="Billing state from Stripe (for example active, trialing, or past_due)." />
-              </p>
-              <p className="mt-1 text-base font-semibold">{subscription ? formatStatus(subscription.status) : "not active"}</p>
-            </div>
-            <div className={frontDeskMetricCardClass()}>
-              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Current period end
-                <InfoHint text="Date the current paid billing period ends before renewal." />
-              </p>
-              <p className="mt-1 text-base font-semibold">
-                {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "-"}
-              </p>
-            </div>
-          </div>
-          {subscription?.pendingPlan ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-              <p className="text-sm font-semibold text-amber-900">Pending change</p>
-              <p className="mt-1 text-xs text-amber-900/90">
-                {subscription.pendingPlan === "STARTER" ? "Downgrade to Standard" : "Upgrade to Growth/Pro"}
-                {subscription.pendingPlanEffectiveAt
-                  ? ` scheduled for ${new Date(subscription.pendingPlanEffectiveAt).toLocaleDateString()}`
-                  : " scheduled for the next billing cycle"}
-                .
-              </p>
-              <p className="mt-1 text-xs text-amber-900/90">
-                Source: {subscription.pendingPlanSource === "APP_FALLBACK" ? "App fallback" : "Stripe hosted"}
-              </p>
-            </div>
-          ) : null}
-
-          {hasRealSubscription ? (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-              <p className="text-sm text-blue-900">
-                {isActiveSubscription
-                  ? "Manage payment method, invoices, and cancellation in Stripe's customer portal."
-                  : "Your subscription is not currently active. Restart checkout to reactivate live billing and runtime features."}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button onClick={onOpenPortal} disabled={openingPortal || !hasRealSubscription}>
-                  {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
-                </Button>
-                {isActiveSubscription && subscription?.plan === "STARTER" ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void onChangePlan("pro")}
-                    disabled={changingPlan !== null || !hasRealSubscription}
-                  >
-                    {changingPlan === "pro" ? "Upgrading..." : "Upgrade to Growth/Pro"}
-                  </Button>
-                ) : null}
-                {isActiveSubscription && subscription?.plan === "PRO" ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void onChangePlan("starter")}
-                    disabled={changingPlan !== null || !hasRealSubscription}
-                  >
-                    {changingPlan === "starter" ? "Switching..." : "Switch to Standard"}
-                  </Button>
-                ) : null}
-                {!isActiveSubscription ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void onStartPlan(subscription?.plan === "PRO" ? "pro" : "starter")}
-                    disabled={startingPlan !== null}
-                  >
-                    {startingPlan ? "Starting..." : "Reactivate subscription"}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
 
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {subscription
-                ? "Compare plans below to see exactly what is included before you change tiers."
-                : "Choose a plan to activate billing and unlock live production workflow."}
-            </p>
             <div className="grid gap-4 md:grid-cols-2">
               {PLAN_ORDER.map((planKey: PlanKey) => {
                 const isCurrentPlan =
@@ -581,14 +700,7 @@ export default function AppBillingPage() {
               })}
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
-        <CardHeader>
-          <CardTitle>Billing diagnostics</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
           {diagnosticsError ? (
             <div className="rounded-[20px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] p-4 text-amber-950 shadow-[0_12px_24px_rgba(217,119,6,0.10)]">
               {diagnosticsError} Billing actions are still available.
@@ -656,6 +768,7 @@ export default function AppBillingPage() {
           ) : null}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
