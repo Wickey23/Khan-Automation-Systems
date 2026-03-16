@@ -37,8 +37,8 @@ export function AdminProductShowcase() {
   const activePage = ADMIN_PAGES[activePageIndex];
 
   return (
-    <div className="grid gap-24 lg:grid-cols-2 lg:items-center">
-      <div className="relative order-2 lg:order-1">
+    <div className="grid gap-16 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center">
+      <div className="relative order-2 mx-auto w-full max-w-[680px] lg:order-1">
         <div className="absolute -inset-10 rounded-[4rem] bg-[#3caff6]/20 blur-[100px] opacity-50" />
         <div className="relative z-10 overflow-hidden rounded-[3rem] border border-slate-800 bg-slate-950 shadow-2xl">
           <div className="flex min-h-[620px]">
@@ -255,11 +255,11 @@ export function AdminProductShowcase() {
       </div>
 
       <div className="order-1 space-y-8 lg:order-2">
-        <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-white">
-          Built with <span className="font-serif italic text-primary">active operational oversight.</span>
+        <h2 className="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+          Reliability handled <span className="font-serif italic text-primary">behind the scenes.</span>
         </h2>
-        <p className="text-xl leading-relaxed text-slate-400">
-          Behind the scenes, Front Desk OS includes monitoring, reporting, and system safeguards so your front desk stays reliable as calls, bookings, and follow-up workflows scale.
+        <p className="max-w-3xl text-xl leading-relaxed text-slate-500">
+          We monitor system health, review delivery workflows, and maintain operational safeguards so your front desk stays dependable as calls, bookings, and follow-up volume grow.
         </p>
         <div className="grid gap-6 sm:grid-cols-2">
           {[
@@ -272,8 +272,8 @@ export function AdminProductShowcase() {
               <div className="text-primary">
                 <Icon size={20} />
               </div>
-              <h4 className="font-bold text-white">{title}</h4>
-              <p className="text-sm font-medium text-slate-400">{desc}</p>
+              <h4 className="font-bold text-slate-900">{title}</h4>
+              <p className="text-sm font-medium leading-7 text-slate-500">{desc}</p>
             </div>
           ))}
         </div>
