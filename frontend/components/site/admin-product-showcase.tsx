@@ -49,7 +49,7 @@ export function AdminProductShowcase() {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black uppercase leading-none tracking-tight text-white">Front Desk OS</span>
-                  <span className="mt-1 text-[8px] font-bold uppercase tracking-widest text-primary">Admin Console</span>
+                  <span className="mt-1 text-[8px] font-bold uppercase tracking-widest text-primary">Reliability Layer</span>
                 </div>
               </div>
               <nav className="space-y-1">
@@ -256,17 +256,17 @@ export function AdminProductShowcase() {
 
       <div className="order-1 space-y-8 lg:order-2">
         <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-white">
-          A workspace built for <span className="font-serif italic text-primary">operational clarity.</span>
+          Built with <span className="font-serif italic text-primary">active operational oversight.</span>
         </h2>
         <p className="text-xl leading-relaxed text-slate-400">
-          Monitor every conversation, review AI summaries, and jump in whenever you need to. Front Desk OS gives you full control without the noise.
+          Behind the scenes, Front Desk OS includes monitoring, reporting, and system safeguards so your front desk stays reliable as calls, bookings, and follow-up workflows scale.
         </p>
         <div className="grid gap-6 sm:grid-cols-2">
           {[
-            { icon: Smartphone, title: "Mobile Ready", desc: "Manage your front desk from anywhere." },
-            { icon: MessageSquare, title: "Live Transcripts", desc: "Read calls as they happen." },
-            { icon: Calendar, title: "Instant Booking", desc: "See appointments in real-time." },
-            { icon: Zap, title: "Smart Alerts", desc: "Get notified of high-value leads." }
+            { icon: Smartphone, title: "Quiet Monitoring", desc: "We keep an eye on system performance without adding noise to your team." },
+            { icon: MessageSquare, title: "Transcript Review", desc: "Calls and outcomes stay observable when quality checks are needed." },
+            { icon: Calendar, title: "Workflow Reliability", desc: "Bookings, follow-ups, and routing can be reviewed before issues stack up." },
+            { icon: Zap, title: "Operational Alerts", desc: "We can catch failures, drift, and delivery issues before they become front-desk problems." }
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="space-y-2">
               <div className="text-primary">
