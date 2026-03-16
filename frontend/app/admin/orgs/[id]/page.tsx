@@ -548,46 +548,84 @@ export default function AdminOrgDetailPage() {
 
   return (
     <AdminGuard>
-      <div className="container py-10">
-        <AdminTopTabs className="mb-3" backFallbackHref="/admin/orgs" />
-        <Link href="/admin/orgs" className="text-sm text-primary">
-          Back to organizations
-        </Link>
-        <h1 className="mt-3 text-3xl font-bold">{org?.name || "Organization"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Live: {org?.live ? "Yes" : "No"}</p>
-        <p className="mt-1 text-sm text-amber-700">Next required action: {nextAction}</p>
+      <div className="page-shell space-y-6">
+        <AdminTopTabs className="mb-0" backFallbackHref="/admin/orgs" />
+
+        <section className="rounded-[18px] border border-slate-300 bg-white px-6 py-5 shadow-[0_14px_32px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <Link href="/admin/orgs" className="text-primary hover:underline">
+                  Organizations
+                </Link>
+                <span>/</span>
+                <span>{org?.name || "Organization"}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-semibold tracking-[-0.05em] text-slate-950">{org?.name || "Organization"}</h1>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${
+                    org?.status === "LIVE"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : org?.status === "PAUSED"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  {org?.status || "Loading"}
+                </span>
+              </div>
+              <p className="font-mono text-xs uppercase tracking-[0.16em] text-slate-500">ID: {org?.id || id}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" onClick={() => setNotes(org?.onboardingSubmissions?.[0]?.notesFromAdmin || "")}>
+                Edit Metadata
+              </Button>
+              <Button variant="outline" onClick={() => void load()}>
+                Refresh Org
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {missingReadinessCount > 0 ? (
+          <div className="rounded-[16px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+            Provisioning blocked for {missingReadinessCount} readiness item{missingReadinessCount === 1 ? "" : "s"}. Next required action: {nextAction}
+          </div>
+        ) : null}
+
         {org?.status === "TESTING" ? (
-          <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <div className="rounded-[16px] border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
             Testing Mode. Complete test runs and notifications before go-live.
           </div>
         ) : null}
         {org?.status === "PAUSED" ? (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Paused mode. Runtime is limited until billing and readiness are restored.
           </div>
         ) : null}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-md border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-            <p className="mt-1 text-lg font-semibold">{org?.status || "-"}</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-[16px] border border-slate-300 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Status</p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">{org?.status || "-"}</p>
           </div>
-          <div className="rounded-md border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Readiness Missing</p>
-            <p className="mt-1 text-lg font-semibold">{missingReadinessCount}</p>
+          <div className="rounded-[16px] border border-slate-300 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Readiness Missing</p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">{missingReadinessCount}</p>
           </div>
-          <div className="rounded-md border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Checklist Done</p>
-            <p className="mt-1 text-lg font-semibold">
+          <div className="rounded-[16px] border border-slate-300 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Checklist Done</p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
               {completedChecklistCount}/{org?.checklistSteps?.length || 0}
             </p>
           </div>
-          <div className="rounded-md border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Client Users</p>
-            <p className="mt-1 text-lg font-semibold">{org?.users?.length || 0}</p>
+          <div className="rounded-[16px] border border-slate-300 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Client Users</p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">{org?.users?.length || 0}</p>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-6">
+        <div className="grid gap-6">
           <section className="rounded-lg border bg-white p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Readiness</h2>

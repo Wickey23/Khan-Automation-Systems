@@ -2,166 +2,41 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  createPlanChangeSession,
-  createStripeCheckoutSession,
   createCustomerPortalSession,
+  createStripeCheckoutSession,
   getBillingDiagnostics,
-  scheduleDowngrade,
   getBillingStatus
 } from "@/lib/api";
-import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, OrgSubscription } from "@/lib/types";
+import type { BillingDiagnosticsPayload, OrgDemoStatus, OrgSubscription } from "@/lib/types";
+import { useToast } from "@/components/site/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClientStatusGrid } from "@/components/ui/client-module";
-import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
-import { useToast } from "@/components/site/toast-provider";
-import { frontDeskEmptyStateClass, frontDeskMetricCardClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
-import { subscriptionStatusLabel } from "@/lib/client-status-language";
-
-const PLAN_COPY = {
-  none: {
-    title: "No Plan",
-    price: "$0 / month",
-    subtitle: "Account created, subscription not active",
-    bestFor: "Best for setup and evaluation before activating paid call handling.",
-    includes: [
-      "Account access and basic workspace setup",
-      "Plan selection and checkout initiation",
-      "No production call-handling runtime until subscription activation"
-    ],
-    notes: [
-      "Upgrade to Standard or Growth/Pro to enable live operations.",
-      "Carrier/provider usage is not active until a paid plan is enabled."
-    ]
-  },
-  founding: {
-    title: "Founding Partner",
-    price: "$249 / month",
-    subtitle: "Limited-time offer: first 5 founding partners (contract-managed)",
-    bestFor: "Best for committed early partners participating in reliability-first pilot feedback cycles.",
-    includes: [
-      "Everything in Standard call handling and lead capture",
-      "High-touch onboarding and implementation",
-      "Monthly 30-minute feedback review + structured form",
-      "12-month price lock (per founding agreement)"
-    ],
-    notes: [
-      "Limited to the first 5 approved founding partners.",
-      "Founding setup credit: $200 applied in month 6 when participation requirements are met.",
-      "Miss 2 consecutive or 3 total feedback cycles: plan reverts to Standard pricing."
-    ]
-  },
-  starter: {
-    title: "Standard",
-    price: "$349 / month",
-    subtitle: "Reliability-first core operations plan",
-    bestFor: "Best for teams that need production-ready call handling, lead capture, and operational visibility.",
-    includes: [
-      "24/7 inbound AI receptionist coverage",
-      "Structured call intake and lead capture",
-      "Call summaries and transcript logging",
-      "Voicemail handling and basic call routing",
-      "Client portal access for onboarding, settings, calls, and leads",
-      "Admin provisioning support (number + agent setup)"
-    ],
-    notes: [
-      "Phone carrier charges (if applicable) are billed separately.",
-      "Founding pricing is managed by contract and may not be shown as a public billing tier."
-    ]
-  },
-  pro: {
-    title: "Growth/Pro",
-    price: "$599 / month",
-    subtitle: "Priority support and expanded operational controls",
-    bestFor: "Best for higher-volume teams that need stronger escalation behavior and tighter operational response.",
-    includes: [
-      "Everything in Standard",
-      "Advanced routing and transfer policies",
-      "Priority/urgent escalation behavior",
-      "Expanded automation workflows for operations",
-      "More flexible call-handling configuration",
-      "Higher-touch production tuning cadence"
-    ],
-    notes: [
-      "Recommended when multiple staff lines, urgent call triage, or tighter operational controls are required.",
-      "Carrier and usage-dependent costs are still separate from subscription."
-    ]
-  }
-} as const;
-
-type PlanKey = keyof typeof PLAN_COPY;
-type StripePlanKey = "starter" | "pro" | "founding";
-const PLAN_ORDER: PlanKey[] = ["none", "starter", "founding", "pro"];
-
-const ACTIVE_STATUSES = new Set(["active", "trialing"]);
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page";
+import { clientBadgeClass } from "@/lib/client-badges";
 
 function normalizeStatus(status: string | null | undefined) {
   return String(status || "not_active").toLowerCase();
 }
 
-function statusStyles(status: string | null | undefined) {
-  const normalized = normalizeStatus(status);
-  if (normalized === "active" || normalized === "trialing") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (normalized === "past_due") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-  return "border-zinc-200 bg-zinc-100 text-zinc-700";
-}
-
-function formatStatus(status: string | null | undefined) {
-  return normalizeStatus(status).replace(/_/g, " ");
+function isRuntimeBlocked(status: string | null | undefined) {
+  return ["past_due", "unpaid", "incomplete", "payment_failed"].includes(normalizeStatus(status));
 }
 
 function formatPlan(plan: OrgSubscription["plan"] | null | undefined) {
-  if (plan === "PRO") return "Growth/Pro";
-  if (plan === "STARTER") return "Standard";
-  return "No Plan";
+  if (plan === "PRO") return "Growth Tier";
+  if (plan === "STARTER") return "Standard Tier";
+  return "No active plan";
 }
 
-function diagBadgeClass(value: BillingDiagnosticsPayload["summary"]["overall"]) {
-  if (value === "HEALTHY") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (value === "BLOCKED") return "border-red-200 bg-red-50 text-red-700";
-  return "border-amber-200 bg-amber-50 text-amber-700";
+function formatStatus(status: string | null | undefined) {
+  return normalizeStatus(status).replaceAll("_", " ");
 }
 
-function checkBadgeClass(value: BillingDiagnosticCheck["status"]) {
-  if (value === "PASS") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (value === "FAIL") return "border-red-200 bg-red-50 text-red-700";
-  return "border-amber-200 bg-amber-50 text-amber-700";
-}
-
-function humanizeCheckKey(key: string) {
-  const labels: Record<string, string> = {
-    stripeSecretConfigured: "Stripe Secret",
-    starterPriceConfigured: "Standard Price Configured",
-    proPriceConfigured: "Pro Price Configured",
-    successCancelUrlsConfigured: "Checkout URLs",
-    portalReturnUrlConfigured: "Portal Return URL",
-    starterPriceResolvable: "Standard Price Reachable",
-    proPriceResolvable: "Pro Price Reachable",
-    stripeApiReachable: "Stripe API Reachability",
-    orgContextResolved: "Workspace Context",
-    stripeCustomerLinked: "Stripe Customer Linked",
-    subscriptionRecordPresent: "Subscription Record",
-    subscriptionStripeIdsPresent: "Subscription Stripe IDs",
-    subscriptionStatusActionable: "Subscription Status"
-  };
-  return labels[key] || key;
-}
-
-function humanizeIssue(issue: string) {
-  const labels: Record<string, string> = {
-    STRIPE_PING_TIMEOUT: "Stripe check timed out.",
-    STRIPE_PRICE_NOT_FOUND: "Configured Stripe price ID was not found.",
-    STRIPE_AUTH_OR_NETWORK_ERROR: "Stripe auth/network issue.",
-    diagnostics_rate_limited_try_again: "Diagnostics rate-limited. Try again shortly.",
-    stripeSecretConfigured: "Stripe secret key is not configured for this environment."
-  };
-  return labels[issue] || issue;
+function diagnosticsTone(overall: BillingDiagnosticsPayload["summary"]["overall"] | undefined) {
+  if (overall === "BLOCKED") return "critical" as const;
+  if (overall === "NEEDS_ACTION") return "warning" as const;
+  return "success" as const;
 }
 
 export default function AppBillingPage() {
@@ -169,54 +44,23 @@ export default function AppBillingPage() {
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [demo, setDemo] = useState<OrgDemoStatus | null>(null);
   const [diagnostics, setDiagnostics] = useState<BillingDiagnosticsPayload | null>(null);
-  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
-  const [startingPlan, setStartingPlan] = useState<StripePlanKey | null>(null);
-  const [changingPlan, setChangingPlan] = useState<StripePlanKey | null>(null);
+  const [startingCheckout, setStartingCheckout] = useState<"starter" | "pro" | null>(null);
 
-  const refreshBillingAndDiagnostics = useCallback(async () => {
+  const load = useCallback(async () => {
     const [billing, diag] = await Promise.all([getBillingStatus(), getBillingDiagnostics()]);
     setSubscription(billing.subscription);
     setDemo(billing.demo);
     setDiagnostics(diag);
-    setDiagnosticsError(null);
   }, []);
 
   useEffect(() => {
-    void refreshBillingAndDiagnostics()
-      .catch(() => {
-        setSubscription(null);
-        setDemo(null);
-        setDiagnostics(null);
-        setDiagnosticsError("Diagnostics unavailable.");
-      });
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void refreshBillingAndDiagnostics().catch(() => null);
-      }
-    };
-    const onFocus = () => {
-      void refreshBillingAndDiagnostics().catch(() => null);
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [refreshBillingAndDiagnostics]);
-
-  async function refreshDiagnostics() {
-    try {
-      const data = await getBillingDiagnostics();
-      setDiagnostics(data);
-      setDiagnosticsError(null);
-    } catch {
-      setDiagnosticsError("Diagnostics unavailable.");
-    }
-  }
+    void load().catch(() => {
+      setSubscription(null);
+      setDemo(null);
+      setDiagnostics(null);
+    });
+  }, [load]);
 
   async function onOpenPortal() {
     setOpeningPortal(true);
@@ -229,14 +73,13 @@ export default function AppBillingPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
-      void refreshDiagnostics();
     } finally {
       setOpeningPortal(false);
     }
   }
 
-  async function onStartPlan(plan: StripePlanKey) {
-    setStartingPlan(plan);
+  async function onStartCheckout(plan: "starter" | "pro") {
+    setStartingCheckout(plan);
     try {
       const data = await createStripeCheckoutSession(plan);
       window.location.href = data.url;
@@ -246,417 +89,205 @@ export default function AppBillingPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
-      void refreshDiagnostics();
     } finally {
-      setStartingPlan(null);
+      setStartingCheckout(null);
     }
   }
 
-  async function onChangePlan(plan: "starter" | "pro") {
-    const isDowngrade = plan === "starter";
-    const confirmed = window.confirm(
-      isDowngrade
-        ? "Downgrade applies at the end of the current billing period. Continue in Stripe?"
-        : "You will confirm this upgrade in Stripe. Continue?"
-    );
-    if (!confirmed) return;
-
-    setChangingPlan(plan);
-    try {
-      const hosted = await createPlanChangeSession({
-        targetPlan: plan,
-        effective: isDowngrade ? "period_end" : "immediate"
-      });
-
-      if (hosted.url) {
-        window.location.href = hosted.url;
-        return;
-      }
-
-      if (isDowngrade) {
-        const scheduled = await scheduleDowngrade({ targetPlan: "starter" });
-        const latest = await getBillingStatus();
-        setSubscription(latest.subscription);
-        setDemo(latest.demo);
-        showToast({
-          title: "Downgrade scheduled",
-          description: `Downgrade applies on ${new Date(scheduled.effectiveAt).toLocaleDateString()}.`
-        });
-        return;
-      }
-
-      throw new Error(hosted.message || "Could not create Stripe hosted confirmation session.");
-    } catch (error) {
-      showToast({
-        title: "Plan change failed",
-        description: error instanceof Error ? error.message : "Try again.",
-        variant: "error"
-      });
-      void refreshDiagnostics();
-    } finally {
-      setChangingPlan(null);
-    }
-  }
-
-  const hasRealSubscription = Boolean(subscription);
-  const isActiveSubscription = ACTIVE_STATUSES.has(normalizeStatus(subscription?.status));
-  const showDemoCard = !subscription && demo?.mode === "GUIDED_DEMO";
+  const blocked = isRuntimeBlocked(subscription?.status);
+  const currentPlan = subscription ? formatPlan(subscription.plan) : demo?.mode === "GUIDED_DEMO" ? "Guided Demo" : "No active plan";
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Billing"
-        title="Billing"
-        description="Manage your subscription, payment method, invoices, and billing diagnostics."
+        eyebrow="Billing governance"
+        title="Billing & Subscription"
+        description="Centralized control for subscription state, payment issues, plan changes, and operational billing readiness."
         actions={
-          <Badge className={statusStyles(subscription?.status)}>
-            {subscription ? `Status: ${formatStatus(subscription.status)}` : "No active subscription"}
+          <Badge className={clientBadgeClass(blocked ? "critical" : diagnosticsTone(diagnostics?.summary.overall))}>
+            {blocked ? "Operations blocked" : subscription ? formatStatus(subscription.status) : "Setup mode"}
           </Badge>
         }
       />
 
-      <PageHelpFab
-        items={[
-          {
-            label: "Use this page",
-            text: "Use Billing to keep the production front desk active, paid, and free from subscription or payment blockers."
-          },
-          {
-            label: "Start here",
-            text: "Check the current subscription status and diagnostics first, then open the billing portal if you need to update the plan or fix payment issues."
-          },
-          {
-            label: "Go next",
-            text: "After resolving billing, return to Front Desk or Receptionist Setup to confirm calls, texting, and booking are no longer blocked."
-          }
-        ]}
-      />
-
-      <ClientStatusGrid
-        items={[
-          {
-            label: "Subscription",
-            value: subscription ? formatPlan(subscription.plan) : "No plan",
-            detail: subscriptionStatusLabel(subscription?.status),
-            tone: isActiveSubscription ? "success" : "warning"
-          },
-          {
-            label: "Customer portal",
-            value: diagnostics?.summary.customerPortalReady ? "Ready" : "Needs review",
-            detail: diagnostics?.summary.customerPortalReady ? "Customers can manage billing through the hosted portal." : "Billing access needs attention before self-service updates are reliable.",
-            tone: diagnostics?.summary.customerPortalReady ? "success" : "warning"
-          },
-          {
-            label: "Plan change",
-            value: diagnostics?.summary.changePlanReady ? "Ready" : "Blocked",
-            detail: "Shows whether this workspace can safely change plan tiers right now.",
-            tone: diagnostics?.summary.changePlanReady ? "success" : "warning"
-          },
-          {
-            label: "Checkout",
-            value: diagnostics?.summary.checkoutReady ? "Ready" : "Blocked",
-            detail: showDemoCard ? "Guided demo workspaces still need a paid plan before live runtime begins." : "Shows whether this workspace can start or renew a paid subscription now.",
-            tone: diagnostics?.summary.checkoutReady ? "success" : "warning"
-          }
-        ]}
-      />
-
-      <Card className={`${frontDeskWorkspaceCardClass("hero")} overflow-hidden`}>
-        <CardHeader>
-          <CardTitle>Current subscription</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          {showDemoCard ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
-              <p className="text-sm font-semibold text-amber-900">Guided Demo Mode</p>
-              <p className="mt-1 text-xs text-amber-900/90">
-                Evaluation mode only. This is not live deployment and has strict call limits until you activate a paid plan.
-              </p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl border bg-white px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Usage</p>
-                  <p className="text-sm font-semibold">
-                    {demo?.callsUsed ?? 0}/{demo?.callCap ?? 15} calls
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-white px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">State</p>
-                  <p className="text-sm font-semibold">{demo?.state || "ACTIVE"}</p>
-                </div>
-                <div className="rounded-xl border bg-white px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Window end</p>
-                  <p className="text-sm font-semibold">
-                    {demo?.windowEndsAt ? new Date(demo.windowEndsAt).toLocaleDateString() : "Starts on first AI call"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-            <div className="grid gap-3 sm:grid-cols-3">
-            <div className={frontDeskMetricCardClass()}>
-              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Plan
-                <InfoHint text="Active plan tier used for feature access and pricing." />
-              </p>
-              <p className="mt-1 text-base font-semibold">{formatPlan(subscription?.plan)}</p>
-            </div>
-            <div className={frontDeskMetricCardClass()}>
-              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Status
-                <InfoHint text="Billing state from Stripe (for example active, trialing, or past_due)." />
-              </p>
-              <p className="mt-1 text-base font-semibold">{subscription ? formatStatus(subscription.status) : "not active"}</p>
-            </div>
-            <div className={frontDeskMetricCardClass()}>
-              <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Current period end
-                <InfoHint text="Date the current paid billing period ends before renewal." />
-              </p>
-              <p className="mt-1 text-base font-semibold">
-                {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "-"}
+      {blocked ? (
+        <div className="rounded-[18px] border border-red-200 bg-[linear-gradient(180deg,rgba(254,242,242,0.96)_0%,rgba(254,226,226,0.92)_100%)] p-5 text-red-950 shadow-[0_12px_24px_rgba(185,28,28,0.10)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-2">
+              <p className="text-lg font-semibold">Action Required: Operations Suspended</p>
+              <p className="max-w-3xl text-sm leading-6 text-red-900/90">
+                The last payment failed. AI voice runtime, receptionist handling, and operational workflows may be paused until billing is resolved.
               </p>
             </div>
+            <Button className="bg-red-600 hover:bg-red-700" onClick={() => void onOpenPortal()} disabled={openingPortal}>
+              {openingPortal ? "Opening..." : "Fix billing now"}
+            </Button>
           </div>
-          {subscription?.pendingPlan ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-              <p className="text-sm font-semibold text-amber-900">Pending change</p>
-              <p className="mt-1 text-xs text-amber-900/90">
-                {subscription.pendingPlan === "STARTER" ? "Downgrade to Standard" : "Upgrade to Growth/Pro"}
-                {subscription.pendingPlanEffectiveAt
-                  ? ` scheduled for ${new Date(subscription.pendingPlanEffectiveAt).toLocaleDateString()}`
-                  : " scheduled for the next billing cycle"}
-                .
-              </p>
-              <p className="mt-1 text-xs text-amber-900/90">
-                Source: {subscription.pendingPlanSource === "APP_FALLBACK" ? "App fallback" : "Stripe hosted"}
-              </p>
-            </div>
-          ) : null}
+        </div>
+      ) : null}
 
-          {hasRealSubscription ? (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-              <p className="text-sm text-blue-900">
-                {isActiveSubscription
-                  ? "Manage payment method, invoices, and cancellation in Stripe's customer portal."
-                  : "Your subscription is not currently active. Restart checkout to reactivate live billing and runtime features."}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button onClick={onOpenPortal} disabled={openingPortal || !hasRealSubscription}>
-                  {openingPortal ? "Opening..." : "Open Stripe Billing Portal"}
-                </Button>
-                {isActiveSubscription && subscription?.plan === "STARTER" ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void onChangePlan("pro")}
-                    disabled={changingPlan !== null || !hasRealSubscription}
-                  >
-                    {changingPlan === "pro" ? "Upgrading..." : "Upgrade to Growth/Pro"}
-                  </Button>
-                ) : null}
-                {isActiveSubscription && subscription?.plan === "PRO" ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void onChangePlan("starter")}
-                    disabled={changingPlan !== null || !hasRealSubscription}
-                  >
-                    {changingPlan === "starter" ? "Switching..." : "Switch to Standard"}
-                  </Button>
-                ) : null}
-                {!isActiveSubscription ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void onStartPlan(subscription?.plan === "PRO" ? "pro" : "starter")}
-                    disabled={startingPlan !== null}
-                  >
-                    {startingPlan ? "Starting..." : "Reactivate subscription"}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {subscription
-                ? "Compare plans below to see exactly what is included before you change tiers."
-                : "Choose a plan to activate billing and unlock live production workflow."}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="metric-card">
+          <CardContent className="p-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Current plan</p>
+            <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-950">{currentPlan}</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {subscription?.plan === "PRO"
+                ? "Expanded operational controls enabled."
+                : subscription?.plan === "STARTER"
+                  ? "Core production runtime plan."
+                  : demo?.mode === "GUIDED_DEMO"
+                    ? "Evaluation mode only."
+                    : "No production runtime yet."}
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {PLAN_ORDER.map((planKey: PlanKey) => {
-                const isCurrentPlan =
-                  planKey !== "founding" &&
-                  isActiveSubscription &&
-                  ((subscription?.plan === "STARTER" && planKey === "starter") ||
-                    (subscription?.plan === "PRO" && planKey === "pro"));
-                const isNoPlanCurrent = !subscription && planKey === "none";
+          </CardContent>
+        </Card>
+        <Card className="metric-card">
+          <CardContent className="p-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Subscription state</p>
+            <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
+              {subscription ? formatStatus(subscription.status) : "Not active"}
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              {subscription?.currentPeriodEnd ? `Next bill date: ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}` : "Activate billing to start live runtime."}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="metric-card">
+          <CardContent className="p-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Operational health</p>
+            <p className={`mt-3 text-2xl font-semibold tracking-[-0.04em] ${blocked ? "text-red-600" : "text-emerald-600"}`}>
+              {blocked ? "Services offline" : "Billing healthy"}
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              {blocked ? "Resolve payment to resume runtime services." : "Billing is not blocking the office workflow."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-                const actionLabel = isCurrentPlan
-                  ? "Current plan"
-                  : isNoPlanCurrent
-                    ? "Current plan"
-                  : planKey === "founding" && isActiveSubscription
-                    ? "Contract-managed tier"
-                  : planKey === "none"
-                    ? "No active subscription"
-                    : !isActiveSubscription
-                    ? `Start ${PLAN_COPY[planKey].title}`
-                    : planKey === "pro"
-                      ? "Upgrade to Growth/Pro"
-                      : "Switch to Standard";
-
-                return (
-                  <div
-                    key={planKey}
-                    className={`flex h-full flex-col rounded-2xl border p-5 ${
-                      planKey === "founding"
-                        ? "border-amber-300 bg-amber-50/40"
-                        : "bg-white shadow-sm"
-                    }`}
-                  >
-                    {planKey === "founding" ? (
-                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                          Limited Time
-                        </span>
-                        <span className="inline-flex rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                          First 5 Seats
-                        </span>
-                      </div>
-                    ) : null}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-lg font-semibold leading-tight">{PLAN_COPY[planKey].title}</h3>
-                        <p className="mt-1 text-xs text-muted-foreground">{PLAN_COPY[planKey].subtitle}</p>
-                      </div>
-                      <Badge variant="outline" className="border-zinc-300">
-                        {PLAN_COPY[planKey].price}
-                      </Badge>
-                    </div>
-                    {planKey === "founding" ? (
-                      <p className="mt-2 text-xs font-medium text-amber-800">Enrollment closes once all 5 seats are filled.</p>
-                    ) : null}
-                    <p className="mt-3 rounded-xl border bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
-                      {PLAN_COPY[planKey].bestFor}
-                    </p>
-                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Included</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground marker:text-zinc-400">
-                      {PLAN_COPY[planKey].includes.map((point) => (
-                        <li key={point}>{point}</li>
-                      ))}
-                    </ul>
-                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground marker:text-zinc-400">
-                      {PLAN_COPY[planKey].notes.map((note) => (
-                        <li key={note}>{note}</li>
-                      ))}
-                    </ul>
-                    <div className="mt-auto pt-4">
-                      <Button
-                        variant={planKey === "starter" ? "default" : "outline"}
-                        className={planKey === "founding" ? "border-amber-300 text-amber-800 hover:bg-amber-50" : undefined}
-                        onClick={() => {
-                          if (planKey === "none") return;
-                          if (planKey === "founding") return;
-                          if (isCurrentPlan) return;
-                          if (!isActiveSubscription) {
-                            void onStartPlan(planKey);
-                            return;
-                          }
-                          void onChangePlan(planKey);
-                        }}
-                        disabled={
-                          planKey === "none" ||
-                          (planKey === "founding" && isActiveSubscription) ||
-                          isNoPlanCurrent ||
-                          isCurrentPlan ||
-                          startingPlan !== null ||
-                          changingPlan !== null
-                        }
-                      >
-                        {startingPlan === planKey || changingPlan === planKey ? "Processing..." : actionLabel}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-slate-950">Billing diagnostics</h3>
+            <Badge className={clientBadgeClass(diagnosticsTone(diagnostics?.summary.overall))}>
+              {diagnostics?.summary.overall || "Unavailable"}
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
-        <CardHeader>
-          <CardTitle>Billing diagnostics</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          {diagnosticsError ? (
-            <div className="rounded-[20px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] p-4 text-amber-950 shadow-[0_12px_24px_rgba(217,119,6,0.10)]">
-              {diagnosticsError} Billing actions are still available.
-            </div>
-          ) : null}
-
           {diagnostics ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className={diagBadgeClass(diagnostics.summary.overall)}>Overall: {diagnostics.summary.overall}</Badge>
-                <Badge variant="outline">Checkout: {diagnostics.summary.checkoutReady ? "Ready" : "Blocked"}</Badge>
-                <Badge variant="outline">Plan change: {diagnostics.summary.changePlanReady ? "Ready" : "Blocked"}</Badge>
-                <Badge variant="outline">Portal: {diagnostics.summary.customerPortalReady ? "Ready" : "Blocked"}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  Updated {new Date(diagnostics.evaluatedAt).toLocaleTimeString()}
-                </span>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-slate-600">Checkout readiness</span>
+                  <span className="font-semibold text-slate-950">{diagnostics.summary.checkoutReady ? "Ready" : "Blocked"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-slate-600">Plan change readiness</span>
+                  <span className="font-semibold text-slate-950">{diagnostics.summary.changePlanReady ? "Ready" : "Blocked"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-slate-600">Customer portal readiness</span>
+                  <span className="font-semibold text-slate-950">{diagnostics.summary.customerPortalReady ? "Ready" : "Blocked"}</span>
+                </div>
               </div>
-
-              {diagnostics.summary.topIssues?.length ? (
-                <div className="rounded-xl border bg-muted/20 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top issues</p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                    {[...new Set(diagnostics.summary.topIssues)].map((issue) => (
-                      <li key={issue}>{humanizeIssue(issue)}</li>
+              <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Top issues</p>
+                {diagnostics.summary.topIssues?.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                    {diagnostics.summary.topIssues.map((issue) => (
+                      <li key={issue}>{issue}</li>
                     ))}
                   </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">No blocking diagnostics issues are currently flagged.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">Billing diagnostics are unavailable right now.</div>
+          )}
+        </section>
+
+        <section className="rounded-[16px] border border-slate-300 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
+          <h3 className="text-lg font-semibold text-slate-950">Payment method & portal</h3>
+          <div className="mt-6 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-950">{subscription ? "Saved payment method managed in Stripe" : "No active billing profile"}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Use the Stripe customer portal for payment method changes, invoices, and subscription management.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => void onOpenPortal()} disabled={openingPortal || !subscription}>
+                {openingPortal ? "Opening..." : "Open portal"}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="rounded-[12px] border border-slate-200 p-3">Download the latest invoice and update billing details in Stripe.</div>
+            <div className="rounded-[12px] border border-slate-200 p-3">Resolve payment failures before routing or AI runtime is affected.</div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <div className="mb-8 text-center">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">Plan Comparison</h2>
+          <p className="mt-2 text-slate-500">Choose the tier that matches the real operational load of the office.</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          {[
+            {
+              key: "starter" as const,
+              name: "Starter",
+              price: "$49/mo",
+              features: ["500 monthly AI minutes", "1 receptionist seat", "Standard support"]
+            },
+            {
+              key: "starter" as const,
+              name: "Growth",
+              price: "$149/mo",
+              current: subscription?.plan === "STARTER",
+              features: ["2,500 monthly AI minutes", "5 receptionist seats", "Priority support", "Operational tuning"]
+            },
+            {
+              key: "pro" as const,
+              name: "Enterprise",
+              price: "$499/mo",
+              current: subscription?.plan === "PRO",
+              features: ["Unlimited seats", "Higher-volume runtime", "SSO and audit depth", "Dedicated support path"]
+            }
+          ].map((plan) => (
+            <div
+              key={plan.name}
+              className={`flex flex-col rounded-[16px] border p-6 ${
+                plan.current ? "border-blue-500 bg-white ring-4 ring-blue-100" : "border-slate-300 bg-white"
+              }`}
+            >
+              {plan.current ? (
+                <div className="mb-3 inline-flex w-fit rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700">
+                  Current plan
                 </div>
               ) : null}
-
-              {diagnostics.detailed && diagnostics.checks ? (
-                <div className="grid gap-3 md:grid-cols-3">
-                  {([
-                    ["Config checks", diagnostics.checks.config],
-                    ["Stripe checks", diagnostics.checks.stripe],
-                    ["Org linkage", diagnostics.checks.orgLinkage]
-                  ] as Array<[string, BillingDiagnosticCheck[]]>).map(([title, list]) => (
-                    <div key={title} className={frontDeskWorkspaceCardClass("subtle")}>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-                      <div className="mt-2 space-y-2">
-                        {list.map((check) => (
-                          <div key={check.key} className="rounded-xl border p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-medium">{humanizeCheckKey(check.key)}</p>
-                              <Badge className={checkBadgeClass(check.status)}>{check.status}</Badge>
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">{check.message}</p>
-                            {check.fixHint ? <p className="mt-1 text-xs text-muted-foreground">Fix: {check.fixHint}</p> : null}
-                            {check.maskedRef ? (
-                              <p className="mt-1 text-xs text-muted-foreground">Ref: {check.maskedRef}</p>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className={frontDeskEmptyStateClass()}>
-                  <p className="text-xs text-muted-foreground">
-                    Internal diagnostics are restricted to platform admins. You can still use checkout, plan change, and billing portal actions normally.
-                  </p>
-                </div>
-              )}
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">{plan.name}</p>
+              <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-slate-950">{plan.price}</p>
+              <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-700">
+                {plan.features.map((feature) => (
+                  <li key={feature}>• {feature}</li>
+                ))}
+              </ul>
+              <Button
+                className="mt-6"
+                variant={plan.current ? "outline" : "default"}
+                disabled={Boolean(plan.current) || startingCheckout !== null}
+                onClick={() => void onStartCheckout(plan.key)}
+              >
+                {plan.current ? "Active" : startingCheckout === plan.key ? "Opening..." : "Choose plan"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
-
