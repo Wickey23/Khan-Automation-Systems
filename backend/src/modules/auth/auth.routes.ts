@@ -868,6 +868,9 @@ authRouter.post("/refresh", authRefreshRateLimit, requireCsrf, async (req: Reque
 
     const rotated = await rotateRefreshSession(prisma, refreshToken);
     if (!rotated.ok) {
+      if (rotated.reason === "already_rotated") {
+        return res.status(409).json({ ok: false, message: "Refresh already rotated. Retry with the latest session." });
+      }
       if (rotated.reason === "reuse" && rotated.familyId) {
         await auditAuthEvent("AUTH_REFRESH_REVOKED", { reason: "reuse_detected", familyId: rotated.familyId });
       }

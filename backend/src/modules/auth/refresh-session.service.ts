@@ -2,6 +2,8 @@ import type { PrismaClient } from "@prisma/client";
 import { generateFamilyId, hashToken, signRefreshToken, verifyRefreshToken } from "../../lib/auth";
 import { env } from "../../config/env";
 
+const ROTATION_GRACE_MS = 10_000;
+
 function refreshExpiryDate() {
   const ttl = Number.parseInt(env.REFRESH_TOKEN_TTL_DAYS, 10);
   const days = Number.isFinite(ttl) ? ttl : 14;
@@ -39,6 +41,16 @@ export async function rotateRefreshSession(prisma: PrismaClient, token: string) 
     return { ok: false as const, reason: "expired", userId: existing.userId, familyId: existing.familyId };
   }
   if (existing.revokedAt) {
+    const rotatedChild = await prisma.refreshSession.findFirst({
+      where: { rotatedFromId: existing.id },
+      orderBy: { createdAt: "desc" }
+    });
+    const withinGraceWindow =
+      rotatedChild &&
+      Date.now() - Math.max(existing.revokedAt.getTime(), rotatedChild.createdAt.getTime()) <= ROTATION_GRACE_MS;
+    if (withinGraceWindow) {
+      return { ok: false as const, reason: "already_rotated", userId: existing.userId, familyId: existing.familyId };
+    }
     await revokeRefreshFamily(prisma, existing.familyId);
     return { ok: false as const, reason: "reuse", userId: existing.userId, familyId: existing.familyId };
   }

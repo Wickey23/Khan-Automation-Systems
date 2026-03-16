@@ -120,7 +120,7 @@ async function attemptSessionRefresh() {
   refreshInFlight = (async () => {
     if (!siteConfig.apiBase) return false;
     const csrfToken = await ensureCsrfToken("/api/auth/refresh", { method: "POST" });
-    try {
+    const executeRefresh = async () => {
       const response = await fetch(`${siteConfig.apiBase}/api/auth/refresh`, {
         method: "POST",
         credentials: "include",
@@ -131,6 +131,14 @@ async function attemptSessionRefresh() {
         },
         body: JSON.stringify({})
       });
+      return response;
+    };
+    try {
+      let response = await executeRefresh();
+      if (response.status === 409) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        response = await executeRefresh();
+      }
       if (!response.ok) return false;
       const payload = (await response.json().catch(() => null)) as { ok?: boolean } | null;
       return payload?.ok === true;
@@ -172,7 +180,7 @@ async function request<T>(path: string, init?: RequestInit, options?: { allowRef
       throw new Error("Request timed out. Please try again.");
     }
     const isProdBrowser = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
-    if (isProdBrowser && !siteConfig.apiBase.includes("ai-auto-apply.onrender.com")) {
+    if (isProdBrowser && !siteConfig.apiBase.includes("api.khansystems.com")) {
       throw new Error("API misconfigured: NEXT_PUBLIC_API_BASE is not pointing at the hosted backend.");
     }
 

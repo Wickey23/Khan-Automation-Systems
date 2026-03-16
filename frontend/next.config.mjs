@@ -10,7 +10,7 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://ai-auto-apply.onrender.com https://api.stripe.com https://js.stripe.com",
+      "connect-src 'self' https://api.khansystems.com https://api.stripe.com https://js.stripe.com",
       "frame-src https://js.stripe.com https://hooks.stripe.com"
     ].join("; ");
     return [

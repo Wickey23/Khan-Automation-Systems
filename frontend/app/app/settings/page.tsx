@@ -25,17 +25,16 @@ import {
 import { useToast } from "@/components/site/toast-provider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, PageHelpFab } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
 import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
-import { setupReadinessLabel, setupReadinessTone } from "@/lib/client-status-language";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
+type SettingsSectionId = "Profile" | "AI Identity" | "Operations" | "Handoff" | "Telephony" | "Calendar" | "Notifications" | "Security";
 
 type FormState = {
   timezone: string;
@@ -171,17 +170,6 @@ function supportsHumanForwardingMode(
   return mode === "PASSIVE_FORWARDING" || mode === "HUMAN_FIRST_AI_FALLBACK";
 }
 
-function formatVoiceRoutingMode(mode: FormState["voiceRoutingMode"]) {
-  switch (mode) {
-    case "HUMAN_FIRST_AI_FALLBACK":
-      return "Human first, AI fallback";
-    case "PASSIVE_FORWARDING":
-      return "Passive forwarding";
-    default:
-      return "AI first";
-  }
-}
-
 function fromJsonArray(value: string | null | undefined) {
   if (!value) return [];
   try {
@@ -267,6 +255,7 @@ function buildVoiceForwardingNumber(dialCode: string, localNumber: string) {
 
 export default function AppSettingsPage() {
   const { showToast } = useToast();
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("AI Identity");
   const [state, setState] = useState<FormState>(defaults);
   const [saving, setSaving] = useState(false);
   const [knowledgeFiles, setKnowledgeFiles] = useState<OrgKnowledgeFile[]>([]);
@@ -548,6 +537,34 @@ export default function AppSettingsPage() {
     activeCalendarProviders.find((provider) => provider.isPrimary) ||
     activeCalendarProviders[0] ||
     null;
+  const menuItems: Array<{ id: SettingsSectionId; icon: typeof User; label: string }> = [
+    { id: "Profile", icon: User, label: "Operator Profile" },
+    { id: "AI Identity", icon: Bot, label: "AI Identity & Voice" },
+    { id: "Operations", icon: Clock3, label: "Operational Hours" },
+    { id: "Handoff", icon: Zap, label: "Human Handoff Rules" },
+    { id: "Telephony", icon: Phone, label: "Telephony Setup" },
+    { id: "Calendar", icon: Calendar, label: "Calendar Integration" },
+    { id: "Notifications", icon: Bell, label: "Notifications" },
+    { id: "Security", icon: Shield, label: "Security" }
+  ];
+  const activeMenuItem = menuItems.find((item) => item.id === activeSection) ?? menuItems[1];
+  const activeSectionDescriptions: Record<SettingsSectionId, string> = {
+    Profile: "Manage the core operator-facing profile, business knowledge, and receptionist context used day to day.",
+    "AI Identity": "Configure how your AI receptionist sounds, what it says, and the policy guidance it uses live.",
+    Operations: "Define office hours, timezone coverage, and the operating window your front desk should follow.",
+    Handoff: "Control escalation behavior, human-first routing, and the rules that decide when staff should step in.",
+    Telephony: "Keep transfer numbers, services, and contact routing lists current for the live receptionist workflow.",
+    Calendar: "Connect provider calendars, assign the primary booking target, and test scheduling reliability.",
+    Notifications: "Configure booking alerts, email recipients, and the operational inbox for follow-up issues.",
+    Security: "Review verification status, delivery health, and the account safeguards that protect this workspace."
+  };
+
+  function focusSection(section: SettingsSectionId) {
+    setActiveSection(section);
+    if (typeof document === "undefined") return;
+    const target = document.getElementById("settings-content-root");
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   async function onSave() {
     const transfer = readinessHints.transfer;
@@ -680,210 +697,69 @@ export default function AppSettingsPage() {
               <p className="text-sm text-slate-500">Move through the main configuration areas the same way the export-5 control center was organized.</p>
             </div>
             <div className="mt-5 space-y-2">
-              {[
-                { label: "Operator Profile", icon: User },
-                { label: "AI Identity & Voice", icon: Bot },
-                { label: "Operational Hours", icon: Clock3 },
-                { label: "Human Handoff Rules", icon: Zap },
-                { label: "Telephony Setup", icon: Phone },
-                { label: "Calendar Integration", icon: Calendar },
-                { label: "Notifications", icon: Bell },
-                { label: "Security", icon: Shield }
-              ].map((item, index) => {
+              {menuItems.map((item) => {
                 const Icon = item.icon;
-                const active = index === 1;
+                const active = activeSection === item.id;
                 return (
-                  <div
-                    key={item.label}
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => focusSection(item.id)}
                     className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${
                       active ? "border-slate-200 bg-white text-primary shadow-sm" : "border-transparent bg-transparent text-slate-500"
                     }`}
                   >
                     <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-slate-400"}`} />
                     <span>{item.label}</span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </aside>
 
-          <div className="p-6">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {[
-                {
-                  label: "AI identity",
-                  value: state.voiceRoutingMode === "AI_FIRST" ? "AI-first" : "Hybrid routing",
-                  detail: "Voice, prompt, and call presentation"
-                },
-                {
-                  label: "Hours",
-                  value: `${openDaysCount} open day${openDaysCount === 1 ? "" : "s"}`,
-                  detail: `${state.timezone} workspace timezone`
-                },
-                {
-                  label: "Calendar",
-                  value: primaryCalendarConnection ? "Connected" : "Manual",
-                  detail: primaryCalendarConnection ? primaryCalendarConnection.provider : "No live provider yet"
-                },
-                {
-                  label: "Alerts",
-                  value: readinessHints.emails.length + readinessHints.phones.length > 0 ? "Configured" : "Needs routing",
-                  detail: `${readinessHints.emails.length + readinessHints.phones.length} active contact point${readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}`
-                }
-              ].map((item) => (
-                <div key={item.label} className={frontDeskContextPanelClass()}>
-                  <p className="page-eyebrow">{item.label}</p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{item.value}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+          <div id="settings-content-root" className="p-6">
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
+                  <activeMenuItem.icon className="h-7 w-7" />
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <ClientStatusGrid
-        items={[
-          {
-            label: "Call routing",
-            value: formatVoiceRoutingMode(state.voiceRoutingMode),
-            detail: supportsHumanForwardingMode(state.voiceRoutingMode)
-              ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
-                ? `${state.voiceRingTimeoutSeconds}s ring before handoff`
-                : "Forwarding number still needed"
-              : "AI answers first on the business line.",
-            tone: setupReadinessTone(Boolean(state.voiceRoutingMode), Boolean(state.voiceForwardingEnabled))
-          },
-          {
-            label: "Booking setup",
-            value: primaryCalendarConnection ? "Ready" : "Manual",
-            detail: primaryCalendarConnection ? `${primaryCalendarConnection.accountEmail} is connected for scheduling.` : "No live calendar connection is active yet.",
-            tone: primaryCalendarConnection ? "success" : "warning"
-          },
-          {
-            label: "Alert routing",
-            value: setupReadinessLabel(readinessHints.emails.length + readinessHints.phones.length > 0, true),
-            detail: `${readinessHints.emails.length} email and ${readinessHints.phones.length} phone contact${readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"} available for alerts.`,
-            tone: setupReadinessTone(readinessHints.emails.length + readinessHints.phones.length > 0, true)
-          },
-          {
-            label: "Business hours",
-            value: state.timezone,
-            detail: "Hours and after-hours behavior follow this workspace timezone.",
-            tone: "neutral"
-          }
-        ]}
-      />
-
-      <section className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <div className={frontDeskWorkspaceCardClass("subtle") + " p-5"}>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Operations overview</p>
-          <h2 className="text-lg font-semibold">Assistant at a glance</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review the routing and booking setup that affects live calls before you move into the detailed sections.
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <div className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">Inbound mode</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">{formatVoiceRoutingMode(state.voiceRoutingMode)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {supportsHumanForwardingMode(state.voiceRoutingMode)
-                  ? state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
-                    ? `${state.voiceRingTimeoutSeconds}s ring before handoff`
-                    : "Needs forwarding number"
-                  : "AI answers first"}
-              </p>
-            </div>
-            <div className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">Calendar booking</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">
-                {primaryCalendarConnection ? `${primaryCalendarConnection.provider} connected` : "Manual scheduling"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {primaryCalendarConnection ? primaryCalendarConnection.accountEmail : "No active calendar connection"}
-              </p>
-            </div>
-            <div className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">Alert routing</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">
-                {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Live contacts set" : "Needs notification contact"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {readinessHints.emails.length} email / {readinessHints.phones.length} phone recipient{readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">Timezone</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">{state.timezone}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"} configured</p>
-            </div>
-            <div className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">After hours</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">{formatAfterHoursMode(state.afterHoursMode)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {transferNumberCount > 0 ? `${transferNumberCount} transfer number${transferNumberCount === 1 ? "" : "s"} ready` : "No transfer number configured"}
-              </p>
-            </div>
-            <div className={frontDeskContextPanelClass()}>
-              <p className="page-eyebrow">Coverage</p>
-              <p className="mt-2 text-sm font-medium text-slate-950">
-                {state.voiceMediaStreamingEnabled ? "Media streaming on" : "Standard call path"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {state.voiceTranscriptionEnabled ? "Live transcription enabled" : "Transcription off"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <section className={frontDeskWorkspaceCardClass("subtle") + " p-5"}>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Go-live checks</p>
-          <h2 className="text-lg font-semibold">Readiness snapshot</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            These are the setup items that most often block routing, booking, and alerts from working cleanly.
-          </p>
-          <div className="mt-4 space-y-3">
-            {[
-              [
-                "Transfer numbers",
-                readinessHints.transfer.length > 0 ? "Configured" : "Missing",
-                readinessHints.transfer.length > 0 ? `${readinessHints.transfer.length} number${readinessHints.transfer.length === 1 ? "" : "s"} available` : "Add a transfer number for escalations"
-              ],
-              [
-                "Notification emails",
-                readinessHints.emails.length > 0 ? "Configured" : "Missing",
-                readinessHints.emails.length > 0 ? `${readinessHints.emails.length} email recipient${readinessHints.emails.length === 1 ? "" : "s"}` : "Add at least one email recipient"
-              ],
-              [
-                "Notification phones",
-                readinessHints.phones.length > 0 ? "Configured" : "Missing",
-                readinessHints.phones.length > 0 ? `${readinessHints.phones.length} phone recipient${readinessHints.phones.length === 1 ? "" : "s"}` : "Add a mobile number for SMS alerts"
-              ],
-              [
-                "Business hours",
-                readinessHints.hasHours ? "Configured" : "Missing",
-                readinessHints.hasHours ? `${openDaysCount} open day${openDaysCount === 1 ? "" : "s"} set` : "Set your open days and hours"
-              ]
-            ].map(([label, value, detail]) => (
-              <div key={label} className={frontDeskContextPanelClass()}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="page-eyebrow">{label}</p>
-                    <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${value === "Configured" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                    {value}
-                  </span>
+                <div className="max-w-2xl">
+                  <p className="page-eyebrow">Front Desk Control Center</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{activeMenuItem.label}</h2>
+                  <p className="mt-3 text-base leading-7 text-slate-500">{activeSectionDescriptions[activeSection]}</p>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
               </div>
-            ))}
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
+                <div className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">Coverage</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{state.timezone} workspace timezone</p>
+                </div>
+                <div className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">Calendar</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{primaryCalendarConnection ? "Connected" : "Manual scheduling"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {primaryCalendarConnection ? `${primaryCalendarConnection.provider} primary connection` : "No active provider selected"}
+                  </p>
+                </div>
+                <div className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">Alert routing</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">
+                    {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Configured" : "Needs routing"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {readinessHints.emails.length + readinessHints.phones.length} active contact point
+                    {readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
       </section>
 
-      <Accordion type="multiple" defaultValue={["calendar", "services"]} className="space-y-4">
-      <AccordionItem value="security" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      <Accordion type="multiple" defaultValue={["security", "calendar", "booking", "notifications", "knowledge", "business-hours", "services", "policies", "sms"]} className="space-y-4">
+      {activeSection === "Security" ? <AccordionItem id="settings-security" value="security" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Security & Verification
         </AccordionTrigger>
@@ -931,8 +807,8 @@ export default function AppSettingsPage() {
             </div>
           </div>
         </AccordionContent>
-      </AccordionItem>
-      <section className={`grid gap-4 ${frontDeskWorkspaceCardClass("subtle")} p-5 sm:grid-cols-2`}>
+      </AccordionItem> : null}
+      {activeSection === "Handoff" ? <section id="settings-handoff" className={`grid gap-4 ${frontDeskWorkspaceCardClass("subtle")} p-5 sm:grid-cols-2`}>
         <div className="sm:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
           <h2 className="text-lg font-semibold">Business Info & Call Routing</h2>
@@ -1149,9 +1025,9 @@ export default function AppSettingsPage() {
             </span>
           </span>
         </label>
-      </section>
+      </section> : null}
 
-      <AccordionItem value="calendar" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "Calendar" ? <AccordionItem id="settings-calendar" value="calendar" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Calendar connections
         </AccordionTrigger>
@@ -1381,9 +1257,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="booking" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "Notifications" ? <AccordionItem id="settings-notifications" value="booking" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Booking rules and alerts
         </AccordionTrigger>
@@ -1465,9 +1341,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="notifications" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "Notifications" ? <AccordionItem value="notifications" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Notification inbox
         </AccordionTrigger>
@@ -1524,9 +1400,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="knowledge" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "Profile" ? <AccordionItem id="settings-profile" value="knowledge" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Knowledge files
         </AccordionTrigger>
@@ -1573,9 +1449,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="business-hours" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "Operations" ? <AccordionItem id="settings-operations" value="business-hours" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Business hours
         </AccordionTrigger>
@@ -1630,9 +1506,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="services" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "Telephony" ? <AccordionItem id="settings-telephony" value="services" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Services and routing
         </AccordionTrigger>
@@ -1673,9 +1549,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="policies" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "AI Identity" ? <AccordionItem id="settings-ai-identity" value="policies" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           Policies and answers
         </AccordionTrigger>
@@ -1705,9 +1581,9 @@ export default function AppSettingsPage() {
         </div>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
 
-      <AccordionItem value="sms" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+      {activeSection === "AI Identity" ? <AccordionItem value="sms" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
           SMS follow-up
         </AccordionTrigger>
@@ -1782,7 +1658,7 @@ export default function AppSettingsPage() {
         </label>
       </section>
         </AccordionContent>
-      </AccordionItem>
+      </AccordionItem> : null}
       </Accordion>
 
       <div className="flex justify-end">
