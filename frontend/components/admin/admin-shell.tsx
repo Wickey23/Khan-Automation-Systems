@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Building2, LayoutDashboard, MessageSquare, Monitor, PhoneCall, Search, Shield, Users, BarChart3, Activity, History } from "lucide-react";
+import { Bell, Building2, LayoutDashboard, MessageSquare, Monitor, PhoneCall, Search, Shield, Users, BarChart3, Activity, History, LogOut } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getMe } from "@/lib/api";
 import type { AuthUser } from "@/lib/types";
@@ -137,6 +137,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-slate-200">
                 {(user?.email?.[0] || "A").toUpperCase()}
               </div>
+              <Link
+                href="/auth/logout"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold uppercase tracking-widest text-slate-200 transition-all hover:bg-slate-700 hover:text-white"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </Link>
             </div>
           </div>
         </header>
