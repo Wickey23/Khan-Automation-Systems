@@ -48,6 +48,14 @@ export function OutreachPhoneEventDetailCard(input: {
     event.lead?.sourceList ? `Source list: ${event.lead.sourceList}` : null,
     event.lead?.notes ? `Notes: ${event.lead.notes}` : null
   ].filter(Boolean).join("\n");
+  const isSuccess = event.eventType === "COMPLETED";
+  const isFailure = event.eventType === "FAILED";
+  const callResultLabel = isSuccess ? "Call succeeded" : isFailure ? "Call failed" : "Call in progress";
+  const callResultClasses = isSuccess
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : isFailure
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-slate-200 bg-slate-100 text-slate-700";
 
   return (
     <Card className="overflow-hidden border-slate-300 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
@@ -56,6 +64,11 @@ export function OutreachPhoneEventDetailCard(input: {
           <div className="space-y-2">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Selected outreach call</div>
             <CardTitle className="text-[26px] tracking-[-0.03em] text-slate-950">Call detail</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${callResultClasses}`}>
+                {callResultLabel}
+              </span>
+            </div>
             <div className="text-sm text-slate-600">
               {leadLabel}
               {event.providerCallId ? ` · call ${event.providerCallId}` : ""}
