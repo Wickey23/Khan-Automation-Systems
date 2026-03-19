@@ -208,7 +208,7 @@ export default function AppActivationPage() {
 
   const flowStatus = useMemo(() => {
     if (!access) return "setup_required" as AccessStatus;
-    return steps.reduce<AccessStatus>("ready", (current, step) => pickHigherStatus(current, step.status));
+    return steps.reduce<AccessStatus>((current, step) => pickHigherStatus(current, step.status), "ready");
   }, [access, steps]);
 
   const completedCount = useMemo(
