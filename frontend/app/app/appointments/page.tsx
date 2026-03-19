@@ -145,6 +145,14 @@ export default function AppAppointmentsPage() {
         .includes(term);
     });
   }, [activeTab, query, requests]);
+  const pendingReviewCount = useMemo(
+    () => requests.filter((request) => request.status === "PENDING_REVIEW").length,
+    [requests]
+  );
+  const showSoftCapacityNotice = Boolean(
+    accessSummary?.plan.name === "STARTER" &&
+      (requests.length >= 14 || pendingReviewCount >= 4)
+  );
 
   const currentRequest =
     filteredRequests.find((request) => request.id === selectedRequestId) ||
@@ -252,6 +260,21 @@ export default function AppAppointmentsPage() {
       </SectionShell>
 
       <SectionShell className="surface-panel space-y-4">
+        {showSoftCapacityNotice ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Starter capacity pressure</p>
+                <p className="mt-1 text-sm text-amber-900">
+                  Booking queue is building ({requests.length} requests, {pendingReviewCount} pending review). Finalizer and follow-up may be less responsive at this load.
+                </p>
+              </div>
+              <Link href="/app/billing">
+                <Button size="sm" variant="outline">Upgrade for stronger booking throughput</Button>
+              </Link>
+            </div>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Inbox className="h-5 w-5 text-primary" />

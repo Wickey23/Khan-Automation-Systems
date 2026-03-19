@@ -146,6 +146,14 @@ export default function AppMessagesPage() {
         .includes(term);
     });
   }, [search, threads]);
+  const needsFollowUpThreads = useMemo(
+    () => threads.filter((thread) => (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up").length,
+    [threads]
+  );
+  const showSoftCapacityNotice = Boolean(
+    accessSummary?.plan.name === "STARTER" &&
+      (threads.length >= 20 || needsFollowUpThreads >= 6)
+  );
 
   const selectedThread =
     filteredThreads.find((thread) => thread.id === selectedId) ||
@@ -241,6 +249,17 @@ export default function AppMessagesPage() {
               />
             </div>
           </div>
+          {showSoftCapacityNotice ? (
+            <div className="mx-4 mb-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">Starter capacity pressure</p>
+              <p className="mt-1 text-xs text-amber-900">
+                Message queue is growing ({threads.length} threads, {needsFollowUpThreads} needing follow-up). Automation responses may be slower at this volume.
+              </p>
+              <Link href="/app/billing" className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline">
+                Upgrade for faster automation coverage
+              </Link>
+            </div>
+          ) : null}
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (

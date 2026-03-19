@@ -193,6 +193,14 @@ export default function AppCallsPage() {
     () => visibleCalls.find((call) => call.id === selectedCallId) || calls.find((call) => call.id === selectedCallId) || visibleCalls[0] || calls[0] || null,
     [calls, selectedCallId, visibleCalls]
   );
+  const callBacklogCount = useMemo(
+    () => calls.filter((call) => call.frontDesk?.followUpState === "needs_follow_up").length,
+    [calls]
+  );
+  const showSoftCapacityNotice = Boolean(
+    accessSummary?.plan.name === "STARTER" &&
+      (calls.length >= 25 || callBacklogCount >= 8)
+  );
 
   async function refreshQueue() {
     if (!shouldShowCallQueue) return;
@@ -310,6 +318,21 @@ export default function AppCallsPage() {
                 </button>
               </div>
             </div>
+            {showSoftCapacityNotice ? (
+              <div className="border-b border-amber-200 bg-amber-50/80 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Starter capacity pressure</p>
+                    <p className="mt-1 text-sm text-amber-900">
+                      High volume detected ({calls.length} calls, {callBacklogCount} needing follow-up). Queue handling may feel slower on Starter.
+                    </p>
+                  </div>
+                  <Link href="/app/billing">
+                    <Button size="sm" variant="outline">Upgrade for priority handling</Button>
+                  </Link>
+                </div>
+              </div>
+            ) : null}
             <div className="flex-1 overflow-y-auto">
               <table className="w-full border-collapse text-left">
                 <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
