@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock3, PhoneCall, MessageSquare, Calendar, Activity } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, PhoneCall, MessageSquare, Calendar, Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/site/toast-provider";
 import {
   fetchOrgOnboarding,
+  fetchOrgCalls,
+  fetchOrgMessages,
   fetchOrgProfile,
   fetchOrgSettings,
   updateOrgProfile,
@@ -24,6 +26,8 @@ import type {
   AccessStatus,
   BusinessSettings,
   OnboardingSubmission,
+  OrgCallRecord,
+  OrgMessageThread,
   Organization,
   OrgAccessSummary
 } from "@/lib/types";
@@ -178,6 +182,14 @@ export default function AppActivationPage() {
   const [smsConsentText, setSmsConsentText] = useState("");
   const [transferNumbersText, setTransferNumbersText] = useState("");
   const [savingStepId, setSavingStepId] = useState<string | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [recentCalls, setRecentCalls] = useState<OrgCallRecord[]>([]);
+  const [recentThreads, setRecentThreads] = useState<OrgMessageThread[]>([]);
+  const [firstUseChecks, setFirstUseChecks] = useState({
+    call: false,
+    message: false,
+    booking: false
+  });
 
   const loadActivationData = useCallback(async () => {
     const [profile, onboarding, orgSettings] = await Promise.all([
@@ -331,6 +343,63 @@ export default function AppActivationPage() {
       }
     ];
   }, [access]);
+
+  const loadFirstUseSignals = useCallback(async () => {
+    setActivityLoading(true);
+    try {
+      const [callsPayload, messagesPayload] = await Promise.all([
+        fetchOrgCalls({ page: 1, pageSize: 15 }),
+        fetchOrgMessages()
+      ]);
+      setRecentCalls(callsPayload.calls || []);
+      setRecentThreads(messagesPayload.threads || []);
+    } catch {
+      setRecentCalls([]);
+      setRecentThreads([]);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceLive) return;
+    void loadFirstUseSignals();
+  }, [workspaceLive, loadFirstUseSignals]);
+
+  const firstUseSignals = useMemo(() => {
+    const now = Date.now();
+    const activityWindowMs = 24 * 60 * 60 * 1000;
+    const hasRecentCall = recentCalls.some((call) => {
+      const ts = new Date(call.startedAt).getTime();
+      return Number.isFinite(ts) && now - ts <= activityWindowMs;
+    });
+    const hasRecentMessage = recentThreads.some((thread) => {
+      const ts = new Date(thread.lastMessageAt).getTime();
+      return Number.isFinite(ts) && now - ts <= activityWindowMs;
+    });
+    const hasBookingSignal = recentCalls.some((call) => Boolean(call.appointmentRequestId || call.appointmentRequested));
+
+    return {
+      call: hasRecentCall,
+      message: hasRecentMessage,
+      booking: hasBookingSignal
+    };
+  }, [recentCalls, recentThreads]);
+
+  const firstUseDone = useMemo(() => {
+    return {
+      call: firstUseChecks.call || firstUseSignals.call,
+      message: firstUseChecks.message || firstUseSignals.message,
+      booking: firstUseChecks.booking || firstUseSignals.booking
+    };
+  }, [firstUseChecks, firstUseSignals]);
+
+  const firstUseCompletedCount = useMemo(
+    () => Object.values(firstUseDone).filter(Boolean).length,
+    [firstUseDone]
+  );
+
+  const firstInteractionDetected = firstUseSignals.call || firstUseSignals.message || firstUseSignals.booking;
 
   async function handleInlineAction(stepId: string) {
     if (savingStepId) return;
@@ -631,6 +700,94 @@ export default function AppActivationPage() {
           </div>
         )}
       </SectionShell>
+
+      {workspaceLive ? (
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading
+            title="Test your system"
+            description="Run these first-use checks to confirm live calls, messaging, and booking behavior in production."
+            actions={
+              <Button size="sm" variant="outline" onClick={() => void loadFirstUseSignals()} disabled={activityLoading}>
+                <RefreshCw className={`mr-1.5 h-4 w-4 ${activityLoading ? "animate-spin" : ""}`} />
+                {activityLoading ? "Checking..." : "Refresh activity"}
+              </Button>
+            }
+          />
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">Step 1: Call your number</p>
+                <StatusBadge kind="feature" state={firstUseDone.call ? "ready" : "setup_required"} size="xs" />
+              </div>
+              <p className="text-sm text-slate-600">Place a real call to your business number and confirm it appears in the Calls queue.</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/app/calls">
+                  <Button size="sm"><PhoneCall className="mr-1.5 h-4 w-4" />Open calls</Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFirstUseChecks((current) => ({ ...current, call: !current.call }))}
+                >
+                  {firstUseChecks.call ? "Unmark tested" : "Mark tested"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">Step 2: Send a test message</p>
+                <StatusBadge kind="feature" state={firstUseDone.message ? "ready" : "setup_required"} size="xs" />
+              </div>
+              <p className="text-sm text-slate-600">Send an SMS to your assigned number and verify the thread appears in Messages.</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/app/messages">
+                  <Button size="sm"><MessageSquare className="mr-1.5 h-4 w-4" />Open messages</Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFirstUseChecks((current) => ({ ...current, message: !current.message }))}
+                >
+                  {firstUseChecks.message ? "Unmark tested" : "Mark tested"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">Step 3: Ask for an appointment</p>
+                <StatusBadge kind="feature" state={firstUseDone.booking ? "ready" : "setup_required"} size="xs" />
+              </div>
+              <p className="text-sm text-slate-600">During a test call, request an appointment and confirm booking flow appears in Appointments.</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/app/appointments">
+                  <Button size="sm"><Calendar className="mr-1.5 h-4 w-4" />Open appointments</Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFirstUseChecks((current) => ({ ...current, booking: !current.booking }))}
+                >
+                  {firstUseChecks.booking ? "Unmark tested" : "Mark tested"}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-sm text-slate-700">
+              {firstUseCompletedCount}/3 first-use checks complete.
+              {" "}
+              {firstInteractionDetected
+                ? "Recent activity detected. Your system has already handled a real interaction."
+                : "No recent interaction detected yet. Run one test call or SMS to validate live behavior."}
+            </p>
+            {firstUseCompletedCount >= 1 ? (
+              <p className="mt-1 text-sm text-emerald-700">You are fully operational. Continue monitoring from Calls and Messages.</p>
+            ) : null}
+          </div>
+        </SectionShell>
+      ) : null}
 
       <SectionShell className="surface-panel space-y-4">
         <SectionHeading
