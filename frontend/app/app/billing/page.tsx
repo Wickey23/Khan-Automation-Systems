@@ -94,6 +94,16 @@ const PLAN_COPY = {
 type PlanKey = keyof typeof PLAN_COPY;
 type StripePlanKey = "starter" | "pro" | "founding";
 const PLAN_ORDER: PlanKey[] = ["none", "starter", "founding", "pro"];
+const PLAN_CAPACITY = {
+  none: { calls: 20, sms: 10, booking: 6 },
+  starter: { calls: 60, sms: 40, booking: 18 },
+  pro: { calls: 180, sms: 120, booking: 45 }
+} as const;
+const PLAN_OPERATIONS_VALUE = {
+  none: "Setup and evaluation mode before live operations.",
+  starter: "Reliability-first operational baseline for live call handling.",
+  pro: "Higher-throughput operations with stronger automation and priority handling."
+} as const;
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -311,12 +321,10 @@ export default function AppBillingPage() {
   const currentPlanCopy = PLAN_COPY[currentPlanKey];
   const maskedCustomerDigits = subscription?.stripeCustomerId ? subscription.stripeCustomerId.slice(-4) : "4242";
   const resolvedPlan = accessSummary?.plan.name || (subscription?.plan === "PRO" ? "PRO" : subscription?.plan === "STARTER" ? "STARTER" : "NONE");
-  const planCapacity =
-    resolvedPlan === "PRO"
-      ? { calls: 180, sms: 120, booking: 45 }
-      : resolvedPlan === "STARTER"
-        ? { calls: 60, sms: 40, booking: 18 }
-        : { calls: 20, sms: 10, booking: 6 };
+  const planCapacity = resolvedPlan === "PRO" ? PLAN_CAPACITY.pro : resolvedPlan === "STARTER" ? PLAN_CAPACITY.starter : PLAN_CAPACITY.none;
+  const suggestedPlanKey: "starter" | "pro" | null = currentPlanKey === "none" ? "starter" : currentPlanKey === "starter" ? "pro" : null;
+  const suggestedPlanCopy = suggestedPlanKey ? PLAN_COPY[suggestedPlanKey] : null;
+  const suggestedPlanCapacity = suggestedPlanKey ? PLAN_CAPACITY[suggestedPlanKey] : null;
   const capacityRows = [
     {
       label: "Call volume",
@@ -339,6 +347,33 @@ export default function AppBillingPage() {
     return { ...row, percent, state };
   });
   const hasCapacityNudge = capacityRows.some((row) => row.state !== "healthy");
+  const topCapacityPressure = [...capacityRows].sort((a, b) => b.percent - a.percent)[0] || null;
+  const planComparisonRows = [
+    {
+      key: "calls",
+      label: "Call throughput",
+      usage: analytics?.kpis.totalCalls || 0,
+      currentLimit: planCapacity.calls,
+      upgradeLimit: suggestedPlanCapacity?.calls || null
+    },
+    {
+      key: "sms",
+      label: "Messaging throughput",
+      usage: analytics?.kpis.smsThreads || 0,
+      currentLimit: planCapacity.sms,
+      upgradeLimit: suggestedPlanCapacity?.sms || null
+    },
+    {
+      key: "booking",
+      label: "Booking demand",
+      usage: analytics?.kpis.appointmentRequests || 0,
+      currentLimit: planCapacity.booking,
+      upgradeLimit: suggestedPlanCapacity?.booking || null
+    }
+  ];
+  const personalizationCopy = topCapacityPressure
+    ? `You've handled ${topCapacityPressure.usage} ${topCapacityPressure.label.toLowerCase()} signals this week. ${currentPlanCopy.title} is optimized for lower operational load, while ${suggestedPlanCopy?.title || "your current plan"} provides more headroom.`
+    : "Your usage is currently within plan guidance.";
   const activeFeatures = currentPlanCopy.includes.slice(0, 5);
   const usageRows = [
     {
@@ -584,6 +619,94 @@ export default function AppBillingPage() {
             </Button>
           </div>
         ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Plan comparison</p>
+            <p className="mt-1 text-sm text-slate-700">
+              Compare operational capacity against your current weekly usage before deciding to upgrade.
+            </p>
+          </div>
+          <Badge className="border-slate-200 bg-slate-50 text-slate-700">
+            Current: {currentPlanCopy.title}
+          </Badge>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Current plan</p>
+            <p className="mt-2 text-lg font-black text-slate-900">{currentPlanCopy.title}</p>
+            <p className="mt-1 text-sm text-slate-700">{PLAN_OPERATIONS_VALUE[currentPlanKey]}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Recommended next plan</p>
+            {suggestedPlanCopy ? (
+              <>
+                <p className="mt-2 text-lg font-black text-slate-900">{suggestedPlanCopy.title}</p>
+                <p className="mt-1 text-sm text-slate-700">{PLAN_OPERATIONS_VALUE[suggestedPlanKey as "starter" | "pro"]}</p>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-lg font-black text-slate-900">Growth/Pro</p>
+                <p className="mt-1 text-sm text-slate-700">You are already on the highest self-serve tier.</p>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <span>Capacity area</span>
+            <span className="text-right">Usage (7d)</span>
+            <span className="text-right">{currentPlanCopy.title}</span>
+            <span className="text-right">{suggestedPlanCopy ? suggestedPlanCopy.title : "Current tier"}</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {planComparisonRows.map((row) => (
+              <div key={row.key} className="grid grid-cols-[1.4fr_1fr_1fr_1fr] px-4 py-3 text-sm">
+                <span className="font-medium text-slate-800">{row.label}</span>
+                <span className="text-right text-slate-700">{row.usage}</span>
+                <span className="text-right text-slate-700">{row.currentLimit}</span>
+                <span className="text-right font-semibold text-slate-900">{row.upgradeLimit ?? row.currentLimit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-sm text-slate-700">{personalizationCopy}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!suggestedPlanKey) return;
+                if (!hasRealSubscription) {
+                  void onStartPlan(suggestedPlanKey);
+                  return;
+                }
+                void onChangePlan(suggestedPlanKey);
+              }}
+              disabled={(!suggestedPlanKey) || startingPlan !== null || changingPlan !== null}
+            >
+              {suggestedPlanKey === "pro" ? "Upgrade to Pro" : suggestedPlanKey === "starter" ? "View plan details" : "Current tier"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (hasRealSubscription) {
+                  void onOpenPortal();
+                  return;
+                }
+                void onStartPlan("starter");
+              }}
+              disabled={openingPortal || startingPlan !== null}
+            >
+              View plan details
+            </Button>
+          </div>
+        </div>
       </div>
 
       {showDemoCard ? (
