@@ -34,6 +34,7 @@ type ClientRole = AuthUser["role"];
 type FeatureKey = "appointmentsEnabled";
 type OrgFeatureState = Record<FeatureKey, boolean>;
 type ActivationStage = "not_started" | "in_progress" | "ready";
+type LiveBadge = { label: string; classes: string };
 
 const navItems: Array<{
   href: string;
@@ -92,6 +93,11 @@ function formatAccessStatus(status?: AccessStatus) {
   return status.replace(/_/g, " ");
 }
 
+function isCoreFeatureReady(access: OrgAccessSummary | null) {
+  if (!access) return false;
+  return ["calls", "sms", "appointments"].every((key) => access.features[key as AccessFeatureKey]?.status === "ready");
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -102,11 +108,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<ClientRole | null>(null);
   const [features, setFeatures] = useState<OrgFeatureState>({ appointmentsEnabled: false });
   const [accessSummary, setAccessSummary] = useState<OrgAccessSummary | null>(null);
+  const [workspaceLive, setWorkspaceLive] = useState(false);
 
   useEffect(() => {
     setAccessWarning(null);
     setModeBanner(null);
     setActivationBanner(null);
+    setWorkspaceLive(false);
     if (pathname === "/app/onboarding") return;
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus(), getMe()])
       .then(([onboarding, orgProfile, billing, me]) => {
@@ -187,6 +195,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const remainingSteps = Math.max(totalSteps - completedSteps, 0);
         const activationStage: ActivationStage =
           remainingSteps === 0 ? "ready" : completedSteps === 0 ? "not_started" : "in_progress";
+        const nextWorkspaceLive = activationStage === "ready" && isCoreFeatureReady(profileAccess);
+        setWorkspaceLive(nextWorkspaceLive);
         if (activationStage === "not_started") {
           setActivationBanner({
             stage: "not_started",
@@ -202,12 +212,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             ctaHref: "/app/activation"
           });
         } else {
-          setActivationBanner({
-            stage: "ready",
-            text: "Workspace activation complete. Core workflows are operational.",
-            ctaLabel: "View activation summary",
-            ctaHref: "/app/activation"
-          });
+          setActivationBanner(
+            nextWorkspaceLive
+              ? null
+              : {
+                  stage: "ready",
+                  text: "Activation complete. Final confidence checks are still resolving.",
+                  ctaLabel: "Open activation",
+                  ctaHref: "/app/activation"
+                }
+          );
         }
         setAccessWarning(activationStage === "ready" ? null : nextAccessWarning);
       })
@@ -218,10 +232,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setFeatures({ appointmentsEnabled: false });
         setAccessSummary(null);
         setActivationBanner(null);
+        setWorkspaceLive(false);
       });
   }, [pathname, router]);
 
   const pageLabel = useMemo(() => currentLabel(pathname), [pathname]);
+  const liveBadge = useMemo<LiveBadge>(() => {
+    if (workspaceLive) {
+      return {
+        label: "Live",
+        classes: "bg-emerald-100 text-emerald-700"
+      };
+    }
+    return {
+      label: "Setup",
+      classes: "bg-amber-100 text-amber-700"
+    };
+  }, [workspaceLive]);
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
@@ -354,9 +381,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Front Desk Workspace</p>
                       <h1 className="mt-2 text-[30px] font-black tracking-[-0.04em] text-slate-900">{pageLabel}</h1>
                     </div>
-                    <span className="hidden items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 md:inline-flex">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      System Live
+                    <span className={cn("hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] md:inline-flex", liveBadge.classes)}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+                      {liveBadge.label}
                     </span>
                   </div>
                 </div>
@@ -376,6 +403,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       <span>{activationBanner.text}</span>
                       <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
                         {activationBanner.ctaLabel}
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+                {!modeBanner && workspaceLive ? (
+                  <div className="app-banner app-banner-primary">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>System ready and listening. Inbound calls, SMS automation, and booking workflows are operational.</span>
+                      <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                        View live calls
                       </Link>
                     </div>
                   </div>

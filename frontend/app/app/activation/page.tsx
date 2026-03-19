@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock3 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, PhoneCall, MessageSquare, Calendar, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
@@ -160,6 +160,11 @@ function isStepLocked(status: AccessStatus) {
   return status === "blocked" || status === "gated";
 }
 
+function isCoreFeatureReady(access: OrgAccessSummary | null) {
+  if (!access) return false;
+  return ["calls", "sms", "appointments"].every((key) => access.features[key as AccessFeatureKey]?.status === "ready");
+}
+
 export default function AppActivationPage() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -304,6 +309,28 @@ export default function AppActivationPage() {
   );
 
   const isWorkspaceReady = flowStatus === "ready" && remainingCount === 0;
+  const workspaceLive = isWorkspaceReady && isCoreFeatureReady(access);
+  const confidenceSignals = useMemo(() => {
+    if (!access) return [];
+    const checks = new Map(access.readinessChecklist.map((check) => [check.key, check]));
+    return [
+      {
+        label: "System listening",
+        detail: checks.get("phoneRouting")?.status === "ready" ? "Inbound calls will be handled." : "Phone routing setup is still required.",
+        status: checks.get("phoneRouting")?.status || "setup_required"
+      },
+      {
+        label: "SMS automation",
+        detail: access.features.sms.status === "ready" ? "SMS follow-up is active." : access.features.sms.reason,
+        status: access.features.sms.status
+      },
+      {
+        label: "Booking pipeline",
+        detail: access.features.appointments.status === "ready" ? "Booking workflow is operational." : access.features.appointments.reason,
+        status: access.features.appointments.status
+      }
+    ];
+  }, [access]);
 
   async function handleInlineAction(stepId: string) {
     if (savingStepId) return;
@@ -539,10 +566,10 @@ export default function AppActivationPage() {
         </div>
         <StateCard
           variant={statusToCardVariant(flowStatus)}
-          title={isWorkspaceReady ? "Workspace is activation-ready" : "Activation still in progress"}
+          title={workspaceLive ? "Your system is live" : "Activation still in progress"}
           description={
-            isWorkspaceReady
-              ? "Core receptionist workflows are configured, gated checks are cleared, and rollout can continue safely."
+            workspaceLive
+              ? "Calls, messaging, and booking are now operational."
               : blockedCount > 0
                 ? "Resolve billing/plan blockers first, then continue setup."
                 : gatedCount > 0
@@ -550,6 +577,59 @@ export default function AppActivationPage() {
                   : `Finish ${remainingCount} remaining step${remainingCount === 1 ? "" : "s"} to go live safely.`
           }
         />
+      </SectionShell>
+
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading
+          title={workspaceLive ? "Go-live confidence" : "Go-live readiness"}
+          description={
+            workspaceLive
+              ? "Your workspace is in live mode with core receptionist workflows enabled."
+              : "These signals show what is working now and what still needs attention before live mode."
+          }
+        />
+        <div className="grid gap-3 md:grid-cols-3">
+          {confidenceSignals.map((signal) => (
+            <div key={signal.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{signal.label}</p>
+                <StatusBadge kind="feature" state={signal.status} size="xs" />
+              </div>
+              <p className="mt-2 text-sm text-slate-700">{signal.detail}</p>
+            </div>
+          ))}
+        </div>
+        {workspaceLive ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2 text-emerald-700">
+              <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
+              <p className="text-sm font-semibold">Workspace live</p>
+            </div>
+            <p className="mt-1 text-sm text-emerald-700">
+              Calls, messaging, and booking are operational. Use the actions below to transition from setup into daily operations.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/app/calls">
+                <Button size="sm"><PhoneCall className="mr-1.5 h-4 w-4" />View live calls</Button>
+              </Link>
+              <Link href="/app/messages">
+                <Button size="sm" variant="outline"><MessageSquare className="mr-1.5 h-4 w-4" />Open messages</Button>
+              </Link>
+              <Link href="/app/appointments">
+                <Button size="sm" variant="outline"><Calendar className="mr-1.5 h-4 w-4" />Open appointments</Button>
+              </Link>
+              <Link href="/app">
+                <Button size="sm" variant="outline"><Activity className="mr-1.5 h-4 w-4" />Monitor activity</Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm text-slate-700">
+              {remainingCount > 0 ? `${remainingCount} step${remainingCount === 1 ? "" : "s"} remaining.` : "Final checks pending."} Complete activation to mark the workspace as live.
+            </p>
+          </div>
+        )}
       </SectionShell>
 
       <SectionShell className="surface-panel space-y-4">
