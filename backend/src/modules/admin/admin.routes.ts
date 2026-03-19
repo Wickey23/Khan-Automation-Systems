@@ -139,6 +139,9 @@ function parseIsoDate(value: string | undefined) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const CALL_REVIEW_MARK_ACTION = "CALL_MARKED_FOR_REVIEW";
+const CALL_REVIEW_RESOLVED_ACTION = "CALL_REVIEW_RESOLVED";
+
 const CALL_AUDIT_ACTIONS = [
   "CALL_STARTED",
   "CALL_COMPLETED",
@@ -149,10 +152,6 @@ const CALL_AUDIT_ACTIONS = [
   "BOOKING_FINALIZER_FAILED",
   CALL_REVIEW_MARK_ACTION,
   CALL_REVIEW_RESOLVED_ACTION
-];
-
-const CALL_REVIEW_MARK_ACTION = "CALL_MARKED_FOR_REVIEW";
-const CALL_REVIEW_RESOLVED_ACTION = "CALL_REVIEW_RESOLVED";
 ];
 
 function safeParseAuditMetadata(raw?: string | null) {

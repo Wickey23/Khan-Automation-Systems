@@ -442,7 +442,7 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
           if (input.leadId && input.pipelineFeatureEnabled) {
             await tx.lead.updateMany({
               where: { id: input.leadId, orgId: input.orgId },
-              data: { pipelineStage: status === AppointmentStatus.CONFIRMED ? LeadPipelineStage.SCHEDULED : LeadPipelineStage.NEEDS_SCHEDULING }
+              data: { pipelineStage: appointment.status === AppointmentStatus.CONFIRMED ? LeadPipelineStage.SCHEDULED : LeadPipelineStage.NEEDS_SCHEDULING }
             });
           }
           return created;

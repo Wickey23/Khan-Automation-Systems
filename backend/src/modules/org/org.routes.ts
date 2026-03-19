@@ -61,6 +61,7 @@ import {
   updateOrgProfileSchema
 } from "./org.schema";
 import { buildOrgAccessSummary } from "./access.service";
+import { rateLimiters } from "../../lib/rate-limiters";
 
 export const orgRouter = Router();
 
