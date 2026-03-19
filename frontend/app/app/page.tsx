@@ -1,348 +1,446 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Calendar, CheckCircle2, Mail, Phone, RefreshCw, Sparkles, UserPlus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  fetchAppointmentRequests,
-  fetchOrgCalls,
-  fetchOrgLeads,
-  fetchOrgMessages,
-  fetchOrgOnboarding
-} from "@/lib/api";
-import type { AppointmentRequest, Lead, OrgCallRecord, OrgMessageThread } from "@/lib/types";
+  Activity,
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  MessageSquare,
+  PhoneCall,
+  RefreshCw,
+  Sparkles
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { fetchOrgAnalytics, fetchOrgHealth, fetchOrgProfile } from "@/lib/api";
+import type { AccessFeatureKey, OrgAccessSummary, OrgAnalytics, OrgHealth, Organization } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAccessSummary } from "@/context/access-summary";
 
-type DashboardState = {
-  calls: OrgCallRecord[];
-  leads: Lead[];
-  requests: AppointmentRequest[];
-  threads: OrgMessageThread[];
-  onboardingStatus: string | null;
+type DashboardPayload = {
+  analytics: OrgAnalytics | null;
+  health: OrgHealth | null;
+  organization: Organization | null;
+  profileAccess: OrgAccessSummary | null;
 };
 
-function formatRelative(value: string | null | undefined) {
-  if (!value) return "Just now";
-  const diff = Date.now() - new Date(value).getTime();
-  const mins = Math.max(0, Math.round(diff / 60000));
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} mins ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
 }
 
-function initials(value: string) {
-  return value
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("") || "FD";
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
 }
 
-function leadStatusTone(priority?: string | null) {
-  if (priority === "urgent") return { color: "text-red-600", bg: "bg-red-100", label: "Urgent" };
-  if (priority === "high") return { color: "text-amber-600", bg: "bg-amber-100", label: "Pending" };
-  if (priority === "normal") return { color: "text-blue-600", bg: "bg-blue-100", label: "New" };
-  return { color: "text-slate-600", bg: "bg-slate-100", label: "Follow-up" };
+function formatRelative(value?: string | null) {
+  if (!value) return "No recent activity";
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "No recent activity";
+  const diff = Date.now() - timestamp;
+  const minutes = Math.max(0, Math.floor(diff / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days <= 7) return `${days}d ago`;
+  return new Date(value).toLocaleDateString();
 }
 
-function bookingLabel(request: AppointmentRequest) {
-  switch (request.status) {
-    case "PENDING_REVIEW":
-      return "Needs review";
-    case "APPROVED":
-      return "Ready to book";
-    case "SLOT_OFFERED":
-      return "Offer sent";
-    case "SCHEDULED":
-      return "Booked";
-    default:
-      return "Request";
-  }
+function formatDateTime(value?: string | null) {
+  if (!value) return "Not captured yet";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Not captured yet";
+  return parsed.toLocaleString();
 }
 
-function threadPreview(thread: OrgMessageThread) {
-  const latest = [...(thread.messages || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-  return latest?.body || "Customer thread opened.";
+function firstSuccessLabel(type?: Organization["firstSuccessType"] | null) {
+  if (type === "call") return "First call handled";
+  if (type === "sms") return "First message handled";
+  if (type === "booking") return "First booking request detected";
+  return "First success pending";
+}
+
+function statusToStateCardVariant(status?: string) {
+  if (status === "setup_required") return "setup" as const;
+  if (status === "gated" || status === "blocked") return "locked" as const;
+  return "empty" as const;
 }
 
 export default function AppOverviewPage() {
-  const [state, setState] = useState<DashboardState>({
-    calls: [],
-    leads: [],
-    requests: [],
-    threads: [],
-    onboardingStatus: null
-  });
+  const accessSummary = useAccessSummary();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [payload, setPayload] = useState<DashboardPayload>({
+    analytics: null,
+    health: null,
+    organization: null,
+    profileAccess: null
+  });
+
+  const loadDashboard = useCallback(async () => {
+    const [analytics, health, profile] = await Promise.all([
+      fetchOrgAnalytics({ range: "7d" }),
+      fetchOrgHealth(),
+      fetchOrgProfile()
+    ]);
+    setPayload({
+      analytics,
+      health,
+      organization: profile.organization || null,
+      profileAccess: profile.access || null
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      fetchOrgCalls({ page: 1, pageSize: 10 }),
-      fetchOrgLeads(),
-      fetchAppointmentRequests(),
-      fetchOrgMessages(),
-      fetchOrgOnboarding()
-    ])
-      .then(([calls, leads, requests, messages, onboarding]) => {
+    void loadDashboard()
+      .then(() => {
         if (!active) return;
-        setState({
-          calls: calls.calls || [],
-          leads: leads.leads || [],
-          requests: requests.requests || [],
-          threads: messages.threads || [],
-          onboardingStatus: onboarding.submission?.status || null
-        });
+        setError(null);
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        setError(requestError instanceof Error ? requestError.message : "Unable to load dashboard.");
       })
       .finally(() => {
         if (!active) return;
         setLoading(false);
       });
-
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadDashboard]);
+
+  const effectiveAccess = accessSummary || payload.profileAccess;
+  const analytics = payload.analytics;
+  const health = payload.health;
+  const organization = payload.organization;
+
+  const unresolvedOpsCount = useMemo(() => {
+    const runtimeMissing = health?.runtimeHealth?.missingChecks?.length || 0;
+    const readinessMissing = health?.readiness?.missingChecks?.length || 0;
+    return runtimeMissing + readinessMissing;
+  }, [health]);
 
   const metrics = useMemo(() => {
-    const callsToday = state.calls.filter((call) => {
-      const date = new Date(call.startedAt);
-      const now = new Date();
-      return date.toDateString() === now.toDateString();
-    }).length;
-    const activeLeads = state.leads.filter((lead) => lead.frontDesk?.needsFollowUp || lead.pipelineStage !== "COMPLETED").length;
-    const bookings = state.requests.filter((request) => request.status === "SCHEDULED" || request.status === "APPROVED").length;
+    const kpis = analytics?.kpis;
+    if (!kpis) return [];
     return [
-      { label: "Total Calls", value: String(state.calls.length), trend: callsToday > 0 ? `+${callsToday} today` : "No calls today", icon: Phone, color: "text-emerald-500", path: "M0,15 Q25,5 50,15 T100,5" },
-      { label: "Active Leads", value: String(activeLeads), trend: state.leads.length ? `${state.leads.length} in queue` : "No leads yet", icon: UserPlus, color: "text-emerald-500", path: "M0,18 Q30,15 45,5 T80,12 T100,2" },
-      { label: "Bookings", value: String(bookings), trend: state.requests.length ? `${state.requests.length} requests` : "No bookings yet", icon: Calendar, color: "text-emerald-500", path: "M0,10 Q10,20 30,5 T70,15 T100,5" }
+      {
+        key: "inbound",
+        label: "Inbound calls",
+        value: formatNumber(kpis.totalCalls),
+        detail: "Last 7 days",
+        icon: PhoneCall
+      },
+      {
+        key: "handled",
+        label: "Calls handled",
+        value: formatNumber(kpis.answeredCalls),
+        detail: `Answer rate ${formatPercent(kpis.answerRate)}`,
+        icon: CheckCircle2
+      },
+      {
+        key: "missed",
+        label: "Missed calls",
+        value: formatNumber(kpis.missedCalls),
+        detail: kpis.missedCalls > 0 ? "Needs follow-up coverage" : "No missed calls in range",
+        icon: AlertTriangle
+      },
+      {
+        key: "sms",
+        label: "SMS conversations",
+        value: formatNumber(kpis.smsThreads),
+        detail: `${formatNumber(kpis.smsEngagedThreads)} engaged threads`,
+        icon: MessageSquare
+      },
+      {
+        key: "booking",
+        label: "Appointment demand",
+        value: formatNumber(kpis.appointmentRequests),
+        detail: "Detected booking requests",
+        icon: CalendarClock
+      },
+      {
+        key: "issues",
+        label: "Unresolved issues",
+        value: formatNumber(unresolvedOpsCount),
+        detail: unresolvedOpsCount > 0 ? "Review operational checks" : "No unresolved checks",
+        icon: Activity
+      }
     ];
-  }, [state.calls, state.leads, state.requests]);
+  }, [analytics, unresolvedOpsCount]);
 
-  const actionItems = useMemo(() => {
-    const urgentCalls = state.calls
-      .filter((call) => call.frontDesk?.needsFollowUp)
-      .slice(0, 2)
-      .map((call) => ({
-        href: `/app/calls?callId=${encodeURIComponent(call.id)}`,
-        name: call.frontDesk?.callerName || call.displayName || call.fromNumber,
-        source: call.frontDesk?.serviceRequested || "Call queue",
-        status: call.frontDesk?.frontDeskPriority || "normal",
-        time: formatRelative(call.startedAt),
-        action: String(call.frontDesk?.recommendedAction || "Review"),
-        initials: initials(call.frontDesk?.callerName || call.displayName || call.fromNumber)
-      }));
-    const urgentLeads = state.leads
-      .filter((lead) => lead.frontDesk?.needsFollowUp)
-      .slice(0, 2)
-      .map((lead) => ({
-        href: `/app/leads?leadId=${encodeURIComponent(lead.id)}`,
-        name: lead.name || lead.phone || "New lead",
-        source: lead.source || lead.serviceRequested || "Lead queue",
-        status: lead.frontDesk?.frontDeskPriority || "normal",
-        time: formatRelative(lead.updatedAt),
-        action: String(lead.frontDesk?.recommendedAction || "Review"),
-        initials: initials(lead.name || lead.phone || "Lead")
-      }));
-    return [...urgentCalls, ...urgentLeads].slice(0, 4);
-  }, [state.calls, state.leads]);
+  const trendRows = useMemo(() => {
+    const calls = analytics?.charts.callsPerDay || [];
+    const leads = analytics?.charts.leadsPerDay || [];
+    const maxCalls = Math.max(1, ...calls.map((item) => item.value));
+    const maxLeads = Math.max(1, ...leads.map((item) => item.value));
+    return calls.map((callPoint, index) => {
+      const leadPoint = leads[index];
+      return {
+        day: callPoint.day,
+        calls: callPoint.value,
+        leads: leadPoint?.value || 0,
+        callsWidth: `${Math.round((callPoint.value / maxCalls) * 100)}%`,
+        leadsWidth: `${Math.round(((leadPoint?.value || 0) / maxLeads) * 100)}%`
+      };
+    });
+  }, [analytics]);
 
-  const activityItems = useMemo(() => {
-    const items: Array<{ title: string; detail: string; time: string; tone: "primary" | "success" | "info" | "warning" }> = [];
-    const latestCall = state.calls[0];
-    if (latestCall) {
-      items.push({
-        title: "Inbound Call Logged",
-        detail: latestCall.frontDesk?.summary || latestCall.aiSummary || latestCall.summary || `Incoming call from ${latestCall.fromNumber}.`,
-        time: formatRelative(latestCall.startedAt),
-        tone: "primary"
-      });
-    }
-    const latestBooked = state.requests.find((request) => request.status === "SCHEDULED" || request.status === "APPROVED");
-    if (latestBooked) {
-      items.push({
-        title: "Booking Updated",
-        detail: `${latestBooked.customerName || "Customer"} - ${bookingLabel(latestBooked)}`,
-        time: formatRelative(latestBooked.lastEventAt),
-        tone: "success"
-      });
-    }
-    const latestThread = state.threads[0];
-    if (latestThread) {
-      items.push({
-        title: "Customer Message",
-        detail: threadPreview(latestThread),
-        time: formatRelative(latestThread.lastMessageAt),
-        tone: "info"
-      });
-    }
-    const latestLead = state.leads[0];
-    if (latestLead) {
-      items.push({
-        title: "Lead Queue Updated",
-        detail: `${latestLead.name || latestLead.phone || "Lead"} entered the queue.`,
-        time: formatRelative(latestLead.updatedAt),
-        tone: "warning"
-      });
-    }
-    return items.slice(0, 4);
-  }, [state.calls, state.leads, state.requests, state.threads]);
+  const outcomeRows = useMemo(
+    () => (analytics?.charts.outcomeBreakdown || []).slice(0, 5),
+    [analytics]
+  );
 
-  const onboardingReady = state.onboardingStatus && ["SUBMITTED", "REVIEWED", "APPROVED"].includes(state.onboardingStatus);
+  const workspaceLive = useMemo(() => {
+    if (!effectiveAccess) return false;
+    return ["calls", "sms", "appointments"].every((key) => effectiveAccess.features[key as AccessFeatureKey]?.status === "ready");
+  }, [effectiveAccess]);
+
+  const firstSuccessAt = organization?.firstSuccessAt || null;
+  const firstSuccessType = organization?.firstSuccessType || null;
+
+  async function refreshDashboard() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await loadDashboard();
+      setError(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to refresh dashboard.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <PageShell className="space-y-6">
+        <SectionShell className="surface-panel">
+          <StateCard variant="loading" title="Loading performance dashboard" description="Pulling calls, messages, bookings, and health metrics." />
+        </SectionShell>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell className="space-y-6">
+        <SectionShell className="surface-panel">
+          <StateCard
+            variant="error"
+            title="Unable to load dashboard"
+            description={error}
+            action={
+              <Button size="sm" variant="outline" onClick={() => void refreshDashboard()}>
+                <RefreshCw className={cn("mr-1.5 h-4 w-4", refreshing && "animate-spin")} />
+                Retry
+              </Button>
+            }
+          />
+        </SectionShell>
+      </PageShell>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <PageShell className="space-y-6">
+        <SectionShell className="surface-panel">
+          <StateCard variant="empty" title="No dashboard metrics yet" description="Run calls or messaging activity to populate your performance snapshot." />
+        </SectionShell>
+      </PageShell>
+    );
+  }
 
   return (
-    <div className="flex-1 flex overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="flex-1 overflow-y-auto bg-background-light p-8">
-        <div className="mb-8 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Sparkles size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Need to reconfigure your workspace?</h3>
-              <p className="text-sm text-slate-500">
-                {onboardingReady
-                  ? "You can restart the setup wizard to update your business preferences at any time."
-                  : "Finish the setup wizard so calls, messages, and bookings follow the right routing rules."}
-              </p>
-            </div>
-          </div>
-          <Link href="/app/onboarding" className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
-            <RefreshCw size={18} />
-            <span>{onboardingReady ? "Restart Onboarding" : "Complete Setup"}</span>
-          </Link>
-        </div>
+    <PageShell className="space-y-6">
+      <PageHeader
+        eyebrow="Performance snapshot"
+        title="Workspace performance"
+        description="Core business-value and operational signals for the last 7 days."
+        actions={
+          <Button size="sm" variant="outline" onClick={() => void refreshDashboard()} disabled={refreshing}>
+            <RefreshCw className={cn("mr-1.5 h-4 w-4", refreshing && "animate-spin")} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        }
+      />
 
-        <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <SectionShell className="surface-panel space-y-4">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Workspace state</p>
+              <StatusBadge kind="feature" state={workspaceLive ? "ready" : "setup_required"} label={workspaceLive ? "Live" : "Needs setup"} size="xs" />
+            </div>
+            <p className="mt-2 text-sm text-slate-700">
+              {workspaceLive
+                ? "System is operational for calls, SMS, and appointment workflows."
+                : "Activation or setup steps remain before full runtime coverage."}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">First success milestone</p>
+              <StatusBadge kind="feature" state={firstSuccessAt ? "ready" : "setup_required"} label={firstSuccessAt ? "Captured" : "Pending"} size="xs" />
+            </div>
+            <p className="mt-2 text-sm font-semibold text-slate-900">{firstSuccessLabel(firstSuccessType)}</p>
+            <p className="mt-1 text-sm text-slate-600">{formatDateTime(firstSuccessAt)}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Last activity</p>
+              <StatusBadge kind="feature" state={health?.level === "RED" ? "warning" : "ready"} size="xs" />
+            </div>
+            <p className="mt-2 text-sm text-slate-700">{formatRelative(health?.metrics.recentActivityAt || analytics.kpis.dataFreshnessAt)}</p>
+            <p className="mt-1 text-sm text-slate-600">{health?.summary || "Runtime health signals are currently stable."}</p>
+          </div>
+        </div>
+      </SectionShell>
+
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading title="Core metrics" description="High-value performance indicators tied to call handling, SMS engagement, and booking demand." />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {metrics.map((metric) => (
-            <div key={metric.label} className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{metric.label}</span>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <metric.icon size={20} />
-                </div>
+            <div key={metric.key} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
+                <metric.icon className="h-4 w-4 text-slate-400" />
               </div>
-              <div>
-                <h3 className="text-4xl font-extrabold leading-tight text-slate-900">{loading ? "-" : metric.value}</h3>
-                <div className={cn("mt-1 flex items-center gap-2 text-sm font-bold", metric.color)}>
-                  <span>{metric.trend}</span>
-                </div>
-              </div>
-              <div className="mt-2 h-12 w-full opacity-50">
-                <svg className="h-full w-full text-emerald-500" preserveAspectRatio="none" viewBox="0 0 100 20">
-                  <path d={metric.path} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                </svg>
-              </div>
+              <p className="mt-2 text-2xl font-black tracking-[-0.03em] text-slate-900">{metric.value}</p>
+              <p className="mt-1 text-sm text-slate-600">{metric.detail}</p>
             </div>
           ))}
         </div>
+      </SectionShell>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <h2 className="text-lg font-bold text-slate-900">Action Needed</h2>
-            <Link href="/app/leads" className="text-sm font-semibold text-primary hover:underline">View All</Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-                  <th className="px-6 py-3">Lead Name</th>
-                  <th className="px-6 py-3">Source</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Waiting Since</th>
-                  <th className="px-6 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td className="px-6 py-8 text-sm text-slate-500" colSpan={5}>Loading front desk work...</td>
-                  </tr>
-                ) : actionItems.length ? (
-                  actionItems.map((item) => {
-                    const tone = leadStatusTone(item.status);
-                    return (
-                      <tr key={`${item.href}-${item.name}`} className="cursor-pointer transition-colors hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-primary">
-                              {item.initials}
-                            </div>
-                            <span className="text-sm font-medium text-slate-900">{item.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.source}</td>
-                        <td className="px-6 py-4">
-                          <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold", tone.bg, tone.color)}>
-                            {tone.label}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{item.time}</td>
-                        <td className="px-6 py-4 text-right">
-                          <Link href={item.href} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary/90">
-                            {item.action}
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td className="px-6 py-8 text-sm text-slate-500" colSpan={5}>No urgent customer work is waiting right now.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <aside className="hidden w-80 shrink-0 flex-col border-l border-slate-200 bg-white xl:flex">
-        <div className="border-b border-slate-200 p-6">
-          <h2 className="text-lg font-bold text-slate-900">Recent Activity</h2>
-        </div>
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
-          {loading ? (
-            <p className="text-sm text-slate-500">Loading activity...</p>
-          ) : activityItems.length ? (
-            activityItems.map((item, index) => {
-              const icon =
-                item.tone === "primary" ? <Phone size={14} /> :
-                item.tone === "success" ? <CheckCircle2 size={14} /> :
-                item.tone === "info" ? <Mail size={14} /> :
-                <UserPlus size={14} />;
-              const toneClass =
-                item.tone === "primary" ? "bg-primary/10 text-primary" :
-                item.tone === "success" ? "bg-emerald-100 text-emerald-600" :
-                item.tone === "info" ? "bg-blue-100 text-blue-600" :
-                "bg-amber-100 text-amber-600";
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading title="Feature readiness context" description="Metrics stay grounded in plan and setup status so blocked features are explicit." />
+        <div className="grid gap-3 md:grid-cols-3">
+          {(["calls", "sms", "appointments"] as AccessFeatureKey[]).map((key) => {
+            const feature = effectiveAccess?.features[key];
+            if (!feature) {
               return (
-                <div key={`${item.title}-${index}`} className="flex gap-4">
-                  <div className="relative">
-                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-full", toneClass)}>{icon}</div>
-                    {index < activityItems.length - 1 ? <div className="absolute left-1/2 top-8 h-10 w-0.5 -translate-x-1/2 bg-slate-100" /> : null}
+                <StateCard
+                  key={key}
+                  variant="empty"
+                  title={`${key.toUpperCase()} status unavailable`}
+                  description="Access status was not returned by profile data."
+                />
+              );
+            }
+            if (feature.status === "ready") {
+              return (
+                <div key={key} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{feature.label}</p>
+                    <StatusBadge kind="feature" state={feature.status} size="xs" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{item.time}</p>
-                    <p className="mt-2 rounded bg-slate-50 p-2 text-xs italic text-slate-500">{item.detail}</p>
-                  </div>
+                  <p className="mt-2 text-sm text-slate-700">{feature.reason}</p>
                 </div>
               );
-            })
-          ) : (
-            <p className="text-sm text-slate-500">No recent activity yet.</p>
-          )}
+            }
+            return (
+              <StateCard
+                key={key}
+                variant={statusToStateCardVariant(feature.status)}
+                title={`${feature.label} ${feature.status === "setup_required" ? "needs setup" : "is gated"}`}
+                description={feature.reason}
+                action={
+                  <Link href="/app/activation">
+                    <Button size="sm" variant="outline">Open activation</Button>
+                  </Link>
+                }
+              />
+            );
+          })}
         </div>
-        <div className="border-t border-slate-200 p-6">
-          <button className="w-full text-center text-sm font-semibold text-slate-600 transition-colors hover:text-primary">
-            Clear Timeline
-          </button>
+      </SectionShell>
+
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading title="Recent period activity" description="Simple 7-day trend and outcome view for quick operator confidence checks." />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Daily volume</p>
+            <div className="mt-3 space-y-3">
+              {trendRows.length ? trendRows.map((row) => (
+                <div key={row.day}>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{row.day}</span>
+                    <span>{row.calls} calls / {row.leads} leads</span>
+                  </div>
+                  <div className="mt-1 space-y-1">
+                    <div className="h-2 rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-sky-500" style={{ width: row.callsWidth }} />
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: row.leadsWidth }} />
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <StateCard variant="empty" title="No trend data yet" description="Activity will appear here once calls and leads are processed." />
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Outcome mix</p>
+            <div className="mt-3 space-y-2">
+              {outcomeRows.length ? outcomeRows.map((row) => (
+                <div key={row.outcome} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge kind="call" state={row.outcome} size="xs" />
+                    <p className="text-sm font-medium text-slate-700">{row.outcome.replace(/_/g, " ")}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">{formatNumber(row.value)}</p>
+                </div>
+              )) : (
+                <StateCard variant="empty" title="No outcomes recorded" description="Call outcome distribution will populate as activity is logged." />
+              )}
+            </div>
+          </div>
         </div>
-      </aside>
-    </div>
+      </SectionShell>
+
+      <SectionShell className="surface-panel">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Next best action</p>
+            <p className="text-sm text-slate-700">
+              {unresolvedOpsCount > 0
+                ? `${unresolvedOpsCount} health or readiness checks still need attention.`
+                : "No immediate operational blockers detected."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/app/calls">
+              <Button size="sm"><PhoneCall className="mr-1.5 h-4 w-4" />Open calls</Button>
+            </Link>
+            <Link href="/app/messages">
+              <Button size="sm" variant="outline"><MessageSquare className="mr-1.5 h-4 w-4" />Open messages</Button>
+            </Link>
+            <Link href="/app/activation">
+              <Button size="sm" variant="outline"><Clock3 className="mr-1.5 h-4 w-4" />Activation status</Button>
+            </Link>
+            {firstSuccessAt ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                <Sparkles className="h-3 w-3" />
+                Proven live
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </SectionShell>
+    </PageShell>
   );
 }
