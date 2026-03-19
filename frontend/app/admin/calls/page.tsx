@@ -760,18 +760,18 @@ function FollowUpActionsSection({
 }) {
   const { showToast } = useToast();
   const [submitting, setSubmitting] = useState(false);
-  const state = describeFollowUpState(finalizeBookingJob);
+  const state = describeBookingFinalizerState(finalizeBookingJob);
   const handleAction = async () => {
     if (!state.eligible || submitting) return;
     setSubmitting(true);
     try {
       const payload = await retriggerCallFollowUp(callId);
-      showToast({ title: "Follow-up retriggered", description: payload.reason });
+      showToast({ title: "Booking finalizer retriggered", description: payload.reason });
       await onActionSuccess();
       await reloadCalls();
     } catch (error) {
       showToast({
-        title: "Unable to trigger follow-up",
+        title: "Unable to retrigger finalizer",
         description: error instanceof Error ? error.message : "Request failed.",
         variant: "error"
       });
@@ -783,7 +783,10 @@ function FollowUpActionsSection({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Follow-up automation</p>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Booking finalizer</p>
+          <p className="text-xs text-slate-500">Safe retry controls for booking follow-up jobs.</p>
+        </div>
         <StatusBadge
           kind="booking"
           state={finalizeBookingJob?.status || "queued"}
@@ -791,20 +794,20 @@ function FollowUpActionsSection({
           size="xs"
         />
       </div>
-      <div className="grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
+      <div className="grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
         <p>Attempts: {finalizeBookingJob?.attemptCount ?? 0}</p>
         <p>{finalizeBookingJob?.smsSentAt ? `SMS sent ${formatWhen(finalizeBookingJob.smsSentAt)}` : "SMS pending"}</p>
-        {finalizeBookingJob?.error ? <p className="text-rose-600">Error: {finalizeBookingJob.error}</p> : null}
+        {finalizeBookingJob?.processedAt ? <p>Processed {formatWhen(finalizeBookingJob.processedAt)}</p> : <p>Processing time pending</p>}
       </div>
       <div className="flex items-center gap-3">
         <StatusBadge kind="booking" state={finalizeBookingJob?.status || "queued"} label="Finalizer state" size="xs" />
         <StatusBadge kind="sms" state={finalizeBookingJob?.smsSentAt ? "sent" : "pending"} label={finalizeBookingJob?.smsSentAt ? "SMS followed up" : "SMS pending"} size="xs" />
       </div>
-      <p className="text-xs text-slate-500">Next step: {state.description}</p>
+      <p className="text-xs text-slate-500">Intervention status: {state.description}</p>
       <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-primary">
         {callId ? (
           <Link href={`/admin/calls/${callId}`} className="underline-offset-4 hover:underline">
-            Open call detail
+            View call audit
           </Link>
         ) : null}
         {appointmentRequestId ? (
@@ -832,24 +835,24 @@ function FollowUpActionsSection({
   );
 }
 
-type FollowUpStateVariant = "loading" | "empty" | "retry" | "error";
+type BookingFinalizerStateVariant = "loading" | "empty" | "retry" | "error";
 
-type FollowUpState = {
-  variant: FollowUpStateVariant;
+type BookingFinalizerState = {
+  variant: BookingFinalizerStateVariant;
   title: string;
   description: string;
   eligible: boolean;
   actionLabel: string;
 };
 
-function describeFollowUpState(job: AdminCallDetail["finalizeBookingJob"]): FollowUpState {
+function describeBookingFinalizerState(job: AdminCallDetail["finalizeBookingJob"]): BookingFinalizerState {
   if (!job) {
     return {
       variant: "empty",
-      title: "Booking finalizer not triggered",
-      description: "The automation has not run yet for this call.",
+      title: "Finalizer not triggered",
+      description: "The booking finalizer has not run yet, so a retry is safe.",
       eligible: true,
-      actionLabel: "Trigger follow-up"
+      actionLabel: "Run finalizer"
     };
   }
   const status = String(job.status || "queued").toLowerCase();
@@ -858,42 +861,42 @@ function describeFollowUpState(job: AdminCallDetail["finalizeBookingJob"]): Foll
     case "done":
       return {
         variant: "empty",
-        title: "Follow-up complete",
-        description: job.error ? `Completed with error: ${job.error}` : "The booking finalizer completed successfully.",
+        title: "Finalizer complete",
+        description: job.error ? `Completed with error: ${job.error}` : "The booking finalizer finished successfully.",
         eligible: false,
-        actionLabel: "Retry follow-up"
+        actionLabel: "Retry finalizer"
       };
     case "processing":
       return {
         variant: "loading",
-        title: "Follow-up in progress",
-        description: "The booking finalizer job is still running.",
+        title: "Finalizer running",
+        description: "The booking automation is in progress. Wait before retrying.",
         eligible: false,
-        actionLabel: "Retry follow-up"
+        actionLabel: "Retry finalizer"
       };
     case "queued":
       return {
         variant: "retry",
-        title: "Follow-up queued",
-        description: errorText || "The automation is queued and waiting to run.",
+        title: "Finalizer queued",
+        description: errorText || "Job is waiting in the queue; manual retry keeps it safe.",
         eligible: true,
-        actionLabel: "Retry follow-up"
+        actionLabel: "Retry finalizer"
       };
     case "failed":
       return {
         variant: "retry",
-        title: "Follow-up failed",
-        description: errorText || "The automation failed; retry is available.",
+        title: "Finalizer failed",
+        description: errorText || "Last attempt failed; a manual retry is available.",
         eligible: true,
-        actionLabel: "Retry follow-up"
+        actionLabel: "Retry finalizer"
       };
     default:
       return {
         variant: "error",
-        title: "Unknown follow-up state",
-        description: `Status: ${job.status}`,
+        title: "Finalizer status unclear",
+        description: job.status ? `Status: ${job.status}` : "Finalizer state is ambiguous.",
         eligible: false,
-        actionLabel: "Retry follow-up"
+        actionLabel: "Retry finalizer"
       };
   }
 }
