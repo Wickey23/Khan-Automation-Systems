@@ -42,6 +42,18 @@ type UpgradeTrigger = {
   ctaHref: string;
 };
 
+type CapacityKey = "calls" | "sms" | "booking";
+
+type CapacitySignal = {
+  key: CapacityKey;
+  label: string;
+  usage: number;
+  limit: number;
+  percent: number;
+  softState: "healthy" | "near_limit" | "over_limit";
+  detail: string;
+};
+
 type AttentionItem = {
   key: string;
   severity: AttentionSeverity;
@@ -103,6 +115,12 @@ function trendLabel(direction: TrendDirection, noun: string) {
   if (direction === "rising") return `${noun} rising`;
   if (direction === "falling") return `${noun} falling`;
   return `${noun} stable`;
+}
+
+function capacityState(percent: number): CapacitySignal["softState"] {
+  if (percent >= 100) return "over_limit";
+  if (percent >= 80) return "near_limit";
+  return "healthy";
 }
 
 export default function AppOverviewPage() {
@@ -300,6 +318,55 @@ export default function AppOverviewPage() {
 
   const firstSuccessAt = organization?.firstSuccessAt || null;
   const firstSuccessType = organization?.firstSuccessType || null;
+  const capacitySignals = useMemo<CapacitySignal[]>(() => {
+    if (!analytics || !effectiveAccess) return [];
+    const plan = effectiveAccess.plan.name;
+    const limits =
+      plan === "PRO"
+        ? { calls: 180, sms: 120, booking: 45 }
+        : plan === "STARTER"
+          ? { calls: 60, sms: 40, booking: 18 }
+          : { calls: 20, sms: 10, booking: 6 };
+    const usage = {
+      calls: analytics.kpis.totalCalls,
+      sms: analytics.kpis.smsThreads,
+      booking: analytics.kpis.appointmentRequests
+    };
+    return ([
+      {
+        key: "calls",
+        label: "Call volume",
+        usage: usage.calls,
+        limit: limits.calls
+      },
+      {
+        key: "sms",
+        label: "Messaging volume",
+        usage: usage.sms,
+        limit: limits.sms
+      },
+      {
+        key: "booking",
+        label: "Booking demand",
+        usage: usage.booking,
+        limit: limits.booking
+      }
+    ] as Array<Pick<CapacitySignal, "key" | "label" | "usage" | "limit">>).map((item) => {
+      const percent = Math.round((item.usage / Math.max(item.limit, 1)) * 100);
+      const softState = capacityState(percent);
+      return {
+        ...item,
+        percent,
+        softState,
+        detail:
+          softState === "over_limit"
+            ? "Current demand exceeds starter guidance."
+            : softState === "near_limit"
+              ? "Usage is nearing plan guidance."
+              : "Usage is within current plan guidance."
+      };
+    });
+  }, [analytics, effectiveAccess]);
   const attentionItems = useMemo<AttentionItem[]>(() => {
     const items: AttentionItem[] = [];
 
@@ -612,6 +679,64 @@ export default function AppOverviewPage() {
           </div>
         </SectionShell>
       ) : null}
+
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading
+          title="Plan capacity"
+          description="Soft-limit visibility based on recent operational usage and your current plan."
+        />
+        {!workspaceLive ? (
+          <StateCard
+            variant="setup"
+            title="Capacity guidance appears after go-live"
+            description="Finish activation so capacity and plan guidance reflect real runtime usage."
+            action={
+              <Link href="/app/activation">
+                <Button size="sm" variant="outline">Open activation</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-3">
+            {capacitySignals.map((signal) => (
+              <div key={signal.key} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{signal.label}</p>
+                  <StatusBadge
+                    kind="feature"
+                    state={signal.softState === "over_limit" ? "blocked" : signal.softState === "near_limit" ? "setup_required" : "ready"}
+                    size="xs"
+                    label={signal.softState === "over_limit" ? "Over soft limit" : signal.softState === "near_limit" ? "Near soft limit" : "Healthy"}
+                  />
+                </div>
+                <p className="mt-2 text-xl font-black tracking-[-0.03em] text-slate-900">
+                  {formatNumber(signal.usage)} / {formatNumber(signal.limit)}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">{signal.detail}</p>
+                <div className="mt-3 h-2 rounded-full bg-slate-100">
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      signal.softState === "over_limit"
+                        ? "bg-rose-500"
+                        : signal.softState === "near_limit"
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                    )}
+                    style={{ width: `${Math.min(signal.percent, 100)}%` }}
+                  />
+                </div>
+                {signal.softState !== "healthy" ? (
+                  <Link href="/app/billing" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                    View plans
+                    <MoveRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionShell>
 
       <SectionShell className="surface-panel space-y-4">
         <SectionHeading title="Core metrics" description="High-value performance indicators tied to call handling, SMS engagement, and booking demand." />

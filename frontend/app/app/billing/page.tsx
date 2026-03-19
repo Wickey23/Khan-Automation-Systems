@@ -6,11 +6,13 @@ import {
   createPlanChangeSession,
   createStripeCheckoutSession,
   createCustomerPortalSession,
+  fetchOrgAnalytics,
+  fetchOrgProfile,
   getBillingDiagnostics,
   scheduleDowngrade,
   getBillingStatus
 } from "@/lib/api";
-import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, OrgSubscription } from "@/lib/types";
+import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgAccessSummary, OrgAnalytics, OrgDemoStatus, OrgSubscription } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -162,16 +164,26 @@ export default function AppBillingPage() {
   const [demo, setDemo] = useState<OrgDemoStatus | null>(null);
   const [diagnostics, setDiagnostics] = useState<BillingDiagnosticsPayload | null>(null);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
+  const [accessSummary, setAccessSummary] = useState<OrgAccessSummary | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [startingPlan, setStartingPlan] = useState<StripePlanKey | null>(null);
   const [changingPlan, setChangingPlan] = useState<StripePlanKey | null>(null);
 
   const refreshBillingAndDiagnostics = useCallback(async () => {
-    const [billing, diag] = await Promise.all([getBillingStatus(), getBillingDiagnostics()]);
-    setSubscription(billing.subscription);
-    setDemo(billing.demo);
-    setDiagnostics(diag);
-    setDiagnosticsError(null);
+    const [billing, diag, analyticsResult, profileResult] = await Promise.allSettled([
+      getBillingStatus(),
+      getBillingDiagnostics(),
+      fetchOrgAnalytics({ range: "7d" }),
+      fetchOrgProfile()
+    ]);
+    const billingData = billing.status === "fulfilled" ? billing.value : { subscription: null, demo: null };
+    setSubscription(billingData.subscription);
+    setDemo(billingData.demo);
+    setDiagnostics(diag.status === "fulfilled" ? diag.value : null);
+    setAnalytics(analyticsResult.status === "fulfilled" ? analyticsResult.value : null);
+    setAccessSummary(profileResult.status === "fulfilled" ? profileResult.value.access : null);
+    setDiagnosticsError(diag.status === "fulfilled" ? null : "Diagnostics unavailable.");
   }, []);
 
   useEffect(() => {
@@ -180,6 +192,8 @@ export default function AppBillingPage() {
         setSubscription(null);
         setDemo(null);
         setDiagnostics(null);
+        setAnalytics(null);
+        setAccessSummary(null);
         setDiagnosticsError("Diagnostics unavailable.");
       });
 
@@ -296,6 +310,35 @@ export default function AppBillingPage() {
   const currentPlanKey: PlanKey = !subscription ? "none" : subscription.plan === "PRO" ? "pro" : "starter";
   const currentPlanCopy = PLAN_COPY[currentPlanKey];
   const maskedCustomerDigits = subscription?.stripeCustomerId ? subscription.stripeCustomerId.slice(-4) : "4242";
+  const resolvedPlan = accessSummary?.plan.name || (subscription?.plan === "PRO" ? "PRO" : subscription?.plan === "STARTER" ? "STARTER" : "NONE");
+  const planCapacity =
+    resolvedPlan === "PRO"
+      ? { calls: 180, sms: 120, booking: 45 }
+      : resolvedPlan === "STARTER"
+        ? { calls: 60, sms: 40, booking: 18 }
+        : { calls: 20, sms: 10, booking: 6 };
+  const capacityRows = [
+    {
+      label: "Call volume",
+      usage: analytics?.kpis.totalCalls || 0,
+      limit: planCapacity.calls
+    },
+    {
+      label: "SMS threads",
+      usage: analytics?.kpis.smsThreads || 0,
+      limit: planCapacity.sms
+    },
+    {
+      label: "Booking demand",
+      usage: analytics?.kpis.appointmentRequests || 0,
+      limit: planCapacity.booking
+    }
+  ].map((row) => {
+    const percent = Math.round((row.usage / Math.max(row.limit, 1)) * 100);
+    const state = percent >= 100 ? "over" : percent >= 80 ? "near" : "healthy";
+    return { ...row, percent, state };
+  });
+  const hasCapacityNudge = capacityRows.some((row) => row.state !== "healthy");
   const activeFeatures = currentPlanCopy.includes.slice(0, 5);
   const usageRows = [
     {
@@ -480,6 +523,68 @@ export default function AppBillingPage() {
           </div>
         </div>
       </section>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Plan capacity visibility</p>
+            <p className="mt-1 text-sm text-slate-700">
+              Soft limits for the current plan, mapped to the latest 7-day operational usage.
+            </p>
+          </div>
+          <Badge className={hasCapacityNudge ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>
+            {hasCapacityNudge ? "Near soft limits" : "Within soft limits"}
+          </Badge>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {capacityRows.map((row) => (
+            <div key={row.label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{row.label}</p>
+                <Badge className={row.state === "over" ? "border-red-200 bg-red-50 text-red-700" : row.state === "near" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                  {row.state === "over" ? "Over soft limit" : row.state === "near" ? "Near soft limit" : "Healthy"}
+                </Badge>
+              </div>
+              <p className="mt-2 text-lg font-black text-slate-900">
+                {row.usage} / {row.limit}
+              </p>
+              <div className="mt-2 h-2 rounded-full bg-white">
+                <div
+                  className={row.state === "over" ? "h-full rounded-full bg-red-500" : row.state === "near" ? "h-full rounded-full bg-amber-500" : "h-full rounded-full bg-emerald-500"}
+                  style={{ width: `${Math.min(row.percent, 100)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-slate-600">
+                {row.state === "over"
+                  ? "Current demand is above starter guidance. Upgrading adds operational headroom."
+                  : row.state === "near"
+                    ? "Usage is approaching guidance for this plan."
+                    : "Usage is currently aligned with plan guidance."}
+              </p>
+            </div>
+          ))}
+        </div>
+        {hasCapacityNudge ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+            <p className="text-sm text-slate-700">
+              Upgrade when ready to increase capacity as usage grows across calls, messaging, and booking workflows.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (hasRealSubscription) {
+                  void onOpenPortal();
+                  return;
+                }
+                void onStartPlan("starter");
+              }}
+              disabled={openingPortal || startingPlan !== null}
+            >
+              {hasRealSubscription ? "Increase capacity" : "View plans"}
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {showDemoCard ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm">
