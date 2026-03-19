@@ -17,6 +17,7 @@ import {
   Rocket,
   Search,
   Settings,
+  Shield,
   Users
 } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
