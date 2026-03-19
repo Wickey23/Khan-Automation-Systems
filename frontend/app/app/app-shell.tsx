@@ -32,6 +32,7 @@ type PlanTier = "STARTER" | "PRO" | null;
 type ClientRole = AuthUser["role"];
 type FeatureKey = "appointmentsEnabled";
 type OrgFeatureState = Record<FeatureKey, boolean>;
+type ActivationStage = "not_started" | "in_progress" | "ready";
 
 const navItems: Array<{
   href: string;
@@ -95,6 +96,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [modeBanner, setModeBanner] = useState<{ text: string; ctaLabel: string; ctaHref: string } | null>(null);
+  const [activationBanner, setActivationBanner] = useState<{ stage: ActivationStage; text: string; ctaLabel: string; ctaHref: string } | null>(null);
   const [currentPlan, setCurrentPlan] = useState<PlanTier>(null);
   const [currentRole, setCurrentRole] = useState<ClientRole | null>(null);
   const [features, setFeatures] = useState<OrgFeatureState>({ appointmentsEnabled: false });
@@ -103,6 +105,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setAccessWarning(null);
     setModeBanner(null);
+    setActivationBanner(null);
     if (pathname === "/app/onboarding") return;
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus(), getMe()])
       .then(([onboarding, orgProfile, billing, me]) => {
@@ -176,7 +179,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         } else if (readinessIssue) {
           nextAccessWarning = `${readinessIssue.label}: ${readinessIssue.description}`;
         }
-        setAccessWarning(nextAccessWarning);
+        const readinessTotal = profileAccess?.readinessChecklist?.length || 0;
+        const readinessCompleted = (profileAccess?.readinessChecklist || []).filter((check) => check.status === "ready").length;
+        const totalSteps = readinessTotal + 1;
+        const completedSteps = readinessCompleted + (onboardingDone ? 1 : 0);
+        const remainingSteps = Math.max(totalSteps - completedSteps, 0);
+        const activationStage: ActivationStage =
+          remainingSteps === 0 ? "ready" : completedSteps === 0 ? "not_started" : "in_progress";
+        if (activationStage === "not_started") {
+          setActivationBanner({
+            stage: "not_started",
+            text: `Activation not started: ${completedSteps}/${totalSteps} steps complete.`,
+            ctaLabel: "Start activation",
+            ctaHref: "/app/activation"
+          });
+        } else if (activationStage === "in_progress") {
+          setActivationBanner({
+            stage: "in_progress",
+            text: `Activation in progress: ${completedSteps}/${totalSteps} complete, ${remainingSteps} remaining.`,
+            ctaLabel: "Continue activation",
+            ctaHref: "/app/activation"
+          });
+        } else {
+          setActivationBanner({
+            stage: "ready",
+            text: "Workspace activation complete. Core workflows are operational.",
+            ctaLabel: "View activation summary",
+            ctaHref: "/app/activation"
+          });
+        }
+        setAccessWarning(activationStage === "ready" ? null : nextAccessWarning);
       })
       .catch(() => {
         setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
@@ -184,6 +216,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setCurrentRole(null);
         setFeatures({ appointmentsEnabled: false });
         setAccessSummary(null);
+        setActivationBanner(null);
       });
   }, [pathname, router]);
 
@@ -332,6 +365,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       <span>{modeBanner.text}</span>
                       <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
                         {modeBanner.ctaLabel}
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+                {!modeBanner && activationBanner ? (
+                  <div className={activationBanner.stage === "not_started" ? "app-banner app-banner-warning" : "app-banner app-banner-primary"}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{activationBanner.text}</span>
+                      <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                        {activationBanner.ctaLabel}
                       </Link>
                     </div>
                   </div>

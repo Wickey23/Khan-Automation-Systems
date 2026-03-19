@@ -23,6 +23,7 @@ type ActivationStep = {
   summary: string;
   description: string;
   status: AccessStatus;
+  completionLabel: string;
   ctaLabel: string;
   ctaHref: string;
 };
@@ -83,12 +84,26 @@ const STATUS_PRIORITY: Record<AccessStatus, number> = {
   blocked: 3
 };
 
+const STEP_FEATURE_STATUS: Partial<Record<(typeof STEP_ORDER)[number]["id"], AccessFeatureKey>> = {
+  phoneRouting: "calls",
+  smsProvisioning: "sms",
+  bookingSetup: "appointments",
+  opsApproval: "outreach"
+};
+
 function pickHigherStatus(a: AccessStatus, b: AccessStatus) {
   return STATUS_PRIORITY[a] >= STATUS_PRIORITY[b] ? a : b;
 }
 
 function formatStatus(status: AccessStatus) {
   return status.replace(/_/g, " ");
+}
+
+function completionLabel(status: AccessStatus) {
+  if (status === "ready") return "Completed";
+  if (status === "blocked") return "Blocked";
+  if (status === "gated") return "Gated";
+  return "Incomplete";
 }
 
 function statusToCardVariant(status: AccessStatus): "empty" | "setup" | "locked" {
@@ -153,6 +168,7 @@ export default function AppActivationPage() {
     const onboardingAccessStatus = onboardingStatusToAccessStatus(onboardingStatus);
     return STEP_ORDER.map((step) => {
       if (!step.readinessKey) {
+        const status = onboardingAccessStatus;
         return {
           id: step.id,
           label: step.label,
@@ -166,18 +182,24 @@ export default function AppActivationPage() {
             onboardingStatus === "APPROVED"
               ? "Your organization package is approved and supports go-live review."
               : "Business profile and operating preferences must be documented before live activation.",
-          status: onboardingAccessStatus,
+          status,
+          completionLabel: completionLabel(status),
           ctaLabel: step.ctaLabel,
           ctaHref: step.ctaHref
         };
       }
       const check = readinessMap.get(step.readinessKey);
+      const baseStatus = check?.status || "setup_required";
+      const relatedFeature = STEP_FEATURE_STATUS[step.id];
+      const featureStatus = relatedFeature ? access?.features[relatedFeature]?.status : undefined;
+      const status = featureStatus ? pickHigherStatus(baseStatus, featureStatus) : baseStatus;
       return {
         id: step.id,
         label: step.label,
         summary: check?.description || "Configuration step needs review.",
         description: check?.detail || "Open the linked settings section and complete the required fields.",
-        status: check?.status || "setup_required",
+        status,
+        completionLabel: completionLabel(status),
         ctaLabel: step.ctaLabel,
         ctaHref: step.ctaHref
       };
@@ -193,6 +215,33 @@ export default function AppActivationPage() {
     () => steps.filter((step) => step.status === "ready").length,
     [steps]
   );
+
+  const remainingCount = useMemo(
+    () => steps.length - completedCount,
+    [steps.length, completedCount]
+  );
+
+  const progressPercent = useMemo(() => {
+    if (!steps.length) return 0;
+    return Math.round((completedCount / steps.length) * 100);
+  }, [completedCount, steps.length]);
+
+  const blockedCount = useMemo(
+    () => steps.filter((step) => step.status === "blocked").length,
+    [steps]
+  );
+
+  const gatedCount = useMemo(
+    () => steps.filter((step) => step.status === "gated").length,
+    [steps]
+  );
+
+  const setupRequiredCount = useMemo(
+    () => steps.filter((step) => step.status === "setup_required").length,
+    [steps]
+  );
+
+  const isWorkspaceReady = flowStatus === "ready" && remainingCount === 0;
 
   if (loading) {
     return (
@@ -245,18 +294,45 @@ export default function AppActivationPage() {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Activation progress</p>
             <p className="mt-1 text-sm text-slate-600">
-              {completedCount} of {steps.length} activation stages ready.
+              {completedCount} of {steps.length} steps complete. {remainingCount} remaining.
             </p>
           </div>
           <StatusBadge kind="feature" state={flowStatus} label={formatStatus(flowStatus)} />
         </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>{progressPercent}% complete</span>
+            <span>{completedCount}/{steps.length} steps</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-200">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Incomplete</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{setupRequiredCount} step(s)</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Blocked</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{blockedCount} step(s)</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Gated</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{gatedCount} step(s)</p>
+          </div>
+        </div>
         <StateCard
           variant={statusToCardVariant(flowStatus)}
-          title={flowStatus === "ready" ? "Workspace is activation-ready" : "Activation still in progress"}
+          title={isWorkspaceReady ? "Workspace is activation-ready" : "Activation still in progress"}
           description={
-            flowStatus === "ready"
+            isWorkspaceReady
               ? "Core receptionist workflows are configured, gated checks are cleared, and rollout can continue safely."
-              : "Complete the next incomplete step below. The first non-ready step is your current priority."
+              : blockedCount > 0
+                ? "Resolve billing/plan blockers first, then continue setup."
+                : gatedCount > 0
+                  ? "Core setup is progressing. Ops-gated steps remain before full rollout."
+                  : `Finish ${remainingCount} remaining step${remainingCount === 1 ? "" : "s"} to go live safely.`
           }
         />
       </SectionShell>
@@ -280,6 +356,7 @@ export default function AppActivationPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <StatusBadge kind="feature" state={step.status} label={formatStatus(step.status)} size="xs" />
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{step.completionLabel}</p>
                   <Link href={step.ctaHref}>
                     <Button size="sm" variant={step.status === "ready" ? "outline" : "default"}>
                       {step.ctaLabel}
