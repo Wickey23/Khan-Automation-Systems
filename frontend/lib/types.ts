@@ -215,6 +215,8 @@ export type Organization = {
   live: boolean;
   onboardingApprovedAt?: string | null;
   goLiveAt?: string | null;
+  firstSuccessAt?: string | null;
+  firstSuccessType?: "call" | "sms" | "booking" | null;
   createdAt: string;
   updatedAt: string;
 };

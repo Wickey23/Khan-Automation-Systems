@@ -343,6 +343,8 @@ model Organization {
   slaMonitorOverride       OrgOverrideMode             @default(DEFAULT)
   onboardingApprovedAt     DateTime?
   goLiveAt                 DateTime?
+  firstSuccessAt           DateTime?
+  firstSuccessType         String?
   users                    User[]
   subscriptions            Subscription[]
   onboardingSubmissions    OnboardingSubmission[]

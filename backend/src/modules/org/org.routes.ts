@@ -61,6 +61,7 @@ import {
   updateOrgProfileSchema
 } from "./org.schema";
 import { buildOrgAccessSummary } from "./access.service";
+import { ensureFirstSuccessMilestone } from "./first-success.service";
 import { rateLimiters } from "../../lib/rate-limiters";
 
 export const orgRouter = Router();
@@ -428,11 +429,21 @@ orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
     })
   ]);
   if (!organization) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const firstSuccess = await ensureFirstSuccessMilestone({
+    prisma,
+    organization,
+    actorUserId: req.auth.userId,
+    actorRole: req.auth.role
+  });
   const access = await buildOrgAccessSummary({ prisma, orgId: req.auth.orgId, organization, activePhone });
   return res.json({
     ok: true,
     data: {
-      organization,
+      organization: {
+        ...organization,
+        firstSuccessAt: firstSuccess.firstSuccessAt || organization.firstSuccessAt || null,
+        firstSuccessType: firstSuccess.firstSuccessType || organization.firstSuccessType || null
+      },
       assignedPhoneNumber: activePhone?.e164Number || null,
       assignedNumberProvider: activePhone?.provider || null,
       features: {

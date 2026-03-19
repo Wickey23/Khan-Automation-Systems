@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock3, PhoneCall, MessageSquare, Calendar, Activity, RefreshCw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, PhoneCall, MessageSquare, Calendar, Activity, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
@@ -167,6 +167,13 @@ function isStepLocked(status: AccessStatus) {
 function isCoreFeatureReady(access: OrgAccessSummary | null) {
   if (!access) return false;
   return ["calls", "sms", "appointments"].every((key) => access.features[key as AccessFeatureKey]?.status === "ready");
+}
+
+function firstSuccessLabel(type: Organization["firstSuccessType"]) {
+  if (type === "call") return "First call handled";
+  if (type === "sms") return "First message handled";
+  if (type === "booking") return "First booking request detected";
+  return "First real interaction";
 }
 
 export default function AppActivationPage() {
@@ -347,12 +354,15 @@ export default function AppActivationPage() {
   const loadFirstUseSignals = useCallback(async () => {
     setActivityLoading(true);
     try {
-      const [callsPayload, messagesPayload] = await Promise.all([
+      const [callsPayload, messagesPayload, profile] = await Promise.all([
         fetchOrgCalls({ page: 1, pageSize: 15 }),
-        fetchOrgMessages()
+        fetchOrgMessages(),
+        fetchOrgProfile()
       ]);
       setRecentCalls(callsPayload.calls || []);
       setRecentThreads(messagesPayload.threads || []);
+      setOrganization(profile.organization || null);
+      setAccess(profile.access || null);
     } catch {
       setRecentCalls([]);
       setRecentThreads([]);
@@ -400,6 +410,16 @@ export default function AppActivationPage() {
   );
 
   const firstInteractionDetected = firstUseSignals.call || firstUseSignals.message || firstUseSignals.booking;
+  const firstSuccessAt = useMemo(() => {
+    if (!organization?.firstSuccessAt) return null;
+    const parsed = new Date(organization.firstSuccessAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [organization?.firstSuccessAt]);
+  const hasFirstSuccessMilestone = Boolean(firstSuccessAt && organization?.firstSuccessType);
+  const firstSuccessTimestampLabel = useMemo(
+    () => (firstSuccessAt ? firstSuccessAt.toLocaleString() : null),
+    [firstSuccessAt]
+  );
 
   async function handleInlineAction(stepId: string) {
     if (savingStepId) return;
@@ -677,6 +697,18 @@ export default function AppActivationPage() {
             <p className="mt-1 text-sm text-emerald-700">
               Calls, messaging, and booking are operational. Use the actions below to transition from setup into daily operations.
             </p>
+            {hasFirstSuccessMilestone ? (
+              <div className="mt-3 rounded-xl border border-emerald-300 bg-white/70 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-emerald-800">Your system handled its first real interaction</p>
+                  <StatusBadge kind="feature" state="ready" size="xs" label="Proven live" />
+                </div>
+                <p className="mt-1 text-sm text-emerald-700">
+                  {firstSuccessLabel(organization?.firstSuccessType)}
+                  {firstSuccessTimestampLabel ? ` • ${firstSuccessTimestampLabel}` : ""}
+                </p>
+              </div>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href="/app/calls">
                 <Button size="sm"><PhoneCall className="mr-1.5 h-4 w-4" />View live calls</Button>
@@ -778,10 +810,18 @@ export default function AppActivationPage() {
             <p className="text-sm text-slate-700">
               {firstUseCompletedCount}/3 first-use checks complete.
               {" "}
-              {firstInteractionDetected
-                ? "Recent activity detected. Your system has already handled a real interaction."
-                : "No recent interaction detected yet. Run one test call or SMS to validate live behavior."}
+              {hasFirstSuccessMilestone
+                ? "First success milestone captured from a real interaction."
+                : firstInteractionDetected
+                  ? "Recent activity detected. Your system has already handled a real interaction."
+                  : "No recent interaction detected yet. Run one test call or SMS to validate live behavior."}
             </p>
+            {hasFirstSuccessMilestone ? (
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+                <Sparkles className="h-3 w-3" />
+                {firstSuccessLabel(organization?.firstSuccessType)}
+              </div>
+            ) : null}
             {firstUseCompletedCount >= 1 ? (
               <p className="mt-1 text-sm text-emerald-700">You are fully operational. Continue monitoring from Calls and Messages.</p>
             ) : null}

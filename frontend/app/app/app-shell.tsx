@@ -35,6 +35,7 @@ type FeatureKey = "appointmentsEnabled";
 type OrgFeatureState = Record<FeatureKey, boolean>;
 type ActivationStage = "not_started" | "in_progress" | "ready";
 type LiveBadge = { label: string; classes: string };
+type FirstSuccessSignal = { at: string; type: "call" | "sms" | "booking" } | null;
 
 const navItems: Array<{
   href: string;
@@ -109,12 +110,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [features, setFeatures] = useState<OrgFeatureState>({ appointmentsEnabled: false });
   const [accessSummary, setAccessSummary] = useState<OrgAccessSummary | null>(null);
   const [workspaceLive, setWorkspaceLive] = useState(false);
+  const [firstSuccess, setFirstSuccess] = useState<FirstSuccessSignal>(null);
 
   useEffect(() => {
     setAccessWarning(null);
     setModeBanner(null);
     setActivationBanner(null);
     setWorkspaceLive(false);
+    setFirstSuccess(null);
     if (pathname === "/app/onboarding") return;
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus(), getMe()])
       .then(([onboarding, orgProfile, billing, me]) => {
@@ -124,6 +127,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setFeatures({ appointmentsEnabled: orgProfile.features?.appointmentsEnabled === true });
         const profileAccess = orgProfile.access || null;
         setAccessSummary(profileAccess);
+        const milestoneType = orgProfile.organization?.firstSuccessType;
+        const milestoneAt = orgProfile.organization?.firstSuccessAt;
+        if (milestoneAt && (milestoneType === "call" || milestoneType === "sms" || milestoneType === "booking")) {
+          setFirstSuccess({ at: milestoneAt, type: milestoneType });
+        } else {
+          setFirstSuccess(null);
+        }
         const demo = billing.demo;
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
         const orgStatus = orgProfile.organization?.status || "";
@@ -233,6 +243,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setAccessSummary(null);
         setActivationBanner(null);
         setWorkspaceLive(false);
+        setFirstSuccess(null);
       });
   }, [pathname, router]);
 
@@ -240,7 +251,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const liveBadge = useMemo<LiveBadge>(() => {
     if (workspaceLive) {
       return {
-        label: "Live",
+        label: firstSuccess ? "Proven Live" : "Live",
         classes: "bg-emerald-100 text-emerald-700"
       };
     }
@@ -248,7 +259,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       label: "Setup",
       classes: "bg-amber-100 text-amber-700"
     };
-  }, [workspaceLive]);
+  }, [firstSuccess, workspaceLive]);
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
@@ -410,7 +421,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {!modeBanner && workspaceLive ? (
                   <div className="app-banner app-banner-primary">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span>System ready and listening. Inbound calls, SMS automation, and booking workflows are operational.</span>
+                      <span>
+                        {firstSuccess
+                          ? `System proven live. First ${firstSuccess.type} interaction recorded on ${new Date(firstSuccess.at).toLocaleString()}.`
+                          : "System ready and listening. Inbound calls, SMS automation, and booking workflows are operational."}
+                      </span>
                       <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
                         View live calls
                       </Link>
