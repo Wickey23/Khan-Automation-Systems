@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  AlertCircle,
   CalendarClock,
   CheckCircle2,
   Clock3,
@@ -18,8 +19,8 @@ import { Button } from "@/components/ui/button";
 import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { fetchOrgAnalytics, fetchOrgHealth, fetchOrgProfile } from "@/lib/api";
-import type { AccessFeatureKey, OrgAccessSummary, OrgAnalytics, OrgHealth, Organization } from "@/lib/types";
+import { fetchAppointmentRequests, fetchOrgAnalytics, fetchOrgHealth, fetchOrgProfile } from "@/lib/api";
+import type { AccessFeatureKey, AppointmentRequest, OrgAccessSummary, OrgAnalytics, OrgHealth, Organization } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAccessSummary } from "@/context/access-summary";
 
@@ -28,9 +29,20 @@ type DashboardPayload = {
   health: OrgHealth | null;
   organization: Organization | null;
   profileAccess: OrgAccessSummary | null;
+  appointmentRequests: AppointmentRequest[];
 };
 
 type TrendDirection = "rising" | "falling" | "stable";
+type AttentionSeverity = "needs_review" | "blocked" | "setup_required" | "action_recommended";
+
+type AttentionItem = {
+  key: string;
+  severity: AttentionSeverity;
+  title: string;
+  detail: string;
+  actionLabel: string;
+  actionHref: string;
+};
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat().format(value);
@@ -95,20 +107,23 @@ export default function AppOverviewPage() {
     analytics: null,
     health: null,
     organization: null,
-    profileAccess: null
+    profileAccess: null,
+    appointmentRequests: []
   });
 
   const loadDashboard = useCallback(async () => {
-    const [analytics, health, profile] = await Promise.all([
+    const [analyticsResult, healthResult, profileResult, appointmentResult] = await Promise.allSettled([
       fetchOrgAnalytics({ range: "7d" }),
       fetchOrgHealth(),
-      fetchOrgProfile()
+      fetchOrgProfile(),
+      fetchAppointmentRequests()
     ]);
     setPayload({
-      analytics,
-      health,
-      organization: profile.organization || null,
-      profileAccess: profile.access || null
+      analytics: analyticsResult.status === "fulfilled" ? analyticsResult.value : null,
+      health: healthResult.status === "fulfilled" ? healthResult.value : null,
+      organization: profileResult.status === "fulfilled" ? profileResult.value.organization || null : null,
+      profileAccess: profileResult.status === "fulfilled" ? profileResult.value.access || null : null,
+      appointmentRequests: appointmentResult.status === "fulfilled" ? appointmentResult.value.requests || [] : []
     });
   }, []);
 
@@ -136,6 +151,7 @@ export default function AppOverviewPage() {
   const analytics = payload.analytics;
   const health = payload.health;
   const organization = payload.organization;
+  const appointmentRequests = payload.appointmentRequests;
 
   const unresolvedOpsCount = useMemo(() => {
     const runtimeMissing = health?.runtimeHealth?.missingChecks?.length || 0;
@@ -277,6 +293,105 @@ export default function AppOverviewPage() {
 
   const firstSuccessAt = organization?.firstSuccessAt || null;
   const firstSuccessType = organization?.firstSuccessType || null;
+  const attentionItems = useMemo<AttentionItem[]>(() => {
+    const items: AttentionItem[] = [];
+
+    if (effectiveAccess) {
+      for (const feature of Object.values(effectiveAccess.features)) {
+        if (feature.status === "blocked") {
+          items.push({
+            key: `feature-blocked-${feature.key}`,
+            severity: "blocked",
+            title: `${feature.label} is blocked`,
+            detail: feature.reason,
+            actionLabel: "Open activation",
+            actionHref: "/app/activation"
+          });
+        } else if (feature.status === "gated") {
+          items.push({
+            key: `feature-gated-${feature.key}`,
+            severity: "setup_required",
+            title: `${feature.label} is gated`,
+            detail: feature.reason,
+            actionLabel: "Open activation",
+            actionHref: "/app/activation"
+          });
+        } else if (feature.status === "setup_required") {
+          items.push({
+            key: `feature-setup-${feature.key}`,
+            severity: "setup_required",
+            title: `${feature.label} needs setup`,
+            detail: feature.reason,
+            actionLabel: "Open settings",
+            actionHref: "/app/settings"
+          });
+        }
+      }
+    }
+
+    const pendingReviewCount = appointmentRequests.filter((request) => request.status === "PENDING_REVIEW").length;
+    if (pendingReviewCount > 0) {
+      items.push({
+        key: "booking-pending-review",
+        severity: "needs_review",
+        title: `${pendingReviewCount} booking request${pendingReviewCount === 1 ? "" : "s"} need review`,
+        detail: "Operators should review pending booking requests to prevent stalled appointment demand.",
+        actionLabel: "Open appointments",
+        actionHref: "/app/appointments"
+      });
+    }
+
+    if ((analytics?.kpis.missedCalls || 0) > 0) {
+      items.push({
+        key: "missed-calls-follow-up",
+        severity: "needs_review",
+        title: `${analytics?.kpis.missedCalls || 0} missed call${(analytics?.kpis.missedCalls || 0) === 1 ? "" : "s"} in recent window`,
+        detail: "Review missed calls and follow-up coverage to protect recovery outcomes.",
+        actionLabel: "Open calls",
+        actionHref: "/app/calls"
+      });
+    }
+
+    if ((analytics?.kpis.smsThreads || 0) > 0 && (analytics?.kpis.smsEngagementRate || 0) < 0.35) {
+      items.push({
+        key: "sms-engagement-low",
+        severity: "action_recommended",
+        title: "SMS engagement is lower than expected",
+        detail: "Recent threads are not converting into engaged conversations at target levels.",
+        actionLabel: "Open messages",
+        actionHref: "/app/messages"
+      });
+    }
+
+    const topRuntimeChecks = health?.runtimeHealth?.missingChecks || [];
+    for (const check of topRuntimeChecks.slice(0, 2)) {
+      items.push({
+        key: `runtime-${check.key}`,
+        severity: "action_recommended",
+        title: check.key.replace(/_/g, " "),
+        detail: check.reason,
+        actionLabel: "Open settings",
+        actionHref: "/app/settings"
+      });
+    }
+
+    return items.slice(0, 6);
+  }, [analytics?.kpis.missedCalls, analytics?.kpis.smsEngagementRate, analytics?.kpis.smsThreads, appointmentRequests, effectiveAccess, health?.runtimeHealth?.missingChecks]);
+
+  const attentionSummaryLabel = useMemo(() => {
+    if (!attentionItems.length) return "No immediate blockers detected";
+    const blocked = attentionItems.filter((item) => item.severity === "blocked").length;
+    const review = attentionItems.filter((item) => item.severity === "needs_review").length;
+    const setup = attentionItems.filter((item) => item.severity === "setup_required").length;
+    return `${attentionItems.length} attention item${attentionItems.length === 1 ? "" : "s"} • ${blocked} blocked • ${review} review • ${setup} setup`;
+  }, [attentionItems]);
+
+  function attentionState(severity: AttentionSeverity) {
+    if (severity === "blocked") return "blocked";
+    if (severity === "needs_review") return "warning";
+    if (severity === "setup_required") return "setup_required";
+    return "action_recommended";
+  }
 
   async function refreshDashboard() {
     if (refreshing) return;
@@ -373,6 +488,46 @@ export default function AppOverviewPage() {
             </div>
             <p className="mt-2 text-sm text-slate-700">{formatRelative(health?.metrics.recentActivityAt || analytics.kpis.dataFreshnessAt)}</p>
             <p className="mt-1 text-sm text-slate-600">{health?.summary || "Runtime health signals are currently stable."}</p>
+          </div>
+        </div>
+      </SectionShell>
+
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading
+          title="Attention center"
+          description="Most important unresolved blockers and review-needed signals with direct next actions."
+        />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-900">{attentionSummaryLabel}</p>
+            <StatusBadge kind="feature" state={attentionItems.length ? "setup_required" : "ready"} size="xs" />
+          </div>
+          <div className="mt-4 space-y-2">
+            {attentionItems.length ? (
+              attentionItems.map((item) => (
+                <div key={item.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-slate-400" />
+                      <p className="truncate text-sm font-semibold text-slate-900">{item.title}</p>
+                      <StatusBadge kind="feature" state={attentionState(item.severity)} size="xs" />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-600">{item.detail}</p>
+                  </div>
+                  <Link href={item.actionHref}>
+                    <Button size="sm" variant="outline">
+                      {item.actionLabel}
+                    </Button>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <StateCard
+                variant="empty"
+                title="No unresolved attention items"
+                description="Current readiness, runtime, and booking review signals are stable."
+              />
+            )}
           </div>
         </div>
       </SectionShell>
