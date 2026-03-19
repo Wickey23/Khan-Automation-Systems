@@ -420,6 +420,10 @@ export default function AppActivationPage() {
     () => (firstSuccessAt ? firstSuccessAt.toLocaleString() : null),
     [firstSuccessAt]
   );
+  const showUpgradeNudge =
+    workspaceLive &&
+    access?.plan.name === "STARTER" &&
+    (hasFirstSuccessMilestone || firstUseCompletedCount >= 2);
 
   async function handleInlineAction(stepId: string) {
     if (savingStepId) return;
@@ -826,6 +830,21 @@ export default function AppActivationPage() {
               <p className="mt-1 text-sm text-emerald-700">You are fully operational. Continue monitoring from Calls and Messages.</p>
             ) : null}
           </div>
+          {showUpgradeNudge ? (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">You are live and actively using the system</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    Upgrade when you are ready to unlock more capacity for calls, SMS workflows, and operational scale.
+                  </p>
+                </div>
+                <Link href="/app/billing">
+                  <Button size="sm" variant="outline">View plans</Button>
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </SectionShell>
       ) : null}
 

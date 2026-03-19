@@ -34,6 +34,13 @@ type DashboardPayload = {
 
 type TrendDirection = "rising" | "falling" | "stable";
 type AttentionSeverity = "needs_review" | "blocked" | "setup_required" | "action_recommended";
+type UpgradeTrigger = {
+  key: string;
+  title: string;
+  detail: string;
+  ctaLabel: string;
+  ctaHref: string;
+};
 
 type AttentionItem = {
   key: string;
@@ -386,6 +393,56 @@ export default function AppOverviewPage() {
     return `${attentionItems.length} attention item${attentionItems.length === 1 ? "" : "s"} • ${blocked} blocked • ${review} review • ${setup} setup`;
   }, [attentionItems]);
 
+  const upgradeTriggers = useMemo<UpgradeTrigger[]>(() => {
+    if (!workspaceLive || !effectiveAccess || !analytics) return [];
+    if (effectiveAccess.plan.name !== "STARTER") return [];
+
+    const triggers: UpgradeTrigger[] = [];
+    const kpis = analytics.kpis;
+
+    if (kpis.totalCalls >= 40) {
+      triggers.push({
+        key: "call-volume",
+        title: "Call volume is growing",
+        detail: `${formatNumber(kpis.totalCalls)} calls in the last 7 days. Upgrade to expand reliable coverage and team workflows.`,
+        ctaLabel: "Increase call capacity",
+        ctaHref: "/app/billing"
+      });
+    }
+
+    if (kpis.smsThreads >= 20) {
+      triggers.push({
+        key: "sms-volume",
+        title: "SMS follow-up is active",
+        detail: `${formatNumber(kpis.smsThreads)} SMS threads detected. Unlock higher messaging throughput and advanced controls.`,
+        ctaLabel: "Upgrade messaging capacity",
+        ctaHref: "/app/billing"
+      });
+    }
+
+    if (kpis.appointmentRequests >= 10) {
+      triggers.push({
+        key: "booking-demand",
+        title: "Booking demand is consistent",
+        detail: `${formatNumber(kpis.appointmentRequests)} appointment requests this week. Upgrade for stronger booking operations at scale.`,
+        ctaLabel: "Scale booking workflows",
+        ctaHref: "/app/billing"
+      });
+    }
+
+    if (attentionItems.length >= 4) {
+      triggers.push({
+        key: "ops-load",
+        title: "Operational load is increasing",
+        detail: `${attentionItems.length} active attention signals suggest your current plan may need more headroom.`,
+        ctaLabel: "View scaling options",
+        ctaHref: "/app/billing"
+      });
+    }
+
+    return triggers.slice(0, 2);
+  }, [analytics, attentionItems.length, effectiveAccess, workspaceLive]);
+
   function attentionState(severity: AttentionSeverity) {
     if (severity === "blocked") return "blocked";
     if (severity === "needs_review") return "warning";
@@ -531,6 +588,30 @@ export default function AppOverviewPage() {
           </div>
         </div>
       </SectionShell>
+
+      {upgradeTriggers.length ? (
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading
+            title="Scale opportunities"
+            description="Usage-based upgrade guidance shown only when current demand indicates clear value."
+          />
+          <div className="grid gap-3 lg:grid-cols-2">
+            {upgradeTriggers.map((trigger) => (
+              <div key={trigger.key} className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">{trigger.title}</p>
+                  <StatusBadge kind="feature" state="info" label="Upgrade option" size="xs" />
+                </div>
+                <p className="mt-2 text-sm text-slate-700">{trigger.detail}</p>
+                <Link href={trigger.ctaHref} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                  {trigger.ctaLabel}
+                  <MoveRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </SectionShell>
+      ) : null}
 
       <SectionShell className="surface-panel space-y-4">
         <SectionHeading title="Core metrics" description="High-value performance indicators tied to call handling, SMS engagement, and booking demand." />
