@@ -327,7 +327,7 @@ export default function AppCallsPage() {
                       High volume detected ({calls.length} calls, {callBacklogCount} needing follow-up). Queue handling may feel slower on Starter.
                     </p>
                   </div>
-                  <Link href="/app/billing">
+                  <Link href="/app/upgrade?plan=pro&returnTo=%2Fapp%2Fcalls">
                     <Button size="sm" variant="outline">Upgrade for priority handling</Button>
                   </Link>
                 </div>

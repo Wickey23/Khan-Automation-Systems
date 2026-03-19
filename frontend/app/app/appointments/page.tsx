@@ -269,7 +269,7 @@ export default function AppAppointmentsPage() {
                   Booking queue is building ({requests.length} requests, {pendingReviewCount} pending review). Finalizer and follow-up may be less responsive at this load.
                 </p>
               </div>
-              <Link href="/app/billing">
+              <Link href="/app/upgrade?plan=pro&returnTo=%2Fapp%2Fappointments">
                 <Button size="sm" variant="outline">Upgrade for stronger booking throughput</Button>
               </Link>
             </div>

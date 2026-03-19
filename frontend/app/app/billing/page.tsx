@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, CreditCard, Download, Plus, Zap } from "lucide-react";
 import {
   createPlanChangeSession,
@@ -169,6 +170,8 @@ function humanizeIssue(issue: string) {
 }
 
 export default function AppBillingPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
   const [subscription, setSubscription] = useState<OrgSubscription | null>(null);
   const [demo, setDemo] = useState<OrgDemoStatus | null>(null);
@@ -223,6 +226,39 @@ export default function AppBillingPage() {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [refreshBillingAndDiagnostics]);
+
+  useEffect(() => {
+    const checkoutState = searchParams.get("checkout");
+    if (!checkoutState) return;
+    if (checkoutState === "success") {
+      void refreshBillingAndDiagnostics()
+        .then(() => {
+          showToast({
+            title: "Subscription updated",
+            description: "Your billing plan and workspace access have been refreshed."
+          });
+        })
+        .finally(() => {
+          router.replace("/app/billing");
+        });
+      return;
+    }
+    if (checkoutState === "cancel") {
+      showToast({
+        title: "Checkout canceled",
+        description: "No billing changes were applied."
+      });
+      router.replace("/app/billing");
+      return;
+    }
+    if (checkoutState === "already_active") {
+      showToast({
+        title: "Plan already active",
+        description: "Your current plan already matches this upgrade request."
+      });
+      router.replace("/app/billing");
+    }
+  }, [refreshBillingAndDiagnostics, router, searchParams, showToast]);
 
   async function refreshDiagnostics() {
     try {

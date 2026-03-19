@@ -255,7 +255,7 @@ export default function AppMessagesPage() {
               <p className="mt-1 text-xs text-amber-900">
                 Message queue is growing ({threads.length} threads, {needsFollowUpThreads} needing follow-up). Automation responses may be slower at this volume.
               </p>
-              <Link href="/app/billing" className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline">
+              <Link href="/app/upgrade?plan=pro&returnTo=%2Fapp%2Fmessages" className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline">
                 Upgrade for faster automation coverage
               </Link>
             </div>

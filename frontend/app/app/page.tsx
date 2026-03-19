@@ -473,7 +473,7 @@ export default function AppOverviewPage() {
         title: "Call volume is growing",
         detail: `${formatNumber(kpis.totalCalls)} calls in the last 7 days. Upgrade to expand reliable coverage and team workflows.`,
         ctaLabel: "Increase call capacity",
-        ctaHref: "/app/billing"
+        ctaHref: "/app/upgrade?plan=pro&returnTo=%2Fapp"
       });
     }
 
@@ -483,7 +483,7 @@ export default function AppOverviewPage() {
         title: "SMS follow-up is active",
         detail: `${formatNumber(kpis.smsThreads)} SMS threads detected. Unlock higher messaging throughput and advanced controls.`,
         ctaLabel: "Upgrade messaging capacity",
-        ctaHref: "/app/billing"
+        ctaHref: "/app/upgrade?plan=pro&returnTo=%2Fapp"
       });
     }
 
@@ -493,7 +493,7 @@ export default function AppOverviewPage() {
         title: "Booking demand is consistent",
         detail: `${formatNumber(kpis.appointmentRequests)} appointment requests this week. Upgrade for stronger booking operations at scale.`,
         ctaLabel: "Scale booking workflows",
-        ctaHref: "/app/billing"
+        ctaHref: "/app/upgrade?plan=pro&returnTo=%2Fapp"
       });
     }
 
@@ -503,7 +503,7 @@ export default function AppOverviewPage() {
         title: "Operational load is increasing",
         detail: `${attentionItems.length} active attention signals suggest your current plan may need more headroom.`,
         ctaLabel: "View scaling options",
-        ctaHref: "/app/billing"
+        ctaHref: "/app/upgrade?plan=pro&returnTo=%2Fapp"
       });
     }
 
@@ -727,7 +727,7 @@ export default function AppOverviewPage() {
                   />
                 </div>
                 {signal.softState !== "healthy" ? (
-                  <Link href="/app/billing" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                  <Link href="/app/upgrade?plan=pro&returnTo=%2Fapp" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
                     View plans
                     <MoveRight className="h-3.5 w-3.5" />
                   </Link>

@@ -839,7 +839,7 @@ export default function AppActivationPage() {
                     Upgrade when you are ready to unlock more capacity for calls, SMS workflows, and operational scale.
                   </p>
                 </div>
-                <Link href="/app/billing">
+                <Link href="/app/upgrade?plan=pro&returnTo=%2Fapp%2Factivation">
                   <Button size="sm" variant="outline">View plans</Button>
                 </Link>
               </div>
