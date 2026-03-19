@@ -1,19 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { fetchOrgOnboarding, fetchOrgProfile } from "@/lib/api";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/site/toast-provider";
+import {
+  fetchOrgOnboarding,
+  fetchOrgProfile,
+  fetchOrgSettings,
+  updateOrgProfile,
+  updateOrgSettings
+} from "@/lib/api";
 import type {
   AccessFeatureKey,
   AccessFeatureState,
   AccessReadinessCheck,
   AccessStatus,
+  BusinessSettings,
   OnboardingSubmission,
+  Organization,
   OrgAccessSummary
 } from "@/lib/types";
 
@@ -24,6 +35,7 @@ type ActivationStep = {
   description: string;
   status: AccessStatus;
   completionLabel: string;
+  lockedReason?: string | null;
   ctaLabel: string;
   ctaHref: string;
 };
@@ -125,19 +137,64 @@ function getReadinessMap(access: OrgAccessSummary | null) {
   return map;
 }
 
+function fromJsonArray(value: string | null | undefined) {
+  if (!value) return [] as string[];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function toJsonLines(value: string) {
+  return JSON.stringify(
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+  );
+}
+
+function isStepLocked(status: AccessStatus) {
+  return status === "blocked" || status === "gated";
+}
+
 export default function AppActivationPage() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [access, setAccess] = useState<OrgAccessSummary | null>(null);
   const [onboardingStatus, setOnboardingStatus] = useState<OnboardingSubmission["status"] | "NONE">("NONE");
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [routingMode, setRoutingMode] = useState<BusinessSettings["voiceRoutingMode"]>("AI_FIRST");
+  const [forwardingNumber, setForwardingNumber] = useState("");
+  const [smsConsentText, setSmsConsentText] = useState("");
+  const [transferNumbersText, setTransferNumbersText] = useState("");
+  const [savingStepId, setSavingStepId] = useState<string | null>(null);
+
+  const loadActivationData = useCallback(async () => {
+    const [profile, onboarding, orgSettings] = await Promise.all([
+      fetchOrgProfile(),
+      fetchOrgOnboarding(),
+      fetchOrgSettings()
+    ]);
+    setAccess(profile.access || null);
+    setOrganization(profile.organization || null);
+    setOnboardingStatus(onboarding.submission?.status || "NONE");
+    setProfileName(profile.organization?.name || "");
+    setRoutingMode((orgSettings.settings.voiceRoutingMode as BusinessSettings["voiceRoutingMode"]) || "AI_FIRST");
+    setForwardingNumber(orgSettings.settings.voiceForwardingNumber || "");
+    setSmsConsentText(orgSettings.settings.smsConsentText || "");
+    setTransferNumbersText(fromJsonArray(orgSettings.settings.transferNumbersJson).join("\n"));
+  }, []);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([fetchOrgProfile(), fetchOrgOnboarding()])
-      .then(([profile, onboarding]) => {
+    void loadActivationData()
+      .then(() => {
         if (!active) return;
-        setAccess(profile.access || null);
-        setOnboardingStatus(onboarding.submission?.status || "NONE");
         setError(null);
       })
       .catch((requestError) => {
@@ -150,7 +207,7 @@ export default function AppActivationPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadActivationData]);
 
   const featureCards = useMemo<FeatureCard[]>(() => {
     if (!access) return [];
@@ -184,6 +241,7 @@ export default function AppActivationPage() {
               : "Business profile and operating preferences must be documented before live activation.",
           status,
           completionLabel: completionLabel(status),
+          lockedReason: status !== "ready" ? "Complete onboarding package before workspace activation." : null,
           ctaLabel: step.ctaLabel,
           ctaHref: step.ctaHref
         };
@@ -200,6 +258,10 @@ export default function AppActivationPage() {
         description: check?.detail || "Open the linked settings section and complete the required fields.",
         status,
         completionLabel: completionLabel(status),
+        lockedReason:
+          status === "blocked" || status === "gated"
+            ? (relatedFeature ? access?.features[relatedFeature]?.reason : null) || check?.description || "This step is currently unavailable."
+            : null,
         ctaLabel: step.ctaLabel,
         ctaHref: step.ctaHref
       };
@@ -243,6 +305,159 @@ export default function AppActivationPage() {
 
   const isWorkspaceReady = flowStatus === "ready" && remainingCount === 0;
 
+  async function handleInlineAction(stepId: string) {
+    if (savingStepId) return;
+    setSavingStepId(stepId);
+    try {
+      if (stepId === "businessProfile") {
+        const nextName = profileName.trim();
+        if (!nextName) {
+          showToast({
+            title: "Business name required",
+            description: "Enter your workspace business name before confirming.",
+            variant: "error"
+          });
+          return;
+        }
+        await updateOrgProfile({ name: nextName });
+      } else if (stepId === "phoneRouting") {
+        if (!forwardingNumber.trim()) {
+          showToast({
+            title: "Forwarding number required",
+            description: "Add a forwarding number to confirm phone routing readiness.",
+            variant: "error"
+          });
+          return;
+        }
+        await updateOrgSettings({
+          voiceRoutingMode: routingMode || "AI_FIRST",
+          voiceForwardingEnabled: true,
+          voiceForwardingNumber: forwardingNumber.trim()
+        });
+      } else if (stepId === "smsProvisioning") {
+        if (!smsConsentText.trim()) {
+          showToast({
+            title: "SMS consent text required",
+            description: "Provide SMS consent copy before enabling messaging readiness.",
+            variant: "error"
+          });
+          return;
+        }
+        await updateOrgSettings({
+          smsConsentText: smsConsentText.trim()
+        });
+      } else if (stepId === "transferRouting") {
+        const transferRows = transferNumbersText
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        if (!transferRows.length) {
+          showToast({
+            title: "Transfer routing required",
+            description: "Add at least one transfer number to complete routing defaults.",
+            variant: "error"
+          });
+          return;
+        }
+        await updateOrgSettings({
+          transferNumbersJson: toJsonLines(transferNumbersText)
+        });
+      }
+      await loadActivationData();
+      showToast({ title: "Activation step updated" });
+    } catch (actionError) {
+      showToast({
+        title: "Unable to update step",
+        description: actionError instanceof Error ? actionError.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setSavingStepId(null);
+    }
+  }
+
+  function renderInlineAction(step: ActivationStep) {
+    if (isStepLocked(step.status)) {
+      return (
+        <StateCard
+          variant="locked"
+          title={`${step.completionLabel}: ${step.label}`}
+          description={step.lockedReason || "This step is not editable until gating requirements are resolved."}
+        />
+      );
+    }
+    if (step.id === "businessProfile") {
+      return (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Inline confirm</p>
+          <Input
+            value={profileName}
+            onChange={(event) => setProfileName(event.target.value)}
+            placeholder="Business name"
+          />
+          <Button size="sm" variant="outline" onClick={() => void handleInlineAction(step.id)} disabled={savingStepId === step.id}>
+            {savingStepId === step.id ? "Saving..." : "Confirm business info"}
+          </Button>
+        </div>
+      );
+    }
+    if (step.id === "phoneRouting") {
+      return (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Inline routing setup</p>
+          <select
+            className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+            value={routingMode || "AI_FIRST"}
+            onChange={(event) => setRoutingMode(event.target.value as BusinessSettings["voiceRoutingMode"])}
+          >
+            <option value="AI_FIRST">AI first</option>
+            <option value="PASSIVE_FORWARDING">Passive forwarding</option>
+            <option value="HUMAN_FIRST_AI_FALLBACK">Human first, AI fallback</option>
+          </select>
+          <Input
+            value={forwardingNumber}
+            onChange={(event) => setForwardingNumber(event.target.value)}
+            placeholder="+1..."
+          />
+          <Button size="sm" variant="outline" onClick={() => void handleInlineAction(step.id)} disabled={savingStepId === step.id}>
+            {savingStepId === step.id ? "Saving..." : "Confirm phone routing"}
+          </Button>
+        </div>
+      );
+    }
+    if (step.id === "smsProvisioning") {
+      return (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Inline SMS setup</p>
+          <Textarea
+            value={smsConsentText}
+            onChange={(event) => setSmsConsentText(event.target.value)}
+            placeholder="By texting us, you agree to receive service-related SMS messages..."
+          />
+          <Button size="sm" variant="outline" onClick={() => void handleInlineAction(step.id)} disabled={savingStepId === step.id}>
+            {savingStepId === step.id ? "Saving..." : "Save SMS consent"}
+          </Button>
+        </div>
+      );
+    }
+    if (step.id === "transferRouting") {
+      return (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Inline transfer defaults</p>
+          <Textarea
+            value={transferNumbersText}
+            onChange={(event) => setTransferNumbersText(event.target.value)}
+            placeholder="+1... one number per line"
+          />
+          <Button size="sm" variant="outline" onClick={() => void handleInlineAction(step.id)} disabled={savingStepId === step.id}>
+            {savingStepId === step.id ? "Saving..." : "Save transfer routing"}
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  }
+
   if (loading) {
     return (
       <PageShell className="space-y-6">
@@ -280,7 +495,7 @@ export default function AppActivationPage() {
     <PageShell className="space-y-6">
       <PageHeader
         eyebrow="Guided activation"
-        title="Activation control center"
+        title={organization?.name ? `${organization.name} activation` : "Activation control center"}
         description="Follow this sequence to move your workspace from setup to safe production readiness."
         actions={
           <Link href="/app/onboarding">
@@ -365,6 +580,7 @@ export default function AppActivationPage() {
                   </Link>
                 </div>
               </div>
+              {renderInlineAction(step)}
             </div>
           ))}
         </div>
