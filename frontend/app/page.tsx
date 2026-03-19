@@ -103,7 +103,7 @@ export default function HomePage() {
       <PublicNav />
       <main>
         <section className="px-6 pb-24 pt-32">
-          <div className="mx-auto grid max-w-7xl gap-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] lg:items-center">
+          <div className="mx-auto grid max-w-7xl gap-16 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] xl:items-center">
             <div className="space-y-8">
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
                 <Sparkles size={12} />
@@ -144,7 +144,9 @@ export default function HomePage() {
               </div>
             </div>
 
-            <HeroProductTour />
+            <div className="mx-auto w-full max-w-[540px] rounded-[3rem] xl:w-full">
+              <HeroProductTour />
+            </div>
           </div>
         </section>
 
