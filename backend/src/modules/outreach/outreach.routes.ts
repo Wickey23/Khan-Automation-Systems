@@ -14,6 +14,7 @@ import {
   outreachLeadSuppressSchema,
   outreachLeadUpdateSchema,
   outreachListQuerySchema,
+  outreachEventRetrySchema,
   outreachMarkRepliedSchema,
   outreachSequenceCreateSchema,
   outreachSequenceReplaceStepsSchema,
@@ -27,11 +28,14 @@ import {
   normalizePhoneE164,
   resolveOutreachOrgContext,
   runOutreachTick,
-  sendEnrollmentStepNow
+  sendEnrollmentStepNow,
+  retryOutreachEmailEvent,
+  retryOutreachPhoneEvent
 } from "./outreach.service";
 import { computeNextPhoneEnrollmentStart, runOutreachPhoneTick, startOutreachAiCall } from "./outreach-phone.service";
 import { markLeadReplied, normalizeEmail } from "./outreach-stop.service";
 import { unsubscribeOutreachRecipient } from "./outreach-unsubscribe.service";
+import { importQueue } from "../../lib/queue";
 
 export const outreachAdminRouter = Router();
 export const outreachPublicRouter = Router();
@@ -39,14 +43,18 @@ const db = prisma as any;
 
 function sendOutreachRouteError(res: Response, error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected outreach error.";
+  const isProd = process.env.SECURITY_MODE === "production" || process.env.NODE_ENV === "production";
   const missingTable =
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2021";
   return res.status(missingTable ? 503 : 500).json({
     ok: false,
+    // Never leak Prisma error details (table names, field names) in production.
     message: missingTable
       ? "Outreach phone tables are not available yet. Apply the latest Prisma migration and retry."
-      : message
+      : isProd
+        ? "An unexpected outreach error occurred."
+        : message
   });
 }
 
@@ -261,9 +269,9 @@ outreachAdminRouter.post("/leads", async (req: Request, res: Response) => {
   const duplicate = await db.outreachLead.findFirst({
     where: phone
       ? {
-          orgId: org.id,
-          OR: [{ email: persistedEmail }, { phone }]
-        }
+        orgId: org.id,
+        OR: [{ email: persistedEmail }, { phone }]
+      }
       : { orgId: org.id, email: persistedEmail },
     select: { id: true }
   });
@@ -394,16 +402,48 @@ outreachAdminRouter.post("/leads/bulk-import", async (req: Request, res: Respons
   if (!parsed.data.dryRun && ((mode === "EMAIL" && parsed.data.sequenceId) || (mode === "PHONE" && parsed.data.callerConfigId)) && !parsed.data.confirmed) {
     return res.status(400).json({ ok: false, message: "CSV import must be explicitly confirmed before auto-enrollment starts." });
   }
-  const rows = await buildBulkImportPreview({
-    prisma,
-    orgId: org.id,
-    sequenceId: mode === "EMAIL" ? parsed.data.sequenceId : undefined,
-    callerConfigId: mode === "PHONE" ? parsed.data.callerConfigId : undefined,
-    mode,
-    text: parsed.data.text,
-    dryRun: parsed.data.dryRun
+
+  // If dry run, we still run inline for immediate feedback, but it's limited to preview logic
+  if (parsed.data.dryRun) {
+    const rows = await buildBulkImportPreview({
+      prisma: prisma as any,
+      orgId: org.id,
+      sequenceId: mode === "EMAIL" ? parsed.data.sequenceId : undefined,
+      callerConfigId: mode === "PHONE" ? parsed.data.callerConfigId : undefined,
+      mode,
+      text: parsed.data.text,
+      dryRun: true
+    });
+    return res.json({ ok: true, data: { rows } });
+  }
+
+  // Hardened Production Path: Offload real import to background worker
+  // Priority 2: Eliminate PII from BullMQ by storing in DB first
+  const job = await prisma.bulkImportJob.create({
+    data: {
+      orgId: org.id,
+      type: "OUTREACH_LEAD",
+      status: "QUEUED",
+      sourceData: parsed.data.text,
+      metadataJson: {
+        sequenceId: parsed.data.sequenceId,
+        callerConfigId: parsed.data.callerConfigId,
+        mode,
+        actorUserId: (req as any).auth?.userId
+      }
+    }
   });
-  return res.json({ ok: true, data: { rows } });
+
+  await importQueue.add("bulk-import", {
+    jobId: job.id,
+    orgId: org.id
+  });
+
+  return res.json({ 
+    ok: true, 
+    message: "Import job has been queued. You will see the leads appear shortly.",
+    data: { queued: true } 
+  });
 });
 
 outreachAdminRouter.delete("/leads", async (req: Request, res: Response) => {
@@ -412,20 +452,24 @@ outreachAdminRouter.delete("/leads", async (req: Request, res: Response) => {
     return res.status(400).json({ ok: false, message: "Bulk delete must be explicitly confirmed." });
   }
 
-  await prisma.$transaction(async (tx) => {
-    const txDb = tx as any;
-    await txDb.outreachEmailEvent.deleteMany({});
-    await txDb.outreachPhoneEvent.deleteMany({});
-    await txDb.outreachEnrollment.deleteMany({});
-    await txDb.outreachPhoneEnrollment.deleteMany({});
-    await txDb.outreachSuppression.deleteMany({});
-    await txDb.outreachSequenceStep.deleteMany({});
-    await txDb.outreachSequence.deleteMany({});
-    await txDb.outreachCallerConfig.deleteMany({});
-    await txDb.outreachLead.deleteMany({});
+  const orgId = parsed.data.orgId;
+  if (!orgId) {
+    return res.status(400).json({ ok: false, message: "orgId is required for bulk delete to prevent cross-tenant data loss." });
+  }
+
+  // Hardened Production Path: Offload to background worker
+  await importQueue.add("bulk-delete", {
+    type: "bulk-delete",
+    orgId,
+    actorUserId: (req as any).auth?.userId,
+    actorRole: (req as any).auth?.role,
   });
 
-  return res.json({ ok: true, data: { deleted: true } });
+  return res.json({ 
+    ok: true, 
+    message: "Bulk delete job has been enqueued. This may take a few minutes for large datasets.",
+    data: { deletedAt: new Date().toISOString() } 
+  });
 });
 
 outreachAdminRouter.post("/leads/:id/suppress", async (req: Request, res: Response) => {
@@ -514,9 +558,9 @@ outreachAdminRouter.post("/leads/:id/call", async (req: Request, res: Response) 
     const message = error instanceof Error ? error.message : "Could not start AI outreach call.";
     const statusCode =
       /not found/i.test(message) ? 404 :
-      /already been called/i.test(message) ? 409 :
-      /valid phone|configured/i.test(message) ? 400 :
-      502;
+        /already been called/i.test(message) ? 409 :
+          /valid phone|configured/i.test(message) ? 400 :
+            502;
     return res.status(statusCode).json({ ok: false, message });
   }
 });
@@ -702,8 +746,8 @@ outreachAdminRouter.post("/enrollments", async (req: Request, res: Response) => 
     db.outreachLead.findUnique({ where: { id: parsed.data.leadId } }).then((item: any) =>
       item
         ? db.outreachSuppression.findUnique({
-            where: { orgId_email: { orgId: item.orgId, email: normalizeEmail(item.email) } }
-          })
+          where: { orgId_email: { orgId: item.orgId, email: normalizeEmail(item.email) } }
+        })
         : null
     )
   ]);
@@ -988,27 +1032,27 @@ outreachAdminRouter.get("/events", async (req: Request, res: Response) => {
     channel === "PHONE"
       ? Promise.resolve([])
       : db.outreachEmailEvent.findMany({
-          where: emailWhere,
-          include: {
-            organization: { select: { id: true, name: true } },
-            lead: { select: { id: true, email: true, companyName: true, contactName: true } },
-            sequence: { select: { id: true, name: true } }
-          },
-          orderBy: { createdAt: "desc" },
-          take: Math.max(limit * page, 100)
-        }),
+        where: emailWhere,
+        include: {
+          organization: { select: { id: true, name: true } },
+          lead: { select: { id: true, email: true, companyName: true, contactName: true } },
+          sequence: { select: { id: true, name: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: Math.max(limit * page, 100)
+      }),
     channel === "EMAIL"
       ? Promise.resolve([])
       : db.outreachPhoneEvent.findMany({
-          where: phoneWhere,
-          include: {
-            organization: { select: { id: true, name: true } },
-            lead: { select: { id: true, email: true, companyName: true, contactName: true } },
-            callerConfig: { select: { id: true, name: true } }
-          },
-          orderBy: { createdAt: "desc" },
-          take: Math.max(limit * page, 100)
-        })
+        where: phoneWhere,
+        include: {
+          organization: { select: { id: true, name: true } },
+          lead: { select: { id: true, email: true, companyName: true, contactName: true } },
+          callerConfig: { select: { id: true, name: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: Math.max(limit * page, 100)
+      })
   ]);
   const merged = [
     ...emailEvents.map((event: any) => decorateOutreachEvent("EMAIL", event)),
@@ -1018,6 +1062,39 @@ outreachAdminRouter.get("/events", async (req: Request, res: Response) => {
   const events = merged.slice(skip, skip + limit);
   return res.json({ ok: true, data: { events, total, page, limit } });
 });
+
+outreachAdminRouter.post("/events/:id/retry", safeOutreachRoute(async (req: Request, res: Response) => {
+  const parsed = outreachEventRetrySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid retry payload." });
+  }
+  const auth = (req as AuthenticatedRequest).auth!;
+  const processingTimeoutMs = Number.parseInt(process.env.OUTREACH_PROCESSING_TIMEOUT_MS || "900000", 10);
+  const sendJitterMinutes = Number.parseInt(process.env.OUTREACH_SEND_JITTER_MINUTES || "20", 10);
+  let result;
+  if (parsed.data.channel === "EMAIL") {
+    result = await retryOutreachEmailEvent({
+      prisma,
+      eventId: req.params.id,
+      actorUserId: auth.userId,
+      actorRole: auth.role,
+      processingTimeoutMs,
+      sendJitterMinutes
+    });
+  } else {
+    result = await retryOutreachPhoneEvent({
+      prisma,
+      eventId: req.params.id,
+      actorUserId: auth.userId,
+      actorRole: auth.role,
+      processingTimeoutMs
+    });
+  }
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, message: result.reason || "Retry not permitted." });
+  }
+  return res.json({ ok: true, message: result.message || "Retry queued." });
+}));
 
 outreachAdminRouter.get("/phone-events/:id", safeOutreachRoute(async (req: Request, res: Response) => {
   const include = {
@@ -1087,12 +1164,12 @@ outreachAdminRouter.get("/phone-events/:id", safeOutreachRoute(async (req: Reque
   let callLog =
     resolvedEvent.providerCallId
       ? await db.callLog.findFirst({
-          where: {
-            orgId: resolvedEvent.orgId,
-            providerCallId: resolvedEvent.providerCallId
-          },
-          select: callLogSelect
-        })
+        where: {
+          orgId: resolvedEvent.orgId,
+          providerCallId: resolvedEvent.providerCallId
+        },
+        select: callLogSelect
+      })
       : null;
 
   if (!callLog) {
@@ -1133,7 +1210,23 @@ outreachAdminRouter.get("/phone-events/:id", safeOutreachRoute(async (req: Reque
     };
   }
 
-  return res.json({ ok: true, data: { event: resolvedEvent } });
+  const finalizeJob =
+    resolvedEvent.providerCallId
+      ? await db.finalizeBookingJob.findUnique({
+        where: { callId: resolvedEvent.providerCallId },
+        select: {
+          status: true,
+          attemptCount: true,
+          nextAttemptAt: true,
+          processedAt: true,
+          smsSentAt: true,
+          error: true,
+          resultJson: true
+        }
+      })
+      : null;
+
+  return res.json({ ok: true, data: { event: { ...resolvedEvent, finalizeJob } } });
 }));
 
 outreachPublicRouter.get("/unsubscribe/:token", async (req: Request, res: Response) => {

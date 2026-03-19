@@ -27,9 +27,20 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHeader, PageHelpFab, SectionHeading, SectionShell } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
-import type { AuthSecurityStatus, CalendarConnection, OrgFeatureFlags, OrgKnowledgeFile, OrgNotification } from "@/lib/types";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StateCard } from "@/components/ui/state-card";
+import type {
+  AccessFeatureKey,
+  AccessStatus,
+  AuthSecurityStatus,
+  CalendarConnection,
+  OrgAccessSummary,
+  OrgFeatureFlags,
+  OrgKnowledgeFile,
+  OrgNotification
+} from "@/lib/types";
 import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
@@ -219,6 +230,11 @@ function formatAfterHoursMode(value: FormState["afterHoursMode"]) {
   }
 }
 
+function formatAccessStatusLabel(status?: AccessStatus) {
+  if (!status) return "Unknown";
+  return status.replace(/_/g, " ");
+}
+
 function getNotificationBody(item: OrgNotification) {
   const metadata = item.metadataJson && typeof item.metadataJson === "object" ? item.metadataJson : null;
   const calendarFallbackDetail =
@@ -227,6 +243,99 @@ function getNotificationBody(item: OrgNotification) {
     return calendarFallbackDetail.trim();
   }
   return item.body;
+}
+
+const ACCESS_FEATURE_ORDER: AccessFeatureKey[] = ["calls", "sms", "appointments", "outreach"];
+
+const FEATURE_SECTION_LINKS: Record<AccessFeatureKey, SettingsSectionId> = {
+  calls: "Telephony",
+  sms: "Telephony",
+  appointments: "Calendar",
+  outreach: "Handoff"
+};
+
+function WorkspaceAccessSection({
+  access,
+  focusSection
+}: {
+  access: OrgAccessSummary | null;
+  focusSection: (section: SettingsSectionId) => void;
+}) {
+  if (!access) {
+    return (
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading
+          title="Workspace readiness"
+          description="Pulling gatekeeper and readiness data for every helper workflow."
+        />
+        <StateCard
+          variant="loading"
+          title="Assessing access"
+          description="Gathering billing status, feature gates, and configuration checks."
+        />
+      </SectionShell>
+    );
+  }
+
+  return (
+    <SectionShell className="surface-panel space-y-6">
+      <SectionHeading
+        title="Workspace readiness"
+        description="Understand which features are gated, what needs configuration, and where you are approved."
+      />
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Feature access</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {ACCESS_FEATURE_ORDER.map((key) => {
+              const feature = access.features[key];
+              const targetSection = FEATURE_SECTION_LINKS[key];
+              return (
+                <div key={key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900">{feature.label}</p>
+                    <StatusBadge
+                      kind="feature"
+                      state={feature.status}
+                      label={formatAccessStatusLabel(feature.status)}
+                      size="xs"
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-slate-500">{feature.reason}</p>
+                  {feature.status !== "ready" && targetSection ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => focusSection(targetSection)}
+                    >
+                      Resolve in {targetSection}
+                    </Button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Readiness checklist</h3>
+          {access.readinessChecklist.map((check) => (
+            <div key={check.key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">{check.label}</p>
+                  <p className="text-sm text-slate-700">{check.description}</p>
+                  {check.detail ? <p className="text-xs text-slate-400">{check.detail}</p> : null}
+                </div>
+                <StatusBadge kind="feature" state={check.status} label={formatAccessStatusLabel(check.status)} size="xs" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </SectionShell>
+  );
 }
 
 function detectVoiceForwardingDialCode(value: string) {
@@ -294,11 +403,13 @@ export default function AppSettingsPage() {
         organization: null,
         assignedPhoneNumber: null,
         assignedNumberProvider: null,
-        features: {}
+        features: {},
+        access: null
       }))
     ])
       .then(async ([{ settings }, { files }, profile]) => {
         const profileFeatures: OrgFeatureFlags = profile.features || {};
+        setAccessSummary(profile.access || null);
         const [calendar, notifications] = await Promise.all([
           profileFeatures.calendarOauthEnabled === true
             ? fetchCalendarProviders().catch(() => ({ providers: [] }))
@@ -383,13 +494,14 @@ export default function AppSettingsPage() {
         setNotifications(notifications.notifications || []);
         setNotificationCount((notifications.notifications || []).length);
       })
-      .catch((error) =>
+      .catch((error) => {
         showToast({
           title: "Could not load settings",
           description: error instanceof Error ? error.message : "Try again.",
           variant: "error"
-        })
-      );
+        });
+        setAccessSummary(null);
+      });
   }, [showToast]);
 
   useEffect(() => {
@@ -687,6 +799,8 @@ export default function AppSettingsPage() {
           }
         ]}
       />
+
+      <WorkspaceAccessSection access={accessSummary} focusSection={focusSection} />
 
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">

@@ -12,7 +12,8 @@ export function RootShell({ children }: { children: React.ReactNode }) {
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/contact" ||
-    pathname === "/how-it-works";
+    pathname === "/how-it-works" ||
+    pathname.startsWith("/auth");
 
   if (isWorkspaceRoute || isAiStudioPublicRoute) {
     return <>{children}</>;

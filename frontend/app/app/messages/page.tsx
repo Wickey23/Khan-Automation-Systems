@@ -25,6 +25,10 @@ import { fetchOrgMessages, getMe, sendOrgMessage, updateLeadPipelineStage } from
 import type { OrgMessageThread } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageShell, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { useAccessSummary } from "@/context/access-summary";
 
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -85,6 +89,9 @@ function messageBadge(thread: OrgMessageThread) {
 export default function AppMessagesPage() {
   const searchParams = useSearchParams();
   const deepLinkedThreadId = searchParams.get("threadId") || "";
+  const accessSummary = useAccessSummary();
+  const smsAccess = accessSummary?.features.sms;
+  const shouldShowMessages = !smsAccess || smsAccess.status === "ready";
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
@@ -108,6 +115,11 @@ export default function AppMessagesPage() {
   }, []);
 
   useEffect(() => {
+    if (!shouldShowMessages) {
+      setThreads([]);
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
     void load()
@@ -122,7 +134,7 @@ export default function AppMessagesPage() {
     return () => {
       active = false;
     };
-  }, [load]);
+  }, [load, shouldShowMessages]);
 
   const filteredThreads = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -169,6 +181,36 @@ export default function AppMessagesPage() {
     } finally {
       setSavingStage(null);
     }
+  }
+
+  if (smsAccess && smsAccess.status !== "ready") {
+    const cardVariant = smsAccess.status === "setup_required" ? "setup" : "locked";
+    const actionHref = smsAccess.status === "blocked" ? "/app/billing" : "/app/settings#settings-telephony";
+    const actionLabel = smsAccess.status === "blocked" ? "Open billing" : "Open telephony settings";
+    return (
+      <PageShell className="space-y-6">
+        <SectionShell className="surface-panel space-y-4">
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Messaging access</p>
+              <h1 className="text-3xl font-black text-slate-900">{smsAccess.label} unavailable</h1>
+              <p className="text-sm text-slate-500">{smsAccess.reason}</p>
+            </div>
+            <StatusBadge kind="feature" state={smsAccess.status} size="sm" />
+          </div>
+          <StateCard
+            variant={cardVariant}
+            title="Messaging functions limited"
+            description={smsAccess.reason}
+            action={
+              <Link href={actionHref}>
+                <Button variant="outline">{actionLabel}</Button>
+              </Link>
+            }
+          />
+        </SectionShell>
+      </PageShell>
+    );
   }
 
   return (

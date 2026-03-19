@@ -22,9 +22,11 @@ import {
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus, getMe } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { AccessSummaryProvider } from "@/context/access-summary";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { cn } from "@/lib/utils";
-import type { AuthUser } from "@/lib/types";
+import type { AccessFeatureKey, AccessStatus, AuthUser, OrgAccessSummary } from "@/lib/types";
 
 type PlanTier = "STARTER" | "PRO" | null;
 type ClientRole = AuthUser["role"];
@@ -51,6 +53,13 @@ const navItems: Array<{
   { href: "/app/settings", label: "Settings", icon: Settings, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
 
+const navFeatureAccess: Record<string, AccessFeatureKey | undefined> = {
+  "/app/calls": "calls",
+  "/app/messages": "sms",
+  "/app/outreach": "outreach",
+  "/app/appointments": "appointments"
+};
+
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {
   if (!requiredPlan) return true;
   if (!currentPlan) return false;
@@ -75,6 +84,11 @@ function currentLabel(pathname: string) {
   return match?.label || "Dashboard";
 }
 
+function formatAccessStatus(status?: AccessStatus) {
+  if (!status) return "Unknown";
+  return status.replace(/_/g, " ");
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -83,6 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [currentPlan, setCurrentPlan] = useState<PlanTier>(null);
   const [currentRole, setCurrentRole] = useState<ClientRole | null>(null);
   const [features, setFeatures] = useState<OrgFeatureState>({ appointmentsEnabled: false });
+  const [accessSummary, setAccessSummary] = useState<OrgAccessSummary | null>(null);
 
   useEffect(() => {
     setAccessWarning(null);
@@ -94,6 +109,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setCurrentPlan((billing.subscription?.plan as PlanTier) || null);
         setCurrentRole(me.user.role);
         setFeatures({ appointmentsEnabled: orgProfile.features?.appointmentsEnabled === true });
+        const profileAccess = orgProfile.access || null;
+        setAccessSummary(profileAccess);
         const demo = billing.demo;
         const onboardingStatus = onboarding.submission?.status || "DRAFT";
         const orgStatus = orgProfile.organization?.status || "";
@@ -147,15 +164,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           router.replace("/app");
           return;
         }
+        const readinessIssue = profileAccess?.readinessChecklist?.find((check) => check.status !== "ready") || null;
+        let nextAccessWarning: string | null = null;
         if (!onboardingDone) {
-          setAccessWarning("Finish onboarding to unlock live configuration and full automation features.");
+          nextAccessWarning = "Finish onboarding to unlock live configuration and full automation features.";
+        } else if (readinessIssue) {
+          nextAccessWarning = `${readinessIssue.label}: ${readinessIssue.description}`;
         }
+        setAccessWarning(nextAccessWarning);
       })
       .catch(() => {
         setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
         setCurrentPlan(null);
         setCurrentRole(null);
         setFeatures({ appointmentsEnabled: false });
+        setAccessSummary(null);
       });
   }, [pathname, router]);
 
@@ -164,10 +187,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
     const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
+    const featureKey = navFeatureAccess[item.href];
+    const featureStatus = featureKey ? accessSummary?.features[featureKey] : undefined;
+    const lockedByFeature = Boolean(featureStatus && featureStatus.status !== "ready");
     const locked =
       !hasRequiredPlan(currentPlan, item.requiredPlan) ||
       !hasRequiredRole(currentRole, item.requiredRoles) ||
-      !hasRequiredFeature(features, item.requiredFeature);
+      !hasRequiredFeature(features, item.requiredFeature) ||
+      lockedByFeature;
 
     if (locked) {
       return (
@@ -176,7 +203,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Icon className="h-5 w-5 text-slate-500" />
             <span>{item.label}</span>
           </span>
-          <Lock className="h-4 w-4" />
+          {lockedByFeature && featureStatus ? (
+            <StatusBadge kind="feature" state={featureStatus.status} label={formatAccessStatus(featureStatus.status)} size="xs" />
+          ) : (
+            <Lock className="h-4 w-4" />
+          )}
         </div>
       );
     }
@@ -203,6 +234,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <ClientGuard>
+      <AccessSummaryProvider value={accessSummary}>
       <div className="flex h-screen overflow-hidden bg-background-light">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-slate-200 bg-white xl:flex">
           <div className="flex flex-col gap-6 p-6">
@@ -308,7 +340,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </main>
         </div>
-      </div>
+      </AccessSummaryProvider>
     </ClientGuard>
   );
 }

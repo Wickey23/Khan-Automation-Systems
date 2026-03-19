@@ -10,6 +10,7 @@ export type AuthenticatedRequest = Request & {
     clientId?: string | null;
     orgId?: string | null;
   };
+  requestId?: string;
 };
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {

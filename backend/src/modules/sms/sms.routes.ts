@@ -11,844 +11,112 @@ import { handleAppointmentRequestSmsReply } from "../appointments/appointment-re
 import { maybeEmitWebhookRetryAlert } from "../notifications/security-alert.service";
 
 export const smsRouter = Router();
-const twilioSmsSchema = z.object({
-  MessageSid: z.string().min(1),
-  From: z.string().optional(),
-  To: z.string().optional(),
-  Body: z.string().optional()
-});
-
-function normalizePhone(input: string) {
-  const digits = input.replace(/\D/g, "");
-  if (!digits) return input.trim();
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.startsWith("1") && digits.length === 11) return `+${digits}`;
-  if (input.trim().startsWith("+")) return input.trim();
-  return `+${digits}`;
-}
-
-function pickString(...values: Array<unknown>) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
-}
-
-function classifySmsKeyword(input: string) {
-  const normalized = input.trim().toUpperCase().replace(/[^A-Z]/g, "");
-  if (["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"].includes(normalized)) return "STOP";
-  if (["START", "UNSTOP", "YES"].includes(normalized)) return "START";
-  if (["HELP", "INFO"].includes(normalized)) return "HELP";
-  return null;
-}
-
-function mapTwilioMessageStatus(input: string) {
-  const normalized = input.trim().toLowerCase();
-  if (normalized === "delivered") return "DELIVERED" as const;
-  if (normalized === "sent") return "SENT" as const;
-  if (["failed", "undelivered", "canceled"].includes(normalized)) return "FAILED" as const;
-  if (["queued", "accepted", "sending", "scheduled"].includes(normalized)) return "QUEUED" as const;
-  return "QUEUED" as const;
-}
-
-function phoneVariants(input: string) {
-  const normalized = normalizePhone(input);
-  const digits = normalized.replace(/\D/g, "");
-  const variants = new Set<string>([normalized, input.trim()]);
-  if (digits.length === 11 && digits.startsWith("1")) variants.add(digits.slice(1));
-  variants.add(digits);
-  return [...variants].filter(Boolean);
-}
-
-function extractAssistantReply(payload: unknown) {
-  if (!payload || typeof payload !== "object") return "";
-  const root = payload as Record<string, unknown>;
-  const direct = [root.output, root.message, root.text, root.reply];
-  for (const value of direct) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-
-  const messages = Array.isArray(root.messages) ? root.messages : [];
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const item = messages[index];
-    if (!item || typeof item !== "object") continue;
-    const record = item as Record<string, unknown>;
-    const role = String(record.role || "").toLowerCase();
-    if (role !== "assistant") continue;
-    const content = record.content;
-    if (typeof content === "string" && content.trim()) return content.trim();
-    if (Array.isArray(content)) {
-      const joined = content
-        .map((part) => {
-          if (typeof part === "string") return part;
-          if (part && typeof part === "object") {
-            const text = (part as Record<string, unknown>).text;
-            return typeof text === "string" ? text : "";
-          }
-          return "";
-        })
-        .join(" ")
-        .trim();
-      if (joined) return joined;
-    }
-  }
-  return "";
-}
-
-function parsePoliciesJson(value: string | null | undefined) {
-  if (!value) return {} as Record<string, unknown>;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function buildFirstInboundIntro(input: {
-  businessName: string;
-  policiesJson?: string | null;
-  smsConsentText?: string | null;
-}) {
-  const policies = parsePoliciesJson(input.policiesJson);
-  const customWelcomeRaw = String(policies.smsWelcomeMessage || "").trim();
-  const marketingEnabled = Boolean(policies.smsMarketingEnabled);
-  const marketingBlurb = String(policies.smsMarketingBlurb || "").trim();
-  const consent = String(input.smsConsentText || "").trim();
-
-  const welcome =
-    customWelcomeRaw.replace(/\{\{\s*businessName\s*\}\}/g, input.businessName) ||
-    `Thanks for texting ${input.businessName}. You reached our service team.`;
-
-  const lines = [welcome];
-  if (marketingEnabled && marketingBlurb) lines.push(marketingBlurb);
-  if (consent) lines.push(consent);
-  lines.push("Reply STOP to opt out. Reply START to re-subscribe.");
-  return lines.filter(Boolean).join(" ");
-}
-
-async function getVapiSmsReply(input: {
-  assistantId: string;
-  orgId: string;
-  orgName: string;
-  fromNumber: string;
-  toNumber: string;
-  body: string;
-  threadHistory: Array<{ direction: string; body: string }>;
-}) {
-  if (!env.VAPI_API_KEY) return "";
-  const history = input.threadHistory
-    .slice(-12)
-    .reverse()
-    .map((message) => `${message.direction === "INBOUND" ? "Customer" : "Agent"}: ${message.body}`)
-    .join("\n");
-
-  const conversationPrompt = [
-    `Business: ${input.orgName}`,
-    `Organization ID: ${input.orgId}`,
-    `Inbound SMS from: ${input.fromNumber}`,
-    `Business SMS number: ${input.toNumber}`,
-    history ? `Recent thread:\n${history}` : "",
-    `Latest customer message: ${input.body}`,
-    "Respond as the business assistant over SMS in 1-3 short lines. Ask one relevant next question if details are missing."
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 9000);
-  try {
-    const response = await fetch("https://api.vapi.ai/chat", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.VAPI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        assistantId: input.assistantId,
-        input: conversationPrompt,
-        metadata: {
-          orgId: input.orgId,
-          channel: "sms",
-          fromNumber: input.fromNumber,
-          toNumber: input.toNumber
-        }
-      }),
-      signal: controller.signal
-    });
-
-    if (response.ok) {
-      const payload = (await response.json()) as unknown;
-      return extractAssistantReply(payload);
-    }
-
-    // Backward-compat fallback for older Vapi route shape.
-    const fallback = await fetch(`https://api.vapi.ai/assistant/${input.assistantId}/chat`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.VAPI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        input: conversationPrompt,
-        metadata: {
-          orgId: input.orgId,
-          channel: "sms",
-          fromNumber: input.fromNumber,
-          toNumber: input.toNumber
-        }
-      }),
-      signal: controller.signal
-    });
-    if (!fallback.ok) return "";
-    const payload = (await fallback.json()) as unknown;
-    return extractAssistantReply(payload);
-  } catch {
-    return "";
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+import { normalizePhone, classifySmsKeyword, buildFirstInboundIntro, getVapiSmsReply } from "./sms-utils.service";
 
 smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
-  let durablePersisted = false;
-  let actionableMessage = false;
-  let resolvedOrgIdForAlert: string | null = null;
-  try {
-  const parsedPayload = twilioSmsSchema.safeParse(req.body || {});
-  if (!parsedPayload.success) {
-    const xml = new Twiml.MessagingResponse();
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "TWILIO_WEBHOOK_SCHEMA_IGNORED",
-        metadataJson: JSON.stringify({ requestId: req.requestId || null, endpoint: "/api/twilio/sms" })
-      }
-    });
-    return res.type("text/xml").send(xml.toString());
-  }
-  const toNumberRaw = pickString(req.body.To, req.body.Called, req.body.Recipient, "");
-  const fromNumberRaw = pickString(req.body.From, req.body.WaId, "");
-  const toNumber = normalizePhone(toNumberRaw);
-  const fromNumber = normalizePhone(fromNumberRaw);
-  const body = String((req.body.Body as string | undefined) || "").trim();
   const response = new Twiml.MessagingResponse();
-  const messageSid = String((req.body.MessageSid as string | undefined) || "");
-  actionableMessage = Boolean(messageSid);
-  if (messageSid) {
-    const replay = await registerWebhookReplay(prisma, {
-      provider: "TWILIO",
-      eventKey: `sms:${messageSid}:inbound`,
-      outcome: "INBOUND"
-    });
-    if (replay.duplicate) {
-      await prisma.auditLog.create({
-        data: {
-          actorUserId: "twilio-sms",
-          actorRole: "SYSTEM",
-          action: "WEBHOOK_REPLAY_BLOCKED",
-          metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `sms:${messageSid}:inbound` })
-        }
-      });
-      return res.type("text/xml").send(response.toString());
+  const messageSid = String(req.body.MessageSid || "");
+
+  try {
+    const { assertSystemEnabled } = await import("../../lib/system-flags");
+    await assertSystemEnabled("disableWebhooks");
+    await assertSystemEnabled("disableMessaging");
+
+    if (messageSid) {
+       // De-duplicate before queuing to prevent queue bloat
+       const { executeOnce } = await import("../../lib/idempotency");
+       const idempotencyKey = `sms:inbound:${messageSid}`;
+       
+       await executeOnce({
+         key: idempotencyKey,
+         ttlMs: 60000, // 1 minute
+         handler: async () => {
+           // Priority 2: Durable Staging - store in DB, keep out of Redis
+           const event = await prisma.smsWebhookEvent.create({
+             data: {
+               messageSid,
+               eventType: "sms-inbound",
+               payload: req.body as any,
+             }
+           });
+
+           const { webhookQueue } = await import("../../lib/queue");
+           await webhookQueue.add("twilio-sms-inbound", {
+             provider: "twilio",
+             type: "twilio_sms_inbound",
+             eventId: event.id
+           });
+         }
+       }).catch((err) => {
+         if (err.message.includes("Idempotency")) {
+           return; // Already processed/queued
+         }
+         throw err;
+       });
     }
-  }
-  const toDigits = toNumber.replace(/\D/g, "");
-  const toLast10 = toDigits.slice(-10);
-  let orgPhone = await prisma.phoneNumber.findFirst({
-    where: {
-      status: { not: "RELEASED" },
-      OR: [
-        { e164Number: toNumber },
-        ...(toLast10.length === 10 ? [{ e164Number: { endsWith: toLast10 } }] : [])
-      ]
-    },
-    include: { organization: { include: { businessSettings: true } } }
-  });
 
-  if (!orgPhone && toNumber) {
-    const active = await prisma.phoneNumber.findMany({
-      where: { status: { not: "RELEASED" } },
-      include: { organization: { include: { businessSettings: true } } },
-      take: 500
-    });
-    orgPhone =
-      active.find((row) => normalizePhone(row.e164Number) === toNumber) ||
-      (toLast10.length === 10
-        ? active.find((row) => normalizePhone(row.e164Number).replace(/\D/g, "").endsWith(toLast10))
-        : null) ||
-      null;
-  }
-  if (!orgPhone?.organization) {
-    response.message("This SMS line is not configured.");
+    // Always respond 200/Empty TwiML quickly to Twilio.
+    // The worker will send any replies via the Twilio API asynchronously.
     return res.type("text/xml").send(response.toString());
-  }
 
-  const orgId = orgPhone.organization.id;
-  resolvedOrgIdForAlert = orgId;
-  const normalizedFrom = fromNumber;
-  const incomingKeyword = classifySmsKeyword(body);
-  const fromPhoneVariants = phoneVariants(fromNumber);
-  const existingLead = await prisma.lead.findFirst({
-    where: { orgId, phone: { in: fromPhoneVariants } },
-    select: { id: true, name: true, dnc: true }
-  });
-  const resolvedLead =
-    existingLead ||
-    (body
-      ? await prisma.lead.create({
-          data: {
-            orgId,
-            name: "SMS Customer",
-            business: orgPhone.organization.name,
-            email: `${normalizedFrom.replace(/\D/g, "") || "unknown"}@no-email.local`,
-            phone: normalizedFrom,
-            message: body,
-            source: LeadSource.SMS
-          },
-          select: { id: true, name: true, dnc: true }
-        }).catch(() => null)
-      : null);
-
-  const thread = await prisma.messageThread.upsert({
-    where: {
-      orgId_channel_contactPhone: {
-        orgId,
-        channel: "SMS",
-        contactPhone: normalizedFrom
-      }
-    },
-    update: {
-      leadId: resolvedLead?.id || undefined,
-      contactName: resolvedLead?.name || undefined,
-      lastMessageAt: new Date()
-    },
-    create: {
-      orgId,
-      channel: "SMS",
-      contactPhone: normalizedFrom,
-      contactName: resolvedLead?.name || null,
-      leadId: resolvedLead?.id || null,
-      lastMessageAt: new Date()
-    }
-  });
-
-  const existingMessageCount = await prisma.message.count({
-    where: { threadId: thread.id }
-  });
-  const isFirstInbound = existingMessageCount === 0;
-
-  await prisma.message.create({
-    data: {
-      threadId: thread.id,
-      orgId,
-      leadId: resolvedLead?.id || null,
-      direction: "INBOUND",
-      status: "RECEIVED",
-      body: body || "(empty sms)",
-      provider: "TWILIO",
-      providerMessageId: messageSid || null,
-      fromNumber: normalizedFrom,
-      toNumber: toNumber || null
-    }
-  });
-  durablePersisted = true;
-  await prisma.auditLog
-    .create({
-      data: {
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "WEBHOOK_DURABLE_PERSISTED",
-        metadataJson: JSON.stringify({
-          requestId: req.requestId || null,
-          endpoint: "/api/twilio/sms",
-          provider: "TWILIO",
-          messageSid
-        })
-      }
-    })
-    .catch(() => null);
-
-  const latestRecoveryMessage = await prisma.message.findFirst({
-    where: {
-      threadId: thread.id,
-      direction: "OUTBOUND",
-      metadataJson: { contains: "\"recovery\":true" }
-    },
-    orderBy: { createdAt: "desc" },
-    select: { metadataJson: true }
-  });
-  if (latestRecoveryMessage?.metadataJson) {
-    try {
-      const parsedMetadata = JSON.parse(latestRecoveryMessage.metadataJson) as { callLogId?: string };
-      if (parsedMetadata.callLogId) {
-        await prisma.callLog.updateMany({
-          where: { id: parsedMetadata.callLogId, orgId },
-          data: {
-            recoverySmsResponse: body || "(empty sms)",
-            recoverySmsThreadId: thread.id,
-            ...(resolvedLead?.id ? { leadId: resolvedLead.id } : {})
-          }
-        });
-        if (resolvedLead?.id && body) {
-          await prisma.lead.updateMany({
-            where: { id: resolvedLead.id, orgId },
-            data: {
-              message: body,
-              notes: body
-            }
-          });
-        }
-        await prisma.auditLog.create({
-          data: {
-            orgId,
-            actorUserId: "twilio-sms",
-            actorRole: "SYSTEM",
-            action: "AUTO_RECOVERY_REPLY_CAPTURED",
-            metadataJson: JSON.stringify({
-              callLogId: parsedMetadata.callLogId,
-              threadId: thread.id,
-              leadId: resolvedLead?.id || null,
-              fromNumber: normalizedFrom
-            })
-          }
-        }).catch(() => null);
-      }
-    } catch {
-      // Ignore malformed metadata from legacy recovery messages.
-    }
-  }
-
-  if (incomingKeyword === "STOP") {
-    await prisma.lead.updateMany({
-      where: {
-        orgId,
-        OR: [
-          { id: resolvedLead?.id || "" },
-          { phone: { in: fromPhoneVariants } }
-        ]
-      },
-      data: { dnc: true }
-    });
-    const reply = "You are unsubscribed from SMS updates. Reply START to opt back in.";
-    await prisma.message.create({
-      data: {
-        threadId: thread.id,
-        orgId,
-        leadId: resolvedLead?.id || null,
-        direction: "OUTBOUND",
-        status: "SENT",
-        body: reply,
-        provider: "TWILIO",
-        fromNumber: toNumber || null,
-        toNumber: normalizedFrom,
-        metadataJson: JSON.stringify({ source: "sms_opt_out" }),
-        sentAt: new Date()
-      }
-    });
-    await prisma.auditLog.create({
-      data: {
-        orgId,
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "SMS_OPT_OUT",
-        metadataJson: JSON.stringify({ from: normalizedFrom })
-      }
-    });
-    response.message(reply);
-    return res.type("text/xml").send(response.toString());
-  }
-
-  if (incomingKeyword === "START") {
-    await prisma.lead.updateMany({
-      where: {
-        orgId,
-        OR: [
-          { id: resolvedLead?.id || "" },
-          { phone: { in: fromPhoneVariants } }
-        ]
-      },
-      data: { dnc: false }
-    });
-    const reply = `SMS updates are re-enabled for ${orgPhone.organization.name}. How can we help today?`;
-    await prisma.message.create({
-      data: {
-        threadId: thread.id,
-        orgId,
-        leadId: resolvedLead?.id || null,
-        direction: "OUTBOUND",
-        status: "SENT",
-        body: reply,
-        provider: "TWILIO",
-        fromNumber: toNumber || null,
-        toNumber: normalizedFrom,
-        metadataJson: JSON.stringify({ source: "sms_opt_in" }),
-        sentAt: new Date()
-      }
-    });
-    await prisma.auditLog.create({
-      data: {
-        orgId,
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "SMS_OPT_IN",
-        metadataJson: JSON.stringify({ from: normalizedFrom })
-      }
-    });
-    response.message(reply);
-    return res.type("text/xml").send(response.toString());
-  }
-
-  if (incomingKeyword === "HELP") {
-    const reply = `Precision Home Services support: call ${toNumber || "our office"} for immediate help. Reply STOP to opt out.`;
-    await prisma.message.create({
-      data: {
-        threadId: thread.id,
-        orgId,
-        leadId: resolvedLead?.id || null,
-        direction: "OUTBOUND",
-        status: "SENT",
-        body: reply,
-        provider: "TWILIO",
-        fromNumber: toNumber || null,
-        toNumber: normalizedFrom,
-        metadataJson: JSON.stringify({ source: "sms_help" }),
-        sentAt: new Date()
-      }
-    });
-    response.message(reply);
-    return res.type("text/xml").send(response.toString());
-  }
-
-  if (resolvedLead?.dnc) {
-    const reply = "You are currently opted out of SMS updates. Reply START to re-enable texting.";
-    response.message(reply);
-    return res.type("text/xml").send(response.toString());
-  }
-
-  const requestReplyResult = await handleAppointmentRequestSmsReply({
-    prisma,
-    orgId,
-    fromNumber: normalizedFrom,
-    toNumber: toNumber || "",
-    body
-  });
-  if (requestReplyResult.handled) {
-    return res.type("text/xml").send(response.toString());
-  }
-
-  const proMessagingEnabled = await hasProMessaging(prisma, orgId);
-  const orgStatus = String(orgPhone.organization.status || "").toUpperCase();
-  const runtimeEnabled = orgPhone.organization.live || orgStatus === "LIVE" || orgStatus === "TESTING";
-  const firstInboundIntro =
-    isFirstInbound && !incomingKeyword
-      ? buildFirstInboundIntro({
-          businessName: orgPhone.organization.name,
-          policiesJson: orgPhone.organization.businessSettings?.policiesJson,
-          smsConsentText: orgPhone.organization.businessSettings?.smsConsentText
-        })
-      : "";
-  if (!runtimeEnabled) {
-    const setupReply = `Thanks for contacting ${orgPhone.organization.name}. Your account is in setup mode and we'll follow up soon.`;
-    response.message(firstInboundIntro ? `${firstInboundIntro}\n\n${setupReply}` : setupReply);
-    return res.type("text/xml").send(response.toString());
-  }
-
-  if (!proMessagingEnabled) {
-    const nonProReply =
-      `Thanks for contacting ${orgPhone.organization.name}. Messaging automation is currently unavailable on this plan. Please call us and our team will follow up.`
-    ;
-    response.message(firstInboundIntro ? `${firstInboundIntro}\n\n${nonProReply}` : nonProReply);
-    return res.type("text/xml").send(response.toString());
-  }
-
-  const aiConfig = await prisma.aiAgentConfig.findFirst({
-    where: {
-      orgId,
-      status: "ACTIVE",
-      provider: "VAPI"
-    },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, vapiAgentId: true }
-  });
-  const threadWithMessages = await prisma.messageThread.findUnique({
-    where: { id: thread.id },
-    select: {
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 12,
-        select: { direction: true, body: true }
-      }
-    }
-  });
-
-  const vapiReply =
-    aiConfig?.vapiAgentId?.trim()
-      ? await getVapiSmsReply({
-          assistantId: aiConfig.vapiAgentId.trim(),
-          orgId,
-          orgName: orgPhone.organization.name,
-          fromNumber: normalizedFrom,
-          toNumber: toNumber || "",
-          body: body || "",
-          threadHistory:
-            threadWithMessages?.messages.map((message) => ({
-              direction: message.direction,
-              body: message.body
-            })) || []
-        })
-      : "";
-
-  const consentText = orgPhone.organization.businessSettings?.smsConsentText?.trim() || "";
-  const fallback = `Thanks for contacting ${orgPhone.organization.name}. We received your message and will follow up shortly.`;
-  const baseReply = `${vapiReply || fallback}${consentText ? ` ${consentText}` : ""}`.trim();
-  const outboundBody = firstInboundIntro ? `${firstInboundIntro}\n\n${baseReply}` : baseReply;
-
-  await prisma.message.create({
-    data: {
-      threadId: thread.id,
-      orgId,
-      leadId: resolvedLead?.id || null,
-      direction: "OUTBOUND",
-      status: "SENT",
-      body: outboundBody,
-      provider: "TWILIO",
-      fromNumber: toNumber || null,
-      toNumber: normalizedFrom,
-      metadataJson: JSON.stringify({
-        source: vapiReply ? "vapi_sms_chat" : "sms_fallback",
-        assistantId: aiConfig?.vapiAgentId || null,
-        aiConfigId: aiConfig?.id || null
-      }),
-      sentAt: new Date()
-    }
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      orgId,
-      actorUserId: "twilio-sms",
-      actorRole: "SYSTEM",
-      action: "SMS_ASSISTANT_USED",
-      metadataJson: JSON.stringify({
-        threadId: thread.id,
-        assistantId: aiConfig?.vapiAgentId || null,
-        aiConfigId: aiConfig?.id || null,
-        usedVapiReply: Boolean(vapiReply)
-      })
-    }
-  });
-
-  await prisma.messageThread.update({
-    where: { id: thread.id },
-    data: { lastMessageAt: new Date() }
-  });
-
-  response.message(outboundBody);
-  return res.type("text/xml").send(response.toString());
   } catch (error) {
-    const action = actionableMessage && !durablePersisted ? "WEBHOOK_RETRY_WORTHY_FAILURE" : "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED";
-    await prisma.auditLog
-      .create({
-        data: {
-          actorUserId: "twilio-sms",
-          actorRole: "SYSTEM",
-          action,
-          metadataJson: JSON.stringify({
-            requestId: req.requestId || null,
-            endpoint: "/api/twilio/sms",
-            provider: "TWILIO",
-            durablePersisted,
-            actionableMessage,
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        }
-      })
-      .catch(() => null);
-    if (actionableMessage && !durablePersisted) {
-      await maybeEmitWebhookRetryAlert({
-        prisma,
-        orgId: resolvedOrgIdForAlert,
-        provider: "TWILIO",
-        endpoint: "/api/twilio/sms"
-      }).catch(() => null);
+    const message = error instanceof Error ? error.message : "unknown_error";
+    
+    // If it's a kill switch, we might want to return 503 so Twilio retries later
+    if (message.includes("is currently disabled")) {
+      return res.status(503).type("text/xml").send(response.toString());
     }
-    const xml = new Twiml.MessagingResponse();
-    if (actionableMessage && !durablePersisted) {
-      return res.status(500).type("text/xml").send(xml.toString());
-    }
-    return res.type("text/xml").send(xml.toString());
+
+    // For other errors, log and respond 200 so Twilio doesn't keep retrying a broken payload
+    return res.type("text/xml").send(response.toString());
   }
 });
 
 smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
-  let durablePersisted = false;
-  let actionableMessage = false;
-  let resolvedOrgIdForAlert: string | null = null;
-  try {
-  const parsedPayload = z
-    .object({
-      MessageSid: z.string().min(1),
-      MessageStatus: z.string().optional()
-    })
-    .safeParse(req.body || {});
-  if (!parsedPayload.success) {
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "WEBHOOK_SAFE_IGNORE",
-        metadataJson: JSON.stringify({ requestId: req.requestId || null, endpoint: "/api/twilio/sms/status" })
-      }
-    });
-    return res.json({ ok: true, ignored: true });
-  }
   const messageSid = String(req.body.MessageSid || "").trim();
-  actionableMessage = Boolean(messageSid);
-  const statusRaw = String(req.body.MessageStatus || "").trim();
-  const errorCode = String(req.body.ErrorCode || "").trim();
-  const errorMessage = String(req.body.ErrorMessage || "").trim();
-  const orgIdFromQuery = typeof req.query.orgId === "string" ? req.query.orgId.trim() : "";
 
-  if (!messageSid) return res.json({ ok: true, ignored: true });
-  const replay = await registerWebhookReplay(prisma, {
-    provider: "TWILIO",
-    eventKey: `sms:${messageSid}:status:${String(req.body.MessageStatus || "").trim().toLowerCase()}`,
-    outcome: "STATUS"
-  });
-  if (replay.duplicate) {
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "WEBHOOK_REPLAY_BLOCKED",
-        metadataJson: JSON.stringify({ provider: "TWILIO", eventKey: `sms:${messageSid}:status` })
-      }
-    });
-    return res.json({ ok: true, ignored: true });
-  }
+  try {
+    const { assertSystemEnabled } = await import("../../lib/system-flags");
+    await assertSystemEnabled("disableWebhooks");
 
-  const candidate = await prisma.message.findFirst({
-    where: { providerMessageId: messageSid },
-    select: { orgId: true },
-    orderBy: { createdAt: "desc" }
-  });
-  let resolvedOrgId = candidate?.orgId || orgIdFromQuery;
-  resolvedOrgIdForAlert = resolvedOrgId || null;
-  if (candidate?.orgId && orgIdFromQuery && candidate.orgId !== orgIdFromQuery) {
-    await prisma.auditLog
-      .create({
-        data: {
-          actorUserId: "twilio-sms",
-          actorRole: "SYSTEM",
-          action: "WEBHOOK_SAFE_IGNORE",
-          metadataJson: JSON.stringify({
-            requestId: req.requestId || null,
-            endpoint: "/api/twilio/sms/status",
-            provider: "TWILIO",
-            reason: "org_query_mismatch",
-            messageSid,
-            orgIdFromQuery,
-            resolvedOrgId: candidate.orgId
-          })
-        }
-      })
-      .catch(() => null);
-  }
+    if (messageSid) {
+       const statusRaw = String(req.body.MessageStatus || "").trim().toLowerCase();
+       const idempotencyKey = `sms:status:${messageSid}:${statusRaw}`;
+       
+       const { executeOnce } = await import("../../lib/idempotency");
+       await executeOnce({
+         key: idempotencyKey,
+         ttlMs: 60000,
+         handler: async () => {
+           // Priority 2: Durable Staging
+           const event = await prisma.smsWebhookEvent.create({
+             data: {
+               messageSid,
+               eventType: "sms-status",
+               payload: req.body as any,
+             }
+           });
 
-  const nextStatus = mapTwilioMessageStatus(statusRaw);
-  const errorText = errorCode || errorMessage ? `Twilio ${errorCode} ${errorMessage}`.trim() : null;
+           const { webhookQueue } = await import("../../lib/queue");
+           await webhookQueue.add("twilio-sms-status", {
+             provider: "twilio",
+             type: "twilio_sms_status",
+             eventId: event.id
+           });
+         }
+       }).catch((err) => {
+         if (err.message.includes("Idempotency")) return;
+         throw err;
+       });
+    }
 
-  let updateResult = { count: 0 };
-  if (resolvedOrgId) {
-    updateResult = await prisma.message.updateMany({
-      where: { orgId: resolvedOrgId, providerMessageId: messageSid },
-      data: {
-        status: nextStatus,
-        errorText,
-        deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined
-      }
-    });
-  } else {
-    updateResult = await prisma.message.updateMany({
-      where: { providerMessageId: messageSid },
-      data: {
-        status: nextStatus,
-        errorText,
-        deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined
-      }
-    });
-  }
-  if (updateResult.count === 0) {
-    await prisma.auditLog
-      .create({
-        data: {
-          actorUserId: "twilio-sms",
-          actorRole: "SYSTEM",
-          action: "WEBHOOK_SAFE_IGNORE",
-          metadataJson: JSON.stringify({
-            requestId: req.requestId || null,
-            endpoint: "/api/twilio/sms/status",
-            provider: "TWILIO",
-            reason: "message_not_found",
-            messageSid,
-            resolvedOrgId: resolvedOrgId || null
-          })
-        }
-      })
-      .catch(() => null);
-    return res.json({ ok: true, ignored: true });
-  }
-  durablePersisted = true;
-  await prisma.auditLog
-    .create({
-      data: {
-        actorUserId: "twilio-sms",
-        actorRole: "SYSTEM",
-        action: "WEBHOOK_DURABLE_PERSISTED",
-        metadataJson: JSON.stringify({
-          requestId: req.requestId || null,
-          endpoint: "/api/twilio/sms/status",
-          provider: "TWILIO",
-          messageSid,
-          messageStatus: statusRaw
-        })
-      }
-    })
-    .catch(() => null);
+    return res.json({ ok: true, enqueued: true });
 
-  return res.json({ ok: true });
   } catch (error) {
-    const action = actionableMessage && !durablePersisted ? "WEBHOOK_RETRY_WORTHY_FAILURE" : "TWILIO_WEBHOOK_PROCESSING_ERROR_IGNORED";
-    await prisma.auditLog
-      .create({
-        data: {
-          actorUserId: "twilio-sms",
-          actorRole: "SYSTEM",
-          action,
-          metadataJson: JSON.stringify({
-            requestId: req.requestId || null,
-            endpoint: "/api/twilio/sms/status",
-            provider: "TWILIO",
-            durablePersisted,
-            actionableMessage,
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        }
-      })
-      .catch(() => null);
-    if (actionableMessage && !durablePersisted) {
-      await maybeEmitWebhookRetryAlert({
-        prisma,
-        orgId: resolvedOrgIdForAlert,
-        provider: "TWILIO",
-        endpoint: "/api/twilio/sms/status"
-      }).catch(() => null);
-    }
-    if (actionableMessage && !durablePersisted) {
-      return res.status(500).json({ ok: false, retry: true });
-    }
-    return res.json({ ok: true, ignored: true });
+     const message = error instanceof Error ? error.message : "unknown_error";
+     if (message.includes("is currently disabled")) {
+       return res.status(503).json({ ok: false, message: "Paused" });
+     }
+     return res.json({ ok: true, error: message });
   }
 });

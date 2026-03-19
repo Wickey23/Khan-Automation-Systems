@@ -1,7 +1,8 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient, type UserRole } from "@prisma/client";
 import { buildOutreachFromEmail, OutreachSendError, sendOutreachEmail } from "./outreach-email.service";
 import { normalizeEmail, stopEnrollmentsForLead } from "./outreach-stop.service";
 import { buildOutreachUnsubscribeUrl } from "./outreach-unsubscribe.service";
+import { startOutreachAiCall } from "./outreach-phone.service";
 
 const RESEND_MIN_INTERVAL_MS = 600;
 const DEFAULT_RETRY_DELAY_MS = 15_000;
@@ -963,4 +964,220 @@ export async function runOutreachTick(input: {
   }
 
   return { processed, sent, failed };
+}
+
+export type OutreachRetryResult = {
+  ok: boolean;
+  reason?: string;
+  message?: string;
+};
+
+const RETRYABLE_EMAIL_STATUS = "FAILED";
+const RETRYABLE_PHONE_STATUS = "FAILED";
+
+export async function retryOutreachEmailEvent(input: {
+  prisma: PrismaClient;
+  eventId: string;
+  actorUserId: string;
+  actorRole: UserRole;
+  processingTimeoutMs: number;
+  sendJitterMinutes?: number;
+}): Promise<OutreachRetryResult> {
+  const db = input.prisma as any;
+  const event = await db.outreachEmailEvent.findUnique({
+    where: { id: input.eventId },
+    include: { enrollment: true }
+  });
+  if (!event) return { ok: false, reason: "Email event not found." };
+  if (event.eventType !== RETRYABLE_EMAIL_STATUS) {
+    return { ok: false, reason: "Only failed email events can be retried." };
+  }
+  if (!event.enrollmentId) {
+    return { ok: false, reason: "This email event is not tied to an enrollment." };
+  }
+  const enrollment = await db.outreachEnrollment.findUnique({
+    where: { id: event.enrollmentId }
+  });
+  if (!enrollment) {
+    return { ok: false, reason: "Enrollment no longer exists." };
+  }
+  const now = new Date();
+  if (enrollment.processingStartedAt && enrollment.processingStartedAt.getTime() > now.getTime() - input.processingTimeoutMs) {
+    return { ok: false, reason: "Enrollment is currently being processed." };
+  }
+
+  await db.outreachEnrollment.update({
+    where: { id: enrollment.id },
+    data: {
+      status: "ACTIVE",
+      stopReason: null,
+      nextSendAt: now,
+      processingStartedAt: null
+    }
+  });
+
+  try {
+    const result = await sendEnrollmentStepNow({
+      prisma: input.prisma,
+      enrollmentId: enrollment.id,
+      processingTimeoutMs: input.processingTimeoutMs,
+      sendJitterMinutes: input.sendJitterMinutes
+    });
+    await db.auditLog.create({
+      data: {
+        orgId: event.orgId,
+        actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
+        action: "OUTREACH_EMAIL_EVENT_RETRY",
+        metadataJson: JSON.stringify({
+          eventId: event.id,
+          enrollmentId: enrollment.id,
+          result: result.ok ? "queued" : "failed"
+        })
+      }
+    });
+    if (result.ok) {
+      return { ok: true, message: "Email delivery requeued." };
+    }
+    return { ok: false, reason: result.reason ?? "Email retry failed to start." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Email retry failed.";
+    await db.auditLog.create({
+      data: {
+        orgId: event.orgId,
+        actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
+        action: "OUTREACH_EMAIL_EVENT_RETRY_FAILED",
+        metadataJson: JSON.stringify({
+          eventId: event.id,
+          enrollmentId: enrollment.id,
+          error: message
+        })
+      }
+    });
+    return { ok: false, reason: message };
+  }
+}
+
+export async function retryOutreachPhoneEvent(input: {
+  prisma: PrismaClient;
+  eventId: string;
+  actorUserId: string;
+  actorRole: UserRole;
+  processingTimeoutMs: number;
+}): Promise<OutreachRetryResult> {
+  const db = input.prisma as any;
+  const event = await db.outreachPhoneEvent.findUnique({
+    where: { id: input.eventId },
+    include: { enrollment: true, lead: true }
+  });
+  if (!event) return { ok: false, reason: "Phone event not found." };
+  if (event.eventType !== RETRYABLE_PHONE_STATUS) {
+    return { ok: false, reason: "Only failed phone events can be retried." };
+  }
+  const enrollment =
+    event.enrollment ||
+    (event.enrollmentId ? await db.outreachPhoneEnrollment.findUnique({ where: { id: event.enrollmentId } }) : null);
+  if (!enrollment) {
+    return { ok: false, reason: "Enrollment is missing." };
+  }
+  const now = new Date();
+  if (enrollment.processingStartedAt && enrollment.processingStartedAt.getTime() > now.getTime() - input.processingTimeoutMs) {
+    return { ok: false, reason: "Enrollment is currently being processed." };
+  }
+  const callerConfigId = enrollment.callerConfigId || event.callerConfigId;
+  if (!callerConfigId) {
+    return { ok: false, reason: "Caller AI configuration is not available." };
+  }
+  const callerConfig = await db.outreachCallerConfig.findUnique({
+    where: { id: callerConfigId }
+  });
+  if (!callerConfig || !callerConfig.isActive) {
+    return { ok: false, reason: "Caller AI configuration is not active." };
+  }
+  const lead =
+    event.lead || (event.leadId ? await db.outreachLead.findUnique({ where: { id: event.leadId } }) : null);
+  if (!lead) {
+    return { ok: false, reason: "Lead information is missing." };
+  }
+  await db.outreachPhoneEnrollment.update({
+    where: { id: enrollment.id },
+    data: {
+      status: "ACTIVE",
+      stopReason: null,
+      nextCallAt: now,
+      processingStartedAt: null
+    }
+  });
+
+  try {
+    await startOutreachAiCall({
+      prisma: input.prisma,
+      leadId: lead.id,
+      actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
+      callerConfigId: callerConfig.id,
+      enrollmentId: enrollment.id,
+      force: true
+    });
+    await db.outreachPhoneEnrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        status: "COMPLETED",
+        nextCallAt: null,
+        processingStartedAt: null
+      }
+    });
+    await db.auditLog.create({
+      data: {
+        orgId: event.orgId,
+        actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
+        action: "OUTREACH_PHONE_EVENT_RETRY",
+        metadataJson: JSON.stringify({
+          eventId: event.id,
+          enrollmentId: enrollment.id,
+          callerConfigId: callerConfig.id
+        })
+      }
+    });
+    return { ok: true, message: "Caller AI retry started." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Caller AI retry failed.";
+    await db.outreachPhoneEnrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        status: "FAILED",
+        stopReason: message,
+        processingStartedAt: null
+      }
+    });
+    await db.outreachPhoneEvent.create({
+      data: {
+        orgId: enrollment.orgId,
+        leadId: lead.id,
+        enrollmentId: enrollment.id,
+        callerConfigId: callerConfig.id,
+        provider: "VAPI",
+        eventType: "FAILED",
+        toPhone: event.toPhone || lead.phone || "",
+        fromPhone: callerConfig.twilioFromNumber || null,
+        errorMessage: message
+      }
+    });
+    await db.auditLog.create({
+      data: {
+        orgId: event.orgId,
+        actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
+        action: "OUTREACH_PHONE_EVENT_RETRY_FAILED",
+        metadataJson: JSON.stringify({
+          eventId: event.id,
+          enrollmentId: enrollment.id,
+          error: message
+        })
+      }
+    });
+    return { ok: false, reason: message };
+  }
 }

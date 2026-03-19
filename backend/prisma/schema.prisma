@@ -275,6 +275,20 @@ enum OutreachEmailEventType {
   FAILED
   REPLIED
   UNSUBSCRIBED
+  COMPLETED
+}
+
+enum AppointmentSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+}
+
+enum BulkImportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 enum CallState {
@@ -313,130 +327,140 @@ model Client {
 }
 
 model Organization {
-  id                   String                 @id @default(cuid())
-  name                 String
-  industry             String?
-  status               OrganizationStatus     @default(NEW)
-  live                 Boolean                @default(false)
-  stripeCustomerId     String?                @unique
-  subscriptionStatus   String                 @default("inactive")
-  billingActive        Boolean                @default(false)
-  includedSeats        Int                    @default(1)
-  purchasedSeats       Int                    @default(0)
-  routingEngineOverride OrgOverrideMode       @default(DEFAULT)
-  autoRecoveryOverride  OrgOverrideMode       @default(DEFAULT)
-  smsSendOverride       OrgOverrideMode       @default(DEFAULT)
-  slaMonitorOverride    OrgOverrideMode       @default(DEFAULT)
-  onboardingApprovedAt DateTime?
-  goLiveAt             DateTime?
-  users                User[]
-  subscriptions        Subscription[]
-  onboardingSubmissions OnboardingSubmission[]
-  phoneNumbers         PhoneNumber[]
-  aiAgentConfigs       AiAgentConfig[]
-  callLogs             CallLog[]
-  callMediaStreamSessions CallMediaStreamSession[]
-  callTranscriptSessions CallTranscriptSession[]
-  callTranscriptSegments CallTranscriptSegment[]
-  leads                Lead[]
-  prospects            Prospect[]
-  provisioningChecklist ProvisioningChecklist?
-  auditLogs            AuditLog[]
-  businessSettings     BusinessSettings?
-  configPackage        ConfigPackage?
-  aiConfigVersions     AiAgentConfigVersion[]
-  configPackageVersions ConfigPackageVersion[]
-  testScenarios        TestScenario[]
-  testRuns             TestRun[]
-  webhookEventLogs     WebhookEventLog[]
-  billingWebhookEvents BillingWebhookEvent[]
-  demoState            OrganizationDemoState?
-  demoAiAttempts       DemoAiAttempt[]
-  demoUpgradeSmsThrottle DemoUpgradeSmsThrottle[]
-  messageThreads       MessageThread[]
-  messages             Message[]
-  appointmentRequests  AppointmentRequest[]
+  id                       String                      @id @default(cuid())
+  name                     String
+  industry                 String?
+  status                   OrganizationStatus          @default(NEW)
+  live                     Boolean                     @default(false)
+  stripeCustomerId         String?                     @unique
+  subscriptionStatus       String                      @default("inactive")
+  billingActive            Boolean                     @default(false)
+  includedSeats            Int                         @default(1)
+  purchasedSeats           Int                         @default(0)
+  routingEngineOverride    OrgOverrideMode             @default(DEFAULT)
+  autoRecoveryOverride     OrgOverrideMode             @default(DEFAULT)
+  smsSendOverride          OrgOverrideMode             @default(DEFAULT)
+  slaMonitorOverride       OrgOverrideMode             @default(DEFAULT)
+  onboardingApprovedAt     DateTime?
+  goLiveAt                 DateTime?
+  users                    User[]
+  subscriptions            Subscription[]
+  onboardingSubmissions    OnboardingSubmission[]
+  phoneNumbers             PhoneNumber[]
+  aiAgentConfigs           AiAgentConfig[]
+  callLogs                 CallLog[]
+  callMediaStreamSessions  CallMediaStreamSession[]
+  callTranscriptSessions   CallTranscriptSession[]
+  callTranscriptSegments   CallTranscriptSegment[]
+  leads                    Lead[]
+  prospects                Prospect[]
+  provisioningChecklist    ProvisioningChecklist?
+  auditLogs                AuditLog[]
+  businessSettings         BusinessSettings?
+  configPackage            ConfigPackage?
+  aiConfigVersions         AiAgentConfigVersion[]
+  configPackageVersions    ConfigPackageVersion[]
+  testScenarios            TestScenario[]
+  testRuns                 TestRun[]
+  webhookEventLogs         WebhookEventLog[]
+  billingWebhookEvents     BillingWebhookEvent[]
+  demoState                OrganizationDemoState?
+  demoAiAttempts           DemoAiAttempt[]
+  demoUpgradeSmsThrottle   DemoUpgradeSmsThrottle[]
+  messageThreads           MessageThread[]
+  messages                 Message[]
+  appointmentRequests      AppointmentRequest[]
   appointmentRequestEvents AppointmentRequestEvent[]
-  knowledgeFiles       OrganizationKnowledgeFile[]
-  callerProfiles       CallerProfile[]
-  autoRecoveryDedupes  AutoRecoveryDedupe[]
-  scaleGateDecisions   ScaleGateDecisionLog[]
-  memberships          OrganizationMembership[]
-  appointments         Appointment[]
-  appointmentHolds     AppointmentHold[]
-  calendarConnections  CalendarConnection[]
-  orgNotifications     OrgNotification[]
-  callClassificationLogs CallClassificationLog[]
-  serviceRequests      ServiceRequest[]
-  outreachLeads        OutreachLead[]
-  outreachSequences    OutreachSequence[]
-  outreachCallerConfigs OutreachCallerConfig[]
-  outreachEnrollments  OutreachEnrollment[]
+  knowledgeFiles           OrganizationKnowledgeFile[]
+  callerProfiles           CallerProfile[]
+  autoRecoveryDedupes      AutoRecoveryDedupe[]
+  scaleGateDecisions       ScaleGateDecisionLog[]
+  memberships              OrganizationMembership[]
+  appointments             Appointment[]
+  appointmentHolds         AppointmentHold[]
+  calendarConnections      CalendarConnection[]
+  orgNotifications         OrgNotification[]
+  callClassificationLogs   CallClassificationLog[]
+  serviceRequests          ServiceRequest[]
+  outreachLeads            OutreachLead[]
+  outreachSequences        OutreachSequence[]
+  outreachCallerConfigs    OutreachCallerConfig[]
+  outreachEnrollments      OutreachEnrollment[]
   outreachPhoneEnrollments OutreachPhoneEnrollment[]
-  outreachEmailEvents  OutreachEmailEvent[]
-  outreachPhoneEvents  OutreachPhoneEvent[]
-  outreachSuppressions OutreachSuppression[]
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  outreachEmailEvents      OutreachEmailEvent[]
+  outreachPhoneEvents      OutreachPhoneEvent[]
+  outreachSuppressions     OutreachSuppression[]
+  bulkImportJobs           BulkImportJob[]
+  smsWebhookEvents         SmsWebhookEvent[]
+
+  // Outbound Safety Quotas
+  maxMessagesPerDay Int      @default(100)
+  messagesSentToday Int      @default(0)
+  maxCallsPerDay    Int      @default(50)
+  callsHandledToday Int      @default(0)
+  quotaResetAt      DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Prospect {
-  id          String         @id @default(cuid())
-  orgId       String?
-  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  name        String
-  business    String
-  email       String?
-  phone       String?
-  website     String?
-  industry    String?
-  city        String?
-  state       String?
-  status      ProspectStatus @default(NEW)
-  source      ProspectSource @default(MANUAL)
-  score       Int?
-  scoreReason String?
-  tags        String         @default("")
-  notes       String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id           String         @id @default(cuid())
+  orgId        String?
+  organization Organization?  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  name         String
+  business     String
+  email        String?
+  phone        String?
+  website      String?
+  industry     String?
+  city         String?
+  state        String?
+  status       ProspectStatus @default(NEW)
+  source       ProspectSource @default(MANUAL)
+  score        Int?
+  scoreReason  String?
+  tags         String         @default("")
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  role         UserRole  @default(CLIENT)
-  clientId     String?
-  client       Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  orgId        String?
-  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  loginChallenges LoginChallenge[]
-  refreshSessions RefreshSession[]
-  passwordResetTokens PasswordResetToken[]
-  memberships      OrganizationMembership[]
-  assignedAppointmentRequests AppointmentRequest[] @relation("AppointmentRequestAssignedUser")
-  reviewedAppointmentRequests AppointmentRequest[] @relation("AppointmentRequestReviewedByUser")
+  id                          String                   @id @default(cuid())
+  email                       String                   @unique
+  passwordHash                String
+  role                        UserRole                 @default(CLIENT)
+  clientId                    String?
+  client                      Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  orgId                       String?
+  organization                Organization?            @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
+  loginChallenges             LoginChallenge[]
+  refreshSessions             RefreshSession[]
+  passwordResetTokens         PasswordResetToken[]
+  memberships                 OrganizationMembership[]
+  assignedAppointmentRequests AppointmentRequest[]     @relation("AppointmentRequestAssignedUser")
+  reviewedAppointmentRequests AppointmentRequest[]     @relation("AppointmentRequestReviewedByUser")
 }
 
 model OrganizationMembership {
-  id             String               @id @default(cuid())
-  organizationId String
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String?
-  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  role           TeamMembershipRole
-  status         TeamMembershipStatus
-  invitedEmail   String
-  invitedBy      String?
-  invitedAt      DateTime?
-  acceptedAt     DateTime?
+  id              String               @id @default(cuid())
+  organizationId  String
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role            TeamMembershipRole
+  status          TeamMembershipStatus
+  invitedEmail    String
+  invitedBy       String?
+  invitedAt       DateTime?
+  acceptedAt      DateTime?
   inviteTokenHash String?
   inviteExpiresAt DateTime?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@unique([organizationId, userId])
   @@index([organizationId, status])
@@ -445,39 +469,39 @@ model OrganizationMembership {
 }
 
 model Subscription {
-  id                   String           @id @default(cuid())
-  clientId             String?
-  client               Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  orgId                String?
-  organization         Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  plan                 SubscriptionPlan
-  stripeCustomerId     String           @unique
-  stripeSubscriptionId String           @unique
-  status               String
-  currentPeriodEnd     DateTime?
-  pendingPlan          SubscriptionPlan?
+  id                     String            @id @default(cuid())
+  clientId               String?
+  client                 Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  orgId                  String?
+  organization           Organization?     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  plan                   SubscriptionPlan
+  stripeCustomerId       String            @unique
+  stripeSubscriptionId   String            @unique
+  status                 String
+  currentPeriodEnd       DateTime?
+  pendingPlan            SubscriptionPlan?
   pendingPlanEffectiveAt DateTime?
-  pendingPlanSource    String?
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  pendingPlanSource      String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 }
 
 model OnboardingSubmission {
-  id             String           @id @default(cuid())
-  orgId          String           @unique
-  organization   Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  status         OnboardingStatus @default(DRAFT)
-  answersJson    String           @default("{}")
-  configPackageJson String        @default("{}")
-  submittedAt    DateTime?
-  reviewedAt     DateTime?
-  notesFromAdmin String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id                String           @id @default(cuid())
+  orgId             String           @unique
+  organization      Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  status            OnboardingStatus @default(DRAFT)
+  answersJson       String           @default("{}")
+  configPackageJson String           @default("{}")
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  notesFromAdmin    String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 }
 
 model OrganizationKnowledgeFile {
-  id              String       @id @default(cuid())
+  id               String       @id @default(cuid())
   orgId            String
   organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   fileName         String
@@ -492,23 +516,23 @@ model OrganizationKnowledgeFile {
 }
 
 model PhoneNumber {
-  id             String          @id @default(cuid())
+  id             String            @id @default(cuid())
   orgId          String
-  organization   Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  provider       NumberProvider  @default(TWILIO)
+  organization   Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider       NumberProvider    @default(TWILIO)
   twilioPhoneSid String?
-  e164Number     String          @unique
+  e164Number     String            @unique
   friendlyName   String?
   status         PhoneNumberStatus @default(RESERVED)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 }
 
 model AiAgentConfig {
-  id                String            @id @default(cuid())
-  orgId             String            @unique
-  organization      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  provider          AiProvider        @default(VAPI)
+  id                String                 @id @default(cuid())
+  orgId             String                 @unique
+  organization      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider          AiProvider             @default(VAPI)
   vapiAgentId       String?
   vapiPhoneNumberId String?
   agentId           String?
@@ -521,80 +545,80 @@ model AiAgentConfig {
   intakeSchemaJson  String?
   toolsEnabledJson  String?
   transferRulesJson String?
-  status            AgentConfigStatus @default(DRAFT)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  status            AgentConfigStatus      @default(DRAFT)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   versions          AiAgentConfigVersion[]
 }
 
 model CallLog {
-  id             String         @id @default(cuid())
-  orgId          String
-  organization   Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  providerCallId String?
-  parentCallSid  String?
-  accountSid     String?
-  fromNumber     String
-  toNumber       String
-  forwardedToNumber String?
-  direction      String         @default("inbound")
-  aiProvider     AiProvider?
-  aiSummary      String?
-  appointmentRequested Boolean   @default(false)
-  leadId         String?
-  lead           Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  initialWebhookAt DateTime?
-  startedAt      DateTime       @default(now())
-  answeredAt     DateTime?
-  endedAt        DateTime?
-  durationSec    Int?
-  recordingUrl   String?
-  transcript     String?
-  outcome        CallLogOutcome @default(MESSAGE_TAKEN)
-  transferReason String?
-  transferTarget String?
+  id                        String                   @id @default(cuid())
+  orgId                     String
+  organization              Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  providerCallId            String?
+  parentCallSid             String?
+  accountSid                String?
+  fromNumber                String
+  toNumber                  String
+  forwardedToNumber         String?
+  direction                 String                   @default("inbound")
+  aiProvider                AiProvider?
+  aiSummary                 String?
+  appointmentRequested      Boolean                  @default(false)
+  leadId                    String?
+  lead                      Lead?                    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  initialWebhookAt          DateTime?
+  startedAt                 DateTime                 @default(now())
+  answeredAt                DateTime?
+  endedAt                   DateTime?
+  durationSec               Int?
+  recordingUrl              String?
+  transcript                String?
+  outcome                   CallLogOutcome           @default(MESSAGE_TAKEN)
+  transferReason            String?
+  transferTarget            String?
   durationBeforeTransferSec Int?
-  unansweredTransfer Boolean   @default(false)
-  recoverySmsSentAt DateTime?
-  recoverySmsResponse String?
-  recoverySmsThreadId String?
-  callStatus     String?
-  dialCallStatus String?
-  answeredBy     String?
-  missedReason   String?
-  rawJson        Json?
-  rawStatusPayload Json?
-  source         String         @default("twilio")
-  hasMediaStream Boolean        @default(false)
-  latestStreamStatus String?
-  voiceRoutingMode String?
-  aiFallbackInvoked Boolean     @default(false)
-  aiFallbackInvokedAt DateTime?
-  humanAttemptDialStatus String?
-  transcriptStatus String?
-  transcriptGeneratedAt DateTime?
-  aiSummaryGeneratedAt DateTime?
-  state          CallState?
-  ringingAt      DateTime?
-  connectedAt    DateTime?
-  aiStartedAt    DateTime?
-  transferredAt  DateTime?
-  completedAt    DateTime?
-  routingDecisionJson Json?
-  callQualityScore Int?
-  callQualityBreakdownJson Json?
-  callQualityVersion String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  stateTransitions CallStateTransition[]
-  sourceLeads    Lead[]         @relation("LeadSourceCall")
-  appointments   Appointment[]
-  appointmentRequest AppointmentRequest?
-  classificationLogs CallClassificationLog[]
-  mediaStreamSessions CallMediaStreamSession[]
-  transcriptSessions CallTranscriptSession[]
-  transcriptSegments CallTranscriptSegment[]
-  serviceRequest    ServiceRequest?
+  unansweredTransfer        Boolean                  @default(false)
+  recoverySmsSentAt         DateTime?
+  recoverySmsResponse       String?
+  recoverySmsThreadId       String?
+  callStatus                String?
+  dialCallStatus            String?
+  answeredBy                String?
+  missedReason              String?
+  rawJson                   Json?
+  rawStatusPayload          Json?
+  source                    String                   @default("twilio")
+  hasMediaStream            Boolean                  @default(false)
+  latestStreamStatus        String?
+  voiceRoutingMode          String?
+  aiFallbackInvoked         Boolean                  @default(false)
+  aiFallbackInvokedAt       DateTime?
+  humanAttemptDialStatus    String?
+  transcriptStatus          String?
+  transcriptGeneratedAt     DateTime?
+  aiSummaryGeneratedAt      DateTime?
+  state                     CallState?
+  ringingAt                 DateTime?
+  connectedAt               DateTime?
+  aiStartedAt               DateTime?
+  transferredAt             DateTime?
+  completedAt               DateTime?
+  routingDecisionJson       Json?
+  callQualityScore          Int?
+  callQualityBreakdownJson  Json?
+  callQualityVersion        String?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  stateTransitions          CallStateTransition[]
+  sourceLeads               Lead[]                   @relation("LeadSourceCall")
+  appointments              Appointment[]
+  appointmentRequest        AppointmentRequest?
+  classificationLogs        CallClassificationLog[]
+  mediaStreamSessions       CallMediaStreamSession[]
+  transcriptSessions        CallTranscriptSession[]
+  transcriptSegments        CallTranscriptSegment[]
+  serviceRequest            ServiceRequest?
 
   @@unique([orgId, providerCallId])
   @@index([orgId])
@@ -604,13 +628,13 @@ model CallLog {
 }
 
 model CallMediaStreamSession {
-  id                   String       @id @default(cuid())
+  id                   String                  @id @default(cuid())
   callLogId            String
-  callLog              CallLog      @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  callLog              CallLog                 @relation(fields: [callLogId], references: [id], onDelete: Cascade)
   orgId                String
-  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  provider             String       @default("twilio")
-  streamSid            String?      @unique
+  organization         Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider             String                  @default("twilio")
+  streamSid            String?                 @unique
   callSid              String
   parentCallSid        String?
   streamName           String?
@@ -626,11 +650,11 @@ model CallMediaStreamSession {
   startPayloadJson     Json?
   stopPayloadJson      Json?
   lastSequenceNumber   Int?
-  mediaEventCount      Int          @default(0)
-  inboundChunkCount    Int          @default(0)
-  outboundChunkCount   Int          @default(0)
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  mediaEventCount      Int                     @default(0)
+  inboundChunkCount    Int                     @default(0)
+  outboundChunkCount   Int                     @default(0)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
   transcriptSessions   CallTranscriptSession[]
 
   @@index([callLogId])
@@ -641,21 +665,21 @@ model CallMediaStreamSession {
 }
 
 model CallTranscriptSession {
-  id                   String                 @id @default(cuid())
+  id                   String                  @id @default(cuid())
   callLogId            String
-  callLog              CallLog                @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  callLog              CallLog                 @relation(fields: [callLogId], references: [id], onDelete: Cascade)
   streamSessionId      String
-  streamSession        CallMediaStreamSession @relation(fields: [streamSessionId], references: [id], onDelete: Cascade)
+  streamSession        CallMediaStreamSession  @relation(fields: [streamSessionId], references: [id], onDelete: Cascade)
   orgId                String
-  organization         Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization         Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   provider             String
   sessionStatus        String
   startedAt            DateTime
   endedAt              DateTime?
   providerMetadataJson Json?
   errorText            String?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
   segments             CallTranscriptSegment[]
 
   @@index([callLogId])
@@ -682,38 +706,38 @@ model CallTranscriptSegment {
   providerSegmentId   String?
   createdAt           DateTime              @default(now())
 
+  @@unique([transcriptSessionId, sequence])
   @@index([transcriptSessionId, sequence])
   @@index([callLogId, sequence])
   @@index([orgId, createdAt])
-  @@unique([transcriptSessionId, sequence])
 }
 
 model CallerProfile {
-  id           String       @id @default(cuid())
+  id           String          @id @default(cuid())
   orgId        String
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   phoneNumber  String
-  totalCalls   Int          @default(0)
+  totalCalls   Int             @default(0)
   firstCallAt  DateTime
   lastCallAt   DateTime
   lastOutcome  CallLogOutcome?
-  flaggedVIP   Boolean      @default(false)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  flaggedVIP   Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@unique([orgId, phoneNumber])
   @@index([orgId, lastCallAt])
 }
 
 model CallStateTransition {
-  id           String    @id @default(cuid())
+  id           String     @id @default(cuid())
   callLogId    String
-  callLog      CallLog   @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  callLog      CallLog    @relation(fields: [callLogId], references: [id], onDelete: Cascade)
   fromState    CallState?
   toState      CallState
-  at           DateTime  @default(now())
-  metadataJson Json      @default("{}")
-  createdAt    DateTime  @default(now())
+  at           DateTime   @default(now())
+  metadataJson Json       @default("{}")
+  createdAt    DateTime   @default(now())
 
   @@index([callLogId, at])
 }
@@ -732,16 +756,16 @@ model AutoRecoveryDedupe {
 }
 
 model Setting {
-  id                 String   @id @default(cuid())
-  clientId           String   @unique
-  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  businessHoursJson  String   @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
-  transferNumber     String   @default("")
-  servicesJson       String?
-  bookingLink        String?
-  paused             Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  clientId          String   @unique
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  businessHoursJson String   @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
+  transferNumber    String   @default("")
+  servicesJson      String?
+  bookingLink       String?
+  paused            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model AIConfig {
@@ -775,83 +799,83 @@ model Call {
 }
 
 model PhoneLine {
-  id              String   @id @default(cuid())
-  clientId        String   @unique
-  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  provider        String   @default("TWILIO")
-  phoneNumber     String?
+  id                     String   @id @default(cuid())
+  clientId               String   @unique
+  client                 Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider               String   @default("TWILIO")
+  phoneNumber            String?
   twilioIncomingPhoneSid String?
-  voiceWebhookUrl String?
-  smsWebhookUrl   String?
-  capabilitiesJson String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  voiceWebhookUrl        String?
+  smsWebhookUrl          String?
+  capabilitiesJson       String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 model Lead {
-  id               String     @id @default(cuid())
-  clientId         String?
-  client           Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  orgId            String?
-  organization     Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  name             String
-  business         String
-  email            String
-  phone            String
-  industry         String?
-  message          String?
-  preferredContact String?
-  urgency          String?
-  sourcePage       String?
-  status           LeadStatus @default(NEW)
-  tags             String     @default("")
-  notes            String?
-  pipelineStage    LeadPipelineStage @default(NEW_LEAD)
-  serviceRequested String?
-  serviceAddress   String?
-  appointmentRequested Boolean @default(false)
-  sourceCallLogId  String?
-  sourceCallLog    CallLog?          @relation("LeadSourceCall", fields: [sourceCallLogId], references: [id], onDelete: SetNull)
-  qualified        Boolean           @default(true)
-  qualificationReason String?
-  classification   LeadClassification?
+  id                       String               @id @default(cuid())
+  clientId                 String?
+  client                   Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  orgId                    String?
+  organization             Organization?        @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  name                     String
+  business                 String
+  email                    String
+  phone                    String
+  industry                 String?
+  message                  String?
+  preferredContact         String?
+  urgency                  String?
+  sourcePage               String?
+  status                   LeadStatus           @default(NEW)
+  tags                     String               @default("")
+  notes                    String?
+  pipelineStage            LeadPipelineStage    @default(NEW_LEAD)
+  serviceRequested         String?
+  serviceAddress           String?
+  appointmentRequested     Boolean              @default(false)
+  sourceCallLogId          String?
+  sourceCallLog            CallLog?             @relation("LeadSourceCall", fields: [sourceCallLogId], references: [id], onDelete: SetNull)
+  qualified                Boolean              @default(true)
+  qualificationReason      String?
+  classification           LeadClassification?
   classificationConfidence Float?
-  source           LeadSource @default(WEB_FORM)
-  dnc              Boolean    @default(false)
-  ip               String?
-  userAgent        String?
-  callLogs         CallLog[]
-  messageThreads   MessageThread[]
-  messages         Message[]
-  appointments     Appointment[]
-  appointmentRequests AppointmentRequest[]
-  serviceRequests  ServiceRequest[]
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  source                   LeadSource           @default(WEB_FORM)
+  dnc                      Boolean              @default(false)
+  ip                       String?
+  userAgent                String?
+  callLogs                 CallLog[]
+  messageThreads           MessageThread[]
+  messages                 Message[]
+  appointments             Appointment[]
+  appointmentRequests      AppointmentRequest[]
+  serviceRequests          ServiceRequest[]
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
 }
 
 model ServiceRequest {
-  id                   String       @id @default(cuid())
-  orgId                String
-  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  callLogId            String       @unique
-  callLog              CallLog      @relation(fields: [callLogId], references: [id], onDelete: Cascade)
-  leadId               String?
-  lead                 Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  customerName         String?
-  phone                String
-  serviceType          String?
-  urgency              String?
-  serviceAddress       String?
-  appointmentRequested Boolean      @default(false)
-  status               String
-  notes                String?
-  requestedAt          DateTime
-  assignedTo           String?
-  followUpSentAt       DateTime?
+  id                     String       @id @default(cuid())
+  orgId                  String
+  organization           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callLogId              String       @unique
+  callLog                CallLog      @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  leadId                 String?
+  lead                   Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customerName           String?
+  phone                  String
+  serviceType            String?
+  urgency                String?
+  serviceAddress         String?
+  appointmentRequested   Boolean      @default(false)
+  status                 String
+  notes                  String?
+  requestedAt            DateTime
+  assignedTo             String?
+  followUpSentAt         DateTime?
   automationMetadataJson Json?
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   @@index([orgId, createdAt])
   @@index([callLogId])
@@ -860,74 +884,74 @@ model ServiceRequest {
 }
 
 model MessageThread {
-  id           String    @id @default(cuid())
-  orgId        String
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  leadId       String?
-  lead         Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  channel      String    @default("SMS")
-  contactName  String?
-  contactPhone String
-  lastMessageAt DateTime @default(now())
-  messages     Message[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String       @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId        String?
+  lead          Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  channel       String       @default("SMS")
+  contactName   String?
+  contactPhone  String
+  lastMessageAt DateTime     @default(now())
+  messages      Message[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@unique([orgId, channel, contactPhone])
   @@index([orgId, lastMessageAt])
 }
 
 model Message {
-  id               String           @id @default(cuid())
-  threadId         String
-  thread           MessageThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  orgId            String
-  organization     Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  leadId           String?
-  lead             Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  direction        MessageDirection
-  status           MessageStatus
-  body             String
-  provider         String           @default("TWILIO")
+  id                String           @id @default(cuid())
+  threadId          String
+  thread            MessageThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  orgId             String
+  organization      Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId            String?
+  lead              Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  direction         MessageDirection
+  status            MessageStatus
+  body              String
+  provider          String           @default("TWILIO")
   providerMessageId String?
-  fromNumber       String?
-  toNumber         String?
-  errorText        String?
-  metadataJson     String           @default("{}")
-  sentAt           DateTime?
-  deliveredAt      DateTime?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  fromNumber        String?
+  toNumber          String?
+  errorText         String?
+  metadataJson      String           @default("{}")
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  @@index([orgId, createdAt])
   @@unique([orgId, providerMessageId])
+  @@index([orgId, createdAt])
 }
 
 model OutreachLead {
-  id              String             @id @default(cuid())
-  orgId           String
-  organization    Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  companyName     String?
-  contactName     String?
-  email           String
-  phone           String?
-  city            String?
-  state           String?
-  industry        String?
-  website         String?
-  angle           String?
-  painPoint       String?
-  offer           String?
-  sourceList      String?
-  notes           String?
-  status          OutreachLeadStatus @default(NEW)
-  lastContactedAt DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  enrollments     OutreachEnrollment[]
-  emailEvents     OutreachEmailEvent[]
+  id               String                    @id @default(cuid())
+  orgId            String
+  organization     Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  companyName      String?
+  contactName      String?
+  email            String
+  phone            String?
+  city             String?
+  state            String?
+  industry         String?
+  website          String?
+  angle            String?
+  painPoint        String?
+  offer            String?
+  sourceList       String?
+  notes            String?
+  status           OutreachLeadStatus        @default(NEW)
+  lastContactedAt  DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  enrollments      OutreachEnrollment[]
+  emailEvents      OutreachEmailEvent[]
   phoneEnrollments OutreachPhoneEnrollment[]
-  phoneEvents     OutreachPhoneEvent[]
+  phoneEvents      OutreachPhoneEvent[]
 
   @@index([orgId, status, createdAt(sort: Desc)])
   @@index([orgId, email])
@@ -952,27 +976,27 @@ model OutreachSequence {
 }
 
 model OutreachCallerConfig {
-  id                 String                   @id @default(cuid())
-  orgId              String
-  organization       Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  name               String
-  description        String?
-  isActive           Boolean                  @default(true)
-  vapiAssistantId    String?
-  vapiPhoneNumberId  String?
-  twilioFromNumber   String?
-  timezone           String                   @default("America/New_York")
-  windowStartHour    Int                      @default(9)
-  windowEndHour      Int                      @default(17)
-  maxCallsPerDay     Int                      @default(20)
-  prompt             String?
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  phoneEnrollments   OutreachPhoneEnrollment[]
-  phoneEvents        OutreachPhoneEvent[]
+  id                String                    @id @default(cuid())
+  orgId             String
+  organization      Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  isActive          Boolean                   @default(true)
+  vapiAssistantId   String?
+  vapiPhoneNumberId String?
+  twilioFromNumber  String?
+  timezone          String                    @default("America/New_York")
+  windowStartHour   Int                       @default(9)
+  windowEndHour     Int                       @default(17)
+  maxCallsPerDay    Int                       @default(20)
+  prompt            String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  phoneEnrollments  OutreachPhoneEnrollment[]
+  phoneEvents       OutreachPhoneEvent[]
 
-  @@index([orgId, isActive, createdAt(sort: Desc)])
   @@unique([orgId, name])
+  @@index([orgId, isActive, createdAt(sort: Desc)])
 }
 
 model OutreachSequenceStep {
@@ -1068,25 +1092,25 @@ model OutreachEmailEvent {
 }
 
 model OutreachPhoneEvent {
-  id                String                  @id @default(cuid())
-  orgId             String
-  organization      Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  leadId            String?
-  lead              OutreachLead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  enrollmentId      String?
-  enrollment        OutreachPhoneEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
-  callerConfigId    String?
-  callerConfig      OutreachCallerConfig?   @relation(fields: [callerConfigId], references: [id], onDelete: SetNull)
-  provider          String
-  providerCallId    String?
-  eventType         OutreachPhoneEventType
-  toPhone           String
-  fromPhone         String?
-  status            String?
-  summary           String?
-  errorMessage      String?
-  metadata          Json?
-  createdAt         DateTime                @default(now())
+  id             String                   @id @default(cuid())
+  orgId          String
+  organization   Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId         String?
+  lead           OutreachLead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  enrollmentId   String?
+  enrollment     OutreachPhoneEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  callerConfigId String?
+  callerConfig   OutreachCallerConfig?    @relation(fields: [callerConfigId], references: [id], onDelete: SetNull)
+  provider       String
+  providerCallId String?
+  eventType      OutreachPhoneEventType
+  toPhone        String
+  fromPhone      String?
+  status         String?
+  summary        String?
+  errorMessage   String?
+  metadata       Json?
+  createdAt      DateTime                 @default(now())
 
   @@index([orgId, eventType, createdAt(sort: Desc)])
   @@index([orgId, leadId, createdAt(sort: Desc)])
@@ -1108,131 +1132,136 @@ model OutreachSuppression {
 }
 
 model ProvisioningChecklist {
-  id            String   @id @default(cuid())
-  orgId         String   @unique
+  id            String       @id @default(cuid())
+  orgId         String       @unique
   organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  stepsJson     String   @default("[]")
+  stepsJson     String       @default("[]")
   derivedStatus String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  orgId       String?
+  id           String        @id @default(cuid())
+  orgId        String?
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  actorUserId String
-  actorRole   String
-  action      String
-  metadataJson String  @default("{}")
-  createdAt   DateTime @default(now())
+  actorUserId  String
+  actorRole    String
+  action       String
+  metadataJson String        @default("{}")
+  createdAt    DateTime      @default(now())
 }
 
 model BusinessSettings {
-  id                      String   @id @default(cuid())
-  orgId                   String   @unique
-  organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  hoursJson               String   @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
-  afterHoursMode          String   @default("TAKE_MESSAGE")
-  voiceRoutingMode        String   @default("AI_FIRST")
-  voiceForwardingEnabled  Boolean  @default(false)
-  voiceForwardingNumber   String   @default("")
-  voiceRingTimeoutSeconds Int      @default(20)
-  afterHoursVoiceFallbackEnabled Boolean @default(false)
-  voiceCallRecordingEnabled Boolean @default(false)
-  voiceMediaStreamingEnabled Boolean @default(false)
-  voiceMediaTrackStrategy   String   @default("BOTH_TRACKS")
-  voiceTranscriptionEnabled Boolean  @default(false)
-  serviceRequestAutomationEnabled Boolean @default(false)
-  serviceRequestFollowupSmsEnabled Boolean @default(false)
-  serviceRequestInternalAlertsEnabled Boolean @default(false)
-  transferNumbersJson     String   @default("[]")
-  notificationEmailsJson  String   @default("[]")
-  notificationPhonesJson  String   @default("[]")
-  notificationEmailRecipientsJson String @default("[]")
-  notificationTogglesJson String   @default("{}")
-  languagesJson           String   @default("[\"English\"]")
-  recordingConsentEnabled Boolean  @default(false)
-  smsConsentText          String   @default("")
-  timezone                String   @default("America/New_York")
-  averageJobValueUsd      Int      @default(650)
-  appointmentDurationMinutes Int   @default(60)
-  appointmentBufferMinutes Int     @default(15)
-  bookingLeadTimeHours    Int      @default(2)
-  bookingMaxDaysAhead     Int      @default(14)
-  classificationShadowMode Boolean @default(true)
-  classificationLlmDailyCap Int    @default(100)
-  servicesJson            String   @default("[]")
-  policiesJson            String   @default("{}")
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id                                  String       @id @default(cuid())
+  orgId                               String       @unique
+  organization                        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  hoursJson                           String       @default("{\"timezone\":\"America/New_York\",\"schedule\":{}}")
+  afterHoursMode                      String       @default("TAKE_MESSAGE")
+  voiceRoutingMode                    String       @default("AI_FIRST")
+  voiceForwardingEnabled              Boolean      @default(false)
+  voiceForwardingNumber               String       @default("")
+  voiceRingTimeoutSeconds             Int          @default(20)
+  afterHoursVoiceFallbackEnabled      Boolean      @default(false)
+  voiceCallRecordingEnabled           Boolean      @default(false)
+  voiceMediaStreamingEnabled          Boolean      @default(false)
+  voiceMediaTrackStrategy             String       @default("BOTH_TRACKS")
+  voiceTranscriptionEnabled           Boolean      @default(false)
+  serviceRequestAutomationEnabled     Boolean      @default(false)
+  serviceRequestFollowupSmsEnabled    Boolean      @default(false)
+  serviceRequestInternalAlertsEnabled Boolean      @default(false)
+  transferNumbersJson                 String       @default("[]")
+  notificationEmailsJson              String       @default("[]")
+  notificationPhonesJson              String       @default("[]")
+  notificationEmailRecipientsJson     String       @default("[]")
+  notificationTogglesJson             String       @default("{}")
+  languagesJson                       String       @default("[\"English\"]")
+  recordingConsentEnabled             Boolean      @default(false)
+  smsConsentText                      String       @default("")
+  timezone                            String       @default("America/New_York")
+  averageJobValueUsd                  Int          @default(650)
+  appointmentDurationMinutes          Int          @default(60)
+  appointmentBufferMinutes            Int          @default(15)
+  bookingLeadTimeHours                Int          @default(2)
+  bookingMaxDaysAhead                 Int          @default(14)
+  classificationShadowMode            Boolean      @default(true)
+  classificationLlmDailyCap           Int          @default(100)
+  servicesJson                        String       @default("[]")
+  policiesJson                        String       @default("{}")
+  createdAt                           DateTime     @default(now())
+  updatedAt                           DateTime     @updatedAt
 }
 
 model Appointment {
-  id                    String           @id @default(cuid())
-  orgId                 String
-  organization          Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  leadId                String?
-  lead                  Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  callLogId             String?
-  callLog               CallLog?         @relation(fields: [callLogId], references: [id], onDelete: SetNull)
-  customerName          String
-  customerPhone         String
-  issueSummary          String
-  assignedTechnician    String?
-  status                AppointmentStatus @default(PENDING)
-  startAt               DateTime
-  endAt                 DateTime
-  timezone              String
-  calendarProvider      CalendarProvider @default(INTERNAL)
+  id                      String                @id @default(cuid())
+  orgId                   String
+  organization            Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId                  String?
+  lead                    Lead?                 @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  callLogId               String?
+  callLog                 CallLog?              @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  customerName            String
+  customerPhone           String
+  issueSummary            String
+  assignedTechnician      String?
+  status                  AppointmentStatus     @default(PENDING)
+  startAt                 DateTime
+  endAt                   DateTime
+  timezone                String
+  calendarProvider        CalendarProvider      @default(INTERNAL)
   externalCalendarEventId String?
-  idempotencyKey        String?          @unique
-  createdByUserId       String?
-  appointmentRequest    AppointmentRequest?
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  externalSyncStatus      AppointmentSyncStatus @default(PENDING)
+  externalSyncError       String?
+  idempotencyKey          String?               @unique
+  createdByUserId         String?
+  appointmentRequest      AppointmentRequest?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  lastError               String?
+  failedAt                DateTime?
+  attempts                Int                   @default(0)
 
   @@index([orgId, startAt])
   @@index([orgId, status])
 }
 
 model AppointmentRequest {
-  id                    String                   @id @default(cuid())
-  orgId                 String
-  organization          Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  callLogId             String                   @unique
-  callLog               CallLog                  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
-  leadId                String?
-  lead                  Lead?                    @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  appointmentId         String?                  @unique
-  appointment           Appointment?             @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  status                AppointmentRequestStatus @default(PENDING_REVIEW)
-  source                AppointmentRequestSource @default(WORKER)
-  sourceVersion         String?
-  backfilledAt          DateTime?
-  callerPhone           String
-  followUpPhone         String?
-  customerName          String?
-  issueSummary          String?
-  serviceAddressRaw     String?
+  id                       String                    @id @default(cuid())
+  orgId                    String
+  organization             Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callLogId                String                    @unique
+  callLog                  CallLog                   @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  leadId                   String?
+  lead                     Lead?                     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  appointmentId            String?                   @unique
+  appointment              Appointment?              @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  status                   AppointmentRequestStatus  @default(PENDING_REVIEW)
+  source                   AppointmentRequestSource  @default(WORKER)
+  sourceVersion            String?
+  backfilledAt             DateTime?
+  callerPhone              String
+  followUpPhone            String?
+  customerName             String?
+  issueSummary             String?
+  serviceAddressRaw        String?
   serviceAddressNormalized Json?
-  requestedStartAt      DateTime?
-  requestedPreference   String?
-  assignedUserId        String?
-  assignedUser          User?                    @relation("AppointmentRequestAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  reviewedByUserId      String?
-  reviewedByUser        User?                    @relation("AppointmentRequestReviewedByUser", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  reviewedAt            DateTime?
-  denialReason          String?
-  offeredSlotsJson      Json?
-  selectedSlotStartAt   DateTime?
-  selectedSlotEndAt     DateTime?
-  scheduledAt           DateTime?
-  closedAt              DateTime?
-  lastEventAt           DateTime                 @default(now())
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
-  events                AppointmentRequestEvent[]
+  requestedStartAt         DateTime?
+  requestedPreference      String?
+  assignedUserId           String?
+  assignedUser             User?                     @relation("AppointmentRequestAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  reviewedByUserId         String?
+  reviewedByUser           User?                     @relation("AppointmentRequestReviewedByUser", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt               DateTime?
+  denialReason             String?
+  offeredSlotsJson         Json?
+  selectedSlotStartAt      DateTime?
+  selectedSlotEndAt        DateTime?
+  scheduledAt              DateTime?
+  closedAt                 DateTime?
+  lastEventAt              DateTime                  @default(now())
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  events                   AppointmentRequestEvent[]
 
   @@index([orgId, status, createdAt(sort: Desc)])
   @@index([orgId, lastEventAt(sort: Desc)])
@@ -1260,16 +1289,16 @@ model AppointmentRequestEvent {
 }
 
 model AppointmentHold {
-  id           String               @id @default(cuid())
+  id           String                @id @default(cuid())
   orgId        String
-  organization Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   slotStart    DateTime
   slotEnd      DateTime
   phone        String
   status       AppointmentHoldStatus @default(HELD)
   expiresAt    DateTime
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
   @@index([orgId, slotStart, slotEnd])
   @@index([orgId, expiresAt])
@@ -1277,29 +1306,29 @@ model AppointmentHold {
 }
 
 model CalendarConnection {
-  id              String           @id @default(cuid())
-  orgId           String
-  organization    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  provider        CalendarProvider
-  accountEmail    String
+  id                 String           @id @default(cuid())
+  orgId              String
+  organization       Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider           CalendarProvider
+  accountEmail       String
   selectedCalendarId String?
-  accessTokenEnc  String
-  refreshTokenEnc String
-  expiresAt       DateTime
-  scopesJson      String           @default("[]")
-  isActive        Boolean          @default(true)
-  isPrimary       Boolean          @default(false)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  accessTokenEnc     String
+  refreshTokenEnc    String
+  expiresAt          DateTime
+  scopesJson         String           @default("[]")
+  isActive           Boolean          @default(true)
+  isPrimary          Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@unique([orgId, provider, accountEmail])
   @@index([orgId, isActive])
 }
 
 model OrgNotification {
-  id            String              @id @default(cuid())
+  id            String               @id @default(cuid())
   orgId         String
-  organization  Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization  Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   type          NotificationType
   severity      NotificationSeverity
   title         String
@@ -1307,8 +1336,8 @@ model OrgNotification {
   targetRoleMin String
   readAt        DateTime?
   metadataJson  Json?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([orgId, createdAt])
   @@index([orgId, readAt])
@@ -1331,75 +1360,75 @@ model CallClassificationLog {
 }
 
 model LoginChallenge {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   email       String
   codeHash    String
   expiresAt   DateTime
   consumedAt  DateTime?
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(5)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([userId, createdAt])
   @@index([email, createdAt])
 }
 
 model PasswordResetToken {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email      String
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([userId, createdAt])
   @@index([email, createdAt])
 }
 
 model ConfigPackage {
-  id                String       @id @default(cuid())
-  orgId             String       @unique
-  organization      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  version           Int          @default(1)
+  id                String                 @id @default(cuid())
+  orgId             String                 @unique
+  organization      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  version           Int                    @default(1)
   json              Json
-  generatedAt       DateTime     @default(now())
+  generatedAt       DateTime               @default(now())
   generatedByUserId String?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   versions          ConfigPackageVersion[]
 }
 
 model AiAgentConfigVersion {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   aiAgentConfigId String
   aiAgentConfig   AiAgentConfig @relation(fields: [aiAgentConfigId], references: [id], onDelete: Cascade)
   version         Int
   configJson      Json
   createdByUserId String?
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime      @default(now())
 
   @@index([orgId, createdAt])
   @@index([aiAgentConfigId, createdAt])
 }
 
 model ConfigPackageVersion {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   configPackageId String
   configPackage   ConfigPackage @relation(fields: [configPackageId], references: [id], onDelete: Cascade)
   version         Int
   packageJson     Json
   createdByUserId String?
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime      @default(now())
 
   @@index([orgId, createdAt])
   @@index([configPackageId, createdAt])
@@ -1419,19 +1448,19 @@ model TestScenario {
 }
 
 model TestRun {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   orgId          String
-  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   scenarioId     String
-  scenario       TestScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  scenario       TestScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
   providerCallId String?
   status         TestRunStatus
   notes          String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime      @default(now())
 }
 
 model WebhookEventLog {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   orgId          String?
   organization   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   provider       String
@@ -1439,9 +1468,9 @@ model WebhookEventLog {
   requestId      String?
   statusCode     Int
   reason         String?
-  headersJson    String       @default("{}")
-  payloadSnippet String       @default("{}")
-  createdAt      DateTime     @default(now())
+  headersJson    String        @default("{}")
+  payloadSnippet String        @default("{}")
+  createdAt      DateTime      @default(now())
 }
 
 model VapiWebhookEvent {
@@ -1460,11 +1489,11 @@ model VapiWebhookEvent {
 }
 
 model FinalizeBookingJob {
-  id                String   @id @default(cuid())
-  callId            String   @unique
-  status            String   @default("queued")
-  attemptCount      Int      @default(0)
-  nextAttemptAt     DateTime @default(now())
+  id                String    @id @default(cuid())
+  callId            String    @unique
+  status            String    @default("queued")
+  attemptCount      Int       @default(0)
+  nextAttemptAt     DateTime  @default(now())
   claimedAt         DateTime?
   processedAt       DateTime?
   smsSentAt         DateTime?
@@ -1472,22 +1501,22 @@ model FinalizeBookingJob {
   error             String?
   decisionVersion   String?
   decisionInputHash String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([status, nextAttemptAt])
 }
 
 model RefreshSession {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash     String   @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash     String    @unique
   expiresAt     DateTime
   revokedAt     DateTime?
   rotatedFromId String?
   familyId      String
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([userId, createdAt])
   @@index([familyId])
@@ -1508,31 +1537,49 @@ model WebhookReplayGuard {
 }
 
 model BillingWebhookEvent {
-  id             String       @id @default(cuid())
-  eventId        String       @unique
-  eventType      String
-  stripeCustomerId String?
+  id                   String        @id @default(cuid())
+  eventId              String        @unique
+  eventType            String
+  stripeCustomerId     String?
   stripeSubscriptionId String?
-  orgId          String?
-  organization   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  processed      Boolean      @default(false)
-  processingError String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  orgId                String?
+  organization         Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  processed            Boolean       @default(false)
+  payload              Json?
+  processingError      String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   @@index([orgId, createdAt])
   @@index([stripeSubscriptionId, createdAt])
 }
 
+model SmsWebhookEvent {
+  id                String        @id @default(cuid())
+  provider          String        @default("TWILIO")
+  messageSid        String        @unique
+  eventType         String
+  payload           Json
+  orgId             String?
+  organization      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  processed         Boolean       @default(false)
+  processingError   String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([messageSid])
+}
+
 model OrganizationDemoState {
-  id                    String       @id @default(cuid())
-  orgId                 String       @unique
-  organization          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  demoStartedAt         DateTime?
-  demoEndsAt            DateTime?
+  id                      String       @id @default(cuid())
+  orgId                   String       @unique
+  organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  demoStartedAt           DateTime?
+  demoEndsAt              DateTime?
   startedByProviderCallId String?
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
 }
 
 model DemoAiAttempt {
@@ -1561,33 +1608,33 @@ model DemoUpgradeSmsThrottle {
 }
 
 model AppConfig {
-  id               String   @id @default("singleton")
-  demoNumber       String?
-  demoVapiAssistantId String?
-  demoVapiPhoneNumberId String?
-  demoTitle        String?
-  demoSubtitle     String?
-  demoQuestionsJson String  @default("[]")
-  opsThresholdsJson String  @default("{}")
-  adminReportRecipientsJson String @default("[]")
-  updatedByUserId  String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                        String   @id @default("singleton")
+  demoNumber                String?
+  demoVapiAssistantId       String?
+  demoVapiPhoneNumberId     String?
+  demoTitle                 String?
+  demoSubtitle              String?
+  demoQuestionsJson         String   @default("[]")
+  opsThresholdsJson         String   @default("{}")
+  adminReportRecipientsJson String   @default("[]")
+  updatedByUserId           String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model ScaleGateDecisionLog {
-  id                   String          @id @default(cuid())
-  evaluatedAt          DateTime        @default(now())
-  evaluationTimestamp  DateTime
-  result               ScaleGateResult
-  failingCriteriaJson  Json
-  metricsSnapshotJson  Json
-  actorUserId          String?
-  promotionAttempted   Boolean         @default(false)
-  systemicFailTriggered Boolean        @default(false)
-  orgId                String?
-  organization         Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  createdAt            DateTime        @default(now())
+  id                    String          @id @default(cuid())
+  evaluatedAt           DateTime        @default(now())
+  evaluationTimestamp   DateTime
+  result                ScaleGateResult
+  failingCriteriaJson   Json
+  metricsSnapshotJson   Json
+  actorUserId           String?
+  promotionAttempted    Boolean         @default(false)
+  systemicFailTriggered Boolean         @default(false)
+  orgId                 String?
+  organization          Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdAt             DateTime        @default(now())
 
   @@index([evaluatedAt])
   @@index([result, evaluatedAt])
@@ -1595,22 +1642,64 @@ model ScaleGateDecisionLog {
 }
 
 model DemoCallLog {
-  id               String   @id @default(cuid())
-  providerCallId   String   @unique
-  assistantId      String?
-  phoneNumberId    String?
-  fromNumber       String
-  toNumber         String
-  status           String?
-  outcome          CallLogOutcome?
-  aiSummary        String?
-  transcript       String?
-  recordingUrl     String?
+  id                String          @id @default(cuid())
+  providerCallId    String          @unique
+  assistantId       String?
+  phoneNumberId     String?
+  fromNumber        String
+  toNumber          String
+  status            String?
+  outcome           CallLogOutcome?
+  aiSummary         String?
+  transcript        String?
+  recordingUrl      String?
   successEvaluation Float?
-  durationSec      Int?
-  startedAt        DateTime @default(now())
-  endedAt          DateTime?
-  rawJson          Json?
-  createdAt        DateTime @default(now())
+  durationSec       Int?
+  startedAt         DateTime        @default(now())
+  endedAt           DateTime?
+  rawJson           Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model IdempotencyKey {
+  key       String   @id
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model SystemFlag {
+  id               String   @id @default("singleton")
+  disableMessaging Boolean  @default(false)
+  disableOutreach  Boolean  @default(false)
+  disableWebhooks  Boolean  @default(false)
   updatedAt        DateTime @updatedAt
+}
+
+model BulkImportJob {
+  id            String           @id @default(cuid())
+  orgId         String
+  organization  Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  type          String // e.g. "PROSPECT", "OUTREACH_LEAD"
+  status        BulkImportStatus @default(QUEUED)
+  totalRows     Int              @default(0)
+  processedRows Int              @default(0)
+  failedRows    Int              @default(0)
+  error         String?
+  sourceData    String? // Durable source of truth for the raw CSV data
+  successCount  Int              @default(0)
+  failureCount  Int              @default(0)
+  lastError     String?          
+  failedAt      DateTime?
+  attempts      Int              @default(0)
+  metadataJson  Json?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([orgId, status])
+  @@index([createdAt])
 }

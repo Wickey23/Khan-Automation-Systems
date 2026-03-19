@@ -5,13 +5,21 @@ import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
 import { OutreachPhoneEventDetailCard } from "@/components/admin/outreach-phone-event-detail";
-import { fetchAdminOutreachEvents, fetchAdminOutreachPhoneEvent } from "@/lib/api";
+import { fetchAdminOutreachEvents, fetchAdminOutreachPhoneEvent, retryAdminOutreachEvent } from "@/lib/api";
 import type { OutreachActivityEvent, OutreachPhoneEventDetail } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StateCard } from "@/components/ui/state-card";
+
+const EVENT_TYPES = ["QUEUED", "SENT", "STARTED", "COMPLETED", "FAILED", "REPLIED", "UNSUBSCRIBED", "BOUNCED"] as const;
+
+function humanize(value?: string) {
+  if (!value) return "Unknown";
+  return value.replace(/_/g, " ").toLowerCase();
+}
 
 export default function AdminOutreachEventsPage() {
   const { showToast } = useToast();
@@ -21,6 +29,8 @@ export default function AdminOutreachEventsPage() {
   const [events, setEvents] = useState<OutreachActivityEvent[]>([]);
   const [selectedPhoneEvent, setSelectedPhoneEvent] = useState<OutreachPhoneEventDetail | null>(null);
   const [loadingEventId, setLoadingEventId] = useState<string | null>(null);
+  const [retryingEventId, setRetryingEventId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -32,6 +42,7 @@ export default function AdminOutreachEventsPage() {
   }, [channel, eventType, search]);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const eventData = await fetchAdminOutreachEvents(query);
       setEvents(eventData.events || []);
@@ -41,6 +52,8 @@ export default function AdminOutreachEventsPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+    } finally {
+      setLoading(false);
     }
   }, [query, showToast]);
 
@@ -64,6 +77,30 @@ export default function AdminOutreachEventsPage() {
     }
   }
 
+  const handleRetryEvent = useCallback(
+    async (event: OutreachActivityEvent) => {
+      setRetryingEventId(event.id);
+      try {
+        const result = await retryAdminOutreachEvent({ eventId: event.id, channel: event.channel });
+        showToast({
+          title: "Retry queued",
+          description: result.message || "This outreach event will be reprocessed shortly.",
+          variant: "success"
+        });
+        await load();
+      } catch (error) {
+        showToast({
+          title: "Retry failed",
+          description: error instanceof Error ? error.message : "Try again later.",
+          variant: "error"
+        });
+      } finally {
+        setRetryingEventId(null);
+      }
+    },
+    [load, showToast]
+  );
+
   const summary = useMemo(() => {
     return {
       email: events.filter((event) => event.channel === "EMAIL").length,
@@ -75,119 +112,242 @@ export default function AdminOutreachEventsPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <div className="container py-10 space-y-6">
+      <PageShell className="space-y-6">
         <AdminTopTabs />
-        <PageHeader
-          eyebrow="Internal growth"
-          title="Outreach Logs"
-          description="Review the email log and call log for every send, AI call attempt, provider response, reply, and failure."
-        />
-        <OutreachSubnav />
-        <WorkflowHint
-          title="How to read this log"
-          items={[
-            { label: "Start here", text: "Use the channel filter as your log switch. Email only is your email log. Caller AI only is your call log." },
-            { label: "Phone failures", text: "Open the call detail for failed or completed phone events to inspect transcript, summary, recording link, provider call ID, and the caller profile used." },
-            { label: "Operator rule", text: "A failed event means fix the setup before running more outreach in that lane. A replied lead means move it into a real follow-up path." }
-          ]}
-        />
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card><CardContent className="p-5"><p className="page-eyebrow">Visible events</p><p className="mt-2 text-2xl font-semibold">{events.length}</p></CardContent></Card>
-          <Card><CardContent className="p-5"><p className="page-eyebrow">Email events</p><p className="mt-2 text-2xl font-semibold">{summary.email}</p></CardContent></Card>
-          <Card><CardContent className="p-5"><p className="page-eyebrow">Phone events</p><p className="mt-2 text-2xl font-semibold">{summary.phone}</p></CardContent></Card>
-          <Card><CardContent className="p-5"><p className="page-eyebrow">Failures in view</p><p className={`mt-2 text-2xl font-semibold ${summary.failed ? "text-red-700" : ""}`}>{summary.failed}</p></CardContent></Card>
-        </div>
+        <SectionShell className="surface-panel">
+          <PageHeader
+            eyebrow="Internal growth"
+            title="Outreach Logs"
+            description="Review every email send and Caller AI attempt with status badges, timestamps, and call detail links."
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => void load()}>
+                  Refresh log
+                </Button>
+              </div>
+            }
+          />
+          <OutreachSubnav />
+        </SectionShell>
 
-        <Card>
-          <CardContent className="grid gap-3 p-5 md:grid-cols-3">
-            <select
-              value={channel}
-              onChange={(event) => setChannel(event.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              <option value="ALL">All channels</option>
-              <option value="EMAIL">Email only</option>
-              <option value="PHONE">Caller AI only</option>
-            </select>
-            <select
-              value={eventType}
-              onChange={(event) => setEventType(event.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              <option value="ALL">All event types</option>
-              {["QUEUED", "SENT", "STARTED", "COMPLETED", "FAILED", "REPLIED", "UNSUBSCRIBED", "BOUNCED"].map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            <Input placeholder="Search email, phone, company, subject, or summary" value={search} onChange={(event) => setSearch(event.target.value)} />
-          </CardContent>
-        </Card>
+        <SectionShell className="surface-panel">
+          <WorkflowHint
+            title="How to read this log"
+            items={[
+              { label: "Start here", text: "Use the channel filter as your log switch. Email only shows outbound email events; Caller AI only shows phone activity." },
+              { label: "Phone failures", text: "Failed or completed phone events include a link to the intake call detail for transcripts and recordings." },
+              { label: "Operator rule", text: "Fix the setup for failed events before running more outreach, and move replied leads into follow-up paths." },
+              { label: "Retry action", text: "Manual Retry appears on failed events tied to enrollments after you resolve setup or blocking issues." }
+            ]}
+          />
+        </SectionShell>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Event history</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {events.length ? (
-              events.map((event) => (
-                <div key={`${event.channel}-${event.id}`} className="rounded-lg border p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold">
-                        {event.channel === "EMAIL"
-                          ? event.subject || "Email outreach"
-                          : event.summary || `${event.callerConfig?.name || "Caller AI"} phone outreach`}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
-                        {event.lead?.companyName ? ` · ${event.lead.companyName}` : ""}
-                      </div>
-                    </div>
-                    <div className="text-sm">{event.channel} · {event.eventType}</div>
+        <SectionShell className="surface-panel space-y-6">
+          <SectionHeading title="Event volume" description="Counts by channel and priority statuses for quick situational awareness." />
+          {loading ? (
+            <StateCard variant="loading" title="Loading events" />
+          ) : (
+            <div className="metric-grid">
+              {[
+                { label: "Visible events", value: events.length, state: "ready" },
+                { label: "Email events", value: summary.email, state: "processing" },
+                { label: "Phone events", value: summary.phone, state: summary.failed > 0 ? "failed" : "processing" },
+                { label: "Failures in view", value: summary.failed, state: summary.failed > 0 ? "failed" : "ready" }
+              ].map((item) => (
+                <div key={item.label} className="metric-card space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                    <StatusBadge kind="job" state={item.state} label={item.state === "ready" ? "Healthy" : undefined} size="xs" />
                   </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    {new Date(event.createdAt).toLocaleString()}
-                    {event.channel === "EMAIL" && event.providerMessageId ? ` · provider ${event.providerMessageId}` : ""}
-                    {event.channel === "PHONE" && event.providerCallId ? ` · call ${event.providerCallId}` : ""}
-                  </div>
-                  {event.channel === "PHONE" && event.status ? (
-                    <div className="mt-2 text-sm text-muted-foreground">Status: {event.status}</div>
-                  ) : null}
-                  {event.channel === "PHONE" && event.summary ? (
-                    <div className="mt-2 text-sm text-foreground">{event.summary}</div>
-                  ) : null}
-                  {event.errorMessage ? <div className="mt-2 text-sm text-red-700">{event.errorMessage}</div> : null}
-                  {event.channel === "PHONE" ? (
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={loadingEventId === event.id}
-                        onClick={() => void openPhoneEvent(event.id)}
-                      >
-                        {loadingEventId === event.id ? "Loading..." : "View call details"}
-                      </Button>
-                    </div>
-                  ) : null}
+                  <p className="text-2xl font-black text-slate-950">{item.value}</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">No outreach events yet.</div>
-            )}
-          </CardContent>
-        </Card>
+              ))}
+            </div>
+          )}
+        </SectionShell>
+
+        <FiltersSection
+          channel={channel}
+          setChannel={setChannel}
+          eventType={eventType}
+          setEventType={setEventType}
+          search={search}
+          setSearch={setSearch}
+          load={load}
+        />
+
+        <EventsListSection
+          events={events}
+          loading={loading}
+          loadingEventId={loadingEventId}
+          retryingEventId={retryingEventId}
+          onRetry={handleRetryEvent}
+          openPhoneEvent={openPhoneEvent}
+        />
 
         {selectedPhoneEvent ? (
-          <OutreachPhoneEventDetailCard
-            event={selectedPhoneEvent}
-            onClose={() => setSelectedPhoneEvent(null)}
-          />
+          <OutreachPhoneEventDetailCard event={selectedPhoneEvent} onClose={() => setSelectedPhoneEvent(null)} />
         ) : null}
-      </div>
+      </PageShell>
     </AdminGuard>
+  );
+}
+
+function FiltersSection({
+  channel,
+  setChannel,
+  eventType,
+  setEventType,
+  search,
+  setSearch,
+  load
+}: {
+  channel: string;
+  setChannel: (value: string) => void;
+  eventType: string;
+  setEventType: (value: string) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  load: () => Promise<void>;
+}) {
+  return (
+    <SectionShell className="surface-panel space-y-4">
+      <SectionHeading title="Filters & search" description="Limit the log by channel, event type, or keywords." />
+      <div className="grid gap-4 md:grid-cols-3">
+        <select
+          value={channel}
+          onChange={(event) => setChannel(event.target.value)}
+          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
+        >
+          <option value="ALL">All channels</option>
+          <option value="EMAIL">Email only</option>
+          <option value="PHONE">Caller AI only</option>
+        </select>
+        <select
+          value={eventType}
+          onChange={(event) => setEventType(event.target.value)}
+          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
+        >
+          <option value="ALL">All event types</option>
+          {EVENT_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {humanize(type)}
+            </option>
+          ))}
+        </select>
+        <div className="relative flex items-center gap-3">
+          <Input
+            className="pl-3"
+            placeholder="Search email, phone, company, subject, or summary"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <Button variant="ghost" size="sm" onClick={() => void load()}>
+            Go
+          </Button>
+        </div>
+      </div>
+    </SectionShell>
+  );
+}
+
+function EventsListSection({
+  events,
+  loading,
+  loadingEventId,
+  retryingEventId,
+  onRetry,
+  openPhoneEvent
+}: {
+  events: OutreachActivityEvent[];
+  loading: boolean;
+  loadingEventId: string | null;
+  retryingEventId: string | null;
+  onRetry: (event: OutreachActivityEvent) => Promise<void>;
+  openPhoneEvent: (id: string) => Promise<void>;
+}) {
+  return (
+    <SectionShell className="surface-panel space-y-4">
+      <SectionHeading title="Event history" description="Each row summarizes the outcome, status, and links to related data." />
+      {loading ? (
+        <StateCard variant="loading" title="Loading history" description="Refreshing event activity." />
+      ) : events.length ? (
+        <div className="space-y-3">
+          {events.map((event) => {
+            const isFailed = event.eventType === "FAILED";
+            const hasEnrollment = Boolean(event.enrollmentId);
+            const hasCallerConfig = event.channel === "EMAIL" || Boolean(event.callerConfigId);
+            const canRetry = isFailed && hasEnrollment && hasCallerConfig;
+            const retryHint = !isFailed
+              ? "Only failed outreach events can be retried."
+              : !hasEnrollment
+                ? "This event must stay tied to an enrollment to be retried."
+                : event.channel === "PHONE" && !event.callerConfigId
+                  ? "Caller AI configuration is required for phone retries."
+                  : "Retry is not available for this event.";
+            return (
+              <div key={`${event.channel}-${event.id}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="max-w-[65%]">
+                  <p className="text-lg font-semibold text-slate-900">
+                    {event.channel === "EMAIL" ? event.subject || "Email outreach" : event.summary || `${event.callerConfig?.name || "Caller AI"} phone outreach`}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
+                    {event.lead?.companyName ? ` · ${event.lead.companyName}` : ""}
+                  </p>
+                </div>
+                <StatusBadge kind={event.channel === "PHONE" ? "call" : "sms"} state={event.eventType} label={humanize(event.eventType)} size="xs" />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                <span>{new Date(event.createdAt).toLocaleString()}</span>
+                <span>
+                  {event.channel === "EMAIL" && event.providerMessageId ? `provider ${event.providerMessageId}` : ""}
+                  {event.channel === "PHONE" && event.providerCallId ? `call ${event.providerCallId}` : ""}
+                </span>
+              </div>
+              {event.channel === "PHONE" && event.status ? (
+                <div className="mt-2 text-sm text-slate-500">Status: {humanize(event.status)}</div>
+              ) : null}
+              {event.channel === "PHONE" && event.summary ? (
+                <div className="mt-2 text-sm text-slate-600">{event.summary}</div>
+              ) : null}
+              {event.errorMessage ? <div className="mt-2 text-sm text-rose-600">{event.errorMessage}</div> : null}
+              {event.channel === "PHONE" ? (
+                <div className="mt-3">
+                  <Button
+                    className="inline-flex items-center gap-2"
+                    size="sm"
+                    variant="outline"
+                    disabled={loadingEventId === event.id}
+                    onClick={() => void openPhoneEvent(event.id)}
+                  >
+                    {loadingEventId === event.id ? "Loading..." : "Open call detail"}
+                  </Button>
+                </div>
+              ) : null}
+              <div className="mt-3">
+                {canRetry ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={retryingEventId === event.id}
+                    onClick={() => void onRetry(event)}
+                  >
+                    {retryingEventId === event.id ? "Retrying..." : "Retry event"}
+                  </Button>
+                ) : (
+                  <p className="text-xs text-slate-500">{retryHint}</p>
+                )}
+              </div>
+            </div>
+          );
+          })}
+        </div>
+      ) : (
+        <StateCard variant="empty" title="No outreach events" description="No email or Caller AI activity found for the current filters." />
+      )}
+    </SectionShell>
   );
 }

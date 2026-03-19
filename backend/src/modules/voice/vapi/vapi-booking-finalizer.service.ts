@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { AppointmentRequestActorType, type PrismaClient } from "@prisma/client";
+import { AppointmentRequestActorType, type FinalizeBookingJob, type PrismaClient } from "@prisma/client";
 import { env } from "../../../config/env";
 import { isFeatureEnabledForOrg } from "../../org/feature-gates";
 import { upsertAppointmentRequestFromWorkerResult } from "../../appointments/appointment-request.service";
@@ -21,6 +21,7 @@ import {
 import { sendSmsMessage } from "../../twilio/twilio.service";
 import { evaluateBookingRuleEngine, extractToolArgsFromPayload } from "./booking-rule-engine";
 import { evaluateBookingState } from "./booking-state-machine";
+import { prisma } from "../../../lib/prisma";
 
 const DECISION_VERSION = "2026-03-06.1";
 const RETRY_BASE_MS = [5_000, 30_000, 120_000, 300_000];
@@ -285,25 +286,32 @@ async function findRequestIdForCall(prisma: PrismaClient, orgId: string, callId:
 }
 
 export async function persistVapiWebhookEvent(input: {
-  prisma: PrismaClient;
+  prisma?: PrismaClient;
   callId: string;
   messageType: string;
-  eventTs: number | null;
+  eventTs?: number | null;
   payload: unknown;
 }) {
+  const db = input.prisma || prisma;
   const payloadHash = hashJson(input.payload);
   try {
-    await input.prisma.vapiWebhookEvent.create({
+    return await db.vapiWebhookEvent.create({
       data: {
         callId: input.callId,
         messageType: input.messageType,
-        eventTs: input.eventTs === null ? null : BigInt(input.eventTs),
+        eventTs: input.eventTs === undefined || input.eventTs === null ? null : BigInt(input.eventTs),
         payload: input.payload as object,
         payloadHash
       }
     });
-  } catch {
+  } catch (error) {
     // Duplicate/invalid event should not block webhook processing.
+    // But we might need the ID of the existing one if we want to enqueue it.
+    if ((error as any).code === "P2002") {
+       return await db.vapiWebhookEvent.findFirst({
+         where: { callId: input.callId, messageType: input.messageType, eventTs: input.eventTs === undefined || input.eventTs === null ? null : BigInt(input.eventTs) }
+       });
+    }
   }
 }
 
@@ -784,9 +792,46 @@ async function finalizeBookingFromCall(input: { prisma: PrismaClient; callId: st
   };
 }
 
+async function logBookingFinalizerAudit(input: {
+  job: FinalizeBookingJob;
+  orgId?: string | null;
+  action: "BOOKING_FINALIZER_STARTED" | "BOOKING_FINALIZER_COMPLETED" | "BOOKING_FINALIZER_FAILED";
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        orgId: input.orgId || null,
+        actorUserId: "booking-finalizer",
+        actorRole: "SYSTEM",
+        action: input.action,
+        metadataJson: JSON.stringify({
+          jobId: input.job.id,
+          callId: input.job.callId,
+          ...input.metadata
+        })
+      }
+    });
+  } catch {
+    // best effort logging only
+  }
+}
+
 export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
   const job = await claimNextJob(prisma);
   if (!job) return null;
+  const relatedCall = await prisma.callLog.findFirst({
+    where: { OR: [{ providerCallId: job.callId }, { id: job.callId }] },
+    select: { id: true, orgId: true }
+  });
+  const orgId = relatedCall?.orgId || null;
+  const callLogId = relatedCall?.id || null;
+  await logBookingFinalizerAudit({
+    job,
+    orgId,
+    action: "BOOKING_FINALIZER_STARTED",
+    metadata: { callLogId, attemptCount: job.attemptCount }
+  });
 
   try {
     const result = await finalizeBookingFromCall({
@@ -959,6 +1004,21 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
       );
     }
 
+    const updatedJob = await prisma.finalizeBookingJob.findUnique({ where: { id: job.id } });
+    await logBookingFinalizerAudit({
+      job,
+      orgId: resultObj.orgId || orgId,
+      action: "BOOKING_FINALIZER_COMPLETED",
+      metadata: {
+        callLogId,
+        attemptCount: job.attemptCount,
+        state,
+        appointmentId: resultObj.appointmentId || null,
+        smsSent: Boolean(updatedJob?.smsSentAt),
+        smsSentAt: updatedJob?.smsSentAt?.toISOString() || null,
+        status: updatedJob?.status ?? null
+      }
+    });
     return result;
   } catch (error) {
     const code = String((error as Error & { code?: string })?.code || "");
@@ -974,6 +1034,19 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
           ? undefined
           : ({ failed: true, reason: error instanceof Error ? error.message : "unknown_error" } as object),
         processedAt: shouldRetry ? null : new Date()
+      }
+    });
+    const failedJob = await prisma.finalizeBookingJob.findUnique({ where: { id: job.id } });
+    await logBookingFinalizerAudit({
+      job,
+      orgId,
+      action: "BOOKING_FINALIZER_FAILED",
+      metadata: {
+        callLogId,
+        attemptCount: job.attemptCount,
+        error: error instanceof Error ? error.message : "unknown_error",
+        nextAttemptAt: failedJob?.nextAttemptAt?.toISOString() || null,
+        status: failedJob?.status ?? null
       }
     });
     return null;

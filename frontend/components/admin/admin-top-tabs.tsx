@@ -41,6 +41,7 @@ const adminTabGroups: AdminTabGroup[] = [
     tone: "from-white to-zinc-50 border-zinc-200",
     tabs: [
       { label: "System", href: "/admin/system", matches: ["/admin/system"], description: "Global reliability and scale gate." },
+      { label: "Operations", href: "/admin/ops", matches: ["/admin/ops"], description: "Tenant webhook/queue health and SMS audit." },
       { label: "Events", href: "/admin/events", matches: ["/admin/events"], description: "Audit timeline and mutations." },
       { label: "Reports", href: "/admin/reports", matches: ["/admin/reports"], description: "Scheduled internal diagnostics emails." }
     ]

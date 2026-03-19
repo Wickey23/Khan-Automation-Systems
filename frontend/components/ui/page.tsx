@@ -137,3 +137,11 @@ export function PageHelpFab({
     </>
   );
 }
+
+export function PageShell({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={cn("page-shell", className)}>{children}</div>;
+}
+
+export function SectionShell({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <section className={cn("section-shell", className)}>{children}</section>;
+}

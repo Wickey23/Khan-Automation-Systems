@@ -38,7 +38,10 @@ import { runDataIntegrityGuardTick } from "./modules/ops/data-integrity-guard.se
 import { runFinalizeBookingWorkerTick } from "./modules/voice/vapi/vapi-booking-finalizer.service";
 import { attachVoiceMediaStreamServer } from "./modules/voice/media-stream/voice-media-stream-server";
 import { runOutreachRunnerTick } from "./modules/outreach/outreach-runner.service";
-import { runAdminReportsTick } from "./modules/admin/admin-reporting.service";
+import { webhookWorker } from "./workers/webhook-worker";
+import { importWorker } from "./workers/import-worker";
+import { backgroundWorker } from "./workers/background-worker";
+import { backgroundTasksQueue } from "./lib/queue";
 
 const app = express();
 const server = createServer(app);
@@ -157,387 +160,65 @@ app.use("/api/vapi", vapiWebhookRateLimit, vapiRouter);
 app.use("/api/tools", toolRateLimit, toolsRouter);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
+  // Log the full error server-side but never return internal details to the client.
   // eslint-disable-next-line no-console
-  console.error(error);
-  res.status(500).json({ ok: false, message: error.message || "Unexpected server error." });
+  console.error(JSON.stringify({
+    event: "UNHANDLED_ERROR",
+    name: error?.name,
+    message: error?.message,
+    // Truncate stack to 800 chars to avoid dumping full Prisma query context in logs
+    stack: (error?.stack || "").slice(0, 800)
+  }));
+  const isProd = process.env.SECURITY_MODE === "production" || process.env.NODE_ENV === "production";
+  res.status(500).json({ ok: false, message: isProd ? "An unexpected error occurred." : (error.message || "Unexpected server error.") });
 });
 
 const PORT = process.env.PORT || "3001";
-let backfillTimer: NodeJS.Timeout | null = null;
-let slaMonitorTimer: NodeJS.Timeout | null = null;
-let dataIntegrityGuardTimer: NodeJS.Timeout | null = null;
-let webhookRetentionTimer: NodeJS.Timeout | null = null;
-let finalizeBookingTimer: NodeJS.Timeout | null = null;
-let securityRetentionTimer: NodeJS.Timeout | null = null;
-let outreachRunnerTimer: NodeJS.Timeout | null = null;
-let adminReportsTimer: NodeJS.Timeout | null = null;
-let isBackfillWorkerRunning = false;
-let isSlaMonitorWorkerRunning = false;
-let isDataIntegrityGuardWorkerRunning = false;
-let isFinalizeBookingWorkerRunning = false;
-let isOutreachRunnerWorkerRunning = false;
-let isAdminReportsWorkerRunning = false;
 const voiceMediaStreamServer = attachVoiceMediaStreamServer({ server, prisma });
+
+async function scheduleRepeatableJobs() {
+  // Clear any existing repeatable jobs to avoid duplicates on restart
+  const jobs = await backgroundTasksQueue.getRepeatableJobs();
+  for (const job of jobs) {
+    await backgroundTasksQueue.removeRepeatableByKey(job.key);
+  }
+
+  // Schedule background tasks
+  await backgroundTasksQueue.add("outreach-runner", {}, { repeat: { every: 60000 } });
+  await backgroundTasksQueue.add("booking-finalizer", {}, { repeat: { every: 10000 } });
+  await backgroundTasksQueue.add("sla-monitor", {}, { repeat: { every: 60000 } });
+  await backgroundTasksQueue.add("data-integrity", {}, { repeat: { every: 300000 } });
+  await backgroundTasksQueue.add("admin-reports", {}, { repeat: { pattern: "0 0 * * *" } }); // Midnight daily
+  
+  console.log("[Queue] Repeatable jobs scheduled.");
+}
 async function ensureAdminUser() {
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
-    const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 12);
-    await prisma.user.upsert({
-      where: { email },
-      update: { passwordHash, role: UserRole.SUPER_ADMIN },
-      create: { email, passwordHash, role: UserRole.SUPER_ADMIN }
-    });
-    // eslint-disable-next-line no-console
-    console.log(`Admin ensured for ${email}`);
+    // Only create the admin user if they don't already exist.
+    // Do NOT reset the password on every restart — that would silently overwrite
+    // any password changes and couples admin security tightly to deployment.
+    const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (!existing) {
+      const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 12);
+      await prisma.user.create({
+        data: { email, passwordHash, role: UserRole.SUPER_ADMIN }
+      });
+      // eslint-disable-next-line no-console
+      console.log("Admin user bootstrapped.");
+    } else {
+      // Ensure role is always SUPER_ADMIN even if row already exists (safe update).
+      await prisma.user.update({
+        where: { email },
+        data: { role: UserRole.SUPER_ADMIN }
+      });
+    }
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("Failed to ensure admin user", error);
+    console.error("Failed to ensure admin user", error instanceof Error ? error.message : "unknown");
   }
 }
 
-function startVapiBackfillWorker() {
-  const enabled = env.VAPI_BACKFILL_ENABLED === "true";
-  const interval = Number.parseInt(env.VAPI_BACKFILL_INTERVAL_MS, 10);
-  if (!enabled || !Number.isFinite(interval) || interval < 5000) return;
-
-  backfillTimer = setInterval(() => {
-    if (isBackfillWorkerRunning) return;
-    isBackfillWorkerRunning = true;
-    void backfillMissedVapiCalls(prisma, "system-backfill")
-      .then((result) => {
-        if (result.resolved > 0 || result.skipped > 0) {
-          // eslint-disable-next-line no-console
-          console.log(
-            JSON.stringify({
-              orgId: "-",
-              provider: "VAPI",
-              endpoint: "worker:vapi-backfill",
-              eventType: "BACKFILL_TICK",
-              requestId: "-",
-              providerCallId: "-",
-              latencyMs: null,
-              status: "OK",
-              scanned: result.scanned,
-              resolved: result.resolved,
-              skipped: result.skipped
-            })
-          );
-        }
-      })
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            orgId: "-",
-            provider: "VAPI",
-            endpoint: "worker:vapi-backfill",
-            eventType: "BACKFILL_TICK",
-            requestId: "-",
-            providerCallId: "-",
-            latencyMs: null,
-            status: "ERROR",
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        );
-      })
-      .finally(() => {
-        isBackfillWorkerRunning = false;
-      });
-  }, interval);
-}
-
-function startSlaMonitorWorker() {
-  if (env.SLA_MONITOR_ENABLED !== "true") return;
-  const interval = Number.parseInt(env.SLA_MONITOR_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 10000) return;
-
-  slaMonitorTimer = setInterval(() => {
-    if (isSlaMonitorWorkerRunning) return;
-    isSlaMonitorWorkerRunning = true;
-    void runSlaMonitorTick(prisma)
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            orgId: "-",
-            provider: "SYSTEM",
-            endpoint: "worker:sla-monitor",
-            eventType: "SLA_MONITOR_TICK",
-            requestId: "-",
-            providerCallId: "-",
-            latencyMs: null,
-            status: "ERROR",
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        );
-      })
-      .finally(() => {
-        isSlaMonitorWorkerRunning = false;
-      });
-  }, interval);
-}
-
-function startDataIntegrityGuardWorker() {
-  if (env.DATA_INTEGRITY_GUARD_ENABLED !== "true") return;
-  const interval = Number.parseInt(env.DATA_INTEGRITY_GUARD_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 60_000) return;
-
-  dataIntegrityGuardTimer = setInterval(() => {
-    if (isDataIntegrityGuardWorkerRunning) return;
-    isDataIntegrityGuardWorkerRunning = true;
-    void runDataIntegrityGuardTick(prisma)
-      .then((result) => {
-        if (result.anomaliesLogged > 0 || result.repairedLeadLinks > 0) {
-          // eslint-disable-next-line no-console
-          console.log(
-            JSON.stringify({
-              orgId: "-",
-              provider: "SYSTEM",
-              endpoint: "worker:data-integrity-guard",
-              eventType: "DATA_INTEGRITY_TICK",
-              requestId: "-",
-              providerCallId: "-",
-              latencyMs: null,
-              status: "OK",
-              anomaliesLogged: result.anomaliesLogged,
-              repairedLeadLinks: result.repairedLeadLinks
-            })
-          );
-        }
-      })
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            orgId: "-",
-            provider: "SYSTEM",
-            endpoint: "worker:data-integrity-guard",
-            eventType: "DATA_INTEGRITY_TICK",
-            requestId: "-",
-            providerCallId: "-",
-            latencyMs: null,
-            status: "ERROR",
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        );
-      })
-      .finally(() => {
-        isDataIntegrityGuardWorkerRunning = false;
-      });
-  }, interval);
-}
-
-function startWebhookReplayCleanupWorker() {
-  const interval = 24 * 60 * 60 * 1000;
-  setInterval(() => {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    void prisma.webhookReplayGuard
-      .deleteMany({ where: { receivedAt: { lt: cutoff } } })
-      .then((result) => {
-        if (result.count > 0) {
-          return prisma.auditLog.create({
-            data: {
-              actorUserId: "system-security",
-              actorRole: "SYSTEM",
-              action: "WEBHOOK_REPLAY_GUARD_CLEANUP",
-              metadataJson: JSON.stringify({ deleted: result.count, cutoff: cutoff.toISOString() })
-            }
-          });
-        }
-        return null;
-      })
-      .catch(() => null);
-  }, interval);
-}
-
-function startWebhookPayloadRetentionWorker() {
-  const interval = 24 * 60 * 60 * 1000;
-  webhookRetentionTimer = setInterval(() => {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    void Promise.all([
-      prisma.webhookEventLog.updateMany({
-        where: {
-          createdAt: { lt: cutoff },
-          payloadSnippet: { not: "{}" }
-        },
-        data: { payloadSnippet: "{}" }
-      }),
-      prisma.webhookEventLog.updateMany({
-        where: {
-          createdAt: { lt: cutoff },
-          headersJson: { not: "{}" }
-        },
-        data: { headersJson: "{}" }
-      })
-    ])
-      .then(([payloadResult, headerResult]) => {
-        const compacted = payloadResult.count + headerResult.count;
-        if (compacted > 0) {
-          return prisma.auditLog.create({
-            data: {
-              actorUserId: "system-security",
-              actorRole: "SYSTEM",
-              action: "WEBHOOK_PAYLOAD_RETENTION_COMPACTED",
-              metadataJson: JSON.stringify({
-                compactedPayloads: payloadResult.count,
-                compactedHeaders: headerResult.count,
-                cutoff: cutoff.toISOString()
-              })
-            }
-          });
-        }
-        return null;
-      })
-      .catch(() => null);
-  }, interval);
-}
-
-function startSecuritySignalRetentionWorker() {
-  const interval = 24 * 60 * 60 * 1000;
-  securityRetentionTimer = setInterval(() => {
-    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const securityAuditActions = [
-      "STEP_UP_FORBIDDEN",
-      "TOOL_ORG_CONTEXT_REJECTED",
-      "WEBHOOK_REPLAY_BLOCKED",
-      "WEBHOOK_RETRY_WORTHY_FAILURE",
-      "WEBHOOK_DURABLE_PERSISTED",
-      "WEBHOOK_SAFE_IGNORE",
-      "AUTH_REFRESH_REVOKED",
-      "AUTH_STEP_UP_SUCCESS",
-      "AUTH_STEP_UP_FAIL",
-      "SECURITY_ALERT_WEBHOOK_RETRY_FAILURE_SPIKE",
-      "SECURITY_ALERT_SMS_SUPPRESSION_SPIKE",
-      "SECURITY_ALERT_TOOL_CONTEXT_REJECTED_SPIKE",
-      "SECURITY_ALERT_WEBHOOK_SIGNATURE_INVALID_SPIKE"
-    ];
-
-    void Promise.all([
-      prisma.auditLog.deleteMany({
-        where: {
-          action: { in: securityAuditActions },
-          createdAt: { lt: cutoff }
-        }
-      }),
-      prisma.orgNotification.deleteMany({
-        where: {
-          type: {
-            in: ["SECURITY_WEBHOOK_RETRY_FAILURE", "SECURITY_SMS_AUTOMATION_SUPPRESSED"]
-          },
-          createdAt: { lt: cutoff }
-        }
-      })
-    ])
-      .then(([auditResult, notificationResult]) => {
-        const deleted = auditResult.count + notificationResult.count;
-        if (deleted > 0) {
-          return prisma.auditLog.create({
-            data: {
-              actorUserId: "system-security",
-              actorRole: "SYSTEM",
-              action: "SECURITY_SIGNAL_RETENTION_CLEANUP",
-              metadataJson: JSON.stringify({
-                deletedAuditLogs: auditResult.count,
-                deletedNotifications: notificationResult.count,
-                cutoff: cutoff.toISOString()
-              })
-            }
-          });
-        }
-        return null;
-      })
-      .catch(() => null);
-  }, interval);
-}
-
-function startFinalizeBookingWorker() {
-  const interval = Number.parseInt(env.FINALIZE_BOOKING_WORKER_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 5_000) return;
-  finalizeBookingTimer = setInterval(() => {
-    if (isFinalizeBookingWorkerRunning) return;
-    isFinalizeBookingWorkerRunning = true;
-    void runFinalizeBookingWorkerTick(prisma)
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            orgId: "-",
-            provider: "SYSTEM",
-            endpoint: "worker:finalize-booking",
-            eventType: "FINALIZE_BOOKING_TICK",
-            requestId: "-",
-            providerCallId: "-",
-            latencyMs: null,
-            status: "ERROR",
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        );
-      })
-      .finally(() => {
-        isFinalizeBookingWorkerRunning = false;
-      });
-  }, interval);
-}
-
-function startOutreachRunnerWorker() {
-  if (env.OUTREACH_RUNNER_ENABLED !== "true") return;
-  const interval = Number.parseInt(env.OUTREACH_RUNNER_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 60_000) return;
-  outreachRunnerTimer = setInterval(() => {
-    if (isOutreachRunnerWorkerRunning) return;
-    isOutreachRunnerWorkerRunning = true;
-    void runOutreachRunnerTick(prisma)
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            orgId: "-",
-            provider: "SYSTEM",
-            endpoint: "worker:outreach-runner",
-            eventType: "OUTREACH_RUNNER_TICK",
-            requestId: "-",
-            providerCallId: "-",
-            latencyMs: null,
-            status: "ERROR",
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        );
-      })
-      .finally(() => {
-        isOutreachRunnerWorkerRunning = false;
-      });
-  }, interval);
-}
-
-function startAdminReportsWorker() {
-  if (env.ADMIN_REPORTS_ENABLED !== "true") return;
-  const interval = Number.parseInt(env.ADMIN_REPORTS_RUNNER_INTERVAL_MS, 10);
-  if (!Number.isFinite(interval) || interval < 60_000) return;
-  adminReportsTimer = setInterval(() => {
-    if (isAdminReportsWorkerRunning) return;
-    isAdminReportsWorkerRunning = true;
-    void runAdminReportsTick(prisma)
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            orgId: "-",
-            provider: "SYSTEM",
-            endpoint: "worker:admin-reports",
-            eventType: "ADMIN_REPORTS_TICK",
-            requestId: "-",
-            providerCallId: "-",
-            latencyMs: null,
-            status: "ERROR",
-            message: error instanceof Error ? error.message : "unknown_error"
-          })
-        );
-      })
-      .finally(() => {
-        isAdminReportsWorkerRunning = false;
-      });
-  }, interval);
-}
 
 function enforceProductionSecurity() {
   if (env.SECURITY_MODE !== "production") return;
@@ -559,15 +240,12 @@ function enforceProductionSecurity() {
 void (async () => {
   enforceProductionSecurity();
   await ensureAdminUser();
-  startVapiBackfillWorker();
-  startSlaMonitorWorker();
-  startDataIntegrityGuardWorker();
-  startWebhookReplayCleanupWorker();
-  startWebhookPayloadRetentionWorker();
-  startSecuritySignalRetentionWorker();
-  startFinalizeBookingWorker();
-  startOutreachRunnerWorker();
-  startAdminReportsWorker();
+  await scheduleRepeatableJobs();
+  
+  // Ensure BullMQ Workers are listening
+  console.log(`[Worker] Webhook worker initialized.`);
+  console.log(`[Worker] Import worker initialized.`);
+  console.log(`[Worker] Background worker initialized.`);
   server.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);
@@ -575,14 +253,6 @@ void (async () => {
 })();
 
 const shutdown = async () => {
-  if (backfillTimer) clearInterval(backfillTimer);
-  if (slaMonitorTimer) clearInterval(slaMonitorTimer);
-  if (dataIntegrityGuardTimer) clearInterval(dataIntegrityGuardTimer);
-  if (finalizeBookingTimer) clearInterval(finalizeBookingTimer);
-  if (outreachRunnerTimer) clearInterval(outreachRunnerTimer);
-  if (adminReportsTimer) clearInterval(adminReportsTimer);
-  if (webhookRetentionTimer) clearInterval(webhookRetentionTimer);
-  if (securityRetentionTimer) clearInterval(securityRetentionTimer);
   voiceMediaStreamServer.close();
   server.close();
   await prisma.$disconnect();

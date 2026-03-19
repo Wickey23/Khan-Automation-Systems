@@ -402,11 +402,157 @@ export type AdminCallTranscriptSession = {
   segments: AdminCallTranscriptSegment[];
 };
 
+export type CallState = "RINGING" | "CONNECTED" | "AI_ACTIVE" | "TRANSFERRED" | "COMPLETED";
+
+export type AdminCallStateTransition = {
+  id: string;
+  fromState: CallState | null;
+  toState: CallState;
+  at: string;
+  metadata: Record<string, unknown> | null;
+};
+
+export type WebhookJobStatusRecord = {
+  jobId: string;
+  type: string;
+  status: string;
+  message: string | null;
+  durationMs: number | null;
+  eventId: string | null;
+  eventType: string | null;
+  createdAt: string;
+  metadata: Record<string, unknown>;
+};
+
+export type BookingFinalizerJobRecord = {
+  id: string;
+  callId: string;
+  status: string;
+  attemptCount: number;
+  nextAttemptAt: string | null;
+  processedAt: string | null;
+  smsSentAt: string | null;
+  error: string | null;
+  resultJson: Record<string, unknown> | null;
+  decisionVersion: string | null;
+  decisionInputHash: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CallAuditTrailEntry = {
+  id: string;
+  type: "transition" | "audit";
+  action: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type CallReviewStatus = "idle" | "review_required" | "resolved";
+
+export type CallReviewState = {
+  status: CallReviewStatus;
+  note: string | null;
+  updatedAt: string | null;
+  actorUserId: string | null;
+  actorRole: string | null;
+};
+
 export type AdminCallDetail = AdminCallRecord & {
   transcriptStatus?: "STARTED" | "GENERATED" | "ERROR" | null;
   transcriptGeneratedAt?: string | null;
   aiSummaryGeneratedAt?: string | null;
   transcriptSessions?: AdminCallTranscriptSession[];
+  stateTransitions?: AdminCallStateTransition[];
+  webhookJobs?: WebhookJobStatusRecord[];
+  finalizeBookingJob?: BookingFinalizerJobRecord | null;
+  callAuditTrail?: CallAuditTrailEntry[];
+  reviewState?: CallReviewState;
+};
+
+export type AdminQueueJobRecord = {
+  id: string;
+  jobId: string;
+  type: string;
+  status: string;
+  statusLabel: string;
+  message: string | null;
+  durationMs: number | null;
+  createdAt: string;
+  callId: string | null;
+  providerCallId: string | null;
+  orgId: string | null;
+  queue: string | null;
+  attempts: number | null;
+  eventId: string | null;
+  eventType: string | null;
+  nextAttemptAt: string | null;
+  metadata: Record<string, unknown>;
+  retryEligible: boolean;
+  retryReason: string;
+  retryMode: "failed" | "stuck" | null;
+};
+
+export type AdminQueueHealthSummary = {
+  status: string;
+  label: string;
+  count: number;
+};
+
+export type AdminQueueTypeSummary = {
+  type: string;
+  count: number;
+};
+
+export type AdminQueueHealthResponse = {
+  summary: AdminQueueHealthSummary[];
+  typeSummary: AdminQueueTypeSummary[];
+  recentJobs: AdminQueueJobRecord[];
+  stuckJobs: AdminQueueJobRecord[];
+  retryingJobs: AdminQueueJobRecord[];
+};
+
+export type RetriggerCallFollowUpResponse = {
+  callId: string;
+  reason: string;
+  mode: "missing" | "queued" | "failed" | "done" | "processing" | "unknown";
+};
+
+export type RetryAdminQueueJobResponse = {
+  requeuedJobId: string;
+  retryMode: "failed" | "stuck" | null;
+  message: string;
+};
+
+export type AdminSmsAuditEntry = {
+  id: string;
+  eventType: string;
+  status: string | null;
+  messageSid: string | null;
+  threadId: string | null;
+  fromNumber: string | null;
+  toNumber: string | null;
+  bodySnippet: string | null;
+  errorText: string | null;
+  automation: string | null;
+  keyword: string | null;
+  createdAt: string;
+  orgId: string | null;
+};
+
+export type AdminSmsAuditSummary = {
+  eventType: string;
+  status: string;
+  count: number;
+};
+
+export type AdminSmsAuditResponse = {
+  summary: AdminSmsAuditSummary[];
+  recentEvents: AdminSmsAuditEntry[];
+};
+
+export type UpdateCallReviewResponse = {
+  reviewState: CallReviewState;
 };
 
 export type ServiceRequestStatus =
@@ -869,6 +1015,35 @@ export type OrgFeatureFlags = {
   notificationsEnabled?: boolean;
   pipelineStageEnabled?: boolean;
   classificationEnabled?: boolean;
+};
+
+export type AccessStatus = "ready" | "setup_required" | "gated" | "blocked";
+export type AccessFeatureKey = "calls" | "sms" | "appointments" | "outreach";
+
+export type AccessFeatureState = {
+  key: AccessFeatureKey;
+  label: string;
+  status: AccessStatus;
+  reason: string;
+  allowedByPlan: boolean;
+  enabledByOrg: boolean;
+};
+
+export type AccessReadinessCheck = {
+  key: string;
+  label: string;
+  description: string;
+  detail?: string;
+  status: AccessStatus;
+};
+
+export type OrgAccessSummary = {
+  plan: {
+    name: "NONE" | "STARTER" | "PRO";
+    active: boolean;
+  };
+  features: Record<AccessFeatureKey, AccessFeatureState>;
+  readinessChecklist: AccessReadinessCheck[];
 };
 
 export type Appointment = {

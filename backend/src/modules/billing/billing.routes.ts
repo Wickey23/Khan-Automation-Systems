@@ -861,367 +861,46 @@ billingRouter.post("/webhook", async (req: AuthenticatedRequest, res) => {
   };
 
   try {
+    const { assertSystemEnabled } = await import("../../lib/system-flags");
+    await assertSystemEnabled("disableWebhooks");
+
     await prisma.billingWebhookEvent.create({
       data: {
         eventId: event.id,
         eventType: event.type,
-        processed: false
+        processed: false,
+        payload: event as any // Priority 2: Durable staging in DB
       }
     });
+
+    // Security/Reliability: Offload to background queue
+    const { webhookQueue } = await import("../../lib/queue");
+    await webhookQueue.add("stripe-webhook", {
+      provider: "stripe",
+      type: "stripe",
+      eventId: event.id
+    });
+
+    logBillingEvent("info", { ...baseLog, message: "event_enqueued" });
+    return res.status(200).json({ received: true, enqueued: true });
+
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       logBillingEvent("info", { ...baseLog, message: "duplicate_event_ignored" });
       return res.status(200).json({ received: true, duplicate: true });
     }
-    logBillingEvent("error", {
-      ...baseLog,
-      message: "event_registration_failed",
-      error: error instanceof Error ? error.message : "unknown_error"
-    });
-    return res.status(200).json({ received: true, processed: false });
-  }
-
-  try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const orgId = session.metadata?.orgId || null;
-      const planValue = (session.metadata?.plan || "starter").toLowerCase();
-      const plan = planValue === "pro" ? SubscriptionPlan.PRO : SubscriptionPlan.STARTER;
-      const planLabel = labelFromPlanInput((planValue === "founding" ? "founding" : planValue === "pro" ? "pro" : "starter") as CheckoutPlan);
-      const stripeCustomerId =
-        typeof session.customer === "string" ? session.customer : session.customer?.id || null;
-      const stripeSubscriptionId =
-        typeof session.subscription === "string"
-          ? session.subscription
-          : session.subscription?.id || null;
-
-      if (!orgId || !stripeCustomerId || !stripeSubscriptionId) {
-        await markEventProcessed(event.id, {
-          processed: false,
-          processingError: "checkout_session_missing_org_or_subscription_fields"
-        });
-        logBillingEvent("error", {
-          ...baseLog,
-          orgId,
-          stripeCustomerId,
-          stripeSubscriptionId,
-          message: "checkout_session_missing_fields"
-        });
-        return res.status(200).json({ received: true, processed: false });
-      }
-
-      await upsertSubscriptionAndOrg({
-        orgId,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        status: "active",
-        plan,
-        purchasedSeats:
-          stripeSubscriptionId
-            ? extractPurchasedSeatsFromSubscription(
-                await stripe.subscriptions.retrieve(stripeSubscriptionId, {
-                  expand: ["items.data.price"]
-                })
-              )
-            : 0
-      });
-      await clearPendingIfApplied({
-        stripeSubscriptionId,
-        plan
-      });
-
-      await prisma.billingWebhookEvent.update({
-        where: { eventId: event.id },
-        data: {
-          processed: true,
-          orgId,
-          stripeCustomerId,
-          stripeSubscriptionId,
-          processingError: null
-        }
-      });
-
-      logBillingEvent("info", {
-        ...baseLog,
-        orgId,
-        stripeSubscriptionId,
-        stripeCustomerId,
-        status: "active",
-        billingActive: true
-      });
-
-      const email =
-        session.customer_details?.email ||
-        session.customer_email ||
-        (session.metadata?.userId
-          ? (
-              await prisma.user.findUnique({
-                where: { id: session.metadata.userId },
-                select: { email: true }
-              })
-            )?.email
-          : null);
-      if (email) {
-        void sendBillingConfirmationEmail({
-          email,
-          planLabel,
-          statusLabel: "active",
-          source: "checkout"
-        }).catch((error) => {
-          logBillingEvent("error", {
-            ...baseLog,
-            message: "billing_confirmation_email_failed",
-            email,
-            error: error instanceof Error ? error.message : "unknown_error"
-          });
-        });
-      }
-      return res.status(200).json({ received: true });
-    }
-
-    if (event.type === "invoice.paid" || event.type === "invoice.payment_failed") {
-      const invoice = event.data.object as Stripe.Invoice;
-      const stripeSubscriptionId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id || null;
-      const stripeCustomerId =
-        typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id || null;
-
-      if (!stripeSubscriptionId) {
-        await markEventProcessed(event.id, {
-          processed: false,
-          processingError: "invoice_missing_subscription_id"
-        });
-        logBillingEvent("error", {
-          ...baseLog,
-          message: "invoice_missing_subscription_id"
-        });
-        return res.status(200).json({ received: true, processed: false });
-      }
-
-      const resolved = await resolveOrgAndPlanFromSubscription(stripeSubscriptionId);
-      const resolvedCustomerId = stripeCustomerId || resolved.stripeCustomerId;
-      if (!resolved.orgId || !resolvedCustomerId) {
-        await markEventProcessed(event.id, {
-          processed: false,
-          processingError: "invoice_unresolved_org_or_customer"
-        });
-        logBillingEvent("error", {
-          ...baseLog,
-          stripeSubscriptionId,
-          stripeCustomerId,
-          resolvedOrgId: resolved.orgId,
-          message: "invoice_unresolved_org_or_customer"
-        });
-        return res.status(200).json({ received: true, processed: false });
-      }
-
-      const nextStatus = event.type === "invoice.paid" ? "active" : "past_due";
-      await upsertSubscriptionAndOrg({
-        orgId: resolved.orgId,
-        stripeCustomerId: resolvedCustomerId,
-        stripeSubscriptionId,
-        status: nextStatus,
-        plan: resolved.plan,
-        purchasedSeats: resolved.purchasedSeats,
-        currentPeriodEnd: resolved.currentPeriodEnd
-      });
-      await clearPendingIfApplied({
-        stripeSubscriptionId,
-        plan: resolved.plan,
-        currentPeriodEnd: resolved.currentPeriodEnd
-      });
-
-      await prisma.billingWebhookEvent.update({
-        where: { eventId: event.id },
-        data: {
-          processed: true,
-          orgId: resolved.orgId,
-          stripeCustomerId: resolvedCustomerId,
-          stripeSubscriptionId,
-          processingError: null
-        }
-      });
-
-      logBillingEvent("info", {
-        ...baseLog,
-        orgId: resolved.orgId,
-        stripeSubscriptionId,
-        stripeCustomerId: stripeCustomerId || resolved.stripeCustomerId,
-        status: nextStatus,
-        billingActive: isBillingActive(nextStatus)
-      });
-      return res.status(200).json({ received: true });
-    }
-
-    if (event.type === "customer.subscription.updated") {
-      const subscription = event.data.object as Stripe.Subscription;
-      const stripeSubscriptionId = subscription.id;
-      const stripeCustomerId =
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : subscription.customer?.id || null;
-      const metadataOrgId = subscription.metadata?.orgId || null;
-      const firstPriceId = subscription.items.data[0]?.price?.id || null;
-      const currentPlan = planFromPrice(firstPriceId);
-      const currentPeriodEnd = subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
-        : null;
-
-      let orgId = metadataOrgId;
-      if (!orgId) {
-        const existing = await prisma.subscription.findUnique({
-          where: { stripeSubscriptionId },
-          select: { orgId: true }
-        });
-        orgId = existing?.orgId || null;
-      }
-
-      if (!orgId || !stripeCustomerId) {
-        await markEventProcessed(event.id, {
-          processed: false,
-          processingError: "subscription_updated_unresolved_org_or_customer"
-        });
-        logBillingEvent("error", {
-          ...baseLog,
-          stripeSubscriptionId,
-          message: "subscription_updated_unresolved_org_or_customer"
-        });
-        return res.status(200).json({ received: true, processed: false });
-      }
-
-      const existingBefore = await prisma.subscription.findUnique({
-        where: { stripeSubscriptionId },
-        select: { plan: true, status: true }
-      });
-
-      await upsertSubscriptionAndOrg({
-        orgId,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        status: normalizeSubscriptionStatus(subscription.status),
-        plan: currentPlan,
-        purchasedSeats: extractPurchasedSeatsFromSubscription(subscription),
-        currentPeriodEnd
-      });
-      await clearPendingIfApplied({
-        stripeSubscriptionId,
-        plan: currentPlan,
-        currentPeriodEnd
-      });
-
-      await prisma.billingWebhookEvent.update({
-        where: { eventId: event.id },
-        data: {
-          processed: true,
-          orgId,
-          stripeCustomerId,
-          stripeSubscriptionId,
-          processingError: null
-        }
-      });
-
-      const normalizedStatus = normalizeSubscriptionStatus(subscription.status);
-      const changed = !existingBefore || existingBefore.plan !== currentPlan || normalizeSubscriptionStatus(existingBefore.status) !== normalizedStatus;
-      if (changed) {
-        const user = await prisma.user.findFirst({
-          where: { orgId, role: { in: [UserRole.CLIENT_ADMIN, UserRole.CLIENT] } },
-          orderBy: { createdAt: "asc" },
-          select: { email: true }
-        });
-        if (user?.email) {
-          const planLabel = currentPlan === SubscriptionPlan.PRO ? "Growth/Pro" : "Standard";
-          void sendBillingConfirmationEmail({
-            email: user.email,
-            planLabel,
-            statusLabel: normalizedStatus,
-            effectiveAt: currentPeriodEnd?.toISOString() || null,
-            source: "subscription_update"
-          }).catch((error) => {
-            logBillingEvent("error", {
-              ...baseLog,
-              message: "billing_confirmation_email_failed",
-              email: user.email,
-              error: error instanceof Error ? error.message : "unknown_error"
-            });
-          });
-        }
-      }
-      return res.status(200).json({ received: true });
-    }
-
-    if (event.type === "customer.subscription.deleted") {
-      const subscription = event.data.object as Stripe.Subscription;
-      const stripeSubscriptionId = subscription.id;
-      const resolved = await resolveOrgAndPlanFromSubscription(stripeSubscriptionId);
-      const stripeCustomerId =
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : subscription.customer?.id || resolved.stripeCustomerId;
-
-      if (!resolved.orgId || !stripeCustomerId) {
-        await markEventProcessed(event.id, {
-          processed: false,
-          processingError: "subscription_deleted_unresolved_org_or_customer"
-        });
-        logBillingEvent("error", {
-          ...baseLog,
-          stripeSubscriptionId,
-          message: "subscription_deleted_unresolved_org_or_customer"
-        });
-        return res.status(200).json({ received: true, processed: false });
-      }
-
-      await upsertSubscriptionAndOrg({
-        orgId: resolved.orgId,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        status: "canceled",
-        plan: resolved.plan,
-        purchasedSeats: 0
-      });
-      await clearPendingIfApplied({
-        stripeSubscriptionId,
-        plan: resolved.plan
-      });
-
-      await prisma.billingWebhookEvent.update({
-        where: { eventId: event.id },
-        data: {
-          processed: true,
-          orgId: resolved.orgId,
-          stripeCustomerId,
-          stripeSubscriptionId,
-          processingError: null
-        }
-      });
-
-      logBillingEvent("info", {
-        ...baseLog,
-        orgId: resolved.orgId,
-        stripeSubscriptionId,
-        stripeCustomerId,
-        status: "canceled",
-        billingActive: false
-      });
-      return res.status(200).json({ received: true });
-    }
-
-    await markEventProcessed(event.id, { processed: true, processingError: null });
-    logBillingEvent("info", { ...baseLog, message: "event_ignored" });
-    return res.status(200).json({ received: true, ignored: true });
-  } catch (error) {
-    await markEventProcessed(event.id, {
-      processed: false,
-      processingError: error instanceof Error ? error.message : "unknown_error"
-    });
-
+    
+    const message = error instanceof Error ? error.message : "unknown_error";
     logBillingEvent("error", {
       ...baseLog,
       message: "webhook_processing_failed",
-      error: error instanceof Error ? error.message : "unknown_error"
+      error: message
     });
-    return res.status(200).json({ received: true, processed: false });
+
+    if (message.includes("is currently disabled")) {
+      return res.status(503).json({ ok: false, message: "Service temporarily paused." });
+    }
+
+    return res.status(200).json({ received: true, processed: false, error: message });
   }
 });

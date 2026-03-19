@@ -2,13 +2,16 @@ import bcrypt from "bcryptjs";
 import { NumberProvider, OrganizationStatus, Prisma, UserRole } from "@prisma/client";
 import { Router, type Response } from "express";
 import Stripe from "stripe";
+import crypto from "crypto";
 import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import { requirePermission } from "../../middleware/require-permission";
 import { requireStepUp } from "../../middleware/require-step-up";
 import { toCsv } from "../../utils/csv";
+import { backgroundTasksQueue, importQueue, outreachQueue, webhookQueue } from "../../lib/queue";
 import { buildVapiSystemPrompt, buildVapiTools, upsertVapiAgentIfConfigured } from "../voice/vapi/vapi.service";
+import { enqueueFinalizeBookingJob } from "../voice/vapi/vapi-booking-finalizer.service";
 import { provisionNumber } from "../twilio/twilio.service";
 import { buildConfigPackage, generateConfigPackage } from "../org/config-package";
 import {
@@ -73,7 +76,13 @@ function verifyDeletePassword(req: AuthenticatedRequest, res: Response) {
     res.status(400).json({ ok: false, message: "Password is required for delete actions." });
     return false;
   }
-  if (parsed.data.password !== env.ADMIN_ACTION_PASSWORD) {
+  // Use a timing-safe comparison to prevent timing attacks against the delete password.
+  const provided = Buffer.from(String(parsed.data.password || ""), "utf8");
+  const expected = Buffer.from(String(env.ADMIN_ACTION_PASSWORD || ""), "utf8");
+  const safeEqual =
+    provided.length === expected.length &&
+    crypto.timingSafeEqual(provided, expected);
+  if (!safeEqual) {
     res.status(401).json({ ok: false, message: "Invalid delete password." });
     return false;
   }
@@ -128,6 +137,299 @@ function parseIsoDate(value: string | undefined) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const CALL_AUDIT_ACTIONS = [
+  "CALL_STARTED",
+  "CALL_COMPLETED",
+  "WEBHOOK_JOB_STATUS",
+  "SMS_EVENT",
+  "BOOKING_FINALIZER_STARTED",
+  "BOOKING_FINALIZER_COMPLETED",
+  "BOOKING_FINALIZER_FAILED",
+  CALL_REVIEW_MARK_ACTION,
+  CALL_REVIEW_RESOLVED_ACTION
+];
+
+const CALL_REVIEW_MARK_ACTION = "CALL_MARKED_FOR_REVIEW";
+const CALL_REVIEW_RESOLVED_ACTION = "CALL_REVIEW_RESOLVED";
+];
+
+function safeParseAuditMetadata(raw?: string | null) {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function matchesCallIdentifier(call: { id: string; providerCallId?: string | null }, value: unknown) {
+  if (typeof value !== "string" || !value) return false;
+  if (value === call.id) return true;
+  if (call.providerCallId && value === call.providerCallId) return true;
+  return false;
+}
+
+function shouldIncludeAuditLog(
+  call: { id: string; providerCallId?: string | null },
+  log: { action: string; metadataJson: string | null },
+  eventIds: Set<string>,
+  metadata: Record<string, unknown>
+) {
+  switch (log.action) {
+    case "WEBHOOK_JOB_STATUS": {
+      const maybeEventId = metadata.eventId;
+      return typeof maybeEventId === "string" && eventIds.has(maybeEventId);
+    }
+    default:
+      return (
+        matchesCallIdentifier(call, metadata.callId) ||
+        matchesCallIdentifier(call, metadata.providerCallId) ||
+        matchesCallIdentifier(call, metadata.callLogId)
+      );
+  }
+}
+
+const QUEUE_MONITOR_ACTIONS = [
+  "WEBHOOK_JOB_STATUS",
+  "BOOKING_FINALIZER_STARTED",
+  "BOOKING_FINALIZER_COMPLETED",
+  "BOOKING_FINALIZER_FAILED"
+];
+
+const QUEUE_STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+
+const SMS_MONITOR_ACTIONS = ["SMS_EVENT", "SMS_OPT_OUT"];
+
+function normalizeQueueStatus(action: string, metadata: Record<string, unknown>) {
+  if (action === "BOOKING_FINALIZER_STARTED") return "processing";
+  if (action === "BOOKING_FINALIZER_COMPLETED") return "completed";
+  if (action === "BOOKING_FINALIZER_FAILED") return "failed";
+  const metaStatus = typeof metadata.status === "string" ? metadata.status : "";
+  const normalized = metaStatus.toLowerCase();
+  if (normalized.includes("fail") || normalized.includes("error")) return "failed";
+  if (normalized.includes("complete") || normalized.includes("done")) return "completed";
+  if (normalized.includes("processing") || normalized.includes("queued") || normalized.includes("started")) return "processing";
+  return normalized || "unknown";
+}
+
+function queueJobLabel(status: string) {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+type QueueRetryMode = "failed" | "stuck" | null;
+
+type QueueRetryDescriptor = {
+  eligible: boolean;
+  reason: string;
+  mode: QueueRetryMode;
+};
+
+function describeQueueRetryEligibility(input: {
+  status: string;
+  eventId: string | null;
+  createdAt: Date;
+  lastErrorMessage: string | null;
+}) {
+  const { status, eventId, createdAt, lastErrorMessage } = input;
+  if (!eventId) {
+    return { eligible: false, reason: "Event context missing; cannot retry.", mode: null };
+  }
+  const normalizedStatus = status.toLowerCase();
+  if (normalizedStatus === "completed") {
+    return { eligible: false, reason: "Job already completed.", mode: null };
+  }
+  const timestamp = Number.isFinite(createdAt.getTime()) ? createdAt.getTime() : null;
+  const ageMs = timestamp === null ? null : Date.now() - timestamp;
+  const stuck =
+    (normalizedStatus === "processing" || normalizedStatus === "queued") &&
+    ageMs !== null &&
+    ageMs > QUEUE_STUCK_THRESHOLD_MS;
+  if (normalizedStatus === "failed") {
+    const errorText = lastErrorMessage ? `Last error: ${lastErrorMessage}` : "Job failed; retry is available.";
+    return { eligible: true, reason: errorText, mode: "failed" };
+  }
+  if (stuck) {
+    return {
+      eligible: true,
+      reason: `Job stuck for over ${Math.round(QUEUE_STUCK_THRESHOLD_MS / 60000)} minutes.`,
+      mode: "stuck"
+    };
+  }
+  return {
+    eligible: false,
+    reason: "Job is still processing. Wait a few moments before retrying.",
+    mode: null
+  };
+}
+
+function queueJobNameFromType(type: string) {
+  const normalized = type.trim();
+  switch (normalized) {
+    case "twilio_sms_inbound":
+      return "twilio-sms-inbound";
+    case "twilio_sms_status":
+      return "twilio-sms-status";
+    case "vapi":
+    case "vapi-event":
+    case "vapi-webhook":
+      return "vapi-webhook";
+    case "stripe":
+      return "stripe-webhook";
+    default:
+      return normalized.replace(/_/g, "-");
+  }
+}
+
+type FinalizerEligibilityMode = "missing" | "queued" | "failed" | "done" | "processing" | "unknown";
+
+type FinalizerEligibility = {
+  eligible: boolean;
+  reason: string;
+  mode: FinalizerEligibilityMode;
+};
+
+function describeFinalizerEligibility(job: { status?: string | null; error?: string | null } | null): FinalizerEligibility {
+  if (!job) {
+    return { eligible: true, reason: "Finalizer has not run yet.", mode: "missing" };
+  }
+  const normalized = String(job.status || "").toLowerCase();
+  if (normalized === "done") {
+    return {
+      eligible: false,
+      reason: job.error ? `Finalizer completed with: ${job.error}` : "Finalizer already completed.",
+      mode: "done"
+    };
+  }
+  if (normalized === "processing") {
+    return { eligible: false, reason: "Finalizer is still processing.", mode: "processing" };
+  }
+  if (normalized === "queued") {
+    return {
+      eligible: true,
+      reason: job.error ? `Last error: ${job.error}` : "Finalizer queued and ready.",
+      mode: "queued"
+    };
+  }
+  if (normalized === "failed") {
+    return {
+      eligible: true,
+      reason: job.error ? `Last error: ${job.error}` : "Finalizer failed; retry available.",
+      mode: "failed"
+    };
+  }
+  return {
+    eligible: false,
+    reason: job.status ? `Finalizer state: ${job.status}` : "Finalizer state is unclear.",
+    mode: "unknown"
+  };
+}
+
+function buildQueueJobRecord(
+  log: { id: string; action: string; metadataJson: string | null; createdAt: Date; orgId: string | null },
+  metadata: Record<string, unknown>,
+  eventMap: Map<string, { messageType: string }>
+) {
+  const status = normalizeQueueStatus(log.action, metadata);
+  const eventId = typeof metadata.eventId === "string" ? metadata.eventId : null;
+  const eventType = eventId ? eventMap.get(eventId)?.messageType || null : null;
+  const duration = Number(metadata.durationMs);
+  const attempts = Number(metadata.attempts);
+  const retryInfo = describeQueueRetryEligibility({
+    status,
+    eventId,
+    createdAt: log.createdAt,
+    lastErrorMessage: typeof metadata.message === "string" ? metadata.message : null
+  });
+  return {
+    id: log.id,
+    jobId: String(metadata.jobId || log.id),
+    type:
+      metadata.type && typeof metadata.type === "string"
+        ? metadata.type
+        : log.action.includes("BOOKING_FINALIZER")
+          ? "booking-finalizer"
+          : "webhook",
+    status,
+    statusLabel: queueJobLabel(status),
+    message: typeof metadata.message === "string" ? metadata.message : null,
+    durationMs: Number.isFinite(duration) ? duration : null,
+    createdAt: log.createdAt.toISOString(),
+    callId: typeof metadata.callId === "string" ? metadata.callId : null,
+    providerCallId: typeof metadata.providerCallId === "string" ? metadata.providerCallId : null,
+    orgId: log.orgId,
+    queue: typeof metadata.queue === "string" ? metadata.queue : null,
+    attempts: Number.isFinite(attempts) ? attempts : null,
+    eventId,
+    eventType,
+    nextAttemptAt: typeof metadata.nextAttemptAt === "string" ? metadata.nextAttemptAt : null,
+    retryEligible: retryInfo.eligible,
+    retryReason: retryInfo.reason,
+    retryMode: retryInfo.mode,
+    metadata
+  };
+}
+
+function buildSmsAuditEntry(
+  log: { id: string; metadataJson: string | null; createdAt: Date; orgId: string | null; action: string },
+  metadata: Record<string, unknown>
+) {
+  const baseType =
+    log.action === "SMS_OPT_OUT" ? "opt_out" : typeof metadata.eventType === "string" ? metadata.eventType : "sms_event";
+  return {
+    id: log.id,
+    eventType: baseType,
+    status: typeof metadata.status === "string" ? metadata.status : null,
+    messageSid: typeof metadata.messageSid === "string" ? metadata.messageSid : null,
+    threadId: typeof metadata.threadId === "string" ? metadata.threadId : null,
+    fromNumber: typeof metadata.fromNumber === "string" ? metadata.fromNumber : null,
+    toNumber: typeof metadata.toNumber === "string" ? metadata.toNumber : null,
+    bodySnippet: typeof metadata.bodySnippet === "string" ? metadata.bodySnippet : null,
+    errorText: typeof metadata.errorText === "string" ? metadata.errorText : null,
+    automation: typeof metadata.automation === "string" ? metadata.automation : null,
+    keyword: typeof metadata.keyword === "string" ? metadata.keyword : null,
+    createdAt: log.createdAt.toISOString(),
+    orgId: log.orgId
+  };
+}
+
+type CallReviewStatus = "idle" | "review_required" | "resolved";
+
+type CallReviewState = {
+  status: CallReviewStatus;
+  note: string | null;
+  updatedAt: string | null;
+  actorUserId: string | null;
+  actorRole: string | null;
+};
+
+function buildCallReviewState(
+  entries: Array<{
+    log: { action: string; createdAt: Date; actorUserId: string | null; actorRole: string | null };
+    metadata: Record<string, unknown>;
+  }>
+): CallReviewState {
+  const relevant = entries
+    .filter((entry) => [CALL_REVIEW_MARK_ACTION, CALL_REVIEW_RESOLVED_ACTION].includes(entry.log.action))
+    .sort((a, b) => new Date(a.log.createdAt).getTime() - new Date(b.log.createdAt).getTime());
+
+  let state: CallReviewState = { status: "idle", note: null, updatedAt: null, actorUserId: null, actorRole: null };
+  relevant.forEach((entry) => {
+    const note = typeof entry.metadata.note === "string" ? entry.metadata.note : null;
+    const base = {
+      note,
+      updatedAt: entry.log.createdAt.toISOString(),
+      actorUserId: entry.log.actorUserId || null,
+      actorRole: entry.log.actorRole || null
+    };
+    if (entry.log.action === CALL_REVIEW_MARK_ACTION) {
+      state = { status: "review_required", ...base };
+    } else if (entry.log.action === CALL_REVIEW_RESOLVED_ACTION) {
+      state = { status: "resolved", ...base };
+    }
+  });
+  return state;
 }
 
 function buildKnowledgeContextSnippet(files: Array<{ fileName: string; contentText: string }>) {
@@ -191,11 +493,14 @@ async function discoverViaNominatim(location: string, keyword: string, limit: nu
   url.searchParams.set("extratags", "1");
   url.searchParams.set("limit", String(limit));
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000); // 10s timeout
   const response = await fetch(url.toString(), {
     headers: {
       "User-Agent": "Khan-Automation-Systems/1.0 (lead-discovery)"
-    }
-  });
+    },
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeoutId));
   if (!response.ok) return [];
   const payload = (await response.json()) as unknown;
   return Array.isArray(payload) ? (payload as NominatimItem[]) : [];
@@ -396,19 +701,449 @@ adminRouter.get("/calls/:id", async (req: AuthenticatedRequest, res: Response) =
             orderBy: [{ sequence: "asc" }, { createdAt: "asc" }]
           }
         }
+      },
+      stateTransitions: {
+        orderBy: { at: "asc" },
+        select: {
+          id: true,
+          fromState: true,
+          toState: true,
+          at: true,
+          metadataJson: true
+        }
       }
     }
   });
 
   if (!call) return res.status(404).json({ ok: false, message: "Call not found." });
 
+  const callIdCandidates = Array.from(
+    new Set([...(call.providerCallId ? [call.providerCallId] : []), call.id])
+  );
+  const finalizeBookingJob =
+    callIdCandidates.length > 0
+      ? await prisma.finalizeBookingJob.findFirst({
+          where: { callId: { in: callIdCandidates } },
+          orderBy: { updatedAt: "desc" }
+        })
+      : null;
+  const vapiEvents =
+    callIdCandidates.length > 0
+      ? await prisma.vapiWebhookEvent.findMany({
+          where: { callId: { in: callIdCandidates } },
+          orderBy: { receivedAt: "desc" },
+          take: 50,
+          select: { id: true, messageType: true, receivedAt: true }
+        })
+      : [];
+  const eventMap = new Map(vapiEvents.map((event) => [event.id, event]));
+  const eventIds = new Set(eventMap.keys());
+
+  const auditWindowStart = call.startedAt || call.createdAt;
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      orgId: call.orgId,
+      action: { in: CALL_AUDIT_ACTIONS },
+      ...(auditWindowStart ? { createdAt: { gte: auditWindowStart } } : {})
+    },
+    orderBy: { createdAt: "desc" },
+    take: 80
+  });
+
+  const parsedAuditEntries = auditLogs
+    .map((log) => ({
+      log,
+      metadata: safeParseAuditMetadata(log.metadataJson)
+    }))
+    .filter((entry) => shouldIncludeAuditLog(call, entry.log, eventIds, entry.metadata));
+
+  const webhookJobStatuses = parsedAuditEntries
+    .filter((entry) => entry.log.action === "WEBHOOK_JOB_STATUS")
+    .slice(0, 12)
+    .map((entry) => {
+      const duration = Number(entry.metadata.durationMs);
+      const durationMs = Number.isFinite(duration) ? duration : null;
+      const eventId = typeof entry.metadata.eventId === "string" ? entry.metadata.eventId : null;
+      return {
+        jobId: String(entry.metadata.jobId || entry.log.id),
+        type: String(entry.metadata.type || "webhook"),
+        status: String(entry.metadata.status || "unknown"),
+        message: typeof entry.metadata.message === "string" ? entry.metadata.message : null,
+        durationMs,
+        eventId,
+        eventType: eventId ? eventMap.get(eventId)?.messageType || null : null,
+        createdAt: entry.log.createdAt.toISOString(),
+        metadata: entry.metadata
+      };
+    });
+
+  const sanitizedTransitions = call.stateTransitions.map((transition) => ({
+    id: transition.id,
+    fromState: transition.fromState,
+    toState: transition.toState,
+    at: transition.at.toISOString(),
+    metadata: transition.metadataJson || {}
+  }));
+
+  const transitionEntries = sanitizedTransitions.map((transition) => ({
+    id: transition.id,
+    type: "transition" as const,
+    action: transition.toState,
+    metadata: transition.metadata,
+    createdAt: transition.at
+  }));
+
+  const logEntries = parsedAuditEntries.map((entry) => ({
+    id: entry.log.id,
+    type: "audit" as const,
+    action: entry.log.action,
+    metadata: entry.metadata,
+    createdAt: entry.log.createdAt.toISOString()
+  }));
+
+  const callAuditTrail = [...transitionEntries, ...logEntries].sort((a, b) => {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const reviewState = buildCallReviewState(parsedAuditEntries);
+
+  const enrichedCall = {
+    ...call,
+    stateTransitions: sanitizedTransitions,
+    finalizeBookingJob,
+    webhookJobs: webhookJobStatuses,
+    callAuditTrail,
+    latestMediaStream: call.mediaStreamSessions[0] || null,
+    reviewState
+  };
+
   return res.json({
     ok: true,
     data: {
-      call: {
-        ...call,
-        latestMediaStream: call.mediaStreamSessions[0] || null
+      call: enrichedCall
+    }
+  });
+});
+
+adminRouter.post(
+  "/calls/:id/retrigger-finalizer",
+  requirePermission("calls.read"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestedId = String(req.params.id || "").trim();
+    if (!requestedId) {
+      return res.status(400).json({ ok: false, message: "Call ID is required." });
+    }
+    const call = await prisma.callLog.findFirst({
+      where: {
+        OR: [{ id: requestedId }, { providerCallId: requestedId }]
+      },
+      select: {
+        id: true,
+        providerCallId: true,
+        orgId: true
       }
+    });
+    if (!call) {
+      return res.status(404).json({ ok: false, message: "Call not found." });
+    }
+
+    const callIdCandidates = [call.id, ...(call.providerCallId ? [call.providerCallId] : [])];
+    const finalizeBookingJob =
+      callIdCandidates.length > 0
+        ? await prisma.finalizeBookingJob.findFirst({
+            where: { callId: { in: callIdCandidates } },
+            orderBy: { updatedAt: "desc" }
+          })
+        : null;
+    const eligibility = describeFinalizerEligibility(finalizeBookingJob);
+    const auditMetadata = {
+      callId: call.id,
+      jobId: finalizeBookingJob?.id ?? null,
+      status: finalizeBookingJob?.status ?? null,
+      reason: eligibility.reason
+    };
+
+    if (!eligibility.eligible) {
+      await writeAuditLog({
+        prisma,
+        orgId: call.orgId ?? undefined,
+        actorUserId: req.auth?.userId || "system",
+        actorRole: req.auth?.role || "ADMIN",
+        action: "ADMIN_RETRIGGER_FINALIZER",
+        metadata: { ...auditMetadata, accepted: false, mode: eligibility.mode }
+      });
+      return res.status(400).json({ ok: false, message: eligibility.reason });
+    }
+
+    const jobCallId = finalizeBookingJob?.callId || call.providerCallId || call.id;
+    try {
+      await enqueueFinalizeBookingJob({ prisma, callId: jobCallId });
+      await writeAuditLog({
+        prisma,
+        orgId: call.orgId ?? undefined,
+        actorUserId: req.auth?.userId || "system",
+        actorRole: req.auth?.role || "ADMIN",
+        action: "ADMIN_RETRIGGER_FINALIZER",
+        metadata: {
+          ...auditMetadata,
+          accepted: true,
+          mode: eligibility.mode,
+          requeuedCallId: jobCallId
+        }
+      });
+      return res.json({
+        ok: true,
+        data: {
+          callId: call.id,
+          reason: eligibility.reason,
+          mode: eligibility.mode
+        }
+      });
+    } catch (error) {
+      await writeAuditLog({
+        prisma,
+        orgId: call.orgId ?? undefined,
+        actorUserId: req.auth?.userId || "system",
+        actorRole: req.auth?.role || "ADMIN",
+        action: "ADMIN_RETRIGGER_FINALIZER",
+        metadata: {
+          ...auditMetadata,
+          accepted: false,
+          mode: eligibility.mode,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+      console.error("Failed to re-trigger booking finalizer", error);
+      return res.status(500).json({ ok: false, message: "Unable to queue follow-up action." });
+    }
+  }
+);
+
+adminRouter.get("/ops/queue-health", async (_req: AuthenticatedRequest, res: Response) => {
+  const limitRaw = Number.parseInt(String(_req.query.limit || "120"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(40, Math.min(limitRaw, 200)) : 120;
+  const logs = await prisma.auditLog.findMany({
+    where: { action: { in: QUEUE_MONITOR_ACTIONS } },
+    orderBy: { createdAt: "desc" },
+    take: limit
+  });
+  const eventIds = logs
+    .map((log) => {
+      const metadata = safeParseAuditMetadata(log.metadataJson);
+      return typeof metadata.eventId === "string" ? metadata.eventId : null;
+    })
+    .filter((value): value is string => Boolean(value));
+  const events =
+    eventIds.length > 0
+      ? await prisma.vapiWebhookEvent.findMany({
+          where: { id: { in: eventIds } },
+          select: { id: true, messageType: true }
+        })
+      : [];
+  const eventMap = new Map(events.map((event) => [event.id, { messageType: event.messageType }]));
+  const jobRecords = logs.map((log) => {
+    const metadata = safeParseAuditMetadata(log.metadataJson);
+    return buildQueueJobRecord(log, metadata, eventMap);
+  });
+  const statusCounts: Record<string, number> = {};
+  const typeCounts: Record<string, number> = {};
+  jobRecords.forEach((record) => {
+    statusCounts[record.status] = (statusCounts[record.status] || 0) + 1;
+    typeCounts[record.type] = (typeCounts[record.type] || 0) + 1;
+  });
+  const summary = Object.entries(statusCounts).map(([status, count]) => ({
+    status,
+    label: queueJobLabel(status),
+    count
+  }));
+  const typeSummary = Object.entries(typeCounts).map(([type, count]) => ({ type, count }));
+  const now = Date.now();
+  const stuckThreshold = 5 * 60 * 1000;
+  const stuckJobs = jobRecords
+    .filter(
+      (record) =>
+        (record.status === "processing" || record.status === "queued") &&
+        now - new Date(record.createdAt).getTime() > stuckThreshold
+    )
+    .slice(0, 8);
+  const retryingJobs = jobRecords.filter((record) => record.status === "failed").slice(0, 8);
+  return res.json({
+    ok: true,
+    data: {
+      summary,
+      typeSummary,
+      recentJobs: jobRecords.slice(0, 25),
+      stuckJobs,
+      retryingJobs
+    }
+  });
+});
+
+adminRouter.post("/calls/:id/review", requirePermission("calls.read"), async (req: AuthenticatedRequest, res: Response) => {
+  const requestedId = String(req.params.id || "").trim();
+  if (!requestedId) {
+    return res.status(400).json({ ok: false, message: "Call ID is required." });
+  }
+  const action = String(req.body?.action || "").toLowerCase();
+  if (action !== "mark" && action !== "resolve") {
+    return res.status(400).json({ ok: false, message: "Invalid review action." });
+  }
+  const noteValue = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+  const note = noteValue ? noteValue : null;
+
+  const call = await prisma.callLog.findFirst({
+    where: { OR: [{ id: requestedId }, { providerCallId: requestedId }] },
+    select: { id: true, providerCallId: true, orgId: true }
+  });
+  if (!call) {
+    return res.status(404).json({ ok: false, message: "Call not found." });
+  }
+
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      orgId: call.orgId,
+      action: { in: [CALL_REVIEW_MARK_ACTION, CALL_REVIEW_RESOLVED_ACTION] },
+      metadataJson: { contains: `"callId":"${call.id}"` }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  const parsedEntries = auditLogs.map((log) => ({
+    log,
+    metadata: safeParseAuditMetadata(log.metadataJson)
+  }));
+  const currentState = buildCallReviewState(parsedEntries);
+
+  if (action === "mark" && currentState.status === "review_required") {
+    return res.status(400).json({ ok: false, message: "Already marked for review." });
+  }
+  if (action === "resolve" && currentState.status !== "review_required") {
+    return res.status(400).json({ ok: false, message: "Nothing pending review to resolve." });
+  }
+
+  const logAction = action === "mark" ? CALL_REVIEW_MARK_ACTION : CALL_REVIEW_RESOLVED_ACTION;
+  const nextState: CallReviewState = {
+    status: action === "mark" ? "review_required" : "resolved",
+    note: note ?? currentState.note,
+    updatedAt: new Date().toISOString(),
+    actorUserId: req.auth?.userId || null,
+    actorRole: req.auth?.role || null
+  };
+
+  await writeAuditLog({
+    prisma,
+    orgId: call.orgId ?? undefined,
+    actorUserId: req.auth?.userId || "system",
+    actorRole: req.auth?.role || "ADMIN",
+    action: logAction,
+    metadata: {
+      callId: call.id,
+      note,
+      action
+    }
+  });
+
+  return res.json({
+    ok: true,
+    data: {
+      reviewState: nextState
+    }
+  });
+});
+
+adminRouter.post("/ops/retry-job", async (req: AuthenticatedRequest, res: Response) => {
+  const jobLogId = String(req.body?.jobId || "").trim();
+  if (!jobLogId) {
+    return res.status(400).json({ ok: false, message: "Job ID is required." });
+  }
+  const log = await prisma.auditLog.findUnique({ where: { id: jobLogId } });
+  if (!log) {
+    return res.status(404).json({ ok: false, message: "Job record not found." });
+  }
+  if (log.action !== "WEBHOOK_JOB_STATUS") {
+    return res.status(400).json({ ok: false, message: "Only webhook job records can be retried." });
+  }
+  const metadata = safeParseAuditMetadata(log.metadataJson);
+  const status = normalizeQueueStatus(log.action, metadata);
+  const eventId = typeof metadata.eventId === "string" ? metadata.eventId : null;
+  const type = typeof metadata.type === "string" ? metadata.type : null;
+  const retryInfo = describeQueueRetryEligibility({
+    status,
+    eventId,
+    createdAt: log.createdAt,
+    lastErrorMessage: typeof metadata.message === "string" ? metadata.message : null
+  });
+  if (!retryInfo.eligible) {
+    return res.status(400).json({ ok: false, message: retryInfo.reason });
+  }
+  if (!type || !eventId) {
+    return res.status(400).json({ ok: false, message: "Remediation data missing; cannot requeue job." });
+  }
+  try {
+    const queueName = queueJobNameFromType(type);
+    const jobData: Record<string, unknown> = { type, eventId };
+    if (log.orgId) jobData.orgId = log.orgId;
+    const job = await webhookQueue.add(queueName, jobData);
+    await writeAuditLog({
+      prisma,
+      orgId: log.orgId ?? undefined,
+      actorUserId: req.auth?.userId || "system",
+      actorRole: req.auth?.role || "ADMIN",
+      action: "ADMIN_RETRY_WEBHOOK_JOB",
+      metadata: {
+        originalJobLogId: log.id,
+        eventId,
+        jobType: type,
+        retryMode: retryInfo.mode,
+        message: retryInfo.reason,
+        requeuedJobId: job.id
+      }
+    });
+    return res.json({
+      ok: true,
+      data: {
+        requeuedJobId: job.id,
+        retryMode: retryInfo.mode,
+        message: retryInfo.reason
+      }
+    });
+  } catch (error) {
+    console.error("Failed to requeue job", error);
+    return res.status(500).json({ ok: false, message: "Unable to requeue job." });
+  }
+});
+
+adminRouter.get("/ops/sms-audit", async (_req: AuthenticatedRequest, res: Response) => {
+  const limitRaw = Number.parseInt(String(_req.query.limit || "80"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(40, Math.min(limitRaw, 200)) : 80;
+  const logs = await prisma.auditLog.findMany({
+    where: { action: { in: SMS_MONITOR_ACTIONS } },
+    orderBy: { createdAt: "desc" },
+    take: limit
+  });
+  const entries = logs.map((log) => {
+    const metadata = safeParseAuditMetadata(log.metadataJson);
+    return buildSmsAuditEntry(log, metadata);
+  });
+  const summaryMap = new Map<string, { eventType: string; status: string; count: number }>();
+  entries.forEach((entry) => {
+    const key = `${entry.eventType}:${entry.status || "unknown"}`;
+    const existing = summaryMap.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      summaryMap.set(key, {
+        eventType: entry.eventType,
+        status: entry.status || "unknown",
+        count: 1
+      });
+    }
+  });
+  const summary = Array.from(summaryMap.values());
+  return res.json({
+    ok: true,
+    data: {
+      summary,
+      recentEvents: entries
     }
   });
 });
@@ -454,13 +1189,13 @@ adminRouter.get("/settings/demo", async (_req: AuthenticatedRequest, res: Respon
         demoQuestions:
           config?.demoQuestionsJson && config.demoQuestionsJson.trim()
             ? (() => {
-                try {
-                  const parsed = JSON.parse(config.demoQuestionsJson) as unknown;
-                  return Array.isArray(parsed) ? parsed.map((item) => String(item || "")) : [];
-                } catch {
-                  return [];
-                }
-              })()
+              try {
+                const parsed = JSON.parse(config.demoQuestionsJson) as unknown;
+                return Array.isArray(parsed) ? parsed.map((item) => String(item || "")) : [];
+              } catch {
+                return [];
+              }
+            })()
             : []
       }
     });
@@ -624,7 +1359,9 @@ adminRouter.delete("/calls/:id", requireStepUp, async (req, res) => {
 });
 
 adminRouter.get("/export/leads.csv", async (_req, res) => {
-  const leads = await prisma.lead.findMany({ orderBy: { createdAt: "desc" } });
+  // Hard cap to prevent OOM on large tables and reduce data exfiltration risk.
+  const EXPORT_LIMIT = 10_000;
+  const leads = await prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: EXPORT_LIMIT });
   const csv = toCsv(
     leads.map((lead) => ({
       id: lead.id,
@@ -640,6 +1377,9 @@ adminRouter.get("/export/leads.csv", async (_req, res) => {
   );
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", "attachment; filename=leads.csv");
+  if (leads.length === EXPORT_LIMIT) {
+    res.setHeader("X-Export-Truncated", "true");
+  }
   return res.send(csv);
 });
 
@@ -760,38 +1500,52 @@ adminRouter.post("/prospects/import-csv", requireStepUp, async (req: Authenticat
   if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid import payload.", errors: parsed.error.flatten() });
   const rows = parseCsvRows(parsed.data.csv);
   if (!rows.length) return res.status(400).json({ ok: false, message: "CSV must include header and at least one row." });
-
-  const created = [];
-  for (const row of rows) {
-    if (!row.name || !row.business) continue;
-    const prospect = await prisma.prospect.create({
-      data: {
-        orgId: parsed.data.orgId || null,
-        name: row.name,
-        business: row.business,
-        email: toNullable(row.email),
-        phone: toNullable(row.phone),
-        website: toNullable(row.website),
-        industry: toNullable(row.industry),
-        city: toNullable(row.city),
-        state: toNullable(row.state),
-        notes: toNullable(row.notes),
-        tags: row.tags || "",
-        source: "CSV_IMPORT",
-        status: "NEW"
-      }
-    });
-    created.push(prospect.id);
+  
+  // Safety check: Don't allow massive CSVs to bloat Redis/Memory
+  if (parsed.data.csv.length > 500 * 1024) { // 500KB limit for inline job data
+    return res.status(400).json({ ok: false, message: "CSV too large for background processing. Please upload smaller files (<500KB)." });
   }
+  
+  const rowCount = rows.length;
+  const orgId = parsed.data.orgId || null;
+
+  // Create the tracking record with the source data for durability
+  const job = await prisma.bulkImportJob.create({
+    data: {
+      orgId: orgId || "system", 
+      type: "PROSPECT",
+      status: "QUEUED",
+      totalRows: rowCount,
+      sourceData: parsed.data.csv, // Priority 2: Durable DB storage
+      metadataJson: {
+        orgId: orgId,
+        actorUserId: req.auth!.userId
+      }
+    }
+  });
+
+  // Enqueue for worker processing - payload only contains a reference
+  await importQueue.add("prospect-import", {
+    jobId: job.id,
+    orgId: orgId,
+    actorUserId: req.auth!.userId,
+    actorRole: req.auth!.role
+  });
+
   await writeAuditLog({
     prisma,
-    orgId: parsed.data.orgId || undefined,
+    orgId: orgId || undefined,
     actorUserId: req.auth!.userId,
     actorRole: req.auth!.role,
-    action: "ADMIN_PROSPECTS_IMPORTED",
-    metadata: { createdCount: created.length }
+    action: "ADMIN_PROSPECT_IMPORT_QUEUED",
+    metadata: { jobId: job.id, rowCount }
   });
-  return res.json({ ok: true, data: { createdCount: created.length } });
+
+  return res.json({
+    ok: true,
+    message: `Import of ${rowCount} prospects has been queued.`,
+    data: { jobId: job.id, queued: true }
+  });
 });
 
 adminRouter.post("/prospects/discover", requireStepUp, async (req: AuthenticatedRequest, res) => {
@@ -1907,11 +2661,11 @@ adminRouter.post("/orgs/:id/provisioning/generate-ai-config", requireStepUp, asy
   const configPackage = (configPackageRecord.json || {}) as Record<string, unknown>;
   const businessSettings = settings
     ? {
-        timezone: settings.timezone,
-        hoursJson: settings.hoursJson,
-        transferNumbersJson: settings.transferNumbersJson,
-        languagesJson: settings.languagesJson
-      }
+      timezone: settings.timezone,
+      hoursJson: settings.hoursJson,
+      transferNumbersJson: settings.transferNumbersJson,
+      languagesJson: settings.languagesJson
+    }
     : {};
   const systemPrompt = `${buildVapiSystemPrompt(configPackage, businessSettings)}${buildKnowledgeContextSnippet(knowledgeFiles)}`;
   const tools = buildVapiTools(env.API_BASE_URL).map((tool) => ({

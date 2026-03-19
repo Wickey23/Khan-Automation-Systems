@@ -52,6 +52,9 @@ export const outreachBulkImportSchema = z.object({
 });
 
 export const outreachBulkDeleteSchema = z.object({
+  // orgId is now REQUIRED for bulk delete. Without it, the endpoint would wipe
+  // all outreach data across all organizations — a catastrophic multi-tenant nuke.
+  orgId: z.string().min(1),
   confirmed: z.boolean()
 });
 
@@ -125,6 +128,7 @@ export const outreachCallerConfigCreateSchema = z.object({
 });
 
 export const outreachCallerConfigUpdateSchema = z.object({
+  orgId: z.string().min(1).optional(),
   name: z.string().trim().min(1).optional(),
   description: optionalTrimmed,
   isActive: z.boolean().optional(),
@@ -158,6 +162,10 @@ export const outreachListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   page: z.coerce.number().int().min(1).optional()
 });
+
+export const outreachEventRetrySchema = z.object({
+  channel: z.enum(["EMAIL", "PHONE"])
+ });
 
 export function validateOrderedSteps(
   steps: Array<z.infer<typeof outreachSequenceStepInputSchema>>

@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
-    const cspReportOnly = [
+    // Content-Security-Policy for production.
+    // NOTE: 'unsafe-inline' on script-src is needed for Next.js inline scripts.
+    // Long-term hardening: migrate to nonce-based CSP with
+    //   next.config.mjs generateBuildId + middleware-injected nonces.
+    // 'unsafe-eval' is NOT included — Next.js 14+ production builds do not need it.
+    const cspDirectives = [
       "default-src 'self'",
       "base-uri 'self'",
       "object-src 'none'",
@@ -11,13 +16,16 @@ const nextConfig = {
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "connect-src 'self' https://api.khansystems.com https://api.stripe.com https://js.stripe.com",
-      "frame-src https://js.stripe.com https://hooks.stripe.com"
+      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      "upgrade-insecure-requests"
     ].join("; ");
+
     return [
       {
         source: "/(.*)",
         headers: [
-          { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          // Enforced CSP — blocks actual violations, not just reports.
+          { key: "Content-Security-Policy", value: cspDirectives },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -25,6 +33,12 @@ const nextConfig = {
             key: "Permissions-Policy",
             value:
               "camera=(), microphone=(), geolocation=(), payment=(self), usb=(), accelerometer=(), gyroscope=()"
+          },
+          // HSTS: tell browsers this domain is always HTTPS for 180 days.
+          // Remove includeSubDomains if subdomain HTTP is needed.
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=15552000; includeSubDomains"
           }
         ]
       }

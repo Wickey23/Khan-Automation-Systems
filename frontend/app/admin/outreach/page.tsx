@@ -5,18 +5,28 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { OutreachSubnav } from "@/components/admin/outreach-subnav";
+import { PageHeader, PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StateCard } from "@/components/ui/state-card";
 import { fetchAdminOutreachOverview, runAdminOutreachTick } from "@/lib/api";
 import type { OutreachOverview } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
+
+type AttentionItem = {
+  title: string;
+  text: string;
+  href: string;
+  state: string;
+};
 
 export default function AdminOutreachOverviewPage() {
   const { showToast } = useToast();
   const [data, setData] = useState<OutreachOverview | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const overview = await fetchAdminOutreachOverview();
       setData(overview);
@@ -26,6 +36,8 @@ export default function AdminOutreachOverviewPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "error"
       });
+    } finally {
+      setLoading(false);
     }
   }, [showToast]);
 
@@ -50,186 +62,252 @@ export default function AdminOutreachOverviewPage() {
     }
   }
 
-  const scorecards = useMemo(() => [
-    { label: "Total leads", value: data?.totalLeads ?? 0, tone: "default" },
-    { label: "Email lanes live", value: data?.activeEnrollments ?? 0, tone: "default" },
-    { label: "Caller AI lanes live", value: data?.activePhoneEnrollments ?? 0, tone: "default" },
-    { label: "Email failures", value: data?.failedEmails ?? 0, tone: (data?.failedEmails ?? 0) > 0 ? "danger" : "default" },
-    { label: "Call failures", value: data?.failedCalls ?? 0, tone: (data?.failedCalls ?? 0) > 0 ? "danger" : "default" },
-    { label: "Replied leads", value: data?.replies ?? 0, tone: (data?.replies ?? 0) > 0 ? "warning" : "default" },
-    { label: "Dual-channel conflicts", value: data?.activeMultiChannelLeads ?? 0, tone: (data?.activeMultiChannelLeads ?? 0) > 0 ? "warning" : "default" },
-    { label: "Unsubscribes", value: data?.unsubscribes ?? 0, tone: "default" }
-  ], [data]);
+  const scorecards = useMemo(
+    () => [
+      { label: "Total leads", value: data?.totalLeads ?? 0 },
+      { label: "Email lanes live", value: data?.activeEnrollments ?? 0 },
+      { label: "Caller AI lanes live", value: data?.activePhoneEnrollments ?? 0 },
+      { label: "Email failures", value: data?.failedEmails ?? 0, state: (data?.failedEmails ?? 0) > 0 ? "failed" : "ready" },
+      { label: "Call failures", value: data?.failedCalls ?? 0, state: (data?.failedCalls ?? 0) > 0 ? "failed" : "ready" },
+      { label: "Replied leads", value: data?.replies ?? 0, state: (data?.replies ?? 0) > 0 ? "warning" : "ready" },
+      { label: "Dual-channel conflicts", value: data?.activeMultiChannelLeads ?? 0, state: (data?.activeMultiChannelLeads ?? 0) > 0 ? "warning" : "ready" },
+      { label: "Unsubscribes", value: data?.unsubscribes ?? 0 }
+    ],
+    [data]
+  );
 
-  const attentionItems = useMemo(() => {
-    const items: Array<{ title: string; text: string; href: string }> = [];
+  const attentionItems = useMemo<AttentionItem[]>(() => {
+    const items: AttentionItem[] = [];
     if ((data?.failedCalls ?? 0) > 0) {
       items.push({
         title: "Caller AI failures need review",
-        text: `${data?.failedCalls ?? 0} call attempts failed. Review Events first, then fix the Caller AI profile or provider setup before retrying.`,
-        href: "/admin/outreach/events?channel=PHONE&eventType=FAILED"
+        text: `${data?.failedCalls ?? 0} call attempts failed. Review Events first, then fix the Caller AI provider setup before retrying.`,
+        href: "/admin/outreach/events?channel=PHONE&eventType=FAILED",
+        state: "failed"
       });
     }
     if ((data?.failedEmails ?? 0) > 0) {
       items.push({
         title: "Email sends are failing",
-        text: `${data?.failedEmails ?? 0} email events failed. Check the failing subjects and provider responses before starting more email outreach.`,
-        href: "/admin/outreach/events?channel=EMAIL&eventType=FAILED"
+        text: `${data?.failedEmails ?? 0} email events failed. Review the email log before restarting the sequences.`,
+        href: "/admin/outreach/events?channel=EMAIL&eventType=FAILED",
+        state: "failed"
       });
     }
     if ((data?.replies ?? 0) > 0) {
       items.push({
         title: "Replied leads need a decision",
-        text: `${data?.replies ?? 0} leads have replied. Move them out of outreach or hand them off to a real follow-up step.`,
-        href: "/admin/outreach/leads?status=REPLIED"
+        text: `${data?.replies ?? 0} leads replied. Move them forward or archive them to keep outreach calm.`,
+        href: "/admin/outreach/leads?status=REPLIED",
+        state: "warning"
       });
     }
     if ((data?.activeMultiChannelLeads ?? 0) > 0) {
       items.push({
-        title: "Some leads are live in both lanes",
-        text: `${data?.activeMultiChannelLeads ?? 0} leads have both email and phone lanes active. Decide which lane is primary so outreach does not feel chaotic.`,
-        href: "/admin/outreach/leads"
-      });
-    }
-    if (!items.length) {
-      items.push({
-        title: "No active issues in the last pull",
-        text: "Use Leads to load fresh prospects, Sequences to tune the email lane, and Caller AI to verify the phone lane before scaling volume.",
-        href: "/admin/outreach/leads"
+        title: "Dual-channel conflicts",
+        text: `${data?.activeMultiChannelLeads ?? 0} leads are live in both email and phone. Prioritize how you want to handle each case.`,
+        href: "/admin/outreach/leads",
+        state: "warning"
       });
     }
     return items;
   }, [data]);
 
+  const operationalRead = useMemo(
+    () => [
+      {
+        title: "Email lane",
+        state: (data?.failedEmails ?? 0) > 0 ? "failed" : data?.activeEnrollments ? "processing" : "locked",
+        primary: data?.activeEnrollments
+          ? `${data.activeEnrollments} email lanes are live.`
+          : "No active email lanes are live right now.",
+        secondary: data?.failedEmails ? "Failed sends need review before adding new leads." : "Email throughput is healthy."
+      },
+      {
+        title: "Caller AI lane",
+        state: (data?.failedCalls ?? 0) > 0 ? "failed" : data?.activePhoneEnrollments ? "processing" : "locked",
+        primary: data?.activePhoneEnrollments
+          ? `${data.activePhoneEnrollments} Caller AI lanes are running.`
+          : "No Caller AI lanes are queued or running.",
+        secondary: data?.failedCalls ? "Fix provider or AI profile issues before retrying calls." : "Caller AI is stable."
+      },
+      {
+        title: "Lead handling",
+        state: (data?.replies ?? 0) > 0 ? "warning" : (data?.activeMultiChannelLeads ?? 0) > 0 ? "warning" : "ready",
+        primary: data?.replies
+          ? `${data.replies} replied leads need a decision.`
+          : "No replied leads are waiting on follow-up.",
+        secondary:
+          (data?.activeMultiChannelLeads ?? 0) > 0
+            ? `${data?.activeMultiChannelLeads ?? 0} dual-lane conflicts are live. Clean them up to rein in outreach.`
+            : "Lead routing looks healthy."
+      }
+    ],
+    [data]
+  );
+
   return (
     <AdminGuard requireSuperAdmin>
-      <div className="container py-10 space-y-6">
+      <PageShell className="space-y-6">
         <AdminTopTabs />
-        <PageHeader
-          eyebrow="Internal growth"
-          title="Outreach"
-          description="Manage internal outbound outreach across email and AI calling, and monitor the email log and call log from one place."
-          actions={
-            <div className="flex gap-2">
-              <Link href="/admin/outreach/events?channel=EMAIL">
-                <Button variant="outline">Email log</Button>
-              </Link>
-              <Link href="/admin/outreach/events?channel=PHONE">
-                <Button variant="outline">Call log</Button>
-              </Link>
-              <Button variant="outline" onClick={() => void load()}>
-                Refresh
-              </Button>
-              <Button onClick={() => void runTick()}>Run outreach</Button>
+
+        <SectionShell className="surface-panel space-y-6">
+          <PageHeader
+            eyebrow="Internal growth"
+            title="Outreach"
+            description="Manage outbound AI calling and email automation while keeping logs, replies, and lane health visible in one calm control surface."
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Link href="/admin/outreach/events?channel=EMAIL">
+                  <Button variant="outline">Email log</Button>
+                </Link>
+                <Link href="/admin/outreach/events?channel=PHONE">
+                  <Button variant="outline">Call log</Button>
+                </Link>
+                <Button variant="outline" onClick={() => void load()}>
+                  Refresh
+                </Button>
+                <Button onClick={() => void runTick()}>Run outreach</Button>
+              </div>
+            }
+          />
+          <OutreachSubnav />
+        </SectionShell>
+
+        <SectionShell className="surface-panel">
+          <PageHeader
+            eyebrow="Guides and playbooks"
+            title="How to run outreach"
+            description="Keep the outbound machine calm: clear failures, assign lanes, and verify Caller AI before ramping volume."
+          />
+          <WorkflowHint
+            title="Playbook"
+            items={[
+              { label: "Overview", text: "Check for email or call failures, replied leads, and dual-lane conflicts on this page before scaling." },
+              { label: "Do first", text: "Resolve failing sends and calls to keep the automation trustworthy." },
+              { label: "Go next", text: "Use Leads, Email log, and Call log to review outcomes and confirm Caller AI readiness." }
+            ]}
+          />
+        </SectionShell>
+
+        <SectionShell className="surface-panel space-y-6">
+          <SectionHeading
+            title="Outreach metrics"
+            description="High-level counts for current leads, lane health, and areas that need rapid attention."
+          />
+          {loading ? (
+            <StateCard variant="loading" />
+          ) : (
+            <div className="metric-grid">
+              {scorecards.map((item) => (
+                <div key={item.label} className="metric-card flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                    {item.state ? (
+                      <StatusBadge kind="job" state={item.state} label={item.state === "ready" ? "Healthy" : undefined} size="xs" />
+                    ) : null}
+                  </div>
+                  <p className={`text-2xl font-black text-slate-950 ${item.state === "failed" ? "text-rose-600" : item.state === "warning" ? "text-amber-600" : ""}`}>
+                    {item.value}
+                  </p>
+                </div>
+              ))}
             </div>
-          }
-        />
-        <OutreachSubnav />
-        <WorkflowHint
-          title="How to run outreach"
-          items={[
-            { label: "Overview", text: "Use this page to see whether email or Caller AI is failing, whether replies are stacking up, and whether too many leads are live in both lanes." },
-            { label: "Do first", text: "Clear failed sends and failed calls before loading more leads. Broken outbound infrastructure makes the rest of the workflow noisy." },
-            { label: "Go next", text: "Open Leads to assign the right lane per prospect, use Email log or Call log to inspect outcomes, and verify Caller AI before scaling live calls." }
-          ]}
-        />
+          )}
+        </SectionShell>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {scorecards.map((item) => (
-            <Card key={item.label}>
-              <CardContent className="p-5">
-                <p className="page-eyebrow">{item.label}</p>
-                <p className={`mt-2 text-2xl font-semibold ${item.tone === "danger" ? "text-red-700" : item.tone === "warning" ? "text-amber-700" : ""}`}>
-                  {item.value}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Action needed now</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+        <SectionShell className="surface-panel space-y-6">
+          <SectionHeading title="Action needed now" description="Poor outcomes, replied leads, and dual-lane conflicts that require a decision." />
+          {loading ? (
+            <StateCard variant="loading" title="Assessing outreach health" description="Checking for failures and attention items." />
+          ) : attentionItems.length ? (
+            <div className="space-y-3">
               {attentionItems.map((item) => (
-                <div key={item.title} className="rounded-lg border p-4">
-                  <div className="font-medium text-slate-950">{item.title}</div>
-                  <p className="mt-1 text-sm text-muted-foreground">{item.text}</p>
+                <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-semibold text-slate-900">{item.title}</p>
+                    <StatusBadge kind="job" state={item.state} label={item.state === "failed" ? "Issue" : humanize(item.state)} size="xs" />
+                  </div>
+                  <p className="mt-2 text-sm text-slate-500">{item.text}</p>
                   <div className="mt-3">
-                    <Link href={item.href} className="text-sm font-medium text-primary underline underline-offset-4">
+                    <Link href={item.href} className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
                       Open related page
                     </Link>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            <StateCard
+              variant="empty"
+              title="No immediate issues"
+              description="Outreach is healthy. Continue loading leads, tuning sequences, and monitoring the logs."
+            />
+          )}
+        </SectionShell>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Operational read</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="rounded-lg border p-4">
-                <div className="font-medium text-foreground">Email lane</div>
-                <p className="mt-1">
-                  {data?.activeEnrollments
-                    ? `${data.activeEnrollments} active email lanes are currently live.`
-                    : "No active email lanes are live right now."}{" "}
-                  {data?.failedEmails ? "There are failed email attempts to review." : "No email failures are currently surfaced."}
-                </p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="font-medium text-foreground">Caller AI lane</div>
-                <p className="mt-1">
-                  {data?.activePhoneEnrollments
-                    ? `${data.activePhoneEnrollments} active Caller AI lanes are queued or running.`
-                    : "No active Caller AI lanes are queued right now."}{" "}
-                  {data?.failedCalls ? "Failed call attempts need provider or profile review." : "No call failures are currently surfaced."}
-                </p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="font-medium text-foreground">Lead handling</div>
-                <p className="mt-1">
-                  {data?.replies
-                    ? `${data.replies} leads have replied and need a human decision.`
-                    : "No replied leads are waiting on a follow-up decision right now."}{" "}
-                  {(data?.activeMultiChannelLeads ?? 0) > 0
-                    ? `${data?.activeMultiChannelLeads ?? 0} leads are active in both lanes and should be cleaned up.`
-                    : "No dual-lane conflicts are currently surfaced."}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data?.recentEvents?.length ? (
-              data.recentEvents.map((event) => (
-                <div key={`${event.channel}-${event.id}`} className="rounded-lg border p-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium">
-                      {event.channel} · {event.eventType} · {event.channel === "EMAIL" ? event.subject || "Email outreach" : event.summary || "Phone outreach"}
-                    </div>
-                    <div className="text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</div>
+        <SectionShell className="surface-panel space-y-6">
+          <SectionHeading
+            title="Operational read"
+            description="Lane-level context showing whether the email lane, Caller AI lane, or lead handling needs intervention."
+          />
+          {loading ? (
+            <StateCard variant="loading" title="Gathering lane insights" description="Pulling the latest lane health data." />
+          ) : (
+            <div className="space-y-4">
+              {operationalRead.map((lane) => (
+                <div key={lane.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-semibold text-slate-900">{lane.title}</p>
+                    <StatusBadge kind="job" state={lane.state} label={humanize(lane.state)} size="xs" />
                   </div>
-                  <div className="mt-1 text-muted-foreground">{event.channel === "EMAIL" ? event.toEmail : event.toPhone}</div>
-                  {event.channel === "PHONE" && event.summary ? <div className="mt-1">{event.summary}</div> : null}
-                  {event.errorMessage ? <div className="mt-1 text-red-700">{event.errorMessage}</div> : null}
+                  <p className="mt-2 text-sm text-slate-500">{lane.primary}</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{lane.secondary}</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">No outreach activity recorded yet.</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              ))}
+            </div>
+          )}
+        </SectionShell>
+
+        <SectionShell className="surface-panel space-y-6">
+          <SectionHeading title="Recent activity" description="Email and Caller AI events with context, errors, and timestamps." />
+          {loading ? (
+            <StateCard variant="loading" title="Loading events" description="Fetching recent outreach activity." />
+          ) : data?.recentEvents?.length ? (
+            <div className="space-y-3">
+              {data.recentEvents.map((event) => (
+                <div key={`${event.channel}-${event.id}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-col gap-1">
+                      <p className="font-semibold text-slate-900">
+                        {event.channel} · {event.eventType}
+                        <span className="ml-2 text-xs uppercase tracking-[0.18em] text-slate-400">{event.channel === "EMAIL" ? "Email" : "Phone"}</span>
+                      </p>
+                      <p className="text-sm text-slate-500">{event.channel === "EMAIL" ? event.subject || "Email outreach" : event.summary || "Phone outreach"}</p>
+                    </div>
+                    <StatusBadge kind={event.channel === "PHONE" ? "call" : "sms"} state={event.eventType} label={humanize(event.eventType)} size="xs" />
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                    <span>{new Date(event.createdAt).toLocaleString()}</span>
+                    <span>
+                      {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
+                      {event.errorMessage ? ` · ${event.errorMessage}` : ""}
+                    </span>
+                  </div>
+                  {event.channel === "PHONE" && event.summary ? <p className="mt-2 text-sm text-slate-500">{event.summary}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <StateCard variant="empty" title="No outreach activity" description="No email or Caller AI events recorded yet." />
+          )}
+        </SectionShell>
+      </PageShell>
     </AdminGuard>
   );
+}
+
+function humanize(value?: string | null) {
+  if (!value) return "Unknown";
+  return value.replaceAll("_", " ");
 }

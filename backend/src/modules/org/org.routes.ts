@@ -60,6 +60,7 @@ import {
   updateBusinessSettingsSchema,
   updateOrgProfileSchema
 } from "./org.schema";
+import { buildOrgAccessSummary } from "./access.service";
 
 export const orgRouter = Router();
 
@@ -426,6 +427,7 @@ orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
     })
   ]);
   if (!organization) return res.status(404).json({ ok: false, message: "Organization not found." });
+  const access = await buildOrgAccessSummary({ prisma, orgId: req.auth.orgId, organization, activePhone });
   return res.json({
     ok: true,
     data: {
@@ -438,7 +440,8 @@ orgRouter.get("/profile", async (req: AuthenticatedRequest, res) => {
         notificationsEnabled: isFeatureEnabledForOrg(env.FEATURE_NOTIFICATIONS_V1_ENABLED, req.auth.orgId),
         pipelineStageEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, req.auth.orgId),
         classificationEnabled: isFeatureEnabledForOrg(env.FEATURE_CLASSIFICATION_V1_ENABLED, req.auth.orgId)
-      }
+      },
+      access
     }
   });
 });
@@ -453,6 +456,7 @@ orgRouter.patch("/profile", requireOrgWriteAccess, async (req: AuthenticatedRequ
   });
   return res.json({ ok: true, data: { organization } });
 });
+
 
 orgRouter.get("/settings", requireOrgWriteAccess, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
@@ -567,14 +571,16 @@ orgRouter.post("/knowledge-files", requireOrgWriteAccess, async (req: Authentica
   const fileName = String(req.body?.fileName || "").trim();
   const mimeType = String(req.body?.mimeType || "text/plain").trim().toLowerCase();
   const contentText = String(req.body?.contentText || "");
-  const sizeBytes = Number(req.body?.sizeBytes || Buffer.byteLength(contentText, "utf8"));
+  // Always compute sizeBytes server-side. Never trust the client-supplied value —
+  // a client could send sizeBytes: 1 with 200,000 bytes of content to bypass the size limit.
+  const sizeBytes = Buffer.byteLength(contentText, "utf8");
 
   if (!fileName) return res.status(400).json({ ok: false, message: "fileName is required." });
   if (!contentText.trim()) return res.status(400).json({ ok: false, message: "File content is empty." });
   if (!ALLOWED_KNOWLEDGE_MIME.has(mimeType)) {
     return res.status(400).json({ ok: false, message: "Only .txt, .md, .json, and .csv files are supported." });
   }
-  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > KNOWLEDGE_FILE_MAX_BYTES) {
+  if (sizeBytes > KNOWLEDGE_FILE_MAX_BYTES) {
     return res.status(400).json({ ok: false, message: `File too large. Max ${KNOWLEDGE_FILE_MAX_BYTES} bytes.` });
   }
 
@@ -818,69 +824,69 @@ orgRouter.get("/leads", async (req: AuthenticatedRequest, res) => {
   const [serviceRequests, appointmentRequests, messageThreads, calls] = await Promise.all([
     leadIds.length
       ? prisma.serviceRequest.findMany({
-          where: { orgId, leadId: { in: leadIds } },
-          orderBy: { updatedAt: "desc" },
-          select: {
-            id: true,
-            leadId: true,
-            customerName: true,
-            phone: true,
-            serviceType: true,
-            urgency: true,
-            serviceAddress: true,
-            appointmentRequested: true,
-            status: true,
-            notes: true,
-            followUpSentAt: true,
-            updatedAt: true
-          }
-        })
+        where: { orgId, leadId: { in: leadIds } },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          leadId: true,
+          customerName: true,
+          phone: true,
+          serviceType: true,
+          urgency: true,
+          serviceAddress: true,
+          appointmentRequested: true,
+          status: true,
+          notes: true,
+          followUpSentAt: true,
+          updatedAt: true
+        }
+      })
       : [],
     leadIds.length
       ? prisma.appointmentRequest.findMany({
-          where: { orgId, leadId: { in: leadIds } },
-          orderBy: [{ lastEventAt: "desc" }, { createdAt: "desc" }],
-          select: {
-            id: true,
-            leadId: true,
-            status: true,
-            issueSummary: true,
-            serviceAddressRaw: true,
-            lastEventAt: true,
-            requestedStartAt: true
-          }
-        })
+        where: { orgId, leadId: { in: leadIds } },
+        orderBy: [{ lastEventAt: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          leadId: true,
+          status: true,
+          issueSummary: true,
+          serviceAddressRaw: true,
+          lastEventAt: true,
+          requestedStartAt: true
+        }
+      })
       : [],
     phones.length
       ? prisma.messageThread.findMany({
-          where: { orgId, channel: "SMS", contactPhone: { in: phones } },
-          orderBy: { lastMessageAt: "desc" },
-          select: { id: true, leadId: true, contactPhone: true, lastMessageAt: true }
-        })
+        where: { orgId, channel: "SMS", contactPhone: { in: phones } },
+        orderBy: { lastMessageAt: "desc" },
+        select: { id: true, leadId: true, contactPhone: true, lastMessageAt: true }
+      })
       : [],
     leadIds.length || phones.length
       ? prisma.callLog.findMany({
-          where: {
-            orgId,
-            OR: [
-              ...(leadIds.length ? [{ leadId: { in: leadIds } }] : []),
-              ...(phones.length ? [{ fromNumber: { in: phones } }] : [])
-            ]
-          },
-          orderBy: { startedAt: "desc" },
-          select: {
-            id: true,
-            leadId: true,
-            fromNumber: true,
-            outcome: true,
-            aiSummary: true,
-            transcript: true,
-            appointmentRequested: true,
-            unansweredTransfer: true,
-            startedAt: true,
-            recoverySmsSentAt: true
-          }
-        })
+        where: {
+          orgId,
+          OR: [
+            ...(leadIds.length ? [{ leadId: { in: leadIds } }] : []),
+            ...(phones.length ? [{ fromNumber: { in: phones } }] : [])
+          ]
+        },
+        orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          leadId: true,
+          fromNumber: true,
+          outcome: true,
+          aiSummary: true,
+          transcript: true,
+          appointmentRequested: true,
+          unansweredTransfer: true,
+          startedAt: true,
+          recoverySmsSentAt: true
+        }
+      })
       : []
   ]);
   const latestServiceRequestByLeadId = new Map<string, (typeof serviceRequests)[number]>();
@@ -983,36 +989,36 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   const dateWindow =
     parsed.data.date
       ? {
-          from: new Date(`${parsed.data.date}T00:00:00`),
-          to: new Date(`${parsed.data.date}T23:59:59.999`)
-        }
+        from: new Date(`${parsed.data.date}T00:00:00`),
+        to: new Date(`${parsed.data.date}T23:59:59.999`)
+      }
       : parsed.data.from && parsed.data.to
         ? {
-            from: new Date(String(parsed.data.from)),
-            to: new Date(String(parsed.data.to))
-          }
+          from: new Date(String(parsed.data.from)),
+          to: new Date(String(parsed.data.to))
+        }
         : null;
   const callWhere = {
     orgId,
     ...(callId ? { id: callId } : {}),
     ...(dateWindow
       ? {
-          startedAt: {
-            gte: dateWindow.from,
-            lte: dateWindow.to
-          }
+        startedAt: {
+          gte: dateWindow.from,
+          lte: dateWindow.to
         }
+      }
       : {}),
     ...(parsed.data.outcome ? { outcome: parsed.data.outcome } : {}),
     ...(query
       ? {
-          OR: [
-            { fromNumber: { contains: query, mode: "insensitive" as const } },
-            { providerCallId: { contains: query, mode: "insensitive" as const } },
-            { aiSummary: { contains: query, mode: "insensitive" as const } },
-            { transcript: { contains: query, mode: "insensitive" as const } }
-          ]
-        }
+        OR: [
+          { fromNumber: { contains: query, mode: "insensitive" as const } },
+          { providerCallId: { contains: query, mode: "insensitive" as const } },
+          { aiSummary: { contains: query, mode: "insensitive" as const } },
+          { transcript: { contains: query, mode: "insensitive" as const } }
+        ]
+      }
       : {})
   };
 
@@ -1033,29 +1039,29 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   const leads =
     allLeadIds.length || allPhones.length
       ? await prisma.lead.findMany({
-          where: {
-            orgId,
-            OR: [
-              ...(allLeadIds.length ? [{ id: { in: allLeadIds } }] : []),
-              ...(allPhones.length ? [{ phone: { in: allPhones } }] : [])
-            ]
-          },
-          select: {
-            id: true,
-            phone: true,
-            name: true,
-            createdAt: true,
-            serviceRequested: true,
-            urgency: true,
-            appointmentRequested: true,
-            serviceAddress: true,
-            status: true,
-            pipelineStage: true,
-            classification: true,
-            message: true
-          },
-          orderBy: { createdAt: "desc" }
-        })
+        where: {
+          orgId,
+          OR: [
+            ...(allLeadIds.length ? [{ id: { in: allLeadIds } }] : []),
+            ...(allPhones.length ? [{ phone: { in: allPhones } }] : [])
+          ]
+        },
+        select: {
+          id: true,
+          phone: true,
+          name: true,
+          createdAt: true,
+          serviceRequested: true,
+          urgency: true,
+          appointmentRequested: true,
+          serviceAddress: true,
+          status: true,
+          pipelineStage: true,
+          classification: true,
+          message: true
+        },
+        orderBy: { createdAt: "desc" }
+      })
       : [];
 
   const leadById = new Map(leads.map((lead) => [lead.id, lead]));
@@ -1113,41 +1119,41 @@ orgRouter.get("/calls", async (req: AuthenticatedRequest, res) => {
   const [serviceRequests, appointmentRequests] = await Promise.all([
     pagedCallIds.length
       ? prisma.serviceRequest.findMany({
-          where: { orgId, callLogId: { in: pagedCallIds } },
-          select: {
-            id: true,
-            callLogId: true,
-            leadId: true,
-            customerName: true,
-            phone: true,
-            serviceType: true,
-            urgency: true,
-            serviceAddress: true,
-            appointmentRequested: true,
-            status: true,
-            notes: true,
-            followUpSentAt: true,
-            updatedAt: true
-          }
-        })
+        where: { orgId, callLogId: { in: pagedCallIds } },
+        select: {
+          id: true,
+          callLogId: true,
+          leadId: true,
+          customerName: true,
+          phone: true,
+          serviceType: true,
+          urgency: true,
+          serviceAddress: true,
+          appointmentRequested: true,
+          status: true,
+          notes: true,
+          followUpSentAt: true,
+          updatedAt: true
+        }
+      })
       : [],
     pagedCallIds.length
       ? prisma.appointmentRequest.findMany({
-          where: {
-            orgId,
-            callLogId: { in: pagedCallIds }
-          },
-          select: {
-            id: true,
-            callLogId: true,
-            leadId: true,
-            status: true,
-            issueSummary: true,
-            serviceAddressRaw: true,
-            lastEventAt: true,
-            requestedStartAt: true
-          }
-        })
+        where: {
+          orgId,
+          callLogId: { in: pagedCallIds }
+        },
+        select: {
+          id: true,
+          callLogId: true,
+          leadId: true,
+          status: true,
+          issueSummary: true,
+          serviceAddressRaw: true,
+          lastEventAt: true,
+          requestedStartAt: true
+        }
+      })
       : []
   ]);
   const appointmentRequestByCallId = new Map(appointmentRequests.map((item) => [item.callLogId, item]));
@@ -1312,13 +1318,13 @@ orgRouter.get("/customer-base", async (req: AuthenticatedRequest, res) => {
       flaggedVIP: profile.flaggedVIP,
       lead: lead
         ? {
-            id: lead.id,
-            name: lead.name,
-            business: lead.business,
-            email: lead.email,
-            urgency: lead.urgency,
-            notes: lead.notes
-          }
+          id: lead.id,
+          name: lead.name,
+          business: lead.business,
+          email: lead.email,
+          urgency: lead.urgency,
+          notes: lead.notes
+        }
         : null,
       recentCalls: recentCalls.map((call) => ({
         startedAt: call.startedAt,
@@ -1716,11 +1722,11 @@ orgRouter.get("/appointments", requireAppointmentsReadAccess, async (req: Authen
       ...(parsed.data.status ? { status: parsed.data.status } : {}),
       ...(parsed.data.from || parsed.data.to
         ? {
-            startAt: {
-              ...(parsed.data.from ? { gte: new Date(parsed.data.from) } : {}),
-              ...(parsed.data.to ? { lte: new Date(parsed.data.to) } : {})
-            }
+          startAt: {
+            ...(parsed.data.from ? { gte: new Date(parsed.data.from) } : {}),
+            ...(parsed.data.to ? { lte: new Date(parsed.data.to) } : {})
           }
+        }
         : {})
     },
     include: {
@@ -1790,6 +1796,31 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
   }
   const externalProvider = requestedProvider === "GOOGLE" || requestedProvider === "OUTLOOK" ? requestedProvider : null;
 
+  // Cross-tenant ownership check: verify all client-supplied IDs belong to this org.
+  // Without this, Tenant A could supply Tenant B's leadId and associate their
+  // appointment to Tenant B's lead record (cross-tenant data contamination).
+  if (parsed.data.leadId) {
+    const leadOwner = await prisma.lead.findFirst({
+      where: { id: parsed.data.leadId, orgId },
+      select: { id: true }
+    });
+    if (!leadOwner) return res.status(400).json({ ok: false, message: "Lead not found." });
+  }
+  if (parsed.data.callLogId) {
+    const callOwner = await prisma.callLog.findFirst({
+      where: { id: parsed.data.callLogId, orgId },
+      select: { id: true }
+    });
+    if (!callOwner) return res.status(400).json({ ok: false, message: "Call log not found." });
+  }
+  if (parsed.data.appointmentRequestId) {
+    const requestOwner = await prisma.appointmentRequest.findFirst({
+      where: { id: parsed.data.appointmentRequestId, orgId },
+      select: { id: true }
+    });
+    if (!requestOwner) return res.status(400).json({ ok: false, message: "Appointment request not found." });
+  }
+
   const booking = await bookAppointmentWithHold({
     prisma,
     orgId,
@@ -1814,33 +1845,33 @@ orgRouter.post("/appointments", requireAppointmentsWriteAccess, async (req: Auth
     pipelineFeatureEnabled: isFeatureEnabledForOrg(env.FEATURE_PIPELINE_STAGE_ENABLED, orgId),
     createExternalEvent: shouldTryExternalCalendar && externalProvider
       ? async () => {
-          const connection = await prisma.calendarConnection.findFirst({
-            where: { orgId, provider: externalProvider, isActive: true },
-            orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
-            select: { id: true }
-          });
-          if (!connection) {
-            return { provider: "INTERNAL", externalEventId: "" };
-          }
-          const event = await createCalendarEventFromConnection({
-            prisma,
-            connectionId: connection.id,
-            orgId,
-            title: `${parsed.data.customerName} - Service Appointment`,
-            description: parsed.data.issueSummary,
-            startAt,
-            endAt,
-            timezone: parsed.data.timezone
-          });
-          return { provider: event.provider, externalEventId: event.externalEventId || "" };
+        const connection = await prisma.calendarConnection.findFirst({
+          where: { orgId, provider: externalProvider, isActive: true },
+          orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }],
+          select: { id: true }
+        });
+        if (!connection) {
+          return { provider: "INTERNAL", externalEventId: "" };
         }
+        const event = await createCalendarEventFromConnection({
+          prisma,
+          connectionId: connection.id,
+          orgId,
+          title: `${parsed.data.customerName} - Service Appointment`,
+          description: parsed.data.issueSummary,
+          startAt,
+          endAt,
+          timezone: parsed.data.timezone
+        });
+        return { provider: event.provider, externalEventId: event.externalEventId || "" };
+      }
       : undefined,
     fetchExternalBusyBlocks:
       shouldTryExternalCalendar
         ? async ({ fromUtc, toUtc }) => {
-            const busy = await getBusyBlocks({ prisma, orgId, fromUtc, toUtc, provider: externalProvider || undefined });
-            return busy.map((row) => ({ startAt: row.startUtc, endAt: row.endUtc }));
-          }
+          const busy = await getBusyBlocks({ prisma, orgId, fromUtc, toUtc, provider: externalProvider || undefined });
+          return busy.map((row) => ({ startAt: row.startUtc, endAt: row.endUtc }));
+        }
         : undefined,
     computeNextSlots: async () => {
       const settingsLatest = await prisma.businessSettings.findUnique({
@@ -2476,7 +2507,7 @@ const customerBaseImportSchema = z.object({
   rows: z
     .array(z.record(z.unknown()))
     .min(1)
-    .max(5000)
+    .max(500) // Reliability: Cap at 500 rows (matching admin import) to prevent N+1 loop DoS.
 });
 
 orgRouter.post("/customer-base/import", async (req: AuthenticatedRequest, res) => {
@@ -2667,7 +2698,8 @@ orgRouter.get("/health", async (req: AuthenticatedRequest, res) => {
   }
 });
 
-orgRouter.post("/calls/repopulate", async (req: AuthenticatedRequest, res) => {
+// Rate-limited to prevent abuse/excessive costs from triggering multiple VAPI backfills.
+orgRouter.post("/calls/repopulate", rateLimiters.expensiveActionManual, async (req: AuthenticatedRequest, res) => {
   if (!req.auth?.orgId) return res.status(400).json({ ok: false, message: "No organization assigned." });
   const result = await backfillMissedVapiCalls(prisma, req.auth.userId, req.auth.orgId);
   return res.json({ ok: true, data: result });
@@ -2719,62 +2751,62 @@ orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
   const [serviceRequests, appointmentRequests, calls] = await Promise.all([
     leadIds.length
       ? prisma.serviceRequest.findMany({
-          where: { orgId, leadId: { in: leadIds } },
-          orderBy: { updatedAt: "desc" },
-          select: {
-            id: true,
-            leadId: true,
-            customerName: true,
-            phone: true,
-            serviceType: true,
-            urgency: true,
-            serviceAddress: true,
-            appointmentRequested: true,
-            status: true,
-            notes: true,
-            followUpSentAt: true,
-            updatedAt: true
-          }
-        })
+        where: { orgId, leadId: { in: leadIds } },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          leadId: true,
+          customerName: true,
+          phone: true,
+          serviceType: true,
+          urgency: true,
+          serviceAddress: true,
+          appointmentRequested: true,
+          status: true,
+          notes: true,
+          followUpSentAt: true,
+          updatedAt: true
+        }
+      })
       : [],
     leadIds.length
       ? prisma.appointmentRequest.findMany({
-          where: { orgId, leadId: { in: leadIds } },
-          orderBy: [{ lastEventAt: "desc" }, { createdAt: "desc" }],
-          select: {
-            id: true,
-            leadId: true,
-            status: true,
-            issueSummary: true,
-            serviceAddressRaw: true,
-            lastEventAt: true,
-            requestedStartAt: true
-          }
-        })
+        where: { orgId, leadId: { in: leadIds } },
+        orderBy: [{ lastEventAt: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          leadId: true,
+          status: true,
+          issueSummary: true,
+          serviceAddressRaw: true,
+          lastEventAt: true,
+          requestedStartAt: true
+        }
+      })
       : [],
     leadIds.length || phones.length
       ? prisma.callLog.findMany({
-          where: {
-            orgId,
-            OR: [
-              ...(leadIds.length ? [{ leadId: { in: leadIds } }] : []),
-              ...(phones.length ? [{ fromNumber: { in: phones } }] : [])
-            ]
-          },
-          orderBy: { startedAt: "desc" },
-          select: {
-            id: true,
-            leadId: true,
-            fromNumber: true,
-            outcome: true,
-            aiSummary: true,
-            transcript: true,
-            appointmentRequested: true,
-            unansweredTransfer: true,
-            startedAt: true,
-            recoverySmsSentAt: true
-          }
-        })
+        where: {
+          orgId,
+          OR: [
+            ...(leadIds.length ? [{ leadId: { in: leadIds } }] : []),
+            ...(phones.length ? [{ fromNumber: { in: phones } }] : [])
+          ]
+        },
+        orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          leadId: true,
+          fromNumber: true,
+          outcome: true,
+          aiSummary: true,
+          transcript: true,
+          appointmentRequested: true,
+          unansweredTransfer: true,
+          startedAt: true,
+          recoverySmsSentAt: true
+        }
+      })
       : []
   ]);
   const latestServiceRequestByLeadId = new Map<string, (typeof serviceRequests)[number]>();
@@ -2814,18 +2846,18 @@ orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
             : null;
         const latestAppointmentRequest = lead
           ? (() => {
-              const request = latestAppointmentRequestByLeadId.get(lead.id);
-              return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
-            })()
+            const request = latestAppointmentRequestByLeadId.get(lead.id);
+            return request ? { ...request, serviceAddress: request.serviceAddressRaw } : null;
+          })()
           : null;
         const frontDesk = lead
           ? buildLeadFrontDesk({
-              lead,
-              serviceRequest: latestServiceRequestByLeadId.get(lead.id) || null,
-              appointmentRequest: latestAppointmentRequest,
-              latestCall,
-              latestMessageThread: thread
-            })
+            lead,
+            serviceRequest: latestServiceRequestByLeadId.get(lead.id) || null,
+            appointmentRequest: latestAppointmentRequest,
+            latestCall,
+            latestMessageThread: thread
+          })
           : null;
         return {
           ...thread,
@@ -2833,9 +2865,9 @@ orgRouter.get("/messages", async (req: AuthenticatedRequest, res) => {
           latestAppointmentRequestId: latestAppointmentRequest?.id || null,
           lead: lead
             ? {
-                ...lead,
-                frontDesk
-              }
+              ...lead,
+              frontDesk
+            }
             : null,
           frontDesk
         };
@@ -2881,9 +2913,9 @@ orgRouter.post("/messages/send", async (req: AuthenticatedRequest, res) => {
   const lead =
     parsed.data.leadId
       ? await prisma.lead.findFirst({
-          where: { id: parsed.data.leadId, orgId: req.auth.orgId },
-          select: { id: true, name: true, dnc: true }
-        })
+        where: { id: parsed.data.leadId, orgId: req.auth.orgId },
+        select: { id: true, name: true, dnc: true }
+      })
       : null;
 
   const matchedByNumber = await prisma.lead.findFirst({

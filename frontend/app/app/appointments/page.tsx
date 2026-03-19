@@ -23,8 +23,11 @@ import {
   fetchTeamMembers,
   getMe
 } from "@/lib/api";
+import { useAccessSummary } from "@/context/access-summary";
 import type { AppointmentRequest, TeamMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell, SectionHeading, SectionShell, StateCard, WorkflowHint } from "@/components/ui/page";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
 const tabs = ["Needs Review", "Ready to Book", "Awaiting Reply", "Booked", "Resolved"] as const;
@@ -67,10 +70,31 @@ function initials(value: string) {
     .join("") || "FD";
 }
 
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  PENDING_REVIEW: "Pending human review before any booking attempt.",
+  APPROVED: "Ready for the booking finalizer or manual scheduling.",
+  SLOT_OFFERED: "Automation sent a slot offer; the lead needs to reply.",
+  SCHEDULED: "Appointment confirmed in your calendar.",
+  DENIED: "The system or team rejected this request.",
+  CLOSED: "The request has been resolved or archived."
+};
+
+function pendingNextStep(request: AppointmentRequest) {
+  if (request.status === "PENDING_REVIEW") return "Review the triage context, assign an operator, and approve if the request can be honored.";
+  if (request.status === "APPROVED") return "Finalize scheduling with the primary calendar or follow-up team.";
+  if (request.status === "SLOT_OFFERED") return "Follow up on the slot offer; send a reminder or accept a customer reply.";
+  if (request.status === "SCHEDULED") return "Confirm the appointment details with the customer and close the request once done.";
+  if (request.status === "DENIED") return request.denialReason || "Review why the request was declined before trying again.";
+  return "Use this view to understand why the booking is in its current state.";
+}
+
 export default function AppAppointmentsPage() {
   const searchParams = useSearchParams();
   const highlightedRequestId = searchParams.get("requestId") || "";
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
+  const accessSummary = useAccessSummary();
+  const appointmentsAccess = accessSummary?.features.appointments;
+  const shouldShowAppointments = !appointmentsAccess || appointmentsAccess.status === "ready";
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Needs Review");
   const [selectedRequestId, setSelectedRequestId] = useState<string>("");
   const [query, setQuery] = useState("");
@@ -81,6 +105,11 @@ export default function AppAppointmentsPage() {
   const [assignedDraft, setAssignedDraft] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    if (!shouldShowAppointments) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
     void Promise.all([fetchAppointmentRequests(), getMe(), fetchTeamMembers().catch(() => ({ members: [] as TeamMember[] }))])
       .then(([requestData, me, teamData]) => {
         setRequests(requestData.requests || []);
@@ -97,7 +126,7 @@ export default function AppAppointmentsPage() {
         setAssignable([]);
       })
       .finally(() => setLoading(false));
-  }, [highlightedRequestId]);
+  }, [highlightedRequestId, shouldShowAppointments]);
 
   const filteredRequests = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -160,36 +189,76 @@ export default function AppAppointmentsPage() {
     }
   }
 
-  return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden border-r border-slate-200">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Inbox className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">Booking Triage</h1>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Front-Desk Request Queue</p>
-              </div>
+  if (appointmentsAccess && appointmentsAccess.status !== "ready") {
+    const cardVariant = appointmentsAccess.status === "setup_required" ? "setup" : "locked";
+    const actionHref = appointmentsAccess.status === "blocked" ? "/app/billing" : "/app/settings#settings-calendar";
+    const actionLabel = appointmentsAccess.status === "blocked" ? "Open billing" : "Open calendar settings";
+    return (
+      <PageShell className="space-y-6">
+        <SectionShell className="surface-panel space-y-4">
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Appointments access</p>
+              <h1 className="text-3xl font-black text-slate-900">{appointmentsAccess.label} offline</h1>
+              <p className="text-sm text-slate-500">{appointmentsAccess.reason}</p>
             </div>
+            <StatusBadge kind="feature" state={appointmentsAccess.status} size="sm" />
+          </div>
+          <StateCard
+            variant={cardVariant}
+            title="Booking triage locked"
+            description={appointmentsAccess.reason}
+            action={
+              <Link href={actionHref}>
+                <Button variant="outline">{actionLabel}</Button>
+              </Link>
+            }
+          />
+        </SectionShell>
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell className="space-y-6">
+      <SectionShell className="surface-panel space-y-3">
+        <PageHeader
+          eyebrow="Booking operations"
+          title="Booking triage"
+          description="Handle appointment requests, expose failure states, and escalate reviews without leaving one calm workspace."
+          actions={
             <div className="flex items-center gap-3">
               <input
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search requests..."
-                className="h-9 w-64 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs outline-none focus:border-primary"
+                className="h-10 w-64 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs outline-none focus:border-primary"
               />
-              <button className="flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90">
+              <button className="flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90">
                 <Plus className="h-4 w-4" />
-                New Request
+                New request
               </button>
             </div>
-          </header>
+          }
+        />
+        <WorkflowHint
+          title="How booking works"
+          items={[
+            { label: "Review first", text: "Pending review requests need an operator to assess the captured summary before routing to the calendar." },
+            { label: "Finalizer phase", text: "Approved items trigger the booking finalizer that syncs slots, creates appointments, and records the workflow." },
+            { label: "Failure guard", text: "Denied, requires review, or failed sync states now surface clear guidance and call links for manual follow-up." }
+          ]}
+        />
+      </SectionShell>
 
-          <div className="flex h-12 shrink-0 items-center gap-6 border-b border-slate-200 bg-slate-50/50 px-8">
+      <SectionShell className="surface-panel space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Inbox className="h-5 w-5 text-primary" />
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Front-Desk request queue</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
             {tabs.map((tab) => (
               <button
                 key={tab}
@@ -198,165 +267,209 @@ export default function AppAppointmentsPage() {
                   setSelectedRequestId("");
                 }}
                 className={cn(
-                  "relative h-full px-1 text-[11px] font-bold uppercase tracking-wider transition-all",
+                  "relative pb-1",
                   activeTab === tab ? "text-primary" : "text-slate-400 hover:text-slate-600"
                 )}
               >
                 {tab}
-                {activeTab === tab ? <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-primary" /> : null}
+                {activeTab === tab ? <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-primary" /> : null}
               </button>
             ))}
           </div>
+        </div>
+      </SectionShell>
 
-          <div className="flex-1 overflow-y-auto">
-            <table className="w-full border-collapse text-left">
-              <thead className="sticky top-0 z-10 border-b border-slate-100 bg-white/80 text-[10px] font-bold uppercase tracking-widest text-slate-400 backdrop-blur-sm">
-                <tr>
-                  <th className="px-8 py-3">Patient / Source</th>
-                  <th className="px-8 py-3">Service</th>
-                  <th className="px-8 py-3">Requested Time</th>
-                  <th className="px-8 py-3">Urgency</th>
-                  <th className="px-8 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  <tr><td className="px-8 py-10 text-sm text-slate-500" colSpan={5}>Loading booking requests...</td></tr>
-                ) : filteredRequests.length ? (
-                  filteredRequests.map((request) => {
-                    const tone = urgency(request);
-                    const selected = currentRequest?.id === request.id;
-                    return (
-                      <tr
-                        key={request.id}
-                        onClick={() => setSelectedRequestId(request.id)}
-                        className={cn("group cursor-pointer transition-colors hover:bg-slate-50", selected && "bg-primary/5")}
-                      >
-                        <td className="px-8 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-bold shadow-sm",
-                              selected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
-                            )}>
-                              {initials(request.customerName)}
-                            </div>
-                            <div>
-                              <div className="text-sm font-bold text-slate-900">{request.customerName}</div>
-                              <div className="mt-0.5 flex items-center gap-1.5">
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{sourceLabel(request)}</span>
-                                {request.assignedUserLabel ? (
-                                  <>
-                                    <div className="h-1 w-1 rounded-full bg-slate-300" />
-                                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{request.assignedUserLabel}</span>
-                                  </>
-                                ) : null}
+      <div className="flex flex-col gap-6 xl:flex-row">
+        <div className="flex-1">
+          <SectionShell className="surface-panel">
+            {loading ? (
+              <StateCard variant="loading" title="Loading booking requests" description="Refreshing the queue." />
+            ) : filteredRequests.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-white/80 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    <tr>
+                      <th className="px-6 py-3">Patient / Source</th>
+                      <th className="px-6 py-3">Service</th>
+                      <th className="px-6 py-3 text-center">Requested Time</th>
+                      <th className="px-6 py-3">Urgency</th>
+                      <th className="px-6 py-3 text-right">Status</th>
+                      <th className="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-sm text-slate-700">
+                    {filteredRequests.map((request) => {
+                      const tone = urgency(request);
+                      const selected = currentRequest?.id === request.id;
+                      return (
+                        <tr
+                          key={request.id}
+                          onClick={() => setSelectedRequestId(request.id)}
+                          className={cn("group cursor-pointer transition-colors hover:bg-slate-50", selected && "bg-primary/5")}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-bold shadow-sm",
+                                selected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
+                              )}>
+                                {initials(request.customerName)}
+                              </div>
+                              <div>
+                                <div className="text-sm font-bold text-slate-900">{request.customerName}</div>
+                                <div className="mt-0.5 flex items-center gap-1.5">
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{sourceLabel(request)}</span>
+                                  {request.assignedUserLabel ? (
+                                    <>
+                                      <div className="h-1 w-1 rounded-full bg-slate-300" />
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{request.assignedUserLabel}</span>
+                                    </>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-4 text-xs font-bold text-slate-700">{request.issueSummary}</td>
-                        <td className="px-8 py-4">
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                            <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            {requestedTime(request)}
-                          </div>
-                        </td>
-                        <td className="px-8 py-4">
-                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest", tone.bg, tone.color)}>
-                            <AlertCircle className="h-2.5 w-2.5" />
-                            {tone.label}
-                          </span>
-                        </td>
-                        <td className="px-8 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 transition-all group-hover:opacity-100">
-                            <button className="rounded-lg border border-transparent p-2 text-slate-400 transition-all hover:border-slate-200 hover:bg-white hover:text-primary shadow-sm">
-                              <MessageSquare className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr><td className="px-8 py-10 text-sm text-slate-500" colSpan={5}>No requests in this queue state yet.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-700">{request.issueSummary}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-600">
+                              <Clock className="h-3.5 w-3.5 text-slate-400" />
+                              {requestedTime(request)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest", tone.bg, tone.color)}>
+                              <AlertCircle className="h-2.5 w-2.5" />
+                              {tone.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <StatusBadge kind="booking" state={request.status} label={queueTab(request)} size="xs" />
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 opacity-0 transition-all group-hover:opacity-100">
+                              <button className="rounded-lg border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-white hover:text-primary shadow-sm">
+                                <MessageSquare className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <StateCard variant="empty" title="No requests in this queue state" description="Switch tabs or update search filters to find booking workflow items." />
+            )}
+          </SectionShell>
         </div>
 
-        <aside className="hidden w-[400px] shrink-0 flex-col overflow-hidden bg-slate-50/50 xl:flex">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-slate-900">Action Center</h2>
-            <div className="flex gap-2">
-              <button className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100"><Calendar className="h-4 w-4" /></button>
-              <button className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100"><MoreVertical className="h-4 w-4" /></button>
-            </div>
-          </header>
-
+        <aside className="w-full xl:w-[360px]">
           {currentRequest ? (
-            <div className="flex-1 space-y-8 overflow-y-auto p-8">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="mb-6 flex items-center justify-between">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-extrabold text-primary shadow-inner">
+            <SectionShell className="surface-panel space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-extrabold text-primary">
                     {initials(currentRequest.customerName)}
                   </div>
-                  <div className="text-right">
-                    <span className={cn(
-                      "rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-widest",
-                      currentRequest.status === "PENDING_REVIEW" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                    )}>
-                      {queueTab(currentRequest)}
-                    </span>
-                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">ID: #{currentRequest.id.slice(0, 8)}</p>
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">{sourceLabel(currentRequest)}</p>
+                    <h3 className="text-xl font-extrabold text-slate-900">{currentRequest.customerName}</h3>
+                    <p className="text-xs uppercase tracking-widest text-slate-400">ID: #{currentRequest.id.slice(0, 8)}</p>
                   </div>
                 </div>
-                <h3 className="text-xl font-extrabold tracking-tight text-slate-900">{currentRequest.customerName}</h3>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex items-center gap-1 text-xs font-medium text-slate-500">
-                    <PhoneCall className="h-3 w-3" />
-                    {currentRequest.customerPhone}
+                <StatusBadge kind="booking" state={currentRequest.status} label={queueTab(currentRequest)} />
+              </div>
+
+              <div className="space-y-3">
+                <SectionHeading title="Booking pipeline" description={STATUS_DESCRIPTIONS[currentRequest.status] || "Review the pipeline state for this request."} />
+                <div className="grid gap-3">
+                  <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Workflow state</p>
+                      <p className="text-sm font-bold text-slate-900">{queueTab(currentRequest)}</p>
+                    </div>
+                    <StatusBadge kind="booking" state={currentRequest.status} size="xs" />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Calendar sync</p>
+                      <p className="text-sm font-bold text-slate-900">{currentRequest.appointmentId ? "Appointment created" : "Awaiting sync"}</p>
+                    </div>
+                    <StatusBadge kind="booking" state={currentRequest.appointmentId ? "completed" : "processing"} size="xs" />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 px-1">
-                  <Inbox className="h-4 w-4 text-primary" />
-                  <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">AI Triage Context</h4>
-                </div>
-                <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/5 p-5">
-                  <p className="relative z-10 text-sm font-medium italic leading-relaxed text-slate-700">&ldquo;{note(currentRequest)}&rdquo;</p>
+              {currentRequest.status === "DENIED" ? (
+                <StateCard
+                  variant="error"
+                  title="Request denied"
+                  description={currentRequest.denialReason || "This request was declined. Close or reopen once resolved."}
+                />
+              ) : currentRequest.status === "PENDING_REVIEW" ? (
+                <StateCard
+                  variant="warning"
+                  title="Review required"
+                  description="Assign a staff member, or approve now if the request is supported."
+                />
+              ) : null}
+
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Next steps</h4>
+                <p className="text-sm text-slate-700">{pendingNextStep(currentRequest)}</p>
+                <div className="flex flex-wrap gap-2">
+                  {currentRequest.callLogId ? (
+                    <Link href={`/admin/calls/${currentRequest.callLogId}`} className="text-xs font-semibold text-primary underline-offset-4 hover:underline">
+                      Open call details
+                    </Link>
+                  ) : null}
+                  {currentRequest.latestMessageThreadId ? (
+                    <Link
+                      href={`/app/messages?threadId=${encodeURIComponent(currentRequest.latestMessageThreadId)}`}
+                      className="text-xs font-semibold text-primary underline-offset-4 hover:underline"
+                    >
+                      Open SMS thread
+                    </Link>
+                  ) : null}
+                  <Link href="/app/settings#settings-calendar" className="text-xs font-semibold text-primary underline-offset-4 hover:underline">
+                    Open calendar settings
+                  </Link>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h4 className="px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Operator Actions</h4>
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">AI context</h4>
+                <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/5 p-4 text-sm text-slate-700">
+                  <p>&ldquo;{note(currentRequest)}&rdquo;</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Operator actions</h4>
                 {canWrite ? (
                   <div className="grid gap-3">
                     <button
                       onClick={() => void handleApprove(currentRequest)}
                       disabled={savingId === currentRequest.id}
-                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-4 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-primary/20 hover:bg-primary/90"
                     >
                       <CheckCircle2 className="h-4.5 w-4.5" />
                       Approve & Schedule
                     </button>
-
                     <div className="grid grid-cols-2 gap-3">
-                      <button className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50">
+                      <button className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50">
                         <Calendar className="h-4 w-4" />
                         Reschedule
                       </button>
                       <Link
                         href={currentRequest.latestMessageThreadId ? `/app/messages?threadId=${encodeURIComponent(currentRequest.latestMessageThreadId)}` : "/app/messages"}
-                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50"
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50"
                       >
                         <MessageSquare className="h-4 w-4" />
                         Send SMS
                       </Link>
                     </div>
-
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl border border-slate-200 bg-white p-3">
                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Assign</p>
@@ -377,28 +490,27 @@ export default function AppAppointmentsPage() {
                       <button
                         onClick={() => void handleDeny(currentRequest)}
                         disabled={savingId === currentRequest.id}
-                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50"
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50"
                       >
                         <XCircle className="h-4 w-4" />
                         Reject
                       </button>
                     </div>
-
-                    <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-900 bg-slate-900 py-3.5 text-[10px] font-bold uppercase tracking-widest text-white transition-all hover:bg-slate-800">
+                    <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-900 bg-slate-900 py-3 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-slate-800">
                       <CheckCircle2 className="h-4 w-4" />
-                      Finalize & Close Request
+                      Finalize & Close request
                     </button>
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500">This account has read-only access to booking actions.</p>
                 )}
               </div>
-            </div>
+            </SectionShell>
           ) : (
-            <div className="flex h-full items-center justify-center p-10 text-center text-sm text-slate-500">Select a request to review its triage context and actions.</div>
+            <StateCard variant="empty" title="Select a request" description="Choose a booking request to inspect its pipeline, notes, and operator actions." />
           )}
         </aside>
       </div>
-    </div>
+    </PageShell>
   );
 }

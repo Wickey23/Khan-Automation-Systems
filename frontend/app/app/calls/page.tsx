@@ -22,6 +22,10 @@ import { clientBadgeClass } from "@/lib/client-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageShell, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { useAccessSummary } from "@/context/access-summary";
 
 const stateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type QueueState = (typeof stateFilters)[number];
@@ -120,6 +124,10 @@ function quickActions(call: OrgCallRecord | null): Array<{ label: string; stage:
 export default function AppCallsPage() {
   const searchParams = useSearchParams();
   const deepLinkedCallId = searchParams.get("callId") || "";
+  const accessSummary = useAccessSummary();
+  const callsAccess = accessSummary?.features.calls;
+  const gatingStatus = callsAccess?.status;
+  const shouldShowCallQueue = !callsAccess || gatingStatus === "ready";
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -153,6 +161,11 @@ export default function AppCallsPage() {
   }, []);
 
   useEffect(() => {
+    if (!shouldShowCallQueue) {
+      setCalls([]);
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
     void loadCalls(query)
@@ -167,7 +180,7 @@ export default function AppCallsPage() {
     return () => {
       active = false;
     };
-  }, [loadCalls, query]);
+  }, [loadCalls, query, shouldShowCallQueue]);
 
   const visibleCalls = useMemo(() => {
     return calls.filter((call) => {
@@ -182,6 +195,7 @@ export default function AppCallsPage() {
   );
 
   async function refreshQueue() {
+    if (!shouldShowCallQueue) return;
     setRefreshing(true);
     try {
       await repopulateOrgCalls();
@@ -200,6 +214,36 @@ export default function AppCallsPage() {
     } finally {
       setSavingLeadStage(null);
     }
+  }
+
+  if (callsAccess && callsAccess.status !== "ready") {
+    const cardVariant = callsAccess.status === "setup_required" ? "setup" : "locked";
+    const actionHref = callsAccess.status === "blocked" ? "/app/billing" : "/app/settings#settings-telephony";
+    const actionLabel = callsAccess.status === "blocked" ? "Open billing" : "Open telephony settings";
+    return (
+      <PageShell className="space-y-6">
+        <SectionShell className="surface-panel space-y-4">
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Call handling access</p>
+              <h1 className="text-3xl font-black text-slate-900">{callsAccess.label} not ready</h1>
+              <p className="text-sm text-slate-500">{callsAccess.reason}</p>
+            </div>
+            <StatusBadge kind="feature" state={callsAccess.status} size="sm" />
+          </div>
+          <StateCard
+            variant={cardVariant}
+            title="Call queue blocked"
+            description={callsAccess.reason}
+            action={
+              <Link href={actionHref}>
+                <Button variant="outline">{actionLabel}</Button>
+              </Link>
+            }
+          />
+        </SectionShell>
+      </PageShell>
+    );
   }
 
   return (

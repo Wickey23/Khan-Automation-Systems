@@ -28,6 +28,7 @@ import type {
   BillingDiagnosticsPayload,
   OrgAnalytics,
   OrgFeatureFlags,
+  OrgAccessSummary,
   OrgDataQuality,
   OrgHealth,
   OrgKnowledgeFile,
@@ -38,6 +39,11 @@ import type {
   AdminSystemReadiness,
   AdminRevenueSummary,
   AdminReportRecipient,
+  AdminQueueHealthResponse,
+  RetryAdminQueueJobResponse,
+  RetriggerCallFollowUpResponse,
+  UpdateCallReviewResponse,
+  AdminSmsAuditResponse,
   AuthSecurityStatus,
   PhoneLine,
   Setting,
@@ -366,6 +372,34 @@ export async function fetchAdminCallDetail(id: string) {
   return request<{ call: AdminCallDetail }>(`/api/admin/calls/${id}`);
 }
 
+export async function retriggerCallFollowUp(callId: string) {
+  return request<RetriggerCallFollowUpResponse>(`/api/admin/calls/${callId}/retrigger-finalizer`, {
+    method: "POST"
+  });
+}
+
+export async function updateCallReviewState(callId: string, action: "mark" | "resolve", note?: string) {
+  return request<UpdateCallReviewResponse>(`/api/admin/calls/${callId}/review`, {
+    method: "POST",
+    body: JSON.stringify({ action, note })
+  });
+}
+
+export async function fetchAdminOpsQueueHealth() {
+  return request<AdminQueueHealthResponse>("/api/admin/ops/queue-health");
+}
+
+export async function fetchAdminOpsSmsAudit() {
+  return request<AdminSmsAuditResponse>("/api/admin/ops/sms-audit");
+}
+
+export async function retryAdminOpsQueueJob(jobId: string) {
+  return request<RetryAdminQueueJobResponse>("/api/admin/ops/retry-job", {
+    method: "POST",
+    body: JSON.stringify({ jobId })
+  });
+}
+
 export async function fetchAdminMessages(query = "") {
   return request<{ threads: AdminMessageThread[] }>(`/api/admin/messages${query}`);
 }
@@ -639,6 +673,13 @@ export async function fetchAdminOutreachEvents(query = "") {
   return request<{ events: OutreachActivityEvent[]; total: number; page: number; limit: number }>(`/api/admin/outreach/events${query}`);
 }
 
+export async function retryAdminOutreachEvent(params: { eventId: string; channel: "EMAIL" | "PHONE" }) {
+  return request<{ message?: string }>(`/api/admin/outreach/events/${params.eventId}/retry`, {
+    method: "POST",
+    body: JSON.stringify({ channel: params.channel })
+  });
+}
+
 export async function fetchAdminOutreachPhoneEvent(id: string) {
   return request<{ event: OutreachPhoneEventDetail }>(`/api/admin/outreach/phone-events/${id}`);
 }
@@ -795,6 +836,7 @@ export async function fetchOrgProfile() {
     assignedPhoneNumber: string | null;
     assignedNumberProvider: "TWILIO" | "VAPI" | null;
     features?: OrgFeatureFlags;
+    access: OrgAccessSummary;
   }>("/api/org/profile");
 }
 

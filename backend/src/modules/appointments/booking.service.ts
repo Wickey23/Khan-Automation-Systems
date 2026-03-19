@@ -1,4 +1,6 @@
-import { Prisma, type CalendarProvider, type PrismaClient } from "@prisma/client";
+import { Prisma, type CalendarProvider, type PrismaClient, $Enums, AppointmentSyncStatus } from "@prisma/client";
+const AppointmentStatus = $Enums.AppointmentStatus;
+const LeadPipelineStage = $Enums.LeadPipelineStage;
 import { env } from "../../config/env";
 import { assertOrgSmsQuota } from "../sms/sms-governance.service";
 import { emitOrgNotification } from "../notifications/notification.service";
@@ -6,6 +8,7 @@ import { sendSmsMessage } from "../twilio/twilio.service";
 import { getSmsTemplatesFromPolicies, renderOperationalSmsTemplate } from "../sms/template.service";
 import { buildExpandedBusyIntervals, type BusyWindow, validateSlotWithinBusinessHours } from "./slotting.service";
 import { overlapsLocked } from "./overlap.service";
+import { calendarSyncQueue } from "../../lib/queue";
 
 const TX_ISOLATION = Prisma.TransactionIsolationLevel.Serializable;
 
@@ -36,6 +39,7 @@ type BookingInput = {
     hoursJson?: string | null;
     timezone?: string | null;
   };
+  skipCalendarSync?: boolean;
 };
 
 type FailedBookingResult = {
@@ -347,7 +351,8 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
     try {
       initialExternalBusy = await input.fetchExternalBusyBlocks({ fromUtc: precheckFrom, toUtc: precheckTo });
     } catch (error) {
-      recordCalendarFallback("BUSY_CHECK", error);
+      // In background sync mode, we prioritize internal state for busy checking
+      // if external is failing during the initial pre-check.
       initialExternalBusy = [];
     }
   }
@@ -410,22 +415,9 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
           throw new Error("OUTSIDE_BUSINESS_HOURS_AT_COMMIT");
         }
 
-        try {
-          if (!calendarFallback && input.createExternalEvent && provider !== "INTERNAL") {
-            const event = await input.createExternalEvent();
-            provider = event.provider;
-            externalCalendarEventId = event.externalEventId || null;
-            status = event.provider === "INTERNAL" ? "PENDING" : "CONFIRMED";
-          } else {
-            provider = "INTERNAL";
-            status = "PENDING";
-          }
-        } catch (error) {
-          provider = "INTERNAL";
-          status = "PENDING";
-          externalCalendarEventId = null;
-          recordCalendarFallback("EVENT_CREATE", error);
-        }
+        provider = input.requestedProvider || "INTERNAL";
+        status = AppointmentStatus.PENDING;
+        externalCalendarEventId = null;
 
         try {
           const created = await tx.appointment.create({
@@ -450,7 +442,7 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
           if (input.leadId && input.pipelineFeatureEnabled) {
             await tx.lead.updateMany({
               where: { id: input.leadId, orgId: input.orgId },
-              data: { pipelineStage: status === "CONFIRMED" ? "SCHEDULED" : "NEEDS_SCHEDULING" }
+              data: { pipelineStage: status === AppointmentStatus.CONFIRMED ? LeadPipelineStage.SCHEDULED : LeadPipelineStage.NEEDS_SCHEDULING }
             });
           }
           return created;
@@ -483,8 +475,16 @@ export async function bookAppointmentWithHold(input: BookingInput): Promise<Book
 
   await input.prisma.appointmentHold.update({
     where: { id: hold.id },
-    data: { status: appointment.status === "CONFIRMED" ? "CONFIRMED" : "FAILED" }
+    data: { status: "CONFIRMED" }
   });
+
+  // Enqueue background sync if it's an external provider
+  if (!input.skipCalendarSync && appointment.calendarProvider !== "INTERNAL") {
+    await calendarSyncQueue.add("sync-appointment", {
+      appointmentId: appointment.id,
+      orgId: input.orgId
+    });
+  }
 
   await ensureCustomerBaseProfile({
     prisma: input.prisma,
