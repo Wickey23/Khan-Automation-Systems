@@ -102,8 +102,8 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#f5f7f8] font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-700">
       <PublicNav />
       <main>
-                <section className="px-6 pb-24 pt-32">
-          <div className="mx-auto flex max-w-7xl flex-col gap-16">
+        <section className="px-6 pb-24 pt-32">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-12">
             <div className="space-y-8">
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
                 <Sparkles size={12} />
@@ -143,7 +143,7 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-            <div className="mx-auto w-full max-w-[540px] rounded-[3rem]">
+            <div className="mx-auto w-full max-w-[1200px] rounded-[3rem]">
               <HeroProductTour />
             </div>
           </div>
