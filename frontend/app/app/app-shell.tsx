@@ -43,6 +43,7 @@ const navItems: Array<{
   comingSoon?: boolean;
 }> = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/app/activation", label: "Activation", icon: Shield, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/calls", label: "Calls", icon: PhoneCall },
   { href: "/app/leads", label: "Leads", icon: Users },
   { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
@@ -127,7 +128,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           !["LIVE", "TESTING"].includes(orgStatus) &&
           (pathname.startsWith("/app/calls") || pathname.startsWith("/app/messages") || pathname.startsWith("/app/leads"))
         ) {
-          setModeBanner({ text: "Setup mode. Complete onboarding before full runtime features.", ctaLabel: "Complete Onboarding", ctaHref: "/app/onboarding" });
+          setModeBanner({
+            text: "Setup mode. Complete activation before full runtime features.",
+            ctaLabel: "Open Activation",
+            ctaHref: "/app/activation"
+          });
         }
 
         if (!billing.subscription && demo?.mode === "GUIDED_DEMO") {
@@ -167,7 +172,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const readinessIssue = profileAccess?.readinessChecklist?.find((check) => check.status !== "ready") || null;
         let nextAccessWarning: string | null = null;
         if (!onboardingDone) {
-          nextAccessWarning = "Finish onboarding to unlock live configuration and full automation features.";
+          nextAccessWarning = "Finish activation to unlock live configuration and full automation features.";
         } else if (readinessIssue) {
           nextAccessWarning = `${readinessIssue.label}: ${readinessIssue.description}`;
         }
@@ -333,7 +338,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 ) : null}
                 {accessWarning ? (
                   <div className="app-banner app-banner-warning">
-                    {accessWarning} <Link href="/app/onboarding" className="font-medium underline">Go to onboarding</Link>
+                    {accessWarning} <Link href="/app/activation" className="font-medium underline">Go to activation flow</Link>
                   </div>
                 ) : null}
                 {children}

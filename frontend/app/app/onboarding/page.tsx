@@ -315,6 +315,9 @@ export default function AppOnboardingPage() {
         description={`Status: ${status}. Teach the receptionist how your office operates before live calls, texts, and booking requests start flowing into the front desk.`}
         actions={
           <div className="flex flex-wrap gap-2">
+            <Link href="/app/activation">
+              <Button variant="outline">Open activation flow</Button>
+            </Link>
             <Button variant="outline" onClick={onPreview} disabled={saving}>Preview build sheet</Button>
             <Button onClick={onSaveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</Button>
           </div>

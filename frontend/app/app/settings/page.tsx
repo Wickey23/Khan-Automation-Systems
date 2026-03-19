@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Bell, Bot, Calendar, Clock3, Phone, Shield, User, Zap } from "lucide-react";
+import Link from "next/link";
 import {
   connectGoogleCalendar,
   connectOutlookCalendar,
@@ -282,6 +283,11 @@ function WorkspaceAccessSection({
       <SectionHeading
         title="Workspace readiness"
         description="Understand which features are gated, what needs configuration, and where you are approved."
+        actions={
+          <Link href="/app/activation">
+            <Button size="sm" variant="outline">Open activation flow</Button>
+          </Link>
+        }
       />
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-3">
