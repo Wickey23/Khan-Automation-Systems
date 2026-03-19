@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, Bell, Building2, History, LayoutDashboard, LogOut, MessageSquare, Monitor, PhoneCall, Pulse, Search, Shield, Users } from "lucide-react";
+import { Activity, BarChart3, Bell, Building2, History, LayoutDashboard, LogOut, MessageSquare, Monitor, PhoneCall, Search, Shield, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getMe } from "@/lib/api";
 import type { AuthUser } from "@/lib/types";
@@ -14,7 +14,7 @@ const navItems = [
   { icon: PhoneCall, label: "Calls", path: "/admin/calls" },
   { icon: MessageSquare, label: "Messages", path: "/admin/messages" },
   { icon: Users, label: "Leads", path: "/admin/leads" },
-  { icon: Pulse, label: "Operations", path: "/admin/ops" },
+  { icon: Shield, label: "Operations", path: "/admin/ops" },
   { icon: Activity, label: "System Health", path: "/admin/system" },
   { icon: History, label: "Events", path: "/admin/events" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },

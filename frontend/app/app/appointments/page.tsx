@@ -10,8 +10,6 @@ import {
   Clock,
   Inbox,
   MessageSquare,
-  MoreVertical,
-  PhoneCall,
   Plus,
   XCircle
 } from "lucide-react";
@@ -26,7 +24,8 @@ import {
 import { useAccessSummary } from "@/context/access-summary";
 import type { AppointmentRequest, TeamMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PageHeader, PageShell, SectionHeading, SectionShell, StateCard, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
@@ -409,7 +408,7 @@ export default function AppAppointmentsPage() {
                 />
               ) : currentRequest.status === "PENDING_REVIEW" ? (
                 <StateCard
-                  variant="warning"
+                  variant="retry"
                   title="Review required"
                   description="Assign a staff member, or approve now if the request is supported."
                 />

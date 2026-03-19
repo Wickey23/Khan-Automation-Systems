@@ -11,8 +11,8 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { StateCard } from "@/components/ui/state-card";
+import { StatusBadge } from "../../../../components/ui/status-badge";
+import { StateCard } from "../../../../components/ui/state-card";
 
 const EVENT_TYPES = ["QUEUED", "SENT", "STARTED", "COMPLETED", "FAILED", "REPLIED", "UNSUBSCRIBED", "BOUNCED"] as const;
 

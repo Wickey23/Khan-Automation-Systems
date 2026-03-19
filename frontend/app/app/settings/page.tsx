@@ -385,6 +385,7 @@ export default function AppSettingsPage() {
     notificationsEnabled: false,
     classificationEnabled: false
   });
+  const [accessSummary, setAccessSummary] = useState<OrgAccessSummary | null>(null);
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.readAt).length, [notifications]);
   const voiceForwardingDialCode = useMemo(
     () => detectVoiceForwardingDialCode(state.voiceForwardingNumber),

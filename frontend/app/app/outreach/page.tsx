@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BarChart3, Lock, Mail, Rocket, Sparkles, Target, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { PageHelpFab, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
+import { ArrowRight, BarChart3, Mail, Rocket, Sparkles, Target, Zap } from "lucide-react";
+import { PageHelpFab, PageShell, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 

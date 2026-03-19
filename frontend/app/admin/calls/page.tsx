@@ -603,7 +603,6 @@ function InvestigationPane({
         <TranscriptSection
           sessions={selectedCall.transcriptSessions || []}
           assembled={selectedCall.transcript}
-          status={selectedCall.transcriptStatus}
         />
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
@@ -645,57 +644,62 @@ function InvestigationPane({
 
 function TranscriptSection({
   sessions,
-  assembled,
-  status
+  assembled
 }: {
-  sessions: AdminCallDetail["transcriptSessions"];
+  sessions?: AdminCallDetail["transcriptSessions"];
   assembled?: string | null;
-  status?: string | null;
 }) {
+  const normalizedSessions = sessions || [];
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Transcript sessions</p>
-        <span className="text-xs text-slate-500">{sessions.length} session(s)</span>
+        <span className="text-xs text-slate-500">{normalizedSessions.length} session(s)</span>
       </div>
-      {sessions.length ? (
+      {normalizedSessions.length ? (
         <div className="space-y-3">
-          {sessions.map((session) => (
-            <div key={session.id} className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
-              <div className="grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
-                <p>Provider {session.provider}</p>
-                <div className="flex items-center justify-between gap-2">
-                  <StatusBadge kind="transcript" state={session.sessionStatus} label={humanize(session.sessionStatus)} size="xs" />
-                  <span>
-                    {Math.round(session.startTimeMs / 100) / 10}s - {Math.round(session.endTimeMs / 100) / 10}s
-                    {session.errorText ? ` | error` : ""}
-                  </span>
+          {normalizedSessions.map((session) => {
+            const firstSegment = session.segments[0];
+            const lastSegment = session.segments[session.segments.length - 1];
+            const startSeconds = firstSegment ? Math.round(firstSegment.startTimeMs / 100) / 10 : null;
+            const endSeconds = lastSegment ? Math.round(lastSegment.endTimeMs / 100) / 10 : null;
+            return (
+              <div key={session.id} className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+                <div className="grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
+                  <p>Provider {session.provider}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <StatusBadge kind="transcript" state={session.sessionStatus} label={humanize(session.sessionStatus)} size="xs" />
+                    <span>
+                      {startSeconds !== null ? `${startSeconds}s` : "0s"} - {endSeconds !== null ? `${endSeconds}s` : "0s"}
+                      {session.errorText ? ` | error` : ""}
+                    </span>
+                  </div>
+                  <p>Started {formatWhen(session.startedAt)}</p>
+                  <p>Ended {formatWhen(session.endedAt)}</p>
                 </div>
-                <p>Started {formatWhen(session.startedAt)}</p>
-                <p>Ended {formatWhen(session.endedAt)}</p>
-              </div>
-              {session.errorText ? <p className="mt-2 text-xs text-rose-600">{session.errorText}</p> : null}
-              <div className="mt-3 space-y-2">
-                {session.segments.length ? (
-                  session.segments.map((segment) => (
-                    <div key={segment.id} className="rounded-xl bg-white px-3 py-2">
-                      <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
-                        <span className="font-semibold text-slate-700">{segment.speaker}</span>
-                        <span>
-                          {Math.round(segment.startTimeMs / 100) / 10}s - {Math.round(segment.endTimeMs / 100) / 10}s
-                          {segment.confidence != null ? ` | ${Math.round(segment.confidence * 100)}%` : ""}
-                          {segment.isFinal ? " | final" : ""}
-                        </span>
+                {session.errorText ? <p className="mt-2 text-xs text-rose-600">{session.errorText}</p> : null}
+                <div className="mt-3 space-y-2">
+                  {session.segments.length ? (
+                    session.segments.map((segment) => (
+                      <div key={segment.id} className="rounded-xl bg-white px-3 py-2">
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                          <span className="font-semibold text-slate-700">{segment.speaker}</span>
+                          <span>
+                            {Math.round(segment.startTimeMs / 100) / 10}s - {Math.round(segment.endTimeMs / 100) / 10}s
+                            {segment.confidence != null ? ` | ${Math.round(segment.confidence * 100)}%` : ""}
+                            {segment.isFinal ? " | final" : ""}
+                          </span>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{segment.text}</p>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{segment.text}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-slate-500">No persisted segments yet.</p>
-                )}
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">No persisted segments yet.</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <StateCard variant="empty" title="No transcript sessions" description="Transcript data is still pending." />
