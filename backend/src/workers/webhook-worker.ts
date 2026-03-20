@@ -53,7 +53,7 @@ export const webhookWorker = new Worker(
           if (!event || !event.payload) throw new Error(`Billing event ${eventId} not found or missing payload`);
           payload = event.payload;
           await handleStripeEvent(payload, orgId);
-          await prisma.billingWebhookEvent.update({ where: { id: eventId }, data: { processed: true } });
+          await prisma.billingWebhookEvent.update({ where: { id: eventId }, data: { processed: true, processingError: null } });
           break;
         }
         case "twilio_sms_inbound": {
@@ -62,7 +62,7 @@ export const webhookWorker = new Worker(
           payload = event.payload;
           // Twilio inbound SMS usually doesn't have orgId in payload, we handle in handler
           await handleTwilioSmsInbound(payload, orgId);
-          await prisma.smsWebhookEvent.update({ where: { id: eventId }, data: { processed: true } });
+          await prisma.smsWebhookEvent.update({ where: { id: eventId }, data: { processed: true, processingError: null } });
           break;
         }
         case "twilio_sms_status": {
@@ -70,7 +70,7 @@ export const webhookWorker = new Worker(
           if (!event) throw new Error(`SMS status event ${eventId} not found`);
           payload = event.payload;
           await handleTwilioSmsStatus(payload, orgId);
-          await prisma.smsWebhookEvent.update({ where: { id: eventId }, data: { processed: true } });
+          await prisma.smsWebhookEvent.update({ where: { id: eventId }, data: { processed: true, processingError: null } });
           break;
         }
         case "vapi-event":
@@ -96,25 +96,63 @@ export const webhookWorker = new Worker(
         });
       }
     } catch (error) {
+      const maxAttempts = Number(job.opts?.attempts || 1);
+      const attemptsMade = Number(job.attemptsMade || 0) + 1;
+      const terminal = isTerminalWebhookFailure({ error, attemptsMade, maxAttempts });
+      const classification = classifyWebhookError(error);
+
       if (jobFailureTypes.has(type)) {
         await logWebhookJobStatus({
           jobId: String(job.id),
           type,
           eventId: eventId || null,
           orgId: jobOrgId,
-          status: "failed",
-          message: error instanceof Error ? error.message : "unknown_error",
+          status: terminal ? "failed_terminal" : "failed",
+          message: classification.message,
           durationMs: Date.now() - jobStart,
-          metadata: jobMetadata
+          metadata: {
+            ...jobMetadata,
+            attemptsMade,
+            maxAttempts,
+            terminal
+          }
         });
       }
+      await markWebhookEventFailure({
+        type,
+        eventId: eventId || null,
+        message: classification.message,
+        terminal
+      });
+      await prisma.auditLog
+        .create({
+          data: {
+            orgId: jobOrgId,
+            actorUserId: "webhook-worker",
+            actorRole: "SYSTEM",
+            action: terminal ? "WEBHOOK_JOB_TERMINAL" : "WEBHOOK_JOB_RETRY_SCHEDULED",
+            metadataJson: JSON.stringify({
+              jobId: String(job.id),
+              type,
+              eventId: eventId || null,
+              attemptsMade,
+              maxAttempts,
+              message: classification.message,
+              terminal
+            })
+          }
+        })
+        .catch(() => null);
       console.error(`Error processing webhook job ${job.id}:`, error);
+      if (terminal) {
+        return;
+      }
       throw error;
     }
   },
   { 
     connection: redis as any,
-    concurrency: 5 
+    concurrency: 3 
   }
 );
 
@@ -322,7 +360,62 @@ function collectMetadataRecords(value: unknown) {
   return [];
 }
 
-type WebhookJobPhase = "processing" | "completed" | "failed";
+type WebhookJobPhase = "processing" | "completed" | "failed" | "failed_terminal";
+
+function classifyWebhookError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "unknown_error");
+  const normalized = message.toLowerCase();
+  const nonRetryable =
+    normalized.includes("not found") ||
+    normalized.includes("missing payload") ||
+    normalized.includes("missing call id") ||
+    normalized.includes("invalid") ||
+    normalized.includes("p2002") ||
+    normalized.includes("p2025");
+  return {
+    message,
+    nonRetryable
+  };
+}
+
+function isTerminalWebhookFailure(input: { error: unknown; attemptsMade: number; maxAttempts: number }) {
+  const classification = classifyWebhookError(input.error);
+  if (classification.nonRetryable) return true;
+  return input.attemptsMade >= input.maxAttempts;
+}
+
+async function markWebhookEventFailure(input: {
+  type: string;
+  eventId: string | null;
+  message: string;
+  terminal: boolean;
+}) {
+  if (!input.eventId) return;
+  try {
+    if (input.type === "stripe") {
+      await prisma.billingWebhookEvent.updateMany({
+        where: { id: input.eventId },
+        data: {
+          processed: input.terminal,
+          processingError: input.message
+        }
+      });
+      return;
+    }
+    if (input.type === "twilio_sms_inbound" || input.type === "twilio_sms_status") {
+      await prisma.smsWebhookEvent.updateMany({
+        where: { id: input.eventId },
+        data: {
+          processed: input.terminal,
+          processingError: input.message
+        }
+      });
+      return;
+    }
+  } catch {
+    // best effort failure state only
+  }
+}
 
 async function logWebhookJobStatus(input: {
   jobId: string;

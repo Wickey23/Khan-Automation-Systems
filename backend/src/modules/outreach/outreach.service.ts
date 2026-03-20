@@ -813,6 +813,7 @@ export async function sendEnrollmentStepNow(input: {
     }
   });
 
+  let providerMessageId: string | null = null;
   try {
     const sent = await sendOutreachEmail({
       to: leadEmail,
@@ -820,43 +821,75 @@ export async function sendEnrollmentStepNow(input: {
       html: bodies.html,
       text: bodies.text
     });
-
-    await db.outreachEmailEvent.update({
-      where: { id: event.id },
-      data: {
-        eventType: "SENT",
-        providerMessageId: sent.providerMessageId,
-        metadata: sent.raw || Prisma.JsonNull
-      }
-    });
-
-    await db.outreachLead.update({
-      where: { id: enrollment.leadId },
-      data: {
-        status: "ACTIVE",
-        lastContactedAt: new Date()
-      }
-    });
+    providerMessageId = sent.providerMessageId || null;
 
     const nextStep = enrollment.sequence.steps.find((item: any) => item.stepNumber === step.stepNumber + 1) || null;
-    await finalizeAfterSend({
-      prisma: input.prisma,
-      enrollmentId: enrollment.id,
-      currentStepNumber: step.stepNumber,
-      nextStepNumber: nextStep?.stepNumber || null,
-      nextSendAt: nextStep ? nextStepSendAt(new Date(), nextStep.delayHours, input.sendJitterMinutes || 20) : null
-    });
+    const nextSendAt = nextStep ? nextStepSendAt(new Date(), nextStep.delayHours, input.sendJitterMinutes || 20) : null;
 
-    if (!nextStep) {
-      await db.outreachLead.update({
-        where: { id: enrollment.leadId },
-        data: { status: "COMPLETED" }
+    await db.$transaction(async (tx: any) => {
+      await tx.outreachEmailEvent.update({
+        where: { id: event.id },
+        data: {
+          eventType: "SENT",
+          providerMessageId: sent.providerMessageId,
+          metadata: sent.raw || Prisma.JsonNull
+        }
       });
-    }
+      await tx.outreachLead.update({
+        where: { id: enrollment.leadId },
+        data: {
+          status: nextStep ? "ACTIVE" : "COMPLETED",
+          lastContactedAt: new Date()
+        }
+      });
+      await tx.outreachEnrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          currentStepNumber: nextStep?.stepNumber ?? step.stepNumber,
+          nextSendAt,
+          status: nextStep ? "ACTIVE" : "COMPLETED",
+          lastSentAt: new Date(),
+          processingStartedAt: null
+        }
+      });
+    });
 
     return { ok: true as const, eventId: event.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown outreach send failure.";
+    if (providerMessageId) {
+      await db.outreachEnrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          status: "FAILED",
+          stopReason: "Post-send persistence failure; manual review required.",
+          processingStartedAt: null
+        }
+      });
+      await db.outreachEmailEvent.updateMany({
+        where: { id: event.id },
+        data: {
+          eventType: "SENT",
+          providerMessageId,
+          errorMessage: null
+        }
+      });
+      await db.auditLog.create({
+        data: {
+          orgId: enrollment.orgId,
+          actorUserId: "outreach-runner",
+          actorRole: "SYSTEM",
+          action: "OUTREACH_POST_SEND_PERSISTENCE_FAILED",
+          metadataJson: JSON.stringify({
+            enrollmentId: enrollment.id,
+            eventId: event.id,
+            providerMessageId,
+            error: message
+          })
+        }
+      });
+      return { ok: false as const, reason: "Post-send persistence failed. Retry is blocked to prevent duplicate sends." };
+    }
     if (error instanceof OutreachSendError && error.isRetryable) {
       const retryAt = new Date(Date.now() + computeRetryDelayMs(error) + randomJitterMs(input.sendJitterMinutes || 20));
       await retryEnrollment({

@@ -839,18 +839,6 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
       callId: job.callId,
       attemptCount: job.attemptCount
     });
-    await prisma.finalizeBookingJob.update({
-      where: { id: job.id },
-      data: {
-        status: "done",
-        processedAt: new Date(),
-        resultJson: result as object,
-        error: null,
-        decisionVersion: String((result as { decisionVersion?: string }).decisionVersion || DECISION_VERSION),
-        decisionInputHash: String((result as { decisionInputHash?: string }).decisionInputHash || "")
-      }
-    });
-
     const resultObj = result as {
       state?: string;
       orgId?: string;
@@ -879,6 +867,19 @@ export async function runFinalizeBookingWorkerTick(prisma: PrismaClient) {
         result: resultObj as Record<string, unknown>
       });
     }
+
+    await prisma.finalizeBookingJob.update({
+      where: { id: job.id },
+      data: {
+        status: "done",
+        processedAt: new Date(),
+        resultJson: result as object,
+        error: null,
+        decisionVersion: String((result as { decisionVersion?: string }).decisionVersion || DECISION_VERSION),
+        decisionInputHash: String((result as { decisionInputHash?: string }).decisionInputHash || "")
+      }
+    });
+
     const requestId = resultObj.orgId ? await findRequestIdForCall(prisma, resultObj.orgId, job.callId) : null;
     console.info(
       JSON.stringify({

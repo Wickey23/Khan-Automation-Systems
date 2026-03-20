@@ -7,6 +7,22 @@ import { runSlaMonitorTick } from "../modules/ops/sla-monitor.service";
 import { runDataIntegrityGuardTick } from "../modules/ops/data-integrity-guard.service";
 import { runAdminReportsTick } from "../modules/admin/admin-reporting.service";
 import { runJobReconciliationTick } from "../modules/ops/reconciliation.service";
+import { acquireLock, releaseLock } from "../lib/lock";
+
+function lockTtlForJob(name: string) {
+  switch (name) {
+    case "booking-finalizer":
+      return 90_000;
+    case "outreach-runner":
+      return 10 * 60_000;
+    case "data-integrity":
+      return 10 * 60_000;
+    case "admin-reports":
+      return 30 * 60_000;
+    default:
+      return 3 * 60_000;
+  }
+}
 
 /**
  * Global Background Tasks Worker.
@@ -15,6 +31,13 @@ import { runJobReconciliationTick } from "../modules/ops/reconciliation.service"
 export const backgroundWorker = new Worker(
   "background-tasks",
   async (job: Job) => {
+    const lockKey = `background-job:${job.name}`;
+    const lockAcquired = await acquireLock(lockKey, lockTtlForJob(job.name));
+    if (!lockAcquired) {
+      console.log(`[BackgroundWorker] Skipping ${job.name}; lock not acquired.`);
+      return;
+    }
+
     console.log(`[BackgroundWorker] Running job: ${job.name}`);
 
     try {
@@ -43,10 +66,12 @@ export const backgroundWorker = new Worker(
     } catch (error) {
       console.error(`[BackgroundWorker] Job ${job.name} failed:`, error);
       throw error;
+    } finally {
+      await releaseLock(lockKey);
     }
   },
   { 
     connection: redis as any,
-    concurrency: 2
+    concurrency: 1
   }
 );

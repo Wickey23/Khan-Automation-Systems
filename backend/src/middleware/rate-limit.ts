@@ -16,6 +16,7 @@ function buildLimiter(windowMs: number, max: number, message: string, prefix: st
     standardHeaders: true,
     legacyHeaders: false,
     message: { ok: false, message },
+    passOnStoreError: true,
     store: new RedisStore({
       // @ts-expect-error - ioredis compatibility
       sendCommand: (...args: string[]) => redis.call(...args),
