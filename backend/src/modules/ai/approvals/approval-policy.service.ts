@@ -4,8 +4,6 @@ const ALWAYS_APPROVAL_TOOLS = new Set([
   "send_approved_email",
   "send_approved_sms",
   "update_appointment_status",
-  "draft_outreach_email",
-  "draft_outreach_sms",
   "mark_lead_status"
 ]);
 
