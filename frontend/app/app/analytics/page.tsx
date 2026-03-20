@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHeader, PageHelpFab, PageShell, SectionShell } from "@/components/ui/page";
 import { subscriptionStatusLabel } from "@/lib/client-status-language";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
@@ -99,7 +99,8 @@ export default function AppAnalyticsPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <PageShell className="space-y-6">
+      <SectionShell className="surface-panel">
       <PageHeader
         eyebrow="Business performance"
         title="Performance"
@@ -120,6 +121,7 @@ export default function AppAnalyticsPage() {
           </div>
         }
       />
+      </SectionShell>
 
       <PageHelpFab
         items={[
@@ -129,6 +131,7 @@ export default function AppAnalyticsPage() {
         ]}
       />
 
+      <SectionShell className="surface-panel">
       <ClientStatusGrid
         items={[
           {
@@ -154,7 +157,9 @@ export default function AppAnalyticsPage() {
           }
         ]}
       />
+      </SectionShell>
 
+      <SectionShell className="surface-panel">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] xl:items-start">
         <Card className={frontDeskWorkspaceCardClass("hero")}>
           <CardContent className="space-y-4 p-6 sm:p-7">
@@ -230,8 +235,10 @@ export default function AppAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+      </SectionShell>
 
       {!isPro ? (
+        <SectionShell className="surface-panel">
         <ClientGateCard
           title="Advanced reporting is locked on the current plan."
           description={`Upgrade when you want broader KPI reporting, deeper trend visibility, and stronger operational review tools. Current access: ${subscriptionStatusLabel(isPro ? "active" : "not_active")}.`}
@@ -239,8 +246,10 @@ export default function AppAnalyticsPage() {
           badgeTone="warning"
           actions={[{ href: "/app/billing", label: "Open Billing" }]}
         />
+        </SectionShell>
       ) : null}
 
+      <SectionShell className="surface-panel">
       <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 ${!isPro ? "opacity-60" : ""}`}>
         {metricCards.map((item) => (
           <Card key={item.label} className={frontDeskMetricCardClass()}>
@@ -255,14 +264,18 @@ export default function AppAnalyticsPage() {
           </Card>
         ))}
       </div>
+      </SectionShell>
 
       {isViewer ? (
+        <SectionShell className="surface-panel">
         <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]`}>
           <CardContent className="p-4 text-sm text-amber-950">Viewer role access: summary KPI cards only.</CardContent>
         </Card>
+        </SectionShell>
       ) : null}
 
       {!isViewer ? (
+      <SectionShell className="surface-panel">
       <div className={`grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,360px)] ${!isPro ? "opacity-60" : ""}`}>
         <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="pb-3">
@@ -331,9 +344,11 @@ export default function AppAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+      </SectionShell>
       ) : null}
 
       {!isViewer ? (
+      <SectionShell className="surface-panel">
       <Card className={`${frontDeskWorkspaceCardClass("default")} ${!isPro ? "opacity-60" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle>Leads captured over time</CardTitle>
@@ -358,8 +373,9 @@ export default function AppAnalyticsPage() {
         )}
         </CardContent>
       </Card>
+      </SectionShell>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 
