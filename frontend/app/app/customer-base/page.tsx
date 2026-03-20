@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Briefcase,
@@ -11,44 +14,93 @@ import {
   Phone,
   Search,
   Settings,
-  UserPlus,
   Users
 } from "lucide-react";
+import { fetchCustomerBase } from "@/lib/api";
+import type { CustomerBaseRecord } from "@/lib/types";
 
-const rows = [
-  {
-    name: "Sarah Chen",
-    id: "KH-9021",
-    email: "s.chen@example.com",
-    phone: "+1 (555) 902-1244",
-    status: "ACTIVE",
-    statusClass: "bg-blue-100 text-blue-700",
-    value: "$12,450.00",
-    lastBooking: "Oct 12, 2023"
-  },
-  {
-    name: "Marcus Wright",
-    id: "KH-4412",
-    email: "m.wright@domain.com",
-    phone: "Missing Phone",
-    status: "DEGRADED",
-    statusClass: "bg-violet-100 text-violet-700",
-    value: "$3,210.00",
-    lastBooking: "Sep 28, 2023"
-  },
-  {
-    name: "Elena Rodriguez",
-    id: "KH-8829",
-    email: "elena.r@agency.co",
-    phone: "+1 (555) 441-2921",
-    status: "NOT_ENABLED",
-    statusClass: "bg-slate-200 text-slate-600",
-    value: "$0.00",
-    lastBooking: "New Customer"
-  }
-];
+type FilterKey = "all" | "active" | "degraded" | "new";
+
+function deriveStatus(customer: CustomerBaseRecord): "ACTIVE" | "DEGRADED" | "NEW" {
+  if (customer.lead && customer.nameConfidence !== "LOW") return "ACTIVE";
+  if (!customer.lead && customer.totalCalls <= 1) return "NEW";
+  return "DEGRADED";
+}
+
+function statusClass(status: "ACTIVE" | "DEGRADED" | "NEW") {
+  if (status === "ACTIVE") return "bg-blue-100 text-blue-700";
+  if (status === "NEW") return "bg-emerald-100 text-emerald-700";
+  return "bg-violet-100 text-violet-700";
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString();
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0] || "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export default function CustomerBasePage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<FilterKey>("all");
+
+  useEffect(() => {
+    let mounted = true;
+    void fetchCustomerBase()
+      .then((res) => {
+        if (!mounted) return;
+        setCustomers(res.customers || []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setError("Could not load customer base data right now.");
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const totalCustomers = customers.length;
+  const returningPct = totalCustomers ? (customers.filter((c) => c.totalCalls > 1).length / totalCustomers) * 100 : 0;
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const newThisMonth = customers.filter((c) => {
+    const first = new Date(c.firstCallAt);
+    return !Number.isNaN(first.getTime()) && first >= monthStart;
+  }).length;
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return customers.filter((customer) => {
+      const status = deriveStatus(customer);
+      if (filter !== "all" && status.toLowerCase() !== filter) return false;
+      if (!normalizedQuery) return true;
+      return (
+        customer.displayName.toLowerCase().includes(normalizedQuery) ||
+        customer.phoneNumber.toLowerCase().includes(normalizedQuery) ||
+        (customer.lead?.email || "").toLowerCase().includes(normalizedQuery) ||
+        (customer.lead?.business || "").toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [customers, filter, query]);
+
   return (
     <div className="min-h-screen bg-[#eef2f6] text-slate-800">
       <div className="grid min-h-screen grid-cols-[280px_1fr]">
@@ -64,22 +116,21 @@ export default function CustomerBasePage() {
           </div>
 
           <nav className="space-y-1">
-            <NavItem icon={LayoutDashboard} label="Dashboard" />
-            <NavItem icon={Users} label="Customer Base" active />
-            <NavItem icon={Briefcase} label="Projects" />
-            <NavItem icon={Briefcase} label="Financials" />
-            <NavItem icon={HelpCircle} label="Support" />
+            <NavItem icon={LayoutDashboard} label="Dashboard" href="/app" />
+            <NavItem icon={Users} label="Customer Base" active href="/app/customer-base" />
+            <NavItem icon={Briefcase} label="Projects" href="/app/leads" />
+            <NavItem icon={Briefcase} label="Financials" href="/app/billing" />
+            <NavItem icon={HelpCircle} label="Support" href="/app/settings" />
           </nav>
 
           <div className="mt-auto space-y-4 pt-6">
-            <button className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow">
-              <span className="text-lg leading-none">+</span>
-              New Entry
-            </button>
-            <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100">
-              <HelpCircle className="h-5 w-5" />
-              Help Center
-            </button>
+            <Link href="/app/appointments" className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow">
+              + New Entry
+            </Link>
+              <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100" type="button">
+                <HelpCircle className="h-5 w-5" />
+                Help Center
+              </button>
             <Link href="/auth/logout" className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100">
               <LogOut className="h-5 w-5" />
               Sign Out
@@ -110,7 +161,7 @@ export default function CustomerBasePage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Dashboard / <span className="text-blue-700">Customer Base</span></p>
-                <h2 className="mt-2 text-6xl font-medium tracking-tight text-slate-900">Customer Base</h2>
+                <h2 className="mt-2 text-5xl font-medium tracking-tight text-slate-900">Customer Base</h2>
               </div>
               <button className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">
                 <Download className="h-4 w-4" />
@@ -119,9 +170,9 @@ export default function CustomerBasePage() {
             </div>
 
             <section className="mb-6 grid grid-cols-3 gap-6">
-              <MetricCard title="TOTAL CUSTOMERS" value="12,842" badge="+4.2%" />
-              <MetricCard title="RETURNING CUSTOMERS (%)" value="64.8%" badge="TARGET" />
-              <MetricCard title="NEW THIS MONTH" value="312" subtitle="vs 284 prev." />
+              <MetricCard title="TOTAL CUSTOMERS" value={String(totalCustomers)} />
+              <MetricCard title="RETURNING CUSTOMERS (%)" value={`${returningPct.toFixed(1)}%`} badge="LIVE" />
+              <MetricCard title="NEW THIS MONTH" value={String(newThisMonth)} />
             </section>
 
             <section className="mb-6 rounded-xl border border-slate-200 bg-[#e8edf3] p-4">
@@ -129,25 +180,21 @@ export default function CustomerBasePage() {
                 <div className="relative w-[460px]">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                   <input
-                    readOnly
-                    value=""
-                    placeholder="Search by name, email or ID..."
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search by name, email or phone..."
                     className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm"
                   />
                 </div>
                 <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-[#dce3eb] text-sm">
-                  <FilterTab label="All" active />
-                  <FilterTab label="Active" />
-                  <FilterTab label="Inactive" />
-                  <FilterTab label="New" />
+                  <FilterTab label="All" active={filter === "all"} onClick={() => setFilter("all")} />
+                  <FilterTab label="Active" active={filter === "active"} onClick={() => setFilter("active")} />
+                  <FilterTab label="Degraded" active={filter === "degraded"} onClick={() => setFilter("degraded")} />
+                  <FilterTab label="New" active={filter === "new"} onClick={() => setFilter("new")} />
                 </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-slate-600">Sort by:</span>
-                  <span className="font-semibold">Last Booking</span>
-                  <button className="rounded-lg bg-[#cfe0ef] p-2">
-                    <Filter className="h-4 w-4" />
-                  </button>
-                </div>
+                <button className="rounded-lg bg-[#cfe0ef] p-2" type="button">
+                  <Filter className="h-4 w-4" />
+                </button>
               </div>
             </section>
 
@@ -156,53 +203,51 @@ export default function CustomerBasePage() {
                 <p>Customer Name</p>
                 <p>Contact Details</p>
                 <p>Status</p>
-                <p>Lifetime Value</p>
-                <p>Last Booking</p>
+                <p>Total Calls</p>
+                <p>Last Activity</p>
               </div>
 
-              {rows.map((row) => (
-                <div key={row.id} className="grid grid-cols-[1.2fr_1.1fr_0.8fr_0.8fr_0.8fr] items-center border-b border-slate-100 px-6 py-5">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-200 text-xs font-bold text-slate-700">
-                      {row.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
+              {loading ? (
+                <div className="px-6 py-8 text-sm text-slate-500">Loading customer base...</div>
+              ) : error ? (
+                <div className="px-6 py-8 text-sm text-red-600">{error}</div>
+              ) : filteredRows.length === 0 ? (
+                <div className="px-6 py-8 text-sm text-slate-500">No matching customers found.</div>
+              ) : (
+                filteredRows.map((row) => {
+                  const status = deriveStatus(row);
+                  return (
+                    <div key={row.phoneNumber} className="grid grid-cols-[1.2fr_1.1fr_0.8fr_0.8fr_0.8fr] items-center border-b border-slate-100 px-6 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-200 text-xs font-bold text-slate-700">
+                          {initials(row.displayName)}
+                        </div>
+                        <div>
+                          <p className="text-xl font-medium leading-none">{row.displayName}</p>
+                          <p className="mt-1 text-xs text-slate-500">{row.lead?.id || row.phoneNumber}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-sm text-slate-600">
+                        <p className="flex items-center gap-2"><Mail className="h-4 w-4" />{row.lead?.email || "No email on file"}</p>
+                        <p className="flex items-center gap-2"><Phone className="h-4 w-4" />{row.phoneNumber}</p>
+                      </div>
+                      <div>
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusClass(status)}`}>{status}</span>
+                      </div>
+                      <p className="text-2xl font-semibold">{row.totalCalls}</p>
+                      <p className="text-slate-700">{formatDate(row.lastCallAt)}</p>
                     </div>
-                    <div>
-                      <p className="text-[28px] font-medium leading-none">{row.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">ID: {row.id}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-sm text-slate-600">
-                    <p className="flex items-center gap-2"><Mail className="h-4 w-4" />{row.email}</p>
-                    <p className={`flex items-center gap-2 ${row.phone.includes("Missing") ? "text-red-600" : ""}`}>
-                      <Phone className="h-4 w-4" />
-                      {row.phone}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${row.statusClass}`}>
-                      {row.status.replace("_", " ")}
-                    </span>
-                  </div>
-
-                  <p className="text-[32px] font-semibold">{row.value}</p>
-                  <p className={row.lastBooking === "New Customer" ? "text-blue-700" : "text-slate-700"}>{row.lastBooking}</p>
-                </div>
-              ))}
+                  );
+                })
+              )}
 
               <div className="flex items-center justify-between px-6 py-5 text-sm text-slate-600">
                 <p>
-                  Showing <span className="font-semibold">1-25</span> of <span className="font-semibold">12,842</span> customers
+                  Showing <span className="font-semibold">{filteredRows.length}</span> of <span className="font-semibold">{totalCustomers}</span> customers
                 </p>
-                <div className="flex items-center gap-5">
-                  <button className="text-slate-500">{"<"}</button>
-                  <button className="h-8 w-8 rounded bg-blue-700 text-white">1</button>
-                  <button>2</button>
-                  <button>3</button>
-                  <span>...</span>
-                  <button>514</button>
-                  <button className="text-slate-500">{">"}</button>
+                <div className="flex items-center gap-3">
+                  <Link href="/app/calls" className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold">Open Calls</Link>
+                  <Link href="/app/messages" className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold">Open Messages</Link>
                 </div>
               </div>
             </section>
@@ -213,22 +258,41 @@ export default function CustomerBasePage() {
   );
 }
 
-function NavItem({ icon: Icon, label, active = false }: { icon: typeof LayoutDashboard; label: string; active?: boolean }) {
+function NavItem({
+  icon: Icon,
+  label,
+  href,
+  active = false
+}: {
+  icon: typeof LayoutDashboard;
+  label: string;
+  href: string;
+  active?: boolean;
+}) {
   return (
-    <button
+    <Link
+      href={href}
       className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[30px] ${
         active ? "bg-white text-blue-700 shadow-sm" : "text-slate-700 hover:bg-white/70"
       }`}
     >
       <Icon className="h-5 w-5" />
       <span>{label}</span>
-    </button>
+    </Link>
   );
 }
 
-function FilterTab({ label, active = false }: { label: string; active?: boolean }) {
+function FilterTab({
+  label,
+  active = false,
+  onClick
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
   return (
-    <button className={`px-5 py-2 ${active ? "bg-white font-semibold text-blue-700" : "text-slate-700"}`}>
+    <button type="button" onClick={onClick} className={`px-5 py-2 ${active ? "bg-white font-semibold text-blue-700" : "text-slate-700"}`}>
       {label}
     </button>
   );
@@ -249,7 +313,7 @@ function MetricCard({
     <div className="rounded-xl border border-slate-200 bg-white p-6">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">{title}</p>
       <div className="mt-3 flex items-center gap-3">
-        <p className="text-[56px] font-semibold leading-none">{value}</p>
+        <p className="text-5xl font-semibold leading-none">{value}</p>
         {badge ? (
           <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{badge}</span>
         ) : null}
