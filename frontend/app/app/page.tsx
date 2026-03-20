@@ -16,7 +16,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
+import { PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { fetchAppointmentRequests, fetchOrgAnalytics, fetchOrgHealth, fetchOrgProfile } from "@/lib/api";
@@ -571,18 +571,20 @@ export default function AppOverviewPage() {
   }
 
   return (
-    <PageShell className="space-y-6">
-      <PageHeader
-        eyebrow="Performance snapshot"
-        title="Workspace performance"
-        description="Core business-value and operational signals for the last 7 days."
-        actions={
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Operational Pulse</p>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">Workspace Performance</h1>
+            <p className="mt-2 text-sm text-slate-600">Core business-value and operational signals for the last 7 days.</p>
+          </div>
           <Button size="sm" variant="outline" onClick={() => void refreshDashboard()} disabled={refreshing}>
             <RefreshCw className={cn("mr-1.5 h-4 w-4", refreshing && "animate-spin")} />
             {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
-        }
-      />
+        </div>
+      </div>
 
       <SectionShell className="surface-panel space-y-4">
         <div className="grid gap-3 lg:grid-cols-3">
@@ -986,6 +988,6 @@ export default function AppOverviewPage() {
           </div>
         </div>
       </SectionShell>
-    </PageShell>
+    </div>
   );
 }
