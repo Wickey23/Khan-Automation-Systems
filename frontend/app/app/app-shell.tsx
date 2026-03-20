@@ -2,14 +2,44 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Bell,
+  Calendar,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  PhoneCall,
+  Rocket,
+  Search,
+  Settings,
+  Shield,
+  Users
+} from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchOrgOnboarding, fetchOrgProfile, getBillingStatus, getMe } from "@/lib/api";
 import { AccessSummaryProvider } from "@/context/access-summary";
-import type { AccessFeatureKey, OrgAccessSummary } from "@/lib/types";
+import type { AccessFeatureKey, AuthUser, OrgAccessSummary } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
+type ClientRole = AuthUser["role"];
 type ActivationStage = "not_started" | "in_progress" | "ready";
 type FirstSuccessSignal = { at: string; type: "call" | "sms" | "booking" } | null;
+
+const navItems = [
+  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/app/activation", label: "Activation", icon: Shield },
+  { href: "/app/calls", label: "Calls", icon: PhoneCall },
+  { href: "/app/messages", label: "Messages", icon: MessageSquare },
+  { href: "/app/appointments", label: "Appointments", icon: Calendar },
+  { href: "/app/leads", label: "Leads", icon: Users },
+  { href: "/app/customer-base", label: "Customer Base", icon: Users },
+  { href: "/app/outreach", label: "Outreach", icon: Rocket },
+  { href: "/app/billing", label: "Billing", icon: CreditCard },
+  { href: "/app/settings", label: "Settings", icon: Settings },
+  { href: "/app/team", label: "Team", icon: Users }
+];
 
 function isCoreFeatureReady(access: OrgAccessSummary | null) {
   if (!access) return false;
@@ -22,6 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [modeBanner, setModeBanner] = useState<{ text: string; ctaLabel: string; ctaHref: string } | null>(null);
   const [activationBanner, setActivationBanner] = useState<{ stage: ActivationStage; text: string; ctaLabel: string; ctaHref: string } | null>(null);
+  const [currentRole, setCurrentRole] = useState<ClientRole | null>(null);
   const [accessSummary, setAccessSummary] = useState<OrgAccessSummary | null>(null);
   const [workspaceLive, setWorkspaceLive] = useState(false);
   const [firstSuccess, setFirstSuccess] = useState<FirstSuccessSignal>(null);
@@ -36,6 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     void Promise.all([fetchOrgOnboarding(), fetchOrgProfile(), getBillingStatus(), getMe()])
       .then(([onboarding, orgProfile, billing, me]) => {
         const subStatus = billing.subscription?.status || "";
+        setCurrentRole(me.user.role);
         const profileAccess = orgProfile.access || null;
         setAccessSummary(profileAccess);
         const milestoneType = orgProfile.organization?.firstSuccessType;
@@ -148,6 +180,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         setAccessWarning("Could not verify onboarding status. You can still continue, but check your API connection.");
+        setCurrentRole(null);
         setAccessSummary(null);
         setActivationBanner(null);
         setWorkspaceLive(false);
@@ -155,50 +188,119 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       });
   }, [pathname, router]);
 
+  const liveStatus = useMemo(
+    () => (workspaceLive ? (firstSuccess ? "Proven Live" : "Live") : "Setup"),
+    [firstSuccess, workspaceLive]
+  );
+
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="min-h-screen bg-[#f7f9fb]">
-          {modeBanner ? (
-            <div className="app-banner app-banner-primary">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span>{modeBanner.text}</span>
-                <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
-                  {modeBanner.ctaLabel}
-                </Link>
+        <div className="flex min-h-screen bg-[#f7f9fb] text-slate-800">
+          <aside className="hidden w-[260px] shrink-0 border-r border-slate-200 bg-[#e9eef4] p-6 xl:flex xl:flex-col">
+            <div className="mb-8">
+              <p className="text-xl font-semibold tracking-tight">Front Desk OS</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">By Khan Systems</p>
+            </div>
+            <nav className="space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium",
+                      active ? "bg-white text-blue-700 shadow-sm" : "text-slate-700 hover:bg-white/70"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="mt-auto space-y-3 pt-6">
+              <Link
+                href="/app/appointments"
+                className="flex w-full items-center justify-center rounded-md bg-blue-700 px-4 py-3 text-sm font-semibold text-white"
+              >
+                + New Booking
+              </Link>
+              <Link
+                href="/auth/logout"
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Link>
+            </div>
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-[#f7f9fb] px-8">
+              <div className="relative w-full max-w-[460px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  readOnly
+                  value=""
+                  placeholder="Search leads, bookings, or calls..."
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#e6ebf1] pl-10 pr-4 text-sm outline-none"
+                />
               </div>
-            </div>
-          ) : null}
-          {!modeBanner && activationBanner ? (
-            <div className={activationBanner.stage === "not_started" ? "app-banner app-banner-warning" : "app-banner app-banner-primary"}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span>{activationBanner.text}</span>
-                <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
-                  {activationBanner.ctaLabel}
-                </Link>
+              <div className="flex items-center gap-4">
+                <Bell className="h-5 w-5 text-slate-700" />
+                <div className={cn("rounded-full px-3 py-1 text-xs font-semibold", workspaceLive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                  {liveStatus}
+                </div>
+                <div className="text-xs uppercase tracking-[0.15em] text-slate-500">{currentRole?.replaceAll("_", " ") || "workspace user"}</div>
               </div>
+            </header>
+
+            <div className="px-6 py-6">
+              {modeBanner ? (
+                <div className="app-banner app-banner-primary">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{modeBanner.text}</span>
+                    <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                      {modeBanner.ctaLabel}
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+              {!modeBanner && activationBanner ? (
+                <div className={activationBanner.stage === "not_started" ? "app-banner app-banner-warning" : "app-banner app-banner-primary"}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{activationBanner.text}</span>
+                    <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                      {activationBanner.ctaLabel}
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+              {!modeBanner && workspaceLive ? (
+                <div className="app-banner app-banner-primary">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {firstSuccess
+                        ? `System proven live. First ${firstSuccess.type} interaction recorded on ${new Date(firstSuccess.at).toLocaleString()}.`
+                        : "System ready and listening. Inbound calls, SMS automation, and booking workflows are operational."}
+                    </span>
+                    <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                      View live calls
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+              {accessWarning ? (
+                <div className="app-banner app-banner-warning">
+                  {accessWarning} <Link href="/app/activation" className="font-medium underline">Go to activation flow</Link>
+                </div>
+              ) : null}
+              {children}
             </div>
-          ) : null}
-          {!modeBanner && workspaceLive ? (
-            <div className="app-banner app-banner-primary">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {firstSuccess
-                    ? `System proven live. First ${firstSuccess.type} interaction recorded on ${new Date(firstSuccess.at).toLocaleString()}.`
-                    : "System ready and listening. Inbound calls, SMS automation, and booking workflows are operational."}
-                </span>
-                <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
-                  View live calls
-                </Link>
-              </div>
-            </div>
-          ) : null}
-          {accessWarning ? (
-            <div className="app-banner app-banner-warning">
-              {accessWarning} <Link href="/app/activation" className="font-medium underline">Go to activation flow</Link>
-            </div>
-          ) : null}
-          {children}
+          </div>
         </div>
       </AccessSummaryProvider>
     )
