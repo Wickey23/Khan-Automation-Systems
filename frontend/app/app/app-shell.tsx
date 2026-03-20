@@ -196,11 +196,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="flex min-h-screen bg-[#f7f9fb] text-slate-800">
-          <aside className="hidden w-[260px] shrink-0 border-r border-slate-200 bg-[#e9eef4] p-6 xl:flex xl:flex-col">
+        <div className="flex min-h-screen bg-[#f1f3f6] text-slate-800">
+          <aside className="hidden w-[276px] shrink-0 border-r border-slate-200 bg-[#e8edf3] p-6 xl:flex xl:flex-col">
             <div className="mb-8">
-              <p className="text-xl font-semibold tracking-tight">Front Desk OS</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">By Khan Systems</p>
+              <p className="text-[40px] leading-none">?</p>
+              <p className="text-[38px] font-semibold tracking-tight">The Silent Orchestrator</p>
+              <p className="mt-1 text-[28px] text-slate-600">Premium Operations</p>
             </div>
             <nav className="space-y-1">
               {navItems.map((item) => {
@@ -224,13 +225,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mt-auto space-y-3 pt-6">
               <Link
                 href="/app/appointments"
-                className="flex w-full items-center justify-center rounded-md bg-blue-700 px-4 py-3 text-sm font-semibold text-white"
+                className="flex w-full items-center justify-center rounded-lg bg-[#3051d3] px-4 py-3 text-sm font-semibold text-white shadow-sm"
               >
-                + New Booking
+                New Request
               </Link>
               <Link
                 href="/auth/logout"
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
               >
                 <LogOut className="h-4 w-4" />
                 Logout
@@ -239,22 +240,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-[#f7f9fb] px-8">
+            <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-[#f1f3f6] px-8">
               <div className="relative w-full max-w-[460px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
                   readOnly
                   value=""
-                  placeholder="Search leads, bookings, or calls..."
+                  placeholder="Command Center Search..."
                   className="h-11 w-full rounded-2xl border border-slate-200 bg-[#e6ebf1] pl-10 pr-4 text-sm outline-none"
                 />
               </div>
               <div className="flex items-center gap-4">
                 <Bell className="h-5 w-5 text-slate-700" />
+                <Settings className="h-5 w-5 text-slate-700" />
                 <div className={cn("rounded-full px-3 py-1 text-xs font-semibold", workspaceLive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
                   {liveStatus}
                 </div>
-                <div className="text-xs uppercase tracking-[0.15em] text-slate-500">{currentRole?.replaceAll("_", " ") || "workspace user"}</div>
+                <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-slate-900">Alex Khan</p>
+                    <p className="text-xs text-slate-500">System Admin</p>
+                  </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#efc8b3] text-xs font-semibold text-slate-900">
+                    {String((currentRole?.[0] || "A")).toUpperCase()}
+                  </div>
+                </div>
               </div>
             </header>
 
