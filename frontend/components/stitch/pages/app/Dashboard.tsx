@@ -1,26 +1,55 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Calendar, MessageSquare, PhoneCall, RefreshCcw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { fetchAppointmentRequests, fetchOrgAnalytics, fetchOrgCalls, fetchOrgHealth, fetchOrgMessages, fetchOrgProfile, getBillingStatus } from "@/lib/api";
-import type { AppointmentRequest, BillingStatusPayload, OrgAnalytics, OrgCallRecord, OrgHealth, OrgMessageThread } from "@/lib/types";
-import { PageShell, SectionShell } from "@/components/stitch/components/app/PageShell";
-import { PageHeader } from "@/components/stitch/components/app/PageHeader";
-import { MetricCard } from "@/components/stitch/components/app/MetricCard";
-import { NeedsAttention } from "@/components/stitch/components/app/NeedsAttention";
-import { ActivityTimeline } from "@/components/stitch/components/app/ActivityTimeline";
+import {
+  AlertTriangle,
+  Calendar,
+  CalendarDays,
+  MessageSquare,
+  PhoneCall,
+  RefreshCcw,
+  Rocket
+} from "lucide-react";
+import {
+  fetchAppointmentRequests,
+  fetchOrgAnalytics,
+  fetchOrgCalls,
+  fetchOrgHealth,
+  fetchOrgMessages,
+  fetchOrgProfile,
+  getBillingStatus
+} from "@/lib/api";
+import type {
+  AppointmentRequest,
+  BillingStatusPayload,
+  OrgAnalytics,
+  OrgCallRecord,
+  OrgHealth,
+  OrgMessageThread
+} from "@/lib/types";
 import { StateCard } from "@/components/stitch/components/app/StateCard";
-import { StatusStrip } from "@/components/stitch/components/app/StatusStrip";
+import { cn } from "@/lib/utils";
 
 type ActivityItem = {
   id: string;
-  type: "call" | "sms" | "booking" | "system";
   title: string;
   description: string;
-  timestamp: string;
-  status: "answered" | "missed" | "sent" | "received" | "confirmed" | "pending" | "active" | "error";
+  at: string;
+  status: "answered" | "requested" | "confirmed" | "missed";
 };
+
+function shortRelative(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 60) return `${Math.max(minutes, 1)} mins ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+  if (hours < 48) return "Yesterday";
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
 
 function formatWhen(value: string | null | undefined) {
   if (!value) return "Unknown";
@@ -62,7 +91,7 @@ export default function DashboardPage() {
       fetchOrgHealth(),
       fetchOrgProfile(),
       getBillingStatus(),
-      fetchOrgCalls({ page: 1, pageSize: 8 }),
+      fetchOrgCalls({ page: 1, pageSize: 10 }),
       fetchOrgMessages(),
       fetchAppointmentRequests()
     ])
@@ -78,9 +107,7 @@ export default function DashboardPage() {
         if (requestsRes.status === "fulfilled") setRequests(requestsRes.value.requests || []);
 
         const failedAll = results.every((item) => item.status === "rejected");
-        if (failedAll) {
-          setError("Could not load dashboard data. Check API connectivity and try again.");
-        }
+        if (failedAll) setError("Could not load dashboard data. Check API connectivity and try again.");
       })
       .catch(() => {
         if (mounted) setError("Could not load dashboard data. Check API connectivity and try again.");
@@ -101,32 +128,12 @@ export default function DashboardPage() {
 
   const metrics = useMemo(
     () => [
-      {
-        title: "Inbound Calls",
-        value: analytics?.kpis.totalCalls ?? 0,
-        icon: PhoneCall,
-        href: "/app/calls"
-      },
-      {
-        title: "SMS Threads",
-        value: analytics?.kpis.smsThreads ?? 0,
-        icon: MessageSquare,
-        href: "/app/messages"
-      },
-      {
-        title: "Booking Requests",
-        value: analytics?.kpis.appointmentRequests ?? 0,
-        icon: Calendar,
-        href: "/app/appointments"
-      },
-      {
-        title: "System Health",
-        value: health?.score ? `${health.score}%` : "N/A",
-        icon: ShieldCheck,
-        href: "/app/activation"
-      }
+      { title: "Total Calls", value: analytics?.kpis.totalCalls ?? 0, icon: PhoneCall, trend: "7-Day Trend", color: "primary", href: "/app/calls" },
+      { title: "Missed Calls", value: analytics?.kpis.missedCalls ?? 0, icon: AlertTriangle, trend: analytics?.kpis.missedCalls ? `+${analytics.kpis.missedCalls}%` : "0%", color: "error", href: "/app/calls" },
+      { title: "Active Conversations", value: analytics?.kpis.smsThreads ?? 0, icon: MessageSquare, trend: "Live", color: "neutral", href: "/app/messages" },
+      { title: "New Bookings", value: analytics?.kpis.appointmentRequests ?? 0, icon: Calendar, trend: "New", color: "purple", href: "/app/appointments" }
     ],
-    [analytics, health]
+    [analytics]
   );
 
   const attentionItems = useMemo(() => {
@@ -135,10 +142,9 @@ export default function DashboardPage() {
       title: string;
       description: string;
       priority: "high" | "medium" | "low";
-      icon: typeof AlertTriangle;
       ctaText: string;
       ctaHref: string;
-      type: "blocked" | "review" | "setup";
+      status: string;
     }> = [];
 
     if (billing?.subscription && !["active", "trialing"].includes(billing.subscription.status)) {
@@ -147,184 +153,236 @@ export default function DashboardPage() {
         title: "Billing needs action",
         description: "Subscription is not active. Some runtime automation may be limited until billing is resolved.",
         priority: "high",
-        icon: AlertTriangle,
         ctaText: "Open billing",
         ctaHref: "/app/billing",
-        type: "blocked"
+        status: "Critical"
       });
     }
-
-    const readinessIssues = profile?.access?.readinessChecklist.filter((item) => item.status !== "ready") || [];
-    readinessIssues.slice(0, 2).forEach((issue, index) => {
-      items.push({
-        id: `readiness-${issue.key}-${index}`,
-        title: issue.label,
-        description: issue.description,
-        priority: issue.status === "blocked" ? "high" : "medium",
-        icon: AlertTriangle,
-        ctaText: "Continue activation",
-        ctaHref: "/app/activation",
-        type: issue.status === "blocked" ? "blocked" : "setup"
-      });
-    });
 
     if (pendingReviewCount > 0) {
       items.push({
         id: "booking-review",
-        title: "Booking requests need review",
-        description: `${pendingReviewCount} booking request(s) are waiting for manual review or assignment.`,
+        title: `${pendingReviewCount} booking request${pendingReviewCount === 1 ? "" : "s"} pending`,
+        description: "System attempted callback and automation follow-up. Requires manual review.",
         priority: "medium",
-        icon: AlertTriangle,
         ctaText: "Open appointments",
         ctaHref: "/app/appointments",
-        type: "review"
+        status: "Processing"
       });
     }
 
-    if (health?.level === "RED") {
+    if (health?.level === "RED" || health?.level === "YELLOW") {
       items.push({
-        id: "runtime-red",
-        title: "Runtime health is critical",
+        id: "runtime",
+        title: health.level === "RED" ? "Runtime health is critical" : "Runtime health needs review",
         description: health.summary,
-        priority: "high",
-        icon: AlertTriangle,
+        priority: health.level === "RED" ? "high" : "medium",
         ctaText: "Open activation",
         ctaHref: "/app/activation",
-        type: "blocked"
-      });
-    } else if (health?.level === "YELLOW") {
-      items.push({
-        id: "runtime-yellow",
-        title: "Runtime health needs attention",
-        description: health.summary,
-        priority: "low",
-        icon: AlertTriangle,
-        ctaText: "Review health",
-        ctaHref: "/app/activation",
-        type: "setup"
+        status: health.level === "RED" ? "Critical" : "Processing"
       });
     }
 
-    return items.slice(0, 5);
-  }, [billing, health, pendingReviewCount, profile?.access?.readinessChecklist]);
+    if (!items.length) {
+      items.push({
+        id: "fallback-1",
+        title: "No blocking issues",
+        description: "System health and queue processing are stable.",
+        priority: "low",
+        ctaText: "Open calls",
+        ctaHref: "/app/calls",
+        status: "Healthy"
+      });
+    }
+
+    return items.slice(0, 2);
+  }, [billing, health, pendingReviewCount]);
 
   const activity = useMemo<ActivityItem[]>(() => {
     const callItems: ActivityItem[] = calls.slice(0, 4).map((call) => ({
       id: `call-${call.id}`,
-      type: "call",
-      title: `Call ${call.outcome.replace(/_/g, " ").toLowerCase()}`,
+      title: `Call from ${call.frontDesk?.callerName || call.fromNumber}`,
       description: call.summary || `${call.fromNumber} -> ${call.toNumber}`,
-      timestamp: formatWhen(call.startedAt),
+      at: call.startedAt,
       status: call.outcome === "MISSED" || call.outcome === "ABANDONED" ? "missed" : "answered"
     }));
-    const smsItems: ActivityItem[] = threads.slice(0, 3).map((thread) => ({
+    const smsItems: ActivityItem[] = threads.slice(0, 2).map((thread) => ({
       id: `sms-${thread.id}`,
-      type: "sms",
-      title: `Message thread with ${thread.contactName || thread.contactPhone}`,
+      title: `SMS with ${thread.contactName || thread.contactPhone}`,
       description: thread.messages?.[thread.messages.length - 1]?.body || "Conversation updated",
-      timestamp: formatWhen(thread.lastMessageAt),
-      status: "received"
+      at: thread.lastMessageAt,
+      status: "confirmed"
     }));
-    const bookingItems: ActivityItem[] = requests.slice(0, 3).map((request) => ({
+    const bookingItems: ActivityItem[] = requests.slice(0, 2).map((request) => ({
       id: `booking-${request.id}`,
-      type: "booking",
-      title: `Booking request ${request.status.replace(/_/g, " ").toLowerCase()}`,
-      description: `${request.customerName} - ${request.issueSummary}`,
-      timestamp: formatWhen(request.lastEventAt || request.createdAt),
-      status: request.status === "APPROVED" || request.status === "SCHEDULED" ? "confirmed" : "pending"
+      title: `Booking requested by ${request.customerName}`,
+      description: request.issueSummary || "Customer requested booking assistance.",
+      at: request.lastEventAt || request.createdAt,
+      status: request.status === "APPROVED" || request.status === "SCHEDULED" ? "confirmed" : "requested"
     }));
-    return [...callItems, ...smsItems, ...bookingItems].sort((a, b) => {
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-    }).slice(0, 10);
+
+    return [...callItems, ...smsItems, ...bookingItems]
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 4);
   }, [calls, requests, threads]);
 
+  if (loading) {
+    return <StateCard type="loading" title="Loading dashboard" description="Fetching calls, messages, bookings, and health signals." />;
+  }
+
+  if (error) {
+    return <StateCard type="error" title="Dashboard unavailable" description={error} ctaText="Retry" ctaHref="/app" />;
+  }
+
   return (
-    <PageShell className="p-6 space-y-8">
-      <PageHeader
-        title="Dashboard"
-        description={profile?.organization?.name ? `Operational view for ${profile.organization.name}` : "Operational view for your workspace"}
-        actions={
-          <button
-            onClick={() => setRefreshTick((value) => value + 1)}
-            className="flex items-center gap-2 rounded-lg bg-surface-container-high px-4 py-2 text-sm font-bold text-on-surface hover:bg-surface-container-highest"
-          >
-            <RefreshCcw size={16} />
-            Refresh
-          </button>
-        }
-      />
+    <div className="space-y-8">
+      <header className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[46px] font-semibold tracking-tight text-on-surface">Operational Pulse</h1>
+          <p className="text-[30px] text-on-surface-variant">Real-time system performance and volume.</p>
+        </div>
+        <div className={cn("rounded-md border px-3 py-1.5 text-xs font-semibold", live ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-[#dbe4ea] text-slate-700")}>
+          Live View
+        </div>
+      </header>
 
-      {loading ? (
-        <StateCard type="loading" title="Loading dashboard" description="Fetching calls, messages, bookings, and health signals." />
-      ) : null}
-      {!loading && error ? (
-        <StateCard
-          type="error"
-          title="Dashboard unavailable"
-          description={error}
-          ctaText="Retry"
-          ctaHref="/app"
-        />
-      ) : null}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <Link key={metric.title} href={metric.href} className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-6 shadow-sm transition hover:shadow-md">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl",
+                  metric.color === "primary" && "bg-[#e7edff] text-[#3254d4]",
+                  metric.color === "error" && "bg-[#fde9e9] text-[#c43b3b]",
+                  metric.color === "neutral" && "bg-[#ecf0f5] text-[#667389]",
+                  metric.color === "purple" && "bg-[#efeaff] text-[#6b54c8]"
+                )}
+              >
+                <metric.icon className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#3254d4]">{metric.trend}</span>
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{metric.title}</p>
+            <p className="mt-2 text-5xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+          </Link>
+        ))}
+      </div>
 
-      {!loading && !error ? (
-        <>
-          <StatusStrip
-            progress={profile?.access?.readinessChecklist?.length ? Math.round((profile.access.readinessChecklist.filter((item) => item.status === "ready").length / profile.access.readinessChecklist.length) * 100) : 0}
-            isLive={live}
-            isProvenLive={Boolean(profile?.organization?.firstSuccessAt)}
-            message={
-              live
-                ? "Workspace is live. Calls, messages, and booking workflows are active."
-                : "Workspace still needs setup before full runtime automation."
-            }
-          />
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-12">
+        <section className="space-y-6 xl:col-span-5">
+          <div>
+            <h2 className="text-[46px] font-semibold tracking-tight text-on-surface">Attention Center</h2>
+            <p className="text-[30px] text-on-surface-variant">Actionable critical system alerts.</p>
+          </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {metrics.map((metric) => (
-              <MetricCard key={metric.title} title={metric.title} value={metric.value} icon={metric.icon} href={metric.href} />
+          <div className="space-y-4">
+            {attentionItems.map((item) => (
+              <article key={item.id} className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className={cn("mt-0.5 rounded-lg p-2", item.priority === "high" ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-600")}>
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-slate-900">{item.title}</h3>
+                      <p className="mt-1 text-[26px] leading-snug text-slate-600">{item.description}</p>
+                    </div>
+                  </div>
+                  <span className={cn("rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.15em]", item.priority === "high" ? "bg-rose-100 text-rose-700" : "bg-slate-200 text-slate-700")}>
+                    {item.status}
+                  </span>
+                </div>
+                <Link href={item.ctaHref} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#2f54d8] hover:underline">
+                  {item.ctaText}
+                </Link>
+              </article>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-            <div className="space-y-8 lg:col-span-7">
-              <SectionShell title="Needs attention" description="Items that currently block or reduce value.">
-                <NeedsAttention items={attentionItems} />
-              </SectionShell>
-              <SectionShell title="Recent activity" description="Latest calls, messages, and booking events.">
-                <ActivityTimeline items={activity} />
-              </SectionShell>
+          <div className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-5 shadow-sm">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quick Navigation</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/app/calls" className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <PhoneCall className="mx-auto mb-2 h-4 w-4 text-[#2f54d8]" />
+                Calls
+              </Link>
+              <Link href="/app/messages" className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <MessageSquare className="mx-auto mb-2 h-4 w-4 text-[#2f54d8]" />
+                Messages
+              </Link>
+              <Link href="/app/appointments" className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <CalendarDays className="mx-auto mb-2 h-4 w-4 text-[#2f54d8]" />
+                Schedules
+              </Link>
+              <Link href="/app/activation" className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <Rocket className="mx-auto mb-2 h-4 w-4 text-[#2f54d8]" />
+                Activation
+              </Link>
+            </div>
+            <button
+              onClick={() => setRefreshTick((v) => v + 1)}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              Refresh data
+            </button>
+            <p className="mt-3 text-xs text-slate-500">Health summary: {health?.summary || "No health summary available"} (Last activity {formatWhen(health?.metrics?.recentActivityAt)})</p>
+          </div>
+        </section>
+
+        <section className="xl:col-span-7">
+          <div className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-6 shadow-sm">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[44px] font-semibold tracking-tight text-on-surface">Recent Activity</h2>
+                <p className="text-[30px] text-on-surface-variant">System events from the last 7 days.</p>
+              </div>
+              <Link href="/app/calls" className="text-sm font-semibold text-[#2f54d8] hover:underline">
+                View All Feed
+              </Link>
             </div>
 
-            <div className="space-y-8 lg:col-span-5">
-              <SectionShell title="Health summary" description="Current runtime and readiness posture.">
-                <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-5">
-                  <p className="text-sm font-bold text-on-surface">{health?.summary || "Health data unavailable."}</p>
-                  <p className="mt-2 text-xs text-on-surface-variant">
-                    Last activity: {formatWhen(health?.metrics?.recentActivityAt)}
-                  </p>
+            <div className="relative space-y-6 pl-6">
+              <div className="absolute left-[10px] top-1 bottom-1 w-px bg-slate-200" />
+              {activity.map((item) => (
+                <div key={item.id} className="relative">
+                  <span
+                    className={cn(
+                      "absolute -left-[20px] top-2 h-4 w-4 rounded-full border-2 border-white",
+                      item.status === "answered" && "bg-blue-100",
+                      item.status === "requested" && "bg-indigo-100",
+                      item.status === "confirmed" && "bg-slate-200",
+                      item.status === "missed" && "bg-rose-100"
+                    )}
+                  />
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xl font-semibold text-slate-900">{item.title}</p>
+                        <span className={cn(
+                          "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                          item.status === "answered" && "bg-blue-100 text-blue-700",
+                          item.status === "requested" && "bg-indigo-100 text-indigo-700",
+                          item.status === "confirmed" && "bg-slate-200 text-slate-700",
+                          item.status === "missed" && "bg-rose-100 text-rose-700"
+                        )}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[26px] text-slate-600">{item.description}</p>
+                    </div>
+                    <span className="text-sm text-slate-500">{shortRelative(item.at)}</span>
+                  </div>
                 </div>
-              </SectionShell>
-              <SectionShell title="Next steps">
-                <div className="space-y-3 rounded-2xl border border-outline-variant/10 bg-surface-container-low p-5 text-sm">
-                  <Link className="block font-semibold text-primary hover:underline" href="/app/calls">
-                    View live calls
-                  </Link>
-                  <Link className="block font-semibold text-primary hover:underline" href="/app/messages">
-                    Open messages
-                  </Link>
-                  <Link className="block font-semibold text-primary hover:underline" href="/app/appointments">
-                    Review bookings
-                  </Link>
-                  <Link className="block font-semibold text-primary hover:underline" href="/app/activation">
-                    Continue activation
-                  </Link>
-                </div>
-              </SectionShell>
+              ))}
+              {!activity.length ? (
+                <StateCard type="empty" title="No recent activity" description="System events appear here when calls, SMS, or booking activity is detected." />
+              ) : null}
             </div>
           </div>
-        </>
-      ) : null}
-    </PageShell>
+        </section>
+      </div>
+    </div>
   );
 }
