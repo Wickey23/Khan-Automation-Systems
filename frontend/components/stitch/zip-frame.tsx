@@ -7,11 +7,21 @@ type ZipFrameProps = {
 export function ZipFrame({ folder, title, exact = false }: ZipFrameProps) {
   if (exact) {
     return (
-      <iframe
-        title={title}
-        src={`/stitch2/${folder}/code.html`}
-        className="h-screen w-full border-0"
-      />
+      <div className="relative bg-[#f7f9fb]">
+        <img
+          src={`/stitch2/${folder}/screen.png`}
+          alt={title}
+          className="block h-auto w-full"
+        />
+        <a
+          href={`/stitch2/${folder}/code.html`}
+          target="_blank"
+          rel="noreferrer"
+          className="absolute right-4 top-4 rounded-md bg-black/70 px-3 py-1.5 text-xs font-semibold text-white"
+        >
+          Open interactive prototype
+        </a>
+      </div>
     );
   }
 
