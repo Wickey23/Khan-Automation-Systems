@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Outreach Operator | Front Desk OS</title>
+<!-- Google Fonts: Manrope & Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@500;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary": "#f8f7ff",
+              "outline": "#717c82",
+              "on-tertiary-fixed-variant": "#5b5672",
+              "on-secondary-container": "#455367",
+              "surface-container-low": "#f0f4f7",
+              "primary-fixed-dim": "#cad2ff",
+              "on-primary-fixed": "#0732a3",
+              "on-secondary": "#f8f8ff",
+              "on-primary-fixed-variant": "#3352c0",
+              "error-container": "#fe8983",
+              "surface-container-high": "#e1e9ee",
+              "on-surface-variant": "#566166",
+              "primary": "#3755c3",
+              "inverse-on-surface": "#9a9d9f",
+              "secondary-container": "#d5e3fc",
+              "on-surface": "#2a3439",
+              "tertiary-container": "#e3dbfd",
+              "on-tertiary-fixed": "#3e3a54",
+              "primary-dim": "#2848b7",
+              "outline-variant": "#a9b4b9",
+              "secondary-fixed-dim": "#c7d5ed",
+              "secondary": "#526074",
+              "on-primary-container": "#2747b6",
+              "tertiary-fixed-dim": "#d4cdee",
+              "on-background": "#2a3439",
+              "primary-container": "#dde1ff",
+              "tertiary-dim": "#54506b",
+              "on-error": "#fff7f6",
+              "secondary-dim": "#465468",
+              "on-tertiary": "#fcf7ff",
+              "surface-tint": "#3755c3",
+              "surface-container-lowest": "#ffffff",
+              "on-error-container": "#752121",
+              "error": "#9f403d",
+              "error-dim": "#4e0309",
+              "background": "#f7f9fb",
+              "surface-dim": "#cfdce3",
+              "tertiary-fixed": "#e3dbfd",
+              "tertiary": "#605c78",
+              "surface-variant": "#d9e4ea",
+              "surface-container": "#e8eff3",
+              "inverse-primary": "#6d89fa",
+              "surface-bright": "#f7f9fb",
+              "on-tertiary-container": "#514d68",
+              "on-secondary-fixed-variant": "#4e5c71",
+              "surface": "#f7f9fb",
+              "secondary-fixed": "#d5e3fc",
+              "on-secondary-fixed": "#324053",
+              "primary-fixed": "#dde1ff",
+              "inverse-surface": "#0b0f10"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-[#f0f4f7] border-r border-[#a9b4b9]/15 py-8 px-6 z-50">
+<div class="mb-10">
+<h1 class="text-xl font-bold text-[#0f172a] tracking-tight">Front Desk OS</h1>
+<p class="text-xs text-on-surface-variant font-medium mt-1 uppercase tracking-widest">Admin Outreach</p>
+</div>
+<nav class="flex-1 space-y-2">
+<!-- Outreach (Active State) -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#3755c3] font-semibold bg-[#e1e9ee] transition-all duration-200" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="text-sm">Outreach</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#566166] hover:bg-[#e1e9ee] transition-colors" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="text-sm">Sequences</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#566166] hover:bg-[#e1e9ee] transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-sm">Leads</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#566166] hover:bg-[#e1e9ee] transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-sm">Events</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#566166] hover:bg-[#e1e9ee] transition-colors mt-auto" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm">Settings</span>
+</a>
+</nav>
+<button class="mt-8 w-full py-3 bg-gradient-to-br from-primary to-primary-dim text-white rounded-lg font-semibold text-sm shadow-lg shadow-primary/10 active:scale-95 transition-all">
+            New Sequence
+        </button>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="flex justify-between items-center h-16 px-8 sticky top-0 z-40 bg-[#f7f9fb]/80 backdrop-blur-md border-b border-[#a9b4b9]/15">
+<div class="flex items-center bg-surface-container-high rounded-full px-4 py-1.5 w-96">
+<span class="material-symbols-outlined text-on-surface-variant text-lg">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-on-surface-variant" placeholder="Search sequences or leads..." type="text"/>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-secondary-container rounded-full">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-xs font-semibold text-on-secondary-container">System Health</span>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="Portrait of service administrator profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4sK-dQ2GFubzdkq2W1QF-I59FnRFqMlfDID8aBrzbWbGfH8igkOWWmkZsu74KiMXeq7Od1Xv2YOpmKmVJn5W3vzVdFkWmGwpM_4E_QI7GiFjdh014pYv1oHhCsjMOzUfOu0SsmkjQay_Vt9thZHzy5-UJp6v5FVvK7BVGcb2KBBJMbqADo2Zaj32vwu9UBKD2NxkJI0QWGZnsUlDFaeNqvhqJs-O4GR7yOP4YH7RDm71zFf_43OWML74vSW4GKhKlfHoe3-_ardFN"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="p-8 max-w-7xl mx-auto space-y-8">
+<!-- Page Header -->
+<section class="flex justify-between items-end">
+<div>
+<h2 class="text-3xl font-medium text-on-surface tracking-tight">Outreach Pulse</h2>
+<p class="text-on-surface-variant mt-1">Operational command and activity monitoring.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 text-sm font-medium text-primary hover:bg-surface-container-high transition-colors rounded-lg">Export Report</button>
+<button class="px-4 py-2 text-sm font-medium bg-surface-container-lowest text-on-surface border border-outline-variant/20 rounded-lg shadow-sm">View Archive</button>
+</div>
+</section>
+<!-- SMS Readiness Banner -->
+<section class="bg-surface-container-lowest border border-outline-variant/15 rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-primary/5 to-transparent"></div>
+<div class="relative z-10 flex items-center justify-between">
+<div class="flex items-center gap-5">
+<div class="h-12 w-12 rounded-xl bg-primary-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-weight="fill">verified_user</span>
+</div>
+<div>
+<h3 class="text-lg font-semibold text-on-surface">SMS Readiness: 10DLC/A2P Registration</h3>
+<p class="text-sm text-on-surface-variant">Your campaign registration is nearly complete. Complete the last step to ensure high deliverability.</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-2">
+<div class="flex items-center gap-3">
+<span class="text-sm font-medium text-on-surface">85% Complete</span>
+<div class="w-48 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[85%]"></div>
+</div>
+</div>
+<button class="text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary-dim">Finish Registration</button>
+</div>
+</div>
+</section>
+<!-- Metric Cards (Operational Pulse) -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Active Sequences</span>
+<span class="material-symbols-outlined text-primary/40">rocket_launch</span>
+</div>
+<div class="text-3xl font-bold text-on-surface">12</div>
+<div class="mt-2 flex items-center gap-1 text-xs text-secondary font-medium">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span>+2 from last month</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total Events Sent</span>
+<span class="material-symbols-outlined text-primary/40">send</span>
+</div>
+<div class="text-3xl font-bold text-on-surface">4,892</div>
+<div class="mt-2 flex items-center gap-1 text-xs text-secondary font-medium">
+<span class="material-symbols-outlined text-[14px]">history</span>
+<span>Last 7 days</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Failures</span>
+<span class="material-symbols-outlined text-error/40">error_outline</span>
+</div>
+<div class="text-3xl font-bold text-on-surface">14</div>
+<div class="mt-2 flex items-center gap-1 text-xs text-error font-medium">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>Needs Review</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Opt-out Rate</span>
+<span class="material-symbols-outlined text-primary/40">do_not_disturb_on</span>
+</div>
+<div class="text-3xl font-bold text-on-surface">1.2%</div>
+<div class="mt-2 flex items-center gap-1 text-xs text-secondary font-medium">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span>Within healthy range</span>
+</div>
+</div>
+</section>
+<!-- Main Data Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+<!-- Active Sequences Table (Bento Left) -->
+<section class="lg:col-span-2 space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-medium">Active Sequences</h3>
+<button class="text-sm font-medium text-primary">View All Sequences</button>
+</div>
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant/15">
+<tr>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Campaign Name</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Audience</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Completion</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4">
+<div class="font-medium text-on-surface">Q4 Reactivation Sequence</div>
+<div class="text-xs text-on-surface-variant">Created Oct 12, 2023</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-container text-on-secondary-container">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface">1,240 leads</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="text-xs font-medium text-on-surface-variant w-8">65%</span>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full">
+<div class="bg-primary h-full rounded-full" style="width: 65%"></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4">
+<div class="font-medium text-on-surface">Weekly Maintenance Follow-up</div>
+<div class="text-xs text-on-surface-variant">Created Sep 28, 2023</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-tertiary-container text-on-tertiary-container">
+                                            Automation Pending
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface">450 leads</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="text-xs font-medium text-on-surface-variant w-8">12%</span>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full">
+<div class="bg-primary h-full rounded-full" style="width: 12%"></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4">
+<div class="font-medium text-on-surface">Holiday Seasonal Specials</div>
+<div class="text-xs text-on-surface-variant">Created Nov 02, 2023</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-container-highest text-on-surface-variant">
+                                            Paused
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface">3,100 leads</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="text-xs font-medium text-on-surface-variant w-8">0%</span>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full">
+<div class="bg-primary/20 h-full rounded-full" style="width: 0%"></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4">
+<div class="font-medium text-on-surface">Direct Mail - Phase 2</div>
+<div class="text-xs text-on-surface-variant">Created Oct 30, 2023</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-container text-on-secondary-container">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface">892 leads</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="text-xs font-medium text-on-surface-variant w-8">92%</span>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full">
+<div class="bg-primary h-full rounded-full" style="width: 92%"></div>
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Activity Feed / Timeline (Bento Right) -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-medium">Latest Events</h3>
+<button class="material-symbols-outlined text-on-surface-variant">more_horiz</button>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/10 shadow-inner h-full min-h-[400px]">
+<div class="relative pl-6 space-y-8">
+<!-- Vertical Track -->
+<div class="absolute left-[7px] top-2 bottom-2 w-[1px] bg-outline-variant/30"></div>
+<!-- Timeline Item 1 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-surface-container-low"></div>
+<div>
+<div class="flex justify-between items-start">
+<span class="text-sm font-semibold text-on-surface">SMS Sent to Jordan M.</span>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">2m ago</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1 italic">"Hi Jordan, your maintenance appt is confirmed for tomorrow..."</p>
+<div class="mt-2 flex items-center gap-2">
+<span class="text-[10px] bg-primary-container text-primary font-bold px-1.5 rounded uppercase">Delivered</span>
+</div>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-outline-variant/50 ring-4 ring-surface-container-low"></div>
+<div>
+<div class="flex justify-between items-start">
+<span class="text-sm font-semibold text-on-surface">Call Triggered (AI Agent)</span>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">15m ago</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">Lead: Sarah Connor • Sequence: Reactivation</p>
+<div class="mt-2 flex items-center gap-2">
+<span class="text-[10px] bg-surface-container-highest text-on-surface-variant font-bold px-1.5 rounded uppercase">Completed</span>
+</div>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-error ring-4 ring-surface-container-low"></div>
+<div>
+<div class="flex justify-between items-start">
+<span class="text-sm font-semibold text-error">Delivery Failure</span>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">1h ago</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">SMS failed to +1 (555) 092-3112 (Invalid Number)</p>
+<button class="mt-2 text-xs font-semibold text-primary underline">Review Failure</button>
+</div>
+</div>
+<!-- Timeline Item 4 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-outline-variant/50 ring-4 ring-surface-container-low"></div>
+<div>
+<div class="flex justify-between items-start">
+<span class="text-sm font-semibold text-on-surface">Email Opened</span>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">4h ago</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">Lead: Alex Rivers • "Your Exclusive Offer"</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Contextual FAB (Hidden as per rule on Details/Settings pages, but shown here for Dashboard intent) -->
+<button class="fixed bottom-8 right-8 h-14 w-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-2xl">add_comment</span>
+</button>
+</body></html>

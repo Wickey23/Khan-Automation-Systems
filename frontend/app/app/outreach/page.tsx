@@ -1,7 +1,5 @@
-"use client";
+import { ZipFrame } from "@/components/stitch/zip-frame";
 
-import Page from "@/components/stitch/pages/Outreach";
-
-export default function RoutePage() {
-  return <Page />;
+export default function Page() {
+  return <ZipFrame folder="outreach_app_outreach_cohesive_refinement" title="Outreach" />;
 }

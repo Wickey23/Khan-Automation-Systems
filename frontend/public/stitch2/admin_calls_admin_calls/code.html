@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ServicePortal - Admin Call Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary": "#605c78",
+                        "inverse-primary": "#6d89fa",
+                        "on-tertiary-fixed-variant": "#5b5672",
+                        "surface-bright": "#f7f9fb",
+                        "primary-container": "#dde1ff",
+                        "primary-fixed": "#dde1ff",
+                        "on-secondary": "#f8f8ff",
+                        "surface": "#f7f9fb",
+                        "primary-dim": "#2848b7",
+                        "tertiary-fixed-dim": "#d4cdee",
+                        "secondary-fixed": "#d5e3fc",
+                        "surface-container-low": "#f0f4f7",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#4e5c71",
+                        "error-container": "#fe8983",
+                        "on-background": "#2a3439",
+                        "on-tertiary-container": "#514d68",
+                        "surface-container-highest": "#d9e4ea",
+                        "primary": "#3755c3",
+                        "inverse-surface": "#0b0f10",
+                        "surface-dim": "#cfdce3",
+                        "secondary-dim": "#465468",
+                        "on-secondary-fixed": "#324053",
+                        "on-primary-fixed": "#0732a3",
+                        "surface-container-high": "#e1e9ee",
+                        "tertiary-dim": "#54506b",
+                        "tertiary-container": "#e3dbfd",
+                        "on-tertiary": "#fcf7ff",
+                        "outline-variant": "#a9b4b9",
+                        "surface-container": "#e8eff3",
+                        "secondary": "#526074",
+                        "tertiary-fixed": "#e3dbfd",
+                        "secondary-fixed-dim": "#c7d5ed",
+                        "on-primary-fixed-variant": "#3352c0",
+                        "on-tertiary-fixed": "#3e3a54",
+                        "on-surface-variant": "#566166",
+                        "on-error-container": "#752121",
+                        "surface-tint": "#3755c3",
+                        "on-secondary-container": "#455367",
+                        "surface-variant": "#d9e4ea",
+                        "inverse-on-surface": "#9a9d9f",
+                        "on-primary": "#f8f7ff",
+                        "error": "#9f403d",
+                        "outline": "#717c82",
+                        "on-primary-container": "#2747b6",
+                        "primary-fixed-dim": "#cad2ff",
+                        "on-error": "#fff7f6",
+                        "on-surface": "#2a3439",
+                        "error-dim": "#4e0309",
+                        "secondary-container": "#d5e3fc",
+                        "background": "#f7f9fb"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; color: #2a3439; }
+        .font-manrope { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); }
+        .primary-gradient { background: linear-gradient(135deg, #3755c3 0%, #2848b7 100%); }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- TopNavBar (Shared Component) -->
+<header class="fixed top-0 w-full z-40 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl flex justify-between items-center h-16 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight font-headline">ServicePortal</span>
+<div class="hidden md:flex gap-6">
+<a class="text-blue-700 dark:text-blue-400 font-bold border-b-2 border-blue-600 font-manrope font-medium text-sm tracking-tight pb-1" href="#">Operations</a>
+<a class="text-slate-500 dark:text-slate-400 font-medium font-manrope font-medium text-sm tracking-tight hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors duration-200" href="#">Insights</a>
+<a class="text-slate-500 dark:text-slate-400 font-medium font-manrope font-medium text-sm tracking-tight hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors duration-200" href="#">Management</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-blue-600 font-medium text-sm px-3 py-1 rounded hover:bg-slate-200/50 transition-colors">Switch Tenant</button>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-slate-500 p-2 rounded-full hover:bg-slate-200/50 cursor-pointer">notifications</span>
+<span class="material-symbols-outlined text-slate-500 p-2 rounded-full hover:bg-slate-200/50 cursor-pointer">settings</span>
+<span class="material-symbols-outlined text-slate-500 p-2 rounded-full hover:bg-slate-200/50 cursor-pointer">help</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="Professional user profile headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpQ0H6OlDVt3jZ7LfjGL8Sv2gIeIFsAuEr62aT1J_Ihp1VxET3l0yf1VhcrA6XPhfrvfBh88jJ3ygPVav_mCUUzxSZZG0ADtdMnS1VmDA13Q5XU0e3gN7MfQj3IfCPCW0VxIqH_2Y5JWCrArs5W06mm3iZuNd6lDr3HuydUXXD07TjuPwBIgBS5o53vjQkAFlI1d4LEZTsZ2s7VqTIyGr3QkAKVUcZXvfIz4x1BdF3pLqvkyd6qlU3YUdrwCqrSFn6XdiqCcsu9BG2"/>
+</div>
+</div>
+<div class="absolute bottom-0 left-0 bg-slate-200/50 dark:bg-slate-800/50 h-[1px] w-full"></div>
+</header>
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 fixed left-0 top-0 z-50 bg-slate-100 dark:bg-slate-900 flex flex-col h-full p-4 gap-2 border-r border-transparent">
+<div class="mb-8 px-2">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">shield_person</span>
+</div>
+<span class="text-lg font-bold text-slate-800 dark:text-slate-100 font-headline">Admin Console</span>
+</div>
+<p class="text-xs text-on-surface-variant uppercase tracking-widest font-bold opacity-70">Operator Context</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 font-medium rounded-md hover:bg-slate-200/50 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm rounded-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">precision_manufacturing</span> Operations
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 font-medium rounded-md hover:bg-slate-200/50 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">group</span> Clients
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 font-medium rounded-md hover:bg-slate-200/50 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">payments</span> Financials
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 font-medium rounded-md hover:bg-slate-200/50 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">badge</span> Team
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 font-medium rounded-md hover:bg-slate-200/50 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">analytics</span> Reports
+            </a>
+</nav>
+<div class="mt-auto space-y-4">
+<button class="w-full primary-gradient text-white text-sm font-semibold py-2.5 rounded-lg shadow-sm active:scale-95 transition-transform">
+                New Service Request
+            </button>
+<div class="pt-4 border-t border-slate-200 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 text-sm hover:text-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">contact_support</span> Support
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 text-sm hover:text-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">menu_book</span> Documentation
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen">
+<div class="max-w-[1400px] mx-auto p-8">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="text-3xl font-medium font-headline tracking-tight text-on-surface mb-1">Call Management</h1>
+<p class="text-on-surface-variant text-sm font-body">Monitor and audit automated client communications across all active tenants.</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-lowest border border-outline-variant/15 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-lg">download</span> Export Logs
+                    </button>
+</div>
+</div>
+<!-- Filter Bar -->
+<section class="bg-surface-container-low rounded-xl p-4 mb-6 flex flex-wrap items-center gap-4">
+<div class="flex-1 min-w-[200px] relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary transition-all" placeholder="Search by caller or ID..." type="text"/>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest px-3 py-1.5 rounded-lg border border-outline-variant/15">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Status:</span>
+<select class="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer p-0 pr-6">
+<option>All Calls</option>
+<option>Answered</option>
+<option>Missed</option>
+<option>Transferred</option>
+<option>Review Required</option>
+</select>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest px-3 py-1.5 rounded-lg border border-outline-variant/15">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Time:</span>
+<select class="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer p-0 pr-6">
+<option>Last 24 Hours</option>
+<option>Last 7 Days</option>
+<option>Custom Range</option>
+</select>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest px-3 py-1.5 rounded-lg border border-outline-variant/15">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Tenant:</span>
+<select class="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer p-0 pr-6">
+<option>All Tenants</option>
+<option>North Clinic</option>
+<option>Metro Logistics</option>
+<option>South Legal</option>
+</select>
+</div>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded-lg text-sm font-bold hover:brightness-95 transition-all">
+                    Apply Filters
+                </button>
+</section>
+<!-- Main Data Table Container -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/5">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50 text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+<th class="px-6 py-4">Time</th>
+<th class="px-6 py-4">Caller</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">Transcript</th>
+<th class="px-6 py-4">Recording</th>
+<th class="px-6 py-4">Outcome</th>
+<th class="px-6 py-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y-0">
+<!-- Row 1: Active Focus -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer bg-blue-50/30">
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="text-sm font-semibold">14:22:10</div>
+<div class="text-[10px] text-on-surface-variant font-medium">Oct 24, 2023</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium">+1 (555) 012-3456</div>
+<div class="text-[11px] text-on-surface-variant">Metro Logistics (HQ)</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">Answered</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+<span class="text-[11px] font-medium">Generated</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg">mic</span>
+<span class="text-[11px] font-medium">04:12</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-sm font-medium">Booking Confirmed</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-primary font-bold text-xs uppercase tracking-widest hover:underline">Investigate</button>
+</td>
+</tr>
+<!-- Row 2: Warning State -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer">
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="text-sm font-semibold">13:58:44</div>
+<div class="text-[10px] text-on-surface-variant font-medium">Oct 24, 2023</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium">+1 (555) 098-7654</div>
+<div class="text-[11px] text-on-surface-variant">North Clinic</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-tertiary-container text-on-tertiary-container px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">Review Required</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg">pending</span>
+<span class="text-[11px] font-medium">Processing...</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg">mic</span>
+<span class="text-[11px] font-medium">01:45</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-sm font-medium italic">Pending Resolution</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-primary font-bold text-xs uppercase tracking-widest hover:underline">Investigate</button>
+</td>
+</tr>
+<!-- Row 3: Missed Call -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer opacity-70">
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="text-sm font-semibold">13:10:02</div>
+<div class="text-[10px] text-on-surface-variant font-medium">Oct 24, 2023</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium">+1 (555) 443-2211</div>
+<div class="text-[11px] text-on-surface-variant">North Clinic</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-error-container/20 text-error px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">Missed</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg">block</span>
+<span class="text-[11px] font-medium">N/A</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg">mic_off</span>
+<span class="text-[11px] font-medium">00:00</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+<span class="text-sm font-medium text-on-surface-variant">Abandoned</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-primary font-bold text-xs uppercase tracking-widest hover:underline">Investigate</button>
+</td>
+</tr>
+<!-- Locked Variant -->
+<tr class="group transition-colors bg-surface-container-low/20">
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="text-sm font-semibold text-outline">12:45:15</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium text-outline">[ENCRYPTED]</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">Archived</span>
+</td>
+<td class="px-6 py-5" colspan="3">
+<div class="flex items-center gap-2 text-outline italic text-xs">
+<span class="material-symbols-outlined text-lg">lock</span>
+                                    Data retention period exceeded. Content purged.
+                                </div>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="text-outline text-xs font-bold uppercase tracking-widest cursor-not-allowed">Locked</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Empty State Variant (Conditional Component) -->
+<!-- Uncomment to show: 
+            <div class="mt-12 py-20 flex flex-col items-center justify-center text-center bg-surface-container rounded-2xl border-2 border-dashed border-outline-variant/30">
+                <span class="material-symbols-outlined text-6xl text-outline-variant mb-4">call_end</span>
+                <h3 class="text-xl font-headline font-semibold text-on-surface">No calls found</h3>
+                <p class="text-on-surface-variant max-w-xs mt-2">Adjust your filters or time range to see past interactions.</p>
+                <button class="mt-6 text-primary font-bold text-sm hover:underline">Clear all filters</button>
+            </div>
+            -->
+</div>
+</main>
+<!-- Detailed Investigation Panel (Slide-over) -->
+<div class="fixed inset-y-0 right-0 w-[500px] glass-panel shadow-2xl z-50 border-l border-outline-variant/10 flex flex-col transform translate-x-0 transition-transform duration-500 ease-in-out">
+<!-- Panel Header -->
+<div class="p-6 border-b border-outline-variant/10 flex justify-between items-start">
+<div>
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide">Answered</span>
+<span class="text-on-surface-variant text-xs font-medium">ID: CALL-99283-A</span>
+</div>
+<h2 class="text-xl font-headline font-bold text-on-surface">+1 (555) 012-3456</h2>
+<p class="text-xs text-on-surface-variant font-medium">Call Duration: 4m 12s • Oct 24, 2023 at 2:22 PM</p>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Recording Player -->
+<section>
+<h3 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">Voice Recording</h3>
+<div class="bg-surface-container rounded-xl p-4">
+<div class="flex items-center gap-4 mb-3">
+<button class="w-10 h-10 primary-gradient text-white rounded-full flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-1">
+<div class="h-1 bg-outline-variant/30 rounded-full relative">
+<div class="absolute left-0 top-0 h-full w-1/3 bg-primary rounded-full"></div>
+<div class="absolute left-1/3 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full border-2 border-white shadow"></div>
+</div>
+<div class="flex justify-between mt-1">
+<span class="text-[10px] font-mono font-medium">01:22</span>
+<span class="text-[10px] font-mono font-medium">04:12</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">volume_up</span>
+</div>
+</div>
+</section>
+<!-- AI Transcript -->
+<section>
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">AI Transcript</h3>
+<span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">98% Accuracy</span>
+</div>
+<div class="space-y-4 text-sm leading-relaxed">
+<div class="flex gap-3">
+<span class="text-[10px] font-bold text-primary mt-1 min-w-[32px]">BOT</span>
+<p class="text-on-surface">Hello, thank you for calling Metro Logistics. How can I help you today?</p>
+</div>
+<div class="flex gap-3">
+<span class="text-[10px] font-bold text-secondary mt-1 min-w-[32px]">USER</span>
+<p class="text-on-surface">Hi, I'd like to book a <span class="bg-yellow-100 dark:bg-yellow-900/40 border-b border-yellow-400">priority shipment</span> for tomorrow morning at 8 AM.</p>
+</div>
+<div class="flex gap-3">
+<span class="text-[10px] font-bold text-primary mt-1 min-w-[32px]">BOT</span>
+<p class="text-on-surface">Certainly. I see availability for an <span class="bg-yellow-100 dark:bg-yellow-900/40 border-b border-yellow-400">8:00 AM pickup</span>. Shall I confirm that for the downtown location?</p>
+</div>
+<div class="flex gap-3">
+<span class="text-[10px] font-bold text-secondary mt-1 min-w-[32px]">USER</span>
+<p class="text-on-surface">Yes, please. That works perfectly.</p>
+</div>
+</div>
+</section>
+<!-- Audit Trail Timeline -->
+<section>
+<h3 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-6">Execution Audit</h3>
+<div class="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-[2px] before:bg-outline-variant/20">
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-outline-variant/30 border-2 border-white"></div>
+<div class="text-xs font-bold text-on-surface">Call Started</div>
+<div class="text-[10px] text-on-surface-variant">14:22:10 — Webhook received from carrier</div>
+</div>
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-outline-variant/30 border-2 border-white"></div>
+<div class="text-xs font-bold text-on-surface">AI Answered</div>
+<div class="text-[10px] text-on-surface-variant">14:22:12 — Voice stream connected to Engine v4</div>
+</div>
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm"></div>
+<div class="text-xs font-bold text-primary">Booking Requested</div>
+<div class="text-[10px] text-on-surface-variant">14:25:30 — Intent: NEW_BOOKING, Time: 0800</div>
+</div>
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></div>
+<div class="text-xs font-bold text-on-surface">SMS Confirmation Sent</div>
+<div class="text-[10px] text-on-surface-variant">14:26:02 — Sent to +1 (555) 012-3456</div>
+</div>
+</div>
+</section>
+<!-- Booking Finalizer -->
+<section class="bg-surface-container-low rounded-xl p-5">
+<div class="flex justify-between items-start mb-4">
+<h3 class="text-sm font-bold text-on-surface">Booking Finalizer</h3>
+<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase">Confirmed</span>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant font-medium">Service Type:</span>
+<span class="text-on-surface font-semibold">Priority Freight</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant font-medium">Time Slot:</span>
+<span class="text-on-surface font-semibold">Tomorrow, 08:00 AM</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant font-medium">Location:</span>
+<span class="text-on-surface font-semibold">HQ Terminal (Zone A)</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Intervention Controls -->
+<div class="p-6 bg-surface-container-lowest border-t border-outline-variant/10 flex gap-3">
+<button class="flex-1 bg-surface-container-high text-on-surface font-bold text-xs uppercase tracking-widest py-3 rounded-lg hover:bg-surface-container-highest transition-colors">
+                Retrigger Follow-up
+            </button>
+<button class="flex-1 primary-gradient text-white font-bold text-xs uppercase tracking-widest py-3 rounded-lg shadow-sm">
+                Mark as Resolved
+            </button>
+</div>
+</div>
+<!-- Background Layering Texture -->
+<div class="fixed inset-0 pointer-events-none -z-10 bg-[radial-gradient(at_top_right,rgba(55,85,195,0.03),transparent)]"></div>
+</body></html>

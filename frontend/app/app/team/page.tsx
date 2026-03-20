@@ -1,7 +1,5 @@
-"use client";
+import { ZipFrame } from "@/components/stitch/zip-frame";
 
-import Page from "@/components/stitch/pages/Team";
-
-export default function RoutePage() {
-  return <Page />;
+export default function Page() {
+  return <ZipFrame folder="team_app_team" title="Team" />;
 }

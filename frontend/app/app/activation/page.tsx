@@ -1,7 +1,5 @@
-"use client";
+import { ZipFrame } from "@/components/stitch/zip-frame";
 
-import Page from "@/components/stitch/pages/Activation";
-
-export default function RoutePage() {
-  return <Page />;
+export default function Page() {
+  return <ZipFrame folder="activation_app_activation_refined_flow" title="Activation" />;
 }

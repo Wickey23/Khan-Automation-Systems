@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Khan Systems - Calls</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#d9e4ea",
+              "surface-variant": "#d9e4ea",
+              "tertiary-dim": "#54506b",
+              "secondary-fixed-dim": "#c7d5ed",
+              "on-tertiary-container": "#514d68",
+              "inverse-on-surface": "#9a9d9f",
+              "inverse-primary": "#6d89fa",
+              "primary-fixed-dim": "#cad2ff",
+              "on-primary-container": "#2747b6",
+              "on-error": "#fff7f6",
+              "tertiary-fixed-dim": "#d4cdee",
+              "on-secondary-fixed-variant": "#4e5c71",
+              "on-tertiary": "#fcf7ff",
+              "on-surface-variant": "#566166",
+              "primary-dim": "#2848b7",
+              "error": "#9f403d",
+              "on-surface": "#2a3439",
+              "tertiary": "#605c78",
+              "on-primary": "#f8f7ff",
+              "outline-variant": "#a9b4b9",
+              "secondary": "#526074",
+              "primary-fixed": "#dde1ff",
+              "on-tertiary-fixed-variant": "#5b5672",
+              "on-secondary": "#f8f8ff",
+              "secondary-fixed": "#d5e3fc",
+              "on-error-container": "#752121",
+              "primary": "#3755c3",
+              "outline": "#717c82",
+              "background": "#f7f9fb",
+              "on-tertiary-fixed": "#3e3a54",
+              "surface-container-low": "#f0f4f7",
+              "tertiary-container": "#e3dbfd",
+              "on-primary-fixed": "#0732a3",
+              "on-secondary-fixed": "#324053",
+              "secondary-container": "#d5e3fc",
+              "error-container": "#fe8983",
+              "error-dim": "#4e0309",
+              "surface-container-high": "#e1e9ee",
+              "surface": "#f7f9fb",
+              "on-primary-fixed-variant": "#3352c0",
+              "surface-dim": "#cfdce3",
+              "tertiary-fixed": "#e3dbfd",
+              "surface-tint": "#3755c3",
+              "surface-bright": "#f7f9fb",
+              "on-background": "#2a3439",
+              "surface-container-lowest": "#ffffff",
+              "secondary-dim": "#465468",
+              "primary-container": "#dde1ff",
+              "on-secondary-container": "#455367",
+              "inverse-surface": "#0b0f10",
+              "surface-container": "#e8eff3"
+            },
+            fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "2xl": "1rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container font-body">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-white border-r border-outline-variant/20 py-6 px-4 z-50">
+<div class="mb-10 px-3 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-xl">auto_fix</span>
+</div>
+<h1 class="text-xl font-extrabold tracking-tight text-on-surface">Khan Systems</h1>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span class="text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+<span class="text-sm">Activation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-primary font-semibold bg-primary/5 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px] font-variation-settings-fill-1">call</span>
+<span class="text-sm">Calls</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">forum</span>
+<span class="text-sm">Messages</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">calendar_today</span>
+<span class="text-sm">Appointments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span class="text-sm">Leads</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span class="text-sm">Customer Base</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">campaign</span>
+<span class="text-sm">Outreach</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-outline-variant/10 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="text-sm">Billing</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="text-sm">Settings</span>
+</a>
+<div class="flex items-center gap-3 px-3 py-4 mt-2">
+<div class="w-9 h-9 rounded-xl bg-surface-container-highest flex items-center justify-center overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl7o9VJafiT6eVrTUENQ6zXaUb2LLn9_VoV9JlerxOR-JOdxPi1V7xN-vez5Slc7ryHoOBfmkN7l6QVW4AIC-pJY4clyUg4NGkhJUBz-F5HqYXuTXpulb7pP53Fm2d6YxpP3rcCDDL0aquCQSDnoziYwl5La5P9UtdTiEvsDRNY1y9mrmdzIqmzuqucQ8GiDpbZPrIKZdrVum_H21XMd0oAsRQcc6tQ6X3w4K7EnTC4uLGlgUdOFZZqcaLR4xfJe9ySgBELSRiH36f"/>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-on-surface">Alex Thompson</span>
+<span class="text-[10px] text-on-surface-variant">Admin Account</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-8 h-16">
+<div class="flex items-center gap-4">
+<nav class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+<a class="hover:text-primary transition-colors" href="#">Front Desk OS</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface">Calls</span>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/60 text-lg">search</span>
+<input class="bg-surface-container-low border-none rounded-xl pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Search callers or numbers..." type="text"/>
+</div>
+<button class="bg-primary text-on-primary px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">New Call</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 pt-24 p-8 min-h-screen bg-surface">
+<!-- Header -->
+<header class="mb-10 flex flex-col gap-1">
+<h2 class="text-3xl font-bold tracking-tight text-on-surface">Call Management</h2>
+<p class="text-on-surface-variant text-sm font-medium">Monitor and manage all inbound and outbound communication.</p>
+</header>
+<!-- Stats Row -->
+<div class="grid grid-cols-12 gap-8 mb-8">
+<div class="col-span-12 lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-white p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow group">
+<div class="flex items-start justify-between mb-4">
+<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-on-primary">
+<span class="material-symbols-outlined text-primary group-hover:text-white transition-colors">call</span>
+</div>
+<span class="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>12%
+                    </span>
+</div>
+<div>
+<p class="text-on-surface-variant text-[11px] font-bold uppercase tracking-widest mb-1">Total Calls</p>
+<h3 class="text-3xl font-bold text-on-surface">1,284</h3>
+</div>
+</div>
+<div class="bg-white p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow group">
+<div class="flex items-start justify-between mb-4">
+<div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center transition-colors group-hover:bg-secondary group-hover:text-on-secondary">
+<span class="material-symbols-outlined text-secondary group-hover:text-white transition-colors">timer</span>
+</div>
+<span class="flex items-center gap-0.5 text-[10px] font-bold text-error bg-error/5 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[12px]">trending_down</span>4%
+                    </span>
+</div>
+<div>
+<p class="text-on-surface-variant text-[11px] font-bold uppercase tracking-widest mb-1">Avg. Duration</p>
+<h3 class="text-3xl font-bold text-on-surface">4m 22s</h3>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4 bg-surface-container-low rounded-2xl p-6 flex flex-col justify-center border border-outline-variant/10">
+<h3 class="text-sm font-bold text-on-surface mb-1">Switch Channels</h3>
+<p class="text-xs text-on-surface-variant mb-4">Jump to other integrated communication modules.</p>
+<div class="flex gap-2">
+<button class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white text-on-surface text-xs font-bold rounded-xl border border-outline-variant/10 hover:shadow-sm transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="forum">forum</span>
+                    Messages
+                </button>
+<button class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white text-on-surface text-xs font-bold rounded-xl border border-outline-variant/10 hover:shadow-sm transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="calendar_month">calendar_month</span>
+                    Appointments
+                </button>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+<div class="flex gap-2 items-center overflow-x-auto pb-1 no-scrollbar">
+<button class="px-4 py-1.5 bg-primary text-on-primary text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-lg shadow-primary/20">All Calls</button>
+<button class="px-4 py-1.5 bg-white text-on-surface-variant text-[11px] font-bold uppercase tracking-wider rounded-lg border border-outline-variant/10 hover:bg-surface-container-low transition-colors">Answered</button>
+<button class="px-4 py-1.5 bg-white text-on-surface-variant text-[11px] font-bold uppercase tracking-wider rounded-lg border border-outline-variant/10 hover:bg-surface-container-low transition-colors">Missed</button>
+<button class="px-4 py-1.5 bg-white text-on-surface-variant text-[11px] font-bold uppercase tracking-wider rounded-lg border border-outline-variant/10 hover:bg-surface-container-low transition-colors">Transferred</button>
+<button class="px-4 py-1.5 bg-white text-on-surface-variant text-[11px] font-bold uppercase tracking-wider rounded-lg border border-outline-variant/10 hover:bg-surface-container-low transition-colors">Pending</button>
+</div>
+<div class="flex gap-2">
+<button class="w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-primary bg-white rounded-lg border border-outline-variant/10 transition-colors">
+<span class="material-symbols-outlined text-xl">filter_list</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-primary bg-white rounded-lg border border-outline-variant/10 transition-colors">
+<span class="material-symbols-outlined text-xl">download</span>
+</button>
+</div>
+</div>
+<!-- Call List Table -->
+<div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-outline-variant/10">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50 text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em]">
+<th class="px-6 py-4">Time</th>
+<th class="px-6 py-4">Caller</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">Duration</th>
+<th class="px-6 py-4">Outcome</th>
+<th class="px-6 py-4 w-10"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1: Expanded Detailed View -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group cursor-pointer bg-primary/5">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">10:45 AM</span>
+<span class="text-[10px] text-on-surface-variant font-medium">Today</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">SM</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">Sarah Mitchell</span>
+<span class="text-[10px] text-on-surface-variant font-medium">+1 (555) 234-8891</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Answered
+                            </span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface font-semibold">12m 45s</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Inquiry about Pricing</td>
+<td class="px-6 py-5 text-right">
+<span class="material-symbols-outlined text-primary" data-icon="expand_less">expand_less</span>
+</td>
+</tr>
+<!-- Detailed Expanded Panel -->
+<tr class="bg-white">
+<td class="px-8 py-8" colspan="6">
+<div class="grid grid-cols-12 gap-10">
+<div class="col-span-12 md:col-span-5">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-sm">graphic_eq</span>
+<h4 class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">Call Recording</h4>
+</div>
+<div class="bg-surface-container-low/50 p-6 rounded-2xl border border-outline-variant/10">
+<div class="flex items-center gap-4 mb-6">
+<button class="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+<div class="flex-1">
+<div class="h-1.5 bg-outline-variant/20 rounded-full overflow-hidden relative mb-2">
+<div class="absolute left-0 top-0 h-full w-1/3 bg-primary rounded-full"></div>
+</div>
+<div class="flex justify-between text-[10px] font-bold text-on-surface-variant tracking-wider">
+<span>04:12 / 12:45</span>
+<span>Speed: 1x</span>
+</div>
+</div>
+</div>
+<div class="flex gap-4 border-t border-outline-variant/10 pt-4">
+<button class="flex-1 text-[11px] font-bold text-on-surface-variant hover:text-primary flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-white transition-all">
+<span class="material-symbols-outlined text-sm">download</span> Download
+                                            </button>
+<button class="flex-1 text-[11px] font-bold text-error flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-error/5 transition-all">
+<span class="material-symbols-outlined text-sm">delete</span> Delete
+                                            </button>
+</div>
+</div>
+</div>
+<div class="col-span-12 md:col-span-7">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-sm">description</span>
+<h4 class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">AI Transcription Summary</h4>
+</div>
+<div class="bg-surface-container-low/50 p-6 rounded-2xl border border-outline-variant/10 relative">
+<p class="text-sm text-on-surface font-medium leading-relaxed italic">
+                                            "Caller expressed high interest in the Enterprise plan. Asked specifically about multi-tenancy support and API limits. Scheduled a follow-up for Thursday at 2 PM. Assigned lead to Sales team."
+                                        </p>
+<div class="mt-6 flex gap-4">
+<button class="text-xs font-bold text-primary flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-outline-variant/10 hover:shadow-sm transition-all">
+<span class="material-symbols-outlined text-sm">edit</span> Add Internal Note
+                                            </button>
+<button class="text-xs font-bold text-on-surface flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-outline-variant/10 hover:shadow-sm transition-all">
+<span class="material-symbols-outlined text-sm">link</span> Attach to Lead
+                                            </button>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 2: Missed -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">09:12 AM</span>
+<span class="text-[10px] text-on-surface-variant font-medium">Today</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">+1 (202) 555-0102</span>
+<span class="text-[10px] text-on-surface-variant font-medium">Unknown (Washington, DC)</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-error/10 text-error rounded-lg text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+                                Missed
+                            </span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant font-medium text-center md:text-left">—</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">No voicemail left</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1 hover:text-primary transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Follow-up -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">Yesterday</span>
+<span class="text-[10px] text-on-surface-variant font-medium">4:30 PM</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs">JD</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">James Dalton</span>
+<span class="text-[10px] text-on-surface-variant font-medium">+1 (415) 882-9011</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                Pending
+                            </span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface font-semibold">08m 12s</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Wait for confirmation</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1 hover:text-primary transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4: Transferred -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">Yesterday</span>
+<span class="text-[10px] text-on-surface-variant font-medium">2:15 PM</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">RK</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">Robert King</span>
+<span class="text-[10px] text-on-surface-variant font-medium">+1 (312) 441-0082</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                Transferred
+                            </span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface font-semibold">02m 40s</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Routing to Support</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1 hover:text-primary transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-6 py-4 bg-surface-container-low/50 flex justify-between items-center">
+<span class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">Showing 1-12 of 1,284 calls</span>
+<div class="flex gap-4">
+<button class="text-[11px] font-bold text-on-surface-variant hover:text-primary transition-all uppercase tracking-widest">Previous</button>
+<button class="text-[11px] font-bold text-primary hover:opacity-80 transition-all uppercase tracking-widest">Next</button>
+</div>
+</div>
+</div>
+<!-- Activation Gating / Setup Section -->
+<div class="mt-12 bg-white rounded-2xl border border-outline-variant/10 p-10 flex flex-col md:flex-row items-center gap-10 shadow-sm relative overflow-hidden">
+<div class="absolute -right-12 -top-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="w-20 h-20 rounded-2xl bg-surface-container-low flex items-center justify-center shrink-0 border border-outline-variant/10">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant/40" data-icon="lock">lock</span>
+</div>
+<div class="flex-1 text-center md:text-left">
+<div class="inline-block px-2 py-0.5 rounded-lg bg-error/10 text-[10px] font-bold text-error uppercase tracking-widest mb-3">System Required</div>
+<h3 class="text-xl font-bold text-on-surface mb-2">Voice AI Not Enabled</h3>
+<p class="text-sm text-on-surface-variant max-w-2xl leading-relaxed">Your workspace currently has call recording and AI transcription disabled. Verify your business phone number to enable automated performance analytics.</p>
+</div>
+<button class="bg-primary text-on-primary px-8 py-3 rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all whitespace-nowrap">Finish Setup</button>
+</div>
+<!-- Empty State -->
+<div class="mt-12 py-24 bg-surface-container-low/30 rounded-3xl flex flex-col items-center justify-center text-center px-4 border-2 border-dashed border-outline-variant/20">
+<div class="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-sm mb-6">
+<span class="material-symbols-outlined text-4xl text-outline-variant" data-icon="phone_disabled">phone_disabled</span>
+</div>
+<h3 class="text-lg font-bold text-on-surface">No calls recorded yet</h3>
+<p class="text-on-surface-variant text-sm mt-2 max-w-md">Once your system is active and receiving calls, they will appear in this feed automatically.</p>
+<div class="mt-10 flex gap-4">
+<button class="px-6 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-xs shadow-lg shadow-primary/20 hover:opacity-90 transition-all">Test your system</button>
+<button class="px-6 py-2.5 bg-white text-on-surface rounded-xl font-bold text-xs border border-outline-variant/10 hover:shadow-sm transition-all">View Docs</button>
+</div>
+</div>
+</main>
+</body></html>
