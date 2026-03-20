@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { fetchOrgCalls, getMe, repopulateOrgCalls, updateLeadPipelineStage } from "@/lib/api";
 import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
+import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -247,7 +248,9 @@ export default function AppCallsPage() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-4">
+      <AskAiInline page="calls" entityType={selectedCall ? "call" : undefined} entityId={selectedCall?.id} defaultAgentKey="front_desk" />
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden">
         <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-slate-50 py-4 lg:flex">
           <div className="flex flex-col gap-4">
@@ -508,6 +511,7 @@ export default function AppCallsPage() {
             )}
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

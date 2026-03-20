@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
+  BrainCircuit,
   Calendar,
+  ClipboardCheck,
   ConciergeBell,
   CreditCard,
   LayoutDashboard,
@@ -52,6 +54,9 @@ const navItems: Array<{
   { href: "/app/leads", label: "Leads", icon: Users },
   { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
   { href: "/app/messages", label: "Messages", icon: MessageSquare },
+  { href: "/app/approvals", label: "Approvals", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/follow-up", label: "Follow-Up", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/insights", label: "Insights", icon: BrainCircuit, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/outreach", label: "Outreach", icon: Rocket, comingSoon: true },
   { href: "/app/team", label: "Team", icon: Users, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", icon: CreditCard, requiredRoles: ["CLIENT_ADMIN"] },

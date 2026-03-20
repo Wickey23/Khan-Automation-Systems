@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { fetchOrgLeads, getMe, updateLeadPipelineStage } from "@/lib/api";
 import type { FrontDeskPriority, Lead } from "@/lib/types";
+import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -153,7 +154,9 @@ export default function AppLeadsPage() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-4">
+      <AskAiInline page="leads" entityType={selectedLead ? "lead" : undefined} entityId={selectedLead?.id} defaultAgentKey="lead_ops" />
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
@@ -359,6 +362,7 @@ export default function AppLeadsPage() {
             <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a lead to review its context and next step.</div>
           )}
         </aside>
+      </div>
       </div>
     </div>
   );

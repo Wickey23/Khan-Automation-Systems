@@ -1534,3 +1534,126 @@ export type PublicSystemStatus = {
     webhooks: "OPERATIONAL" | "DEGRADED";
   };
 };
+
+export type AiAgentKey =
+  | "front_desk"
+  | "lead_ops"
+  | "communications"
+  | "scheduling"
+  | "crm_pipeline"
+  | "task_followup"
+  | "knowledge"
+  | "manager_analytics"
+  | "dispatch_ops";
+
+export type AgentDefinition = {
+  id: string;
+  key: AiAgentKey;
+  name: string;
+  description: string;
+  domain: string;
+  enabled: boolean;
+  approvalPolicy: string;
+  promptKey: string;
+  modelProvider: string;
+  modelName: string | null;
+  allowedTools: string[];
+  allowedEntities: string[];
+};
+
+export type AgentActionLog = {
+  id: string;
+  toolKey: string | null;
+  actionType: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED";
+  inputSummary: string | null;
+  outputSummary: string | null;
+  approvalRequired: boolean;
+  approvalRequestId: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  errorCode: string | null;
+  errorSummary: string | null;
+  createdAt: string;
+};
+
+export type AgentRun = {
+  id: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED_APPROVAL";
+  routeReason: string;
+  inputSummary: string | null;
+  outputSummary: string | null;
+  confidence: number | null;
+  entityType: string | null;
+  entityId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  actionLogs: AgentActionLog[];
+};
+
+export type ApprovalAction = {
+  id: string;
+  action: "APPROVED" | "REJECTED" | "PENDING" | "EXPIRED";
+  note: string | null;
+  actorUserId: string | null;
+  createdAt: string;
+};
+
+export type ApprovalRequest = {
+  id: string;
+  actionType: string;
+  toolKey: string;
+  entityType: string | null;
+  entityId: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+  reason: string | null;
+  inputSummary: string | null;
+  outputSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedByUser?: { id: string; email: string } | null;
+  actions: ApprovalAction[];
+};
+
+export type AiRunResponse = {
+  runId: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED_APPROVAL";
+  agentKey: AiAgentKey;
+  routeReason: string;
+  summary?: string;
+  approvalRequired: boolean;
+  approvalRequestId?: string;
+  actions: Array<{
+    toolKey: string;
+    status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED";
+    approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+    message?: string;
+  }>;
+};
+
+export type FollowUpQueueItem = {
+  id: string;
+  entityType: string | null;
+  entityId: string | null;
+  reason: string;
+  status: string;
+  createdAt: string;
+  task: {
+    id: string;
+    title: string;
+    description: string | null;
+    status: string;
+    priority: string;
+    dueAt: string | null;
+  } | null;
+};
+
+export type ManagerInsightSummary = {
+  since: string;
+  callsTotal: number;
+  callsMissed: number;
+  messagesTotal: number;
+  bookingRequests: number;
+  openFollowUps: number;
+  pendingApprovals: number;
+};

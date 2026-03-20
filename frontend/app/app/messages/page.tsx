@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { fetchOrgMessages, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import type { OrgMessageThread } from "@/lib/types";
+import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageShell, SectionShell } from "@/components/ui/page";
@@ -214,7 +215,14 @@ export default function AppMessagesPage() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-4">
+      <AskAiInline
+        page="messages"
+        entityType={selectedThread ? "message_thread" : undefined}
+        entityId={selectedThread?.id}
+        defaultAgentKey="communications"
+      />
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/30">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
@@ -443,6 +451,7 @@ export default function AppMessagesPage() {
             </div>
           ) : null}
         </aside>
+      </div>
       </div>
     </div>
   );

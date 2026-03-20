@@ -54,6 +54,12 @@ import type {
   CalendarConnection,
   OrgCalendarEvent,
   OrgNotification,
+  AgentDefinition,
+  AgentRun,
+  ApprovalRequest,
+  AiRunResponse,
+  FollowUpQueueItem,
+  ManagerInsightSummary,
   OutreachBulkImportRowResult,
   OutreachCallerConfig,
   OutreachActivityEvent,
@@ -1557,4 +1563,70 @@ export async function fetchPublicStatus() {
 
 export async function fetchAdminDemoCalls(limit = 100) {
   return request<{ calls: DemoCallLog[] }>(`/api/admin/settings/demo/calls?limit=${Math.max(1, Math.min(limit, 300))}`);
+}
+
+export async function fetchAiRegistry() {
+  return request<{ registry: AgentDefinition[] }>("/api/org/ai/registry");
+}
+
+export async function createAiRun(payload: {
+  prompt: string;
+  agentKey?: string;
+  intent?: string;
+  page?: string;
+  entityType?: string;
+  entityId?: string;
+  idempotencyKey?: string;
+}) {
+  return request<AiRunResponse>("/api/org/ai/runs", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchAiRun(runId: string) {
+  return request<AgentRun>(`/api/org/ai/runs/${runId}`);
+}
+
+export async function retryAiRun(runId: string, idempotencyKey?: string) {
+  return request<AiRunResponse>(`/api/org/ai/runs/${runId}/retry`, {
+    method: "POST",
+    body: JSON.stringify({ idempotencyKey })
+  });
+}
+
+export async function fetchAiApprovals(status?: string) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request<{ approvals: ApprovalRequest[] }>(`/api/org/ai/approvals${query}`);
+}
+
+export async function approveAiAction(approvalRequestId: string, note?: string) {
+  return request<ApprovalRequest>(`/api/org/ai/approvals/${approvalRequestId}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ note })
+  });
+}
+
+export async function rejectAiAction(approvalRequestId: string, note?: string) {
+  return request<ApprovalRequest>(`/api/org/ai/approvals/${approvalRequestId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ note })
+  });
+}
+
+export async function fetchEntityAiTimeline(entityType: string, entityId: string) {
+  return request<{
+    audit: AuditEvent[];
+    runs: AgentRun[];
+    approvals: ApprovalRequest[];
+  }>(`/api/org/ai/timelines/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`);
+}
+
+export async function fetchFollowUpQueue(status?: string) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request<{ queue: FollowUpQueueItem[] }>(`/api/org/ai/queues/follow-up${query}`);
+}
+
+export async function fetchManagerInsights() {
+  return request<ManagerInsightSummary>("/api/org/ai/insights/manager-summary");
 }

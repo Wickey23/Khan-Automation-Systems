@@ -10,6 +10,7 @@ import {
   fetchOrgMessages,
   fetchOrgOnboarding
 } from "@/lib/api";
+import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import type { AppointmentRequest, Lead, OrgCallRecord, OrgMessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -214,6 +215,10 @@ export default function AppOverviewPage() {
             <RefreshCw size={18} />
             <span>{onboardingReady ? "Restart Onboarding" : "Complete Setup"}</span>
           </Link>
+        </div>
+
+        <div className="mb-8">
+          <AskAiInline page="dashboard" defaultAgentKey="manager_analytics" placeholder="Ask for a manager summary, risks, or recommended next actions..." />
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">

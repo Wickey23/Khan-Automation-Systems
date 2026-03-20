@@ -21,6 +21,7 @@ import {
   fetchTeamMembers,
   getMe
 } from "@/lib/api";
+import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { useAccessSummary } from "@/context/access-summary";
 import type { AppointmentRequest, TeamMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -220,6 +221,12 @@ export default function AppAppointmentsPage() {
 
   return (
     <PageShell className="space-y-6">
+      <AskAiInline
+        page="appointments"
+        entityType={currentRequest ? "appointment" : undefined}
+        entityId={currentRequest?.id}
+        defaultAgentKey="scheduling"
+      />
       <SectionShell className="surface-panel space-y-3">
         <PageHeader
           eyebrow="Booking operations"

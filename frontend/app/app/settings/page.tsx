@@ -23,6 +23,7 @@ import {
   updateOrgSettings,
   uploadOrgKnowledgeFile
 } from "@/lib/api";
+import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { useToast } from "@/components/site/toast-provider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -789,6 +790,7 @@ export default function AppSettingsPage() {
           </Button>
         }
       />
+      <AskAiInline page="settings" entityType="organization" defaultAgentKey="knowledge" placeholder="Ask AI about policy wording, routing rules, or readiness impacts..." />
 
       <PageHelpFab
         items={[

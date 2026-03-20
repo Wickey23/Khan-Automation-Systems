@@ -310,6 +310,72 @@ enum ScaleGateResult {
   FAIL
 }
 
+enum AiAgentDomain {
+  FRONT_DESK
+  LEAD_OPS
+  COMMUNICATIONS
+  SCHEDULING
+  CRM_PIPELINE
+  TASK_FOLLOW_UP
+  KNOWLEDGE
+  MANAGER_ANALYTICS
+  DISPATCH_OPS
+}
+
+enum AiRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  BLOCKED_APPROVAL
+}
+
+enum AiActionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ApprovalPolicy {
+  ALWAYS
+  ROLE_BASED
+  RISK_BASED
+  NONE
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskSource {
+  MANUAL
+  AI_AGENT
+  CALL
+  MESSAGE
+  LEAD
+  APPOINTMENT
+}
+
 model Client {
   id            String         @id @default(cuid())
   name          String
@@ -394,6 +460,22 @@ model Organization {
   outreachSuppressions     OutreachSuppression[]
   bulkImportJobs           BulkImportJob[]
   smsWebhookEvents         SmsWebhookEvent[]
+  workspaceAiSettings      WorkspaceAiSetting?
+  workspaceAgentSettings   WorkspaceAgentSetting[]
+  workspaceKnowledge       WorkspaceKnowledgeEntry[]
+  agentRuns                AgentRun[]
+  agentActionLogs          AgentActionLog[]
+  approvalRequests         ApprovalRequest[]
+  approvalActions          ApprovalAction[]
+  entityNotes              EntityNote[]
+  threadClassifications    ThreadClassification[]
+  callAiSummaries          CallAiSummary[]
+  messageAiSummaries       MessageAiSummary[]
+  tasks                    Task[]
+  taskReminders            TaskReminder[]
+  followUpQueueItems       FollowUpQueueItem[]
+  pipelineRecords          PipelineRecord[]
+  pipelineActivityLogs     PipelineActivityLog[]
 
   // Outbound Safety Quotas
   maxMessagesPerDay Int      @default(100)
@@ -445,6 +527,11 @@ model User {
   memberships                 OrganizationMembership[]
   assignedAppointmentRequests AppointmentRequest[]     @relation("AppointmentRequestAssignedUser")
   reviewedAppointmentRequests AppointmentRequest[]     @relation("AppointmentRequestReviewedByUser")
+  initiatedAgentRuns         AgentRun[]                @relation("AgentRunInitiatedBy")
+  approvalRequests           ApprovalRequest[]         @relation("ApprovalRequestedBy")
+  approvalActions            ApprovalAction[]
+  assignedTasks              Task[]                    @relation("TaskAssignee")
+  createdTasks               Task[]                    @relation("TaskCreatedBy")
 }
 
 model OrganizationMembership {
@@ -621,6 +708,7 @@ model CallLog {
   transcriptSessions        CallTranscriptSession[]
   transcriptSegments        CallTranscriptSegment[]
   serviceRequest            ServiceRequest?
+  aiSummaries               CallAiSummary[]
 
   @@unique([orgId, providerCallId])
   @@index([orgId])
@@ -852,6 +940,7 @@ model Lead {
   appointments             Appointment[]
   appointmentRequests      AppointmentRequest[]
   serviceRequests          ServiceRequest[]
+  pipelineRecords          PipelineRecord[]
   createdAt                DateTime             @default(now())
   updatedAt                DateTime             @updatedAt
 }
@@ -896,6 +985,8 @@ model MessageThread {
   contactPhone  String
   lastMessageAt DateTime     @default(now())
   messages      Message[]
+  classifications ThreadClassification[]
+  aiSummaries    MessageAiSummary[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -1150,8 +1241,17 @@ model AuditLog {
   actorUserId  String
   actorRole    String
   action       String
+  entityType   String?
+  entityId     String?
+  toolKey      String?
+  agentRunId   String?
+  approvalRequestId String?
   metadataJson String        @default("{}")
   createdAt    DateTime      @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([agentRunId])
+  @@index([approvalRequestId])
 }
 
 model BusinessSettings {
@@ -1704,4 +1804,331 @@ model BulkImportJob {
 
   @@index([orgId, status])
   @@index([createdAt])
+}
+
+model AgentDefinition {
+  id             String        @id @default(cuid())
+  key            String        @unique
+  name           String
+  description    String
+  domain         AiAgentDomain
+  enabled        Boolean       @default(true)
+  allowedToolsJson Json        @default("[]")
+  allowedEntitiesJson Json     @default("[]")
+  approvalPolicy ApprovalPolicy @default(ALWAYS)
+  modelProvider  String        @default("openai")
+  modelName      String?
+  promptKey      String
+  visibilityRulesJson Json     @default("{}")
+  priority       Int           @default(100)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  workspaceSettings WorkspaceAgentSetting[]
+  runs           AgentRun[]
+  actionLogs     AgentActionLog[]
+}
+
+model WorkspaceAiSetting {
+  id                               String       @id @default(cuid())
+  orgId                            String       @unique
+  organization                     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  enabled                          Boolean      @default(false)
+  allowClientStaffApprovals        Boolean      @default(false)
+  defaultApprovalPolicy            ApprovalPolicy @default(ALWAYS)
+  allowlistRolesJson               Json         @default("[]")
+  copilotEnabled                   Boolean      @default(false)
+  managerInsightsEnabled           Boolean      @default(false)
+  updatedByUserId                  String?
+  createdAt                        DateTime     @default(now())
+  updatedAt                        DateTime     @updatedAt
+}
+
+model WorkspaceAgentSetting {
+  id                   String         @id @default(cuid())
+  orgId                String
+  organization         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agentDefinitionId    String
+  agentDefinition      AgentDefinition @relation(fields: [agentDefinitionId], references: [id], onDelete: Cascade)
+  enabled              Boolean        @default(true)
+  allowedToolsJson     Json           @default("[]")
+  approvalPolicyOverride ApprovalPolicy?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@unique([orgId, agentDefinitionId])
+  @@index([orgId, enabled])
+}
+
+model AgentRun {
+  id                   String         @id @default(cuid())
+  orgId                String
+  organization         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agentDefinitionId    String
+  agentDefinition      AgentDefinition @relation(fields: [agentDefinitionId], references: [id], onDelete: Restrict)
+  initiatedByUserId    String?
+  initiatedByUser      User?          @relation("AgentRunInitiatedBy", fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  status               AiRunStatus    @default(QUEUED)
+  routeReason          String
+  inputSummary         String?
+  outputSummary        String?
+  confidence           Float?
+  errorCode            String?
+  errorSummary         String?
+  entityType           String?
+  entityId             String?
+  idempotencyKey       String?        @unique
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  actionLogs           AgentActionLog[]
+  approvalRequests     ApprovalRequest[]
+
+  @@index([orgId, createdAt])
+  @@index([orgId, status, createdAt])
+  @@index([orgId, entityType, entityId, createdAt])
+}
+
+model AgentActionLog {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agentRunId          String
+  agentRun            AgentRun       @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  agentDefinitionId   String
+  agentDefinition     AgentDefinition @relation(fields: [agentDefinitionId], references: [id], onDelete: Restrict)
+  actionType          String
+  toolKey             String?
+  status              AiActionStatus @default(PENDING)
+  inputSummary        String?
+  outputSummary       String?
+  confidence          Float?
+  approvalRequired    Boolean        @default(false)
+  approvalStatus      ApprovalStatus?
+  approvalRequestId   String?
+  entityType          String?
+  entityId            String?
+  errorCode           String?
+  errorSummary        String?
+  metadataJson        Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([orgId, status, createdAt])
+  @@index([approvalRequestId])
+}
+
+model ApprovalRequest {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agentRunId          String?
+  agentRun            AgentRun?      @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  requestedByUserId   String?
+  requestedByUser     User?          @relation("ApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  actionType          String
+  toolKey             String
+  entityType          String?
+  entityId            String?
+  status              ApprovalStatus @default(PENDING)
+  reason              String?
+  inputSummary        String?
+  outputSummary       String?
+  expiresAt           DateTime?
+  resolvedAt          DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  actions             ApprovalAction[]
+
+  @@index([orgId, status, createdAt])
+  @@index([orgId, entityType, entityId, createdAt])
+}
+
+model ApprovalAction {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  approvalRequestId   String
+  approvalRequest     ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  actorUserId         String?
+  actorUser           User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action              ApprovalStatus
+  note                String?
+  createdAt           DateTime       @default(now())
+
+  @@index([orgId, approvalRequestId, createdAt])
+}
+
+model WorkspaceKnowledgeEntry {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title               String
+  body                String
+  tagsJson            Json           @default("[]")
+  source              String         @default("manual")
+  createdByUserId     String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([orgId, createdAt])
+}
+
+model EntityNote {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entityType          String
+  entityId            String
+  noteType            String         @default("general")
+  body                String
+  createdByUserId     String?
+  createdByAgentRunId String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([orgId, entityType, entityId, createdAt])
+}
+
+model ThreadClassification {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  threadId            String
+  messageThread       MessageThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  classification      String
+  confidence          Float?
+  rationale           String?
+  createdByAgentRunId String?
+  createdAt           DateTime       @default(now())
+
+  @@index([orgId, threadId, createdAt])
+}
+
+model CallAiSummary {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  callLogId           String
+  callLog             CallLog        @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  summary             String
+  extractedJson       Json?
+  confidence          Float?
+  createdByAgentRunId String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([orgId, callLogId, createdAt])
+}
+
+model MessageAiSummary {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  threadId            String
+  messageThread       MessageThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  summary             String
+  classification      String?
+  confidence          Float?
+  createdByAgentRunId String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([orgId, threadId, createdAt])
+}
+
+model Task {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title               String
+  description         String?
+  status              TaskStatus     @default(OPEN)
+  priority            TaskPriority   @default(MEDIUM)
+  source              TaskSource     @default(MANUAL)
+  entityType          String?
+  entityId            String?
+  assignedToUserId    String?
+  assignedToUser      User?          @relation("TaskAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  createdByUserId     String?
+  createdByUser       User?          @relation("TaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByAgentRunId String?
+  dueAt               DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  reminders           TaskReminder[]
+  followUpQueueItems  FollowUpQueueItem[]
+
+  @@index([orgId, status, createdAt])
+  @@index([orgId, assignedToUserId, status, dueAt])
+  @@index([orgId, entityType, entityId, createdAt])
+}
+
+model TaskReminder {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  taskId              String
+  task                Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  remindAt            DateTime
+  sentAt              DateTime?
+  status              String         @default("PENDING")
+  createdAt           DateTime       @default(now())
+
+  @@index([orgId, remindAt, status])
+}
+
+model FollowUpQueueItem {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  taskId              String?
+  task                Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  entityType          String?
+  entityId            String?
+  reason              String
+  status              String         @default("OPEN")
+  suggestedAt         DateTime?
+  resolvedAt          DateTime?
+  createdByAgentRunId String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([orgId, status, createdAt])
+}
+
+model PipelineRecord {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leadId              String?
+  lead                Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  stage               String
+  confidence          Float?
+  summary             String?
+  isStale             Boolean        @default(false)
+  staleReason         String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  activities          PipelineActivityLog[]
+
+  @@index([orgId, stage, createdAt])
+  @@index([orgId, isStale, updatedAt])
+}
+
+model PipelineActivityLog {
+  id                  String         @id @default(cuid())
+  orgId               String
+  organization        Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  pipelineRecordId    String
+  pipelineRecord      PipelineRecord @relation(fields: [pipelineRecordId], references: [id], onDelete: Cascade)
+  action              String
+  detail              String?
+  createdByUserId     String?
+  createdByAgentRunId String?
+  createdAt           DateTime       @default(now())
+
+  @@index([orgId, pipelineRecordId, createdAt])
 }
