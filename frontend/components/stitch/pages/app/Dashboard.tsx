@@ -73,6 +73,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [partialWarning, setPartialWarning] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [health, setHealth] = useState<OrgHealth | null>(null);
@@ -84,8 +86,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let mounted = true;
+    const isRefresh = refreshTick > 0;
     setLoading(true);
     setError(null);
+    if (isRefresh) setRefreshing(true);
+    setPartialWarning(null);
     Promise.allSettled([
       fetchOrgAnalytics({ range: "7d" }),
       fetchOrgHealth(),
@@ -108,12 +113,19 @@ export default function DashboardPage() {
 
         const failedAll = results.every((item) => item.status === "rejected");
         if (failedAll) setError("Could not load dashboard data. Check API connectivity and try again.");
+        const partialFailures = results.filter((item) => item.status === "rejected").length;
+        if (!failedAll && partialFailures > 0) {
+          setPartialWarning("Some panels are delayed. Data will refresh automatically on next request.");
+        }
       })
       .catch(() => {
         if (mounted) setError("Could not load dashboard data. Check API connectivity and try again.");
       })
       .finally(() => {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       });
     return () => {
       mounted = false;
@@ -226,6 +238,14 @@ export default function DashboardPage() {
       .slice(0, 4);
   }, [calls, requests, threads]);
 
+  const readinessSummary = useMemo(() => {
+    const checklist = profile?.access?.readinessChecklist || [];
+    const total = checklist.length;
+    if (!total) return { done: 0, total: 0, percent: 0 };
+    const done = checklist.filter((item) => item.status === "ready").length;
+    return { done, total, percent: Math.round((done / total) * 100) };
+  }, [profile?.access?.readinessChecklist]);
+
   if (loading) {
     return <StateCard type="loading" title="Loading dashboard" description="Fetching calls, messages, bookings, and health signals." />;
   }
@@ -241,10 +261,41 @@ export default function DashboardPage() {
           <h1 className="text-[46px] font-semibold tracking-tight text-on-surface">Operational Pulse</h1>
           <p className="text-[30px] text-on-surface-variant">Real-time system performance and volume.</p>
         </div>
-        <div className={cn("rounded-md border px-3 py-1.5 text-xs font-semibold", live ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-[#dbe4ea] text-slate-700")}>
-          Live View
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRefreshTick((v) => v + 1)}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RefreshCcw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+            {refreshing ? "Refreshing" : "Refresh"}
+          </button>
+          <div className={cn("rounded-md border px-3 py-1.5 text-xs font-semibold", live ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-[#dbe4ea] text-slate-700")}>
+            Live View
+          </div>
         </div>
       </header>
+
+      {partialWarning ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {partialWarning}
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-700">
+            Workspace readiness: <span className="font-semibold">{readinessSummary.done}/{readinessSummary.total || 0}</span> checks complete.
+          </p>
+          <Link href="/app/activation" className="text-xs font-semibold text-[#2f54d8] hover:underline">
+            Open activation
+          </Link>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-[#2f54d8] transition-all" style={{ width: `${readinessSummary.percent}%` }} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
@@ -373,6 +424,14 @@ export default function DashboardPage() {
                       <p className="mt-1 text-[26px] text-slate-600">{item.description}</p>
                     </div>
                     <span className="text-sm text-slate-500">{shortRelative(item.at)}</span>
+                  </div>
+                  <div className="mt-2">
+                    <Link
+                      href={item.id.startsWith("call-") ? "/app/calls" : item.id.startsWith("sms-") ? "/app/messages" : "/app/appointments"}
+                      className="text-xs font-semibold text-[#2f54d8] hover:underline"
+                    >
+                      Open related queue
+                    </Link>
                   </div>
                 </div>
               ))}
