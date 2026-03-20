@@ -153,12 +153,30 @@ export default function AppLeadsPage() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Lead Operations</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Lead Queue</h1>
+            <p className="mt-1 text-sm text-slate-600">Qualify demand, track urgency, and route leads into scheduling with clear next actions.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+              {filteredLeads.length} active
+            </span>
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              {leads.length} total
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-bold text-slate-900">Lead Queue</h1>
+              <h2 className="text-base font-bold uppercase tracking-[0.14em] text-slate-700">Lead Queue</h2>
               <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
                 <button className="rounded-md bg-white px-3 py-1 text-xs font-bold text-primary shadow-sm">Active Leads ({filteredLeads.length})</button>
                 <button className="px-3 py-1 text-xs font-medium text-slate-500">Archived</button>
@@ -359,6 +377,7 @@ export default function AppLeadsPage() {
             <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a lead to review its context and next step.</div>
           )}
         </aside>
+      </div>
       </div>
     </div>
   );
