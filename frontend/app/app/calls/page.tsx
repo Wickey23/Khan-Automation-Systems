@@ -255,7 +255,21 @@ export default function AppCallsPage() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Call Operations</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Reviewed Calls</h1>
+            <p className="mt-1 text-sm text-slate-600">Inspect outcomes, confirm follow-up, and push callers into the right next step.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge kind="feature" state="ready" label={`${calls.length} total`} size="xs" />
+            <StatusBadge kind="feature" state={callBacklogCount > 0 ? "setup_required" : "ready"} label={`${callBacklogCount} follow-up`} size="xs" />
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden">
         <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-slate-50 py-4 lg:flex">
           <div className="flex flex-col gap-4">
@@ -283,7 +297,7 @@ export default function AppCallsPage() {
           <section className="flex min-w-0 flex-[2] flex-col overflow-hidden border-r border-slate-200">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-lg font-bold text-slate-900">Reviewed Calls</h1>
+                <h2 className="text-base font-bold uppercase tracking-[0.14em] text-slate-700">Reviewed Calls</h2>
                 <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
                   {stateFilters.map((filter) => (
                     <button
@@ -531,6 +545,7 @@ export default function AppCallsPage() {
             )}
           </section>
         </div>
+      </div>
       </div>
     </div>
   );
