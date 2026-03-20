@@ -199,9 +199,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-screen bg-[#f1f3f6] text-slate-800">
           <aside className="hidden w-[276px] shrink-0 border-r border-slate-200 bg-[#e8edf3] p-6 xl:flex xl:flex-col">
             <div className="mb-8">
-              <p className="text-[40px] leading-none">?</p>
-              <p className="text-[38px] font-semibold tracking-tight">The Silent Orchestrator</p>
-              <p className="mt-1 text-[28px] text-slate-600">Premium Operations</p>
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f54d8] text-white shadow-sm">
+                <LayoutDashboard className="h-5 w-5" />
+              </div>
+              <p className="text-[33px] font-semibold tracking-[-0.02em] text-slate-900">The Silent Orchestrator</p>
+              <p className="mt-1 text-[26px] text-slate-600">Premium Operations</p>
             </div>
             <nav className="space-y-1">
               {navItems.map((item) => {
@@ -253,7 +255,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-4">
                 <Bell className="h-5 w-5 text-slate-700" />
                 <Settings className="h-5 w-5 text-slate-700" />
-                <div className={cn("rounded-full px-3 py-1 text-xs font-semibold", workspaceLive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                <div className={cn("rounded-md border border-slate-200 bg-[#dbe4ea] px-3 py-1 text-xs font-semibold text-slate-700", workspaceLive ? "text-emerald-700" : "text-slate-700")}>
                   {liveStatus}
                 </div>
                 <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
