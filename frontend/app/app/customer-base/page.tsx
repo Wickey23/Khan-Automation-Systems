@@ -1,306 +1,260 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { fetchCustomerBase, getBillingStatus, importCustomerBase } from "@/lib/api";
-import type { CustomerBaseRecord } from "@/lib/types";
-import { useToast } from "@/components/site/toast-provider";
-import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
-import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
-import { resolvePlanFeatures } from "@/lib/plan-features";
+import {
+  Bell,
+  Briefcase,
+  Download,
+  Filter,
+  HelpCircle,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  Phone,
+  Search,
+  Settings,
+  UserPlus,
+  Users
+} from "lucide-react";
 
-function formatOutcome(value: string | null | undefined) {
-  const normalized = String(value || "").trim().toUpperCase();
-  if (!normalized) return "No outcome logged";
-  if (normalized === "N/A" || normalized === "NA" || normalized === "UNKNOWN") return "No outcome logged";
-  return normalized
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function getDisplayEmail(value: string | null | undefined) {
-  const email = String(value || "").trim();
-  if (!email) return "";
-  if (email.toLowerCase().endsWith("@no-email.local")) return "No email provided";
-  return email;
-}
+const rows = [
+  {
+    name: "Sarah Chen",
+    id: "KH-9021",
+    email: "s.chen@example.com",
+    phone: "+1 (555) 902-1244",
+    status: "ACTIVE",
+    statusClass: "bg-blue-100 text-blue-700",
+    value: "$12,450.00",
+    lastBooking: "Oct 12, 2023"
+  },
+  {
+    name: "Marcus Wright",
+    id: "KH-4412",
+    email: "m.wright@domain.com",
+    phone: "Missing Phone",
+    status: "DEGRADED",
+    statusClass: "bg-violet-100 text-violet-700",
+    value: "$3,210.00",
+    lastBooking: "Sep 28, 2023"
+  },
+  {
+    name: "Elena Rodriguez",
+    id: "KH-8829",
+    email: "elena.r@agency.co",
+    phone: "+1 (555) 441-2921",
+    status: "NOT_ENABLED",
+    statusClass: "bg-slate-200 text-slate-600",
+    value: "$0.00",
+    lastBooking: "New Customer"
+  }
+];
 
 export default function CustomerBasePage() {
-  const { showToast } = useToast();
-  const [customers, setCustomers] = useState<CustomerBaseRecord[]>([]);
-  const [canAccess, setCanAccess] = useState<boolean | null>(null);
-  const [summary, setSummary] = useState<{ total: number; vip: number; withLead: number; repeatCallers: number } | null>(
-    null
-  );
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    void Promise.all([getBillingStatus(), fetchCustomerBase()])
-      .then(([billing, data]) => {
-        const features = resolvePlanFeatures({
-          plan: billing.subscription?.plan,
-          status: billing.subscription?.status
-        });
-        const hasProCustomerBase = features.proEnabled;
-        setCanAccess(hasProCustomerBase);
-        if (!hasProCustomerBase) return;
-        setCustomers(data.customers || []);
-        setSummary(data.summary || null);
-      })
-      .catch(() => setCanAccess(false))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function parseCustomerFile(file: File): Promise<Array<Record<string, unknown>>> {
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith(".csv")) {
-      const text = await file.text();
-      const lines = text
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-      if (lines.length < 2) return [];
-      const headers = lines[0].split(",").map((h) => h.trim());
-      const rows: Array<Record<string, unknown>> = [];
-      for (let i = 1; i < lines.length; i += 1) {
-        const cols = lines[i].split(",").map((c) => c.trim());
-        const row: Record<string, unknown> = {};
-        headers.forEach((h, idx) => {
-          row[h] = cols[idx] || "";
-        });
-        rows.push(row);
-      }
-      return rows;
-    }
-
-    if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
-      const XLSX = await import("xlsx");
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-      const firstSheet = workbook.SheetNames[0];
-      if (!firstSheet) return [];
-      const sheet = workbook.Sheets[firstSheet];
-      return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-    }
-
-    throw new Error("Unsupported file type. Use .xlsx, .xls, or .csv.");
-  }
-
-  async function onImportFile(file: File | null) {
-    if (!file) return;
-    setImporting(true);
-    try {
-      const rows = await parseCustomerFile(file);
-      if (!rows.length) {
-        showToast({ title: "No rows found", description: "The file appears empty.", variant: "error" });
-        return;
-      }
-      const result = await importCustomerBase(rows, file.name);
-      const latest = await fetchCustomerBase();
-      setCustomers(latest.customers || []);
-      setSummary(latest.summary || null);
-      showToast({
-        title: "Customer base imported",
-        description: `Imported ${result.imported}, skipped ${result.skipped}, profiles ${result.updatedProfiles}, leads ${result.updatedLeads}.`
-      });
-    } catch (error) {
-      showToast({
-        title: "Import failed",
-        description: error instanceof Error ? error.message : "Try another file.",
-        variant: "error"
-      });
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((customer) => {
-      const haystack = [
-        customer.phoneNumber,
-        customer.lead?.name || "",
-        customer.lead?.business || "",
-        customer.lead?.email || "",
-        customer.lastOutcome || "",
-        customer.recentCalls[0]?.aiSummary || ""
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [customers, query]);
-
   return (
-    <div className="space-y-5">
-      <PageHeader
-        eyebrow="Customer memory"
-        title="Customer Memory"
-        description="Use this page to recognize repeat callers quickly. It shows known customer context, linked lead records, and recent history that should shape follow-up."
-      />
+    <div className="min-h-screen bg-[#eef2f6] text-slate-800">
+      <div className="grid min-h-screen grid-cols-[280px_1fr]">
+        <aside className="flex flex-col border-r border-slate-200 bg-[#e9eef4] p-6">
+          <div className="mb-10 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-600 text-white">
+              <Briefcase className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[30px] font-semibold leading-none tracking-tight">ClientPortal</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Operational Suite</p>
+            </div>
+          </div>
 
-      <PageHelpFab
-        items={[
-          {
-            label: "Use this page",
-            text: "Use Customer Memory to recognize repeat callers quickly and understand what happened last time before you respond again."
-          },
-          {
-            label: "Start here",
-            text: "Search for the caller or customer record first, then review recent outcomes and linked lead history before deciding the next follow-up step."
-          },
-          {
-            label: "Go next",
-            text: "Move back into Lead Queue, Inbox, or Call Queue once the repeat-caller context tells the office what should happen next."
-          }
-        ]}
-      />
+          <nav className="space-y-1">
+            <NavItem icon={LayoutDashboard} label="Dashboard" />
+            <NavItem icon={Users} label="Customer Base" active />
+            <NavItem icon={Briefcase} label="Projects" />
+            <NavItem icon={Briefcase} label="Financials" />
+            <NavItem icon={HelpCircle} label="Support" />
+          </nav>
 
-      {canAccess === false ? (
-        <div className={`${frontDeskWorkspaceCardClass("subtle")} p-6`}>
-          <h2 className="text-lg font-semibold">Customer Memory is a Pro workspace</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Standard focuses on lead pipeline management. Pro unlocks caller memory, repeat-caller context, and bulk customer-memory
-            imports.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/app/leads" className="rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium shadow-[0_10px_22px_rgba(15,23,42,0.05)] transition hover:bg-slate-50">
-              Open Leads (Standard)
-            </Link>
-            <Link href="/app/billing" className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-[0_12px_24px_rgba(15,23,42,0.12)]">
-              Upgrade to Pro
+          <div className="mt-auto space-y-4 pt-6">
+            <button className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow">
+              <span className="text-lg leading-none">+</span>
+              New Entry
+            </button>
+            <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100">
+              <HelpCircle className="h-5 w-5" />
+              Help Center
+            </button>
+            <Link href="/auth/logout" className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100">
+              <LogOut className="h-5 w-5" />
+              Sign Out
             </Link>
           </div>
-        </div>
-      ) : null}
+        </aside>
 
-      {canAccess === false ? null : (
-        <>
+        <div className="flex flex-col">
+          <header className="flex h-20 items-center justify-between border-b border-slate-200 px-8">
+            <h1 className="text-4xl font-medium tracking-tight">Khan Systems</h1>
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  readOnly
+                  value=""
+                  placeholder="Global search..."
+                  className="h-11 w-[350px] rounded-2xl border border-slate-200 bg-[#e6ebf1] pl-10 pr-4 text-sm outline-none"
+                />
+              </div>
+              <Bell className="h-5 w-5 text-slate-700" />
+              <Settings className="h-5 w-5 text-slate-700" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-200 text-xs font-bold text-orange-900">R</div>
+            </div>
+          </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Total People
-            <InfoHint text="Unique caller records detected for this organization by normalized phone number." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.total ?? "-"}</p>
-        </div>
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Repeat Callers
-            <InfoHint text="Callers with more than one recorded call in caller profiles." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.repeatCallers ?? "-"}</p>
-        </div>
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            With Lead Profile
-            <InfoHint text="Caller records currently linked to a CRM lead profile." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.withLead ?? "-"}</p>
-        </div>
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            VIP Flagged
-            <InfoHint text="Caller profiles flagged as VIP for priority handling logic." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.vip ?? "-"}</p>
-        </div>
-      </div>
+          <main className="p-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Dashboard / <span className="text-blue-700">Customer Base</span></p>
+                <h2 className="mt-2 text-6xl font-medium tracking-tight text-slate-900">Customer Base</h2>
+              </div>
+              <button className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">
+                <Download className="h-4 w-4" />
+                Export CSV
+              </button>
+            </div>
 
-      <div className={`${frontDeskWorkspaceCardClass("subtle")} p-5`}>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="inline-flex items-center gap-1 font-semibold">
-              Import Customer Base
-              <InfoHint text="Bulk import creates or updates caller profiles and lead records from CSV/Excel rows." />
-            </h2>
-            <p className="text-xs text-muted-foreground">Upload Excel (.xlsx/.xls) or CSV with customer phone/name/details.</p>
-          </div>
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            disabled={importing}
-            onChange={(event) => void onImportFile(event.target.files?.[0] || null)}
-            className="max-w-xs text-sm"
-          />
-        </div>
+            <section className="mb-6 grid grid-cols-3 gap-6">
+              <MetricCard title="TOTAL CUSTOMERS" value="12,842" badge="+4.2%" />
+              <MetricCard title="RETURNING CUSTOMERS (%)" value="64.8%" badge="TARGET" />
+              <MetricCard title="NEW THIS MONTH" value="312" subtitle="vs 284 prev." />
+            </section>
 
-        <label className="inline-flex items-center gap-1 text-sm font-medium">
-          Search
-          <InfoHint text="Search matches phone, name, business, email, outcome, and recent summary text." />
-        </label>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="mt-1 h-11 w-full rounded-xl border border-input bg-white px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-            placeholder="Phone, name, business, email, outcome..."
-          />
-      </div>
+            <section className="mb-6 rounded-xl border border-slate-200 bg-[#e8edf3] p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="relative w-[460px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    readOnly
+                    value=""
+                    placeholder="Search by name, email or ID..."
+                    className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm"
+                  />
+                </div>
+                <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-[#dce3eb] text-sm">
+                  <FilterTab label="All" active />
+                  <FilterTab label="Active" />
+                  <FilterTab label="Inactive" />
+                  <FilterTab label="New" />
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-slate-600">Sort by:</span>
+                  <span className="font-semibold">Last Booking</span>
+                  <button className="rounded-lg bg-[#cfe0ef] p-2">
+                    <Filter className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </section>
 
-      <div className={`${frontDeskWorkspaceCardClass("default")} p-4`}>
-        {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className={frontDeskLoadingCardClass()}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="space-y-2">
-                    <div className={frontDeskSkeletonLineClass("md")} />
-                    <div className={frontDeskSkeletonLineClass("sm")} />
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="grid grid-cols-[1.2fr_1.1fr_0.8fr_0.8fr_0.8fr] border-b border-slate-200 bg-[#f5f7fa] px-6 py-4 text-xs font-bold uppercase tracking-[0.15em] text-slate-600">
+                <p>Customer Name</p>
+                <p>Contact Details</p>
+                <p>Status</p>
+                <p>Lifetime Value</p>
+                <p>Last Booking</p>
+              </div>
+
+              {rows.map((row) => (
+                <div key={row.id} className="grid grid-cols-[1.2fr_1.1fr_0.8fr_0.8fr_0.8fr] items-center border-b border-slate-100 px-6 py-5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-200 text-xs font-bold text-slate-700">
+                      {row.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
+                    </div>
+                    <div>
+                      <p className="text-[28px] font-medium leading-none">{row.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">ID: {row.id}</p>
+                    </div>
                   </div>
-                  <div className={frontDeskSkeletonLineClass("sm")} />
+
+                  <div className="space-y-1 text-sm text-slate-600">
+                    <p className="flex items-center gap-2"><Mail className="h-4 w-4" />{row.email}</p>
+                    <p className={`flex items-center gap-2 ${row.phone.includes("Missing") ? "text-red-600" : ""}`}>
+                      <Phone className="h-4 w-4" />
+                      {row.phone}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${row.statusClass}`}>
+                      {row.status.replace("_", " ")}
+                    </span>
+                  </div>
+
+                  <p className="text-[32px] font-semibold">{row.value}</p>
+                  <p className={row.lastBooking === "New Customer" ? "text-blue-700" : "text-slate-700"}>{row.lastBooking}</p>
                 </div>
-                <div className="mt-3 space-y-2">
-                  <div className={frontDeskSkeletonLineClass("full")} />
-                  <div className={frontDeskSkeletonLineClass("lg")} />
+              ))}
+
+              <div className="flex items-center justify-between px-6 py-5 text-sm text-slate-600">
+                <p>
+                  Showing <span className="font-semibold">1-25</span> of <span className="font-semibold">12,842</span> customers
+                </p>
+                <div className="flex items-center gap-5">
+                  <button className="text-slate-500">{"<"}</button>
+                  <button className="h-8 w-8 rounded bg-blue-700 text-white">1</button>
+                  <button>2</button>
+                  <button>3</button>
+                  <span>...</span>
+                  <button>514</button>
+                  <button className="text-slate-500">{">"}</button>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className={frontDeskEmptyStateClass()}>
-            No customer records yet. Returning callers, imported history, and lead-linked memory will appear here once the business starts building repeat-customer context.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((customer) => (
-              <div key={customer.phoneNumber} className={`${frontDeskWorkspaceCardClass("subtle")} p-4`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold">{customer.displayName || "Unknown contact"}</p>
-                  <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Calls: {customer.totalCalls} | Last outcome: {formatOutcome(customer.lastOutcome)} | Last call:{" "}
-                  {new Date(customer.lastCallAt).toLocaleString()}
-                </p>
-                <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  Name confidence: {customer.nameConfidence}
-                  <InfoHint text="HIGH = explicit name captured; MEDIUM = inferred from reliable context; LOW = weak/no confirmed name." />
-                </p>
-                {customer.lead ? (
-                  <p className="mt-1 text-sm">
-                    {customer.lead.business}
-                    {getDisplayEmail(customer.lead.email) ? ` | ${getDisplayEmail(customer.lead.email)}` : ""}
-                  </p>
-                ) : null}
-                {customer.recentCalls[0]?.aiSummary ? (
-                  <p className="mt-2 text-sm text-muted-foreground">Recent summary: {customer.recentCalls[0].aiSummary}</p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
+            </section>
+          </main>
+        </div>
       </div>
-        </>
-      )}
     </div>
   );
 }
 
+function NavItem({ icon: Icon, label, active = false }: { icon: typeof LayoutDashboard; label: string; active?: boolean }) {
+  return (
+    <button
+      className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[30px] ${
+        active ? "bg-white text-blue-700 shadow-sm" : "text-slate-700 hover:bg-white/70"
+      }`}
+    >
+      <Icon className="h-5 w-5" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function FilterTab({ label, active = false }: { label: string; active?: boolean }) {
+  return (
+    <button className={`px-5 py-2 ${active ? "bg-white font-semibold text-blue-700" : "text-slate-700"}`}>
+      {label}
+    </button>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  badge,
+  subtitle
+}: {
+  title: string;
+  value: string;
+  badge?: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">{title}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <p className="text-[56px] font-semibold leading-none">{value}</p>
+        {badge ? (
+          <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{badge}</span>
+        ) : null}
+      </div>
+      {subtitle ? <p className="mt-2 text-xs text-slate-500">{subtitle}</p> : null}
+    </div>
+  );
+}

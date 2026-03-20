@@ -65,6 +65,21 @@ const navFeatureAccess: Record<string, AccessFeatureKey | undefined> = {
   "/app/appointments": "appointments"
 };
 
+const stitchStandaloneRoutes = new Set([
+  "/app",
+  "/app/activation",
+  "/app/calls",
+  "/app/appointments",
+  "/app/messages",
+  "/app/leads",
+  "/app/customer-base",
+  "/app/outreach",
+  "/app/billing",
+  "/app/settings",
+  "/app/team",
+  "/app/upgrade"
+]);
+
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {
   if (!requiredPlan) return true;
   if (!currentPlan) return false;
@@ -260,6 +275,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       classes: "bg-amber-100 text-amber-700"
     };
   }, [firstSuccess, workspaceLive]);
+  const isStitchStandalone = stitchStandaloneRoutes.has(pathname);
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
@@ -308,6 +324,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </Link>
     );
   };
+
+  if (isStitchStandalone) {
+    return ClientGuard({
+      children: (
+        <AccessSummaryProvider value={accessSummary}>
+          <div className="min-h-screen bg-[#f7f9fb]">{children}</div>
+        </AccessSummaryProvider>
+      )
+    });
+  }
 
   return ClientGuard({
     children: (
