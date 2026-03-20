@@ -158,7 +158,11 @@ body {
     Helvetica,
     Arial,
     sans-serif;
-  zoom: 0.92;
+  zoom: 0.9;
+}
+
+.primary-gradient {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
 }
 
 @keyframes accordion-down {
