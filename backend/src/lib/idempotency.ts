@@ -12,17 +12,11 @@ interface ExecuteOnceOptions<T> {
  */
 export async function executeOnce<T>({ key, ttlMs, handler }: ExecuteOnceOptions<T>): Promise<T | void> {
   const fullKey = `idempotency:${key}`;
-  let acquired: string | null = null;
-  try {
-    // 1. Atomically try to acquire the lock/key
-    // NX = Only set if not exists
-    // PX = Set expiration in milliseconds
-    acquired = await redis.set(fullKey, "processing", "PX", ttlMs, "NX");
-  } catch (error) {
-    // Fail open so Redis instability does not drop inbound webhooks.
-    console.error(`[Idempotency] Redis unavailable for key ${key}, continuing without dedupe.`, error);
-    return handler();
-  }
+  
+  // 1. Atomically try to acquire the lock/key
+  // NX = Only set if not exists
+  // PX = Set expiration in milliseconds
+  const acquired = await redis.set(fullKey, "processing", "PX", ttlMs, "NX");
 
   if (!acquired) {
     console.log(`[Idempotency] Key ${key} already exists or is processing, skipping.`);
@@ -33,13 +27,9 @@ export async function executeOnce<T>({ key, ttlMs, handler }: ExecuteOnceOptions
     // 2. Execute the handler
     const result = await handler();
     
-    // 3. Update key to 'completed' but preserve expiry window.
-    // Not all Redis versions support KEEPTTL; fall back to explicit PX.
-    try {
-      await redis.set(fullKey, "completed", "KEEPTTL");
-    } catch {
-      await redis.set(fullKey, "completed", "PX", ttlMs).catch(() => null);
-    }
+    // 3. Update key to 'completed' but keep the TTL
+    // This prevents re-execution if the same request hits again within the TTL window
+    await redis.set(fullKey, "completed", "PX", ttlMs, "KEEPTTL" as any).catch(() => null);
     
     return result;
   } catch (error) {

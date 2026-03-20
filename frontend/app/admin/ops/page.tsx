@@ -31,7 +31,6 @@ const STATUS_META: Record<string, StatusMeta> = {
   processing: { label: "Processing", classes: "border-amber-200 bg-amber-50 text-amber-700" },
   queued: { label: "Queued", classes: "border-slate-200 bg-slate-50 text-slate-700" },
   failed: { label: "Failed", classes: "border-rose-200 bg-rose-50 text-rose-700" },
-  failed_terminal: { label: "Terminal failure", classes: "border-rose-300 bg-rose-100 text-rose-800" },
   unknown: { label: "Unknown", classes: "border-slate-200 bg-slate-50 text-slate-700" }
 };
 

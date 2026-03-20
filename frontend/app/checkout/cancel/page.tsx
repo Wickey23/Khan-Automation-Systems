@@ -6,16 +6,11 @@ export default function CheckoutCancelPage() {
     <div className="container py-16">
       <h1 className="text-4xl font-bold">Checkout Canceled</h1>
       <p className="mt-3 text-muted-foreground">
-        No charge was made. Return to billing when you are ready to continue the plan change.
+        No charge was made. Plan changes finalize only after Stripe confirms the update. Return to Billing to verify status.
       </p>
-      <div className="mt-6 flex gap-3">
-        <Button asChild>
-          <Link href="/app/billing?checkout=cancel">Return to Billing</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/app">Go to Dashboard</Link>
-        </Button>
-      </div>
+      <Button asChild className="mt-6">
+        <Link href="/pricing">Back to Pricing</Link>
+      </Button>
     </div>
   );
 }

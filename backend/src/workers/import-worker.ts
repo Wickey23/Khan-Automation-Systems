@@ -60,15 +60,11 @@ export const importWorker = new Worker(
 
     // Process in batches of 50
     const BATCH_SIZE = 50;
-    const PARALLEL_PER_BATCH = 5;
     for (let i = startIndex; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);
-
-      for (let cursor = 0; cursor < batch.length; cursor += PARALLEL_PER_BATCH) {
-        const chunk = batch.slice(cursor, cursor + PARALLEL_PER_BATCH);
-        await Promise.all(
-          chunk.map(async (row, indexInChunk) => {
-            const indexInBatch = cursor + indexInChunk;
+      
+      await Promise.all(
+        batch.map(async (row, indexInBatch) => {
           const globalIndex = i + indexInBatch + 1;
           
           try {
@@ -128,9 +124,8 @@ export const importWorker = new Worker(
             failureCount++;
             errors.push(`Row ${globalIndex}: ${err instanceof Error ? err.message : "Unknown error"}`);
           }
-          })
-        );
-      }
+        })
+      );
 
       // Priority 3: Real-time progress update for operator visibility
       await prisma.bulkImportJob.update({

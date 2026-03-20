@@ -74,16 +74,6 @@ function logBillingEvent(level: "info" | "error", details: Record<string, unknow
   console.log(payload);
 }
 
-function buildStripeIdempotencyKey(input: {
-  action: "checkout" | "plan-upgrade";
-  orgId: string;
-  userId: string;
-  plan: string;
-}) {
-  const minuteBucket = Math.floor(Date.now() / 60_000);
-  return `${input.action}:${input.orgId}:${input.userId}:${input.plan}:${minuteBucket}`;
-}
-
 async function ensureOrgContext(req: AuthenticatedRequest): Promise<{
   orgId: string;
   stripeCustomerId: string | null;
@@ -370,28 +360,18 @@ billingRouter.post(
         lineItems.push({ price: setupFeePriceId, quantity: 1 });
       }
 
-      const session = await stripe.checkout.sessions.create(
-        {
-          mode: "subscription",
-          line_items: lineItems,
-          success_url: env.STRIPE_SUCCESS_URL,
-          cancel_url: env.STRIPE_CANCEL_URL,
-          customer: org.stripeCustomerId || undefined,
-          customer_email: org.stripeCustomerId ? undefined : req.auth.email,
-          metadata: checkoutMetadata,
-          subscription_data: {
-            metadata: checkoutMetadata
-          }
-        },
-        {
-          idempotencyKey: buildStripeIdempotencyKey({
-            action: "checkout",
-            orgId: org.orgId,
-            userId: req.auth.userId,
-            plan: selectedPlan
-          })
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        line_items: lineItems,
+        success_url: env.STRIPE_SUCCESS_URL,
+        cancel_url: env.STRIPE_CANCEL_URL,
+        customer: org.stripeCustomerId || undefined,
+        customer_email: org.stripeCustomerId ? undefined : req.auth.email,
+        metadata: checkoutMetadata,
+        subscription_data: {
+          metadata: checkoutMetadata
         }
-      );
+      });
 
       return res.json({ ok: true, data: { url: session.url } });
     } catch (error) {
@@ -472,37 +452,27 @@ billingRouter.post(
       }
 
       if (parsed.data.targetPlan === "pro") {
-        const session = await stripe.checkout.sessions.create(
-          {
-            mode: "subscription",
-            line_items: [{ price: env.STRIPE_PRO_PRICE_ID, quantity: 1 }],
-            success_url: env.STRIPE_SUCCESS_URL,
-            cancel_url: env.STRIPE_CANCEL_URL,
-            customer: org.stripeCustomerId,
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          line_items: [{ price: env.STRIPE_PRO_PRICE_ID, quantity: 1 }],
+          success_url: env.STRIPE_SUCCESS_URL,
+          cancel_url: env.STRIPE_CANCEL_URL,
+          customer: org.stripeCustomerId,
+          metadata: {
+            orgId: org.orgId,
+            userId: req.auth.userId,
+            plan: "pro",
+            planChange: "upgrade"
+          },
+          subscription_data: {
             metadata: {
               orgId: org.orgId,
               userId: req.auth.userId,
               plan: "pro",
               planChange: "upgrade"
-            },
-            subscription_data: {
-              metadata: {
-                orgId: org.orgId,
-                userId: req.auth.userId,
-                plan: "pro",
-                planChange: "upgrade"
-              }
             }
-          },
-          {
-            idempotencyKey: buildStripeIdempotencyKey({
-              action: "plan-upgrade",
-              orgId: org.orgId,
-              userId: req.auth.userId,
-              plan: "pro"
-            })
           }
-        );
+        });
         return res.json({ ok: true, data: { url: session.url } });
       }
 

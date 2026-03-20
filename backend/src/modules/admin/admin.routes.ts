@@ -198,7 +198,6 @@ const QUEUE_MONITOR_ACTIONS = [
 ];
 
 const QUEUE_STUCK_THRESHOLD_MS = 5 * 60 * 1000;
-const OPERATOR_RETRY_COOLDOWN_MS = 60 * 1000;
 
 const SMS_MONITOR_ACTIONS = ["SMS_EVENT", "SMS_OPT_OUT"];
 
@@ -237,13 +236,6 @@ function describeQueueRetryEligibility(input: {
     return { eligible: false, reason: "Event context missing; cannot retry.", mode: null };
   }
   const normalizedStatus = status.toLowerCase();
-  if (normalizedStatus === "failed_terminal") {
-    return {
-      eligible: false,
-      reason: "Job reached terminal failure state. Review event payload and provider configuration before manual recovery.",
-      mode: null
-    };
-  }
   if (normalizedStatus === "completed") {
     return { eligible: false, reason: "Job already completed.", mode: null };
   }
@@ -289,7 +281,7 @@ function queueJobNameFromType(type: string) {
   }
 }
 
-type FinalizerEligibilityMode = "missing" | "queued" | "stuck_queued" | "failed" | "done" | "processing" | "unknown";
+type FinalizerEligibilityMode = "missing" | "queued" | "failed" | "done" | "processing" | "unknown";
 
 type FinalizerEligibility = {
   eligible: boolean;
@@ -297,7 +289,7 @@ type FinalizerEligibility = {
   mode: FinalizerEligibilityMode;
 };
 
-function describeFinalizerEligibility(job: { status?: string | null; error?: string | null; updatedAt?: Date | null } | null): FinalizerEligibility {
+function describeFinalizerEligibility(job: { status?: string | null; error?: string | null } | null): FinalizerEligibility {
   if (!job) {
     return { eligible: true, reason: "Finalizer has not run yet.", mode: "missing" };
   }
@@ -313,19 +305,10 @@ function describeFinalizerEligibility(job: { status?: string | null; error?: str
     return { eligible: false, reason: "Finalizer is still processing.", mode: "processing" };
   }
   if (normalized === "queued") {
-    const updatedAtMs = job.updatedAt instanceof Date ? job.updatedAt.getTime() : null;
-    const isStaleQueued = updatedAtMs !== null && Date.now() - updatedAtMs > QUEUE_STUCK_THRESHOLD_MS;
-    if (!isStaleQueued) {
-      return {
-        eligible: false,
-        reason: "Finalizer is queued and waiting to run. Retry is available only if it remains stuck.",
-        mode: "queued"
-      };
-    }
     return {
       eligible: true,
       reason: job.error ? `Last error: ${job.error}` : "Finalizer queued and ready.",
-      mode: "stuck_queued"
+      mode: "queued"
     };
   }
   if (normalized === "failed") {
@@ -868,14 +851,7 @@ adminRouter.post(
       callIdCandidates.length > 0
         ? await prisma.finalizeBookingJob.findFirst({
             where: { callId: { in: callIdCandidates } },
-            orderBy: { updatedAt: "desc" },
-            select: {
-              id: true,
-              callId: true,
-              status: true,
-              error: true,
-              updatedAt: true
-            }
+            orderBy: { updatedAt: "desc" }
           })
         : null;
     const eligibility = describeFinalizerEligibility(finalizeBookingJob);
@@ -896,35 +872,6 @@ adminRouter.post(
         metadata: { ...auditMetadata, accepted: false, mode: eligibility.mode }
       });
       return res.status(400).json({ ok: false, message: eligibility.reason });
-    }
-
-    const recentRetrigger = await prisma.auditLog.findFirst({
-      where: {
-        orgId: call.orgId,
-        action: "ADMIN_RETRIGGER_FINALIZER",
-        metadataJson: { contains: `"callId":"${call.id}"` },
-        createdAt: { gte: new Date(Date.now() - OPERATOR_RETRY_COOLDOWN_MS) }
-      },
-      orderBy: { createdAt: "desc" }
-    });
-    if (recentRetrigger) {
-      await writeAuditLog({
-        prisma,
-        orgId: call.orgId ?? undefined,
-        actorUserId: req.auth?.userId || "system",
-        actorRole: req.auth?.role || "ADMIN",
-        action: "ADMIN_RETRIGGER_FINALIZER",
-        metadata: {
-          ...auditMetadata,
-          accepted: false,
-          mode: eligibility.mode,
-          message: "retry_cooldown_active"
-        }
-      });
-      return res.status(429).json({
-        ok: false,
-        message: "A follow-up retry was requested recently. Wait before trying again."
-      });
     }
 
     const jobCallId = finalizeBookingJob?.callId || call.providerCallId || call.id;
@@ -1125,61 +1072,16 @@ adminRouter.post("/ops/retry-job", async (req: AuthenticatedRequest, res: Respon
     lastErrorMessage: typeof metadata.message === "string" ? metadata.message : null
   });
   if (!retryInfo.eligible) {
-    await writeAuditLog({
-      prisma,
-      orgId: log.orgId ?? undefined,
-      actorUserId: req.auth?.userId || "system",
-      actorRole: req.auth?.role || "ADMIN",
-      action: "ADMIN_RETRY_WEBHOOK_JOB",
-      metadata: {
-        originalJobLogId: log.id,
-        eventId,
-        jobType: type,
-        accepted: false,
-        message: retryInfo.reason
-      }
-    });
     return res.status(400).json({ ok: false, message: retryInfo.reason });
   }
   if (!type || !eventId) {
     return res.status(400).json({ ok: false, message: "Remediation data missing; cannot requeue job." });
   }
-  const recentRetry = await prisma.auditLog.findFirst({
-    where: {
-      orgId: log.orgId,
-      action: "ADMIN_RETRY_WEBHOOK_JOB",
-      metadataJson: { contains: `"eventId":"${eventId}"` },
-      createdAt: { gte: new Date(Date.now() - OPERATOR_RETRY_COOLDOWN_MS) }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  if (recentRetry) {
-    await writeAuditLog({
-      prisma,
-      orgId: log.orgId ?? undefined,
-      actorUserId: req.auth?.userId || "system",
-      actorRole: req.auth?.role || "ADMIN",
-      action: "ADMIN_RETRY_WEBHOOK_JOB",
-      metadata: {
-        originalJobLogId: log.id,
-        eventId,
-        jobType: type,
-        accepted: false,
-        message: "retry_cooldown_active"
-      }
-    });
-    return res.status(429).json({
-      ok: false,
-      message: "A retry for this job was requested recently. Wait before retrying again."
-    });
-  }
   try {
     const queueName = queueJobNameFromType(type);
     const jobData: Record<string, unknown> = { type, eventId };
     if (log.orgId) jobData.orgId = log.orgId;
-    const job = await webhookQueue.add(queueName, jobData, {
-      jobId: `manual-retry:${type}:${eventId}`
-    });
+    const job = await webhookQueue.add(queueName, jobData);
     await writeAuditLog({
       prisma,
       orgId: log.orgId ?? undefined,

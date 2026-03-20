@@ -23,22 +23,16 @@ stripeRouter.post("/create-checkout-session", async (req, res) => {
   const priceId =
     parsed.data.plan === "starter" ? env.STRIPE_STARTER_PRICE_ID : env.STRIPE_PRO_PRICE_ID;
 
-  const minuteBucket = Math.floor(Date.now() / 60_000);
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: env.STRIPE_SUCCESS_URL,
-      cancel_url: env.STRIPE_CANCEL_URL,
-      metadata: {
-        plan: parsed.data.plan
-      },
-      allow_promotion_codes: true
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: env.STRIPE_SUCCESS_URL,
+    cancel_url: env.STRIPE_CANCEL_URL,
+    metadata: {
+      plan: parsed.data.plan
     },
-    {
-      idempotencyKey: `public-checkout:${parsed.data.plan}:${minuteBucket}`
-    }
-  );
+    allow_promotion_codes: true
+  });
 
   return res.json({ ok: true, data: { url: session.url } });
 });

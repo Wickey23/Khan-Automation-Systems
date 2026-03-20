@@ -177,13 +177,18 @@ const PORT = process.env.PORT || "3001";
 const voiceMediaStreamServer = attachVoiceMediaStreamServer({ server, prisma });
 
 async function scheduleRepeatableJobs() {
-  // Use stable repeat job IDs so restarts do not create duplicate schedules.
-  await backgroundTasksQueue.add("outreach-runner", {}, { jobId: "repeat:outreach-runner", repeat: { every: 60000 } });
-  await backgroundTasksQueue.add("booking-finalizer", {}, { jobId: "repeat:booking-finalizer", repeat: { every: 10000 } });
-  await backgroundTasksQueue.add("sla-monitor", {}, { jobId: "repeat:sla-monitor", repeat: { every: 60000 } });
-  await backgroundTasksQueue.add("data-integrity", {}, { jobId: "repeat:data-integrity", repeat: { every: 300000 } });
-  await backgroundTasksQueue.add("admin-reports", {}, { jobId: "repeat:admin-reports", repeat: { pattern: "0 0 * * *" } }); // Midnight daily
-  await backgroundTasksQueue.add("job-reconciliation", {}, { jobId: "repeat:job-reconciliation", repeat: { every: 120000 } });
+  // Clear any existing repeatable jobs to avoid duplicates on restart
+  const jobs = await backgroundTasksQueue.getRepeatableJobs();
+  for (const job of jobs) {
+    await backgroundTasksQueue.removeRepeatableByKey(job.key);
+  }
+
+  // Schedule background tasks
+  await backgroundTasksQueue.add("outreach-runner", {}, { repeat: { every: 60000 } });
+  await backgroundTasksQueue.add("booking-finalizer", {}, { repeat: { every: 10000 } });
+  await backgroundTasksQueue.add("sla-monitor", {}, { repeat: { every: 60000 } });
+  await backgroundTasksQueue.add("data-integrity", {}, { repeat: { every: 300000 } });
+  await backgroundTasksQueue.add("admin-reports", {}, { repeat: { pattern: "0 0 * * *" } }); // Midnight daily
   
   console.log("[Queue] Repeatable jobs scheduled.");
 }
@@ -235,27 +240,12 @@ function enforceProductionSecurity() {
 void (async () => {
   enforceProductionSecurity();
   await ensureAdminUser();
-
-  const runScheduler = String(process.env.RUN_BACKGROUND_SCHEDULER || "true").toLowerCase() !== "false";
-  if (runScheduler) {
-    await scheduleRepeatableJobs();
-  } else {
-    console.log("[Queue] Background scheduler disabled via RUN_BACKGROUND_SCHEDULER=false");
-  }
+  await scheduleRepeatableJobs();
   
-  const runWorkers = String(process.env.RUN_QUEUE_WORKERS || "true").toLowerCase() !== "false";
-  if (runWorkers) {
-    // Reference workers to keep initialization explicit.
-    void webhookWorker;
-    void importWorker;
-    void backgroundWorker;
-    console.log(`[Worker] Webhook worker initialized.`);
-    console.log(`[Worker] Import worker initialized.`);
-    console.log(`[Worker] Background worker initialized.`);
-  } else {
-    console.log("[Worker] Queue workers disabled via RUN_QUEUE_WORKERS=false");
-  }
-
+  // Ensure BullMQ Workers are listening
+  console.log(`[Worker] Webhook worker initialized.`);
+  console.log(`[Worker] Import worker initialized.`);
+  console.log(`[Worker] Background worker initialized.`);
   server.listen(Number(PORT), "0.0.0.0", () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on ${PORT}`);

@@ -32,15 +32,8 @@ smsRouter.post("/", verifyTwilioRequest, async (req, res) => {
          ttlMs: 60000, // 1 minute
          handler: async () => {
            // Priority 2: Durable Staging - store in DB, keep out of Redis
-           const event = await prisma.smsWebhookEvent.upsert({
-             where: { messageSid },
-             update: {
-               eventType: "sms-inbound",
-               payload: req.body as any,
-               processed: false,
-               processingError: null
-             },
-             create: {
+           const event = await prisma.smsWebhookEvent.create({
+             data: {
                messageSid,
                eventType: "sms-inbound",
                payload: req.body as any,
@@ -96,15 +89,8 @@ smsRouter.post("/status", verifyTwilioRequest, async (req, res) => {
          ttlMs: 60000,
          handler: async () => {
            // Priority 2: Durable Staging
-           const event = await prisma.smsWebhookEvent.upsert({
-             where: { messageSid },
-             update: {
-               eventType: "sms-status",
-               payload: req.body as any,
-               processed: false,
-               processingError: null
-             },
-             create: {
+           const event = await prisma.smsWebhookEvent.create({
+             data: {
                messageSid,
                eventType: "sms-status",
                payload: req.body as any,
