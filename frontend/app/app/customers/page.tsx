@@ -1,7 +1,7 @@
 "use client";
 
-import CustomerBasePage from "../customer-base/page";
+import Page from "@/components/stitch/pages/Customers";
 
 export default function RoutePage() {
-  return <CustomerBasePage />;
+  return <Page />;
 }

@@ -1,7 +1,5 @@
-"use client";
+import { ZipFrame } from "@/components/stitch/zip-frame";
 
-import DashboardPage from "@/components/stitch/pages/app/Dashboard";
-
-export default function AppOverviewPage() {
-  return <DashboardPage />;
+export default function Page() {
+  return <ZipFrame folder="client_dashboard_app_refactored" title="Client Dashboard" />;
 }

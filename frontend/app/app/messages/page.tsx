@@ -1,7 +1,5 @@
-"use client";
+import { ZipFrame } from "@/components/stitch/zip-frame";
 
-import MessagesPage from "@/components/stitch/pages/Messages";
-
-export default function RoutePage() {
-  return <MessagesPage />;
+export default function Page() {
+  return <ZipFrame folder="messages_app_messages_cohesive_refinement" title="Messages" />;
 }

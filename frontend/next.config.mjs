@@ -10,8 +10,7 @@ const nextConfig = {
       "default-src 'self'",
       "base-uri 'self'",
       "object-src 'none'",
-      // Allow same-origin iframe embedding for local stitched screen embeds.
-      "frame-ancestors 'self'",
+      "frame-ancestors 'none'",
       "script-src 'self' 'unsafe-inline' https://js.stripe.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
@@ -27,7 +26,7 @@ const nextConfig = {
         headers: [
           // Enforced CSP — blocks actual violations, not just reports.
           { key: "Content-Security-Policy", value: cspDirectives },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
