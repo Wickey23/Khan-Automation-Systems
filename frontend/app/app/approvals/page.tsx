@@ -12,6 +12,7 @@ export default function ApprovalsPage() {
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   async function load() {
     setBusy(true);
@@ -35,9 +36,9 @@ export default function ApprovalsPage() {
     setActionBusyId(approvalRequestId);
     try {
       if (mode === "approve") {
-        await approveAiAction(approvalRequestId);
+        await approveAiAction(approvalRequestId, notes[approvalRequestId] || undefined);
       } else {
-        await rejectAiAction(approvalRequestId);
+        await rejectAiAction(approvalRequestId, notes[approvalRequestId] || undefined);
       }
       await load();
     } catch (decisionError) {
@@ -93,6 +94,15 @@ export default function ApprovalsPage() {
 
                   {approval.inputSummary ? <p className="mt-3 text-sm text-slate-600">{approval.inputSummary}</p> : null}
                   {approval.reason ? <p className="mt-2 text-xs text-slate-500">{approval.reason}</p> : null}
+                  {approval.status === "PENDING" ? (
+                    <textarea
+                      value={notes[approval.id] || ""}
+                      onChange={(event) => setNotes((current) => ({ ...current, [approval.id]: event.target.value }))}
+                      placeholder="Optional edit/review note..."
+                      className="mt-3 w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-700"
+                      rows={2}
+                    />
+                  ) : null}
 
                   {approval.status === "PENDING" ? (
                     <div className="mt-4 flex flex-wrap gap-2">

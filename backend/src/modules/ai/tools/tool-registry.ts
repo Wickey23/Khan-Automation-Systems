@@ -186,6 +186,66 @@ const extractCallDetailsTool: ToolDefinition<{ callId?: string }> = {
   }
 };
 
+const classifyCallIntentTool: ToolDefinition<{ callId?: string; text?: string }> = {
+  key: "classify_call_intent",
+  description: "Classify primary call intent from transcript and call outcome.",
+  inputSchema: z.object({ callId: z.string().optional(), text: z.string().optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["call"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const call = await findCall(context.orgId, input.callId || context.entityId);
+    if (!call) return fail("CALL_NOT_FOUND");
+    const text = cleanText(input.text || call.transcript || call.aiSummary);
+    const intent = scoreKeywordHits(text, ["book", "appointment", "schedule"]) > 0 || call.outcome === "APPOINTMENT_REQUEST"
+      ? "booking_request"
+      : scoreKeywordHits(text, ["support", "help", "issue", "problem"]) > 0
+        ? "support_request"
+        : scoreKeywordHits(text, ["quote", "price", "cost"]) > 0
+          ? "quote_request"
+          : call.outcome === "SPAM"
+            ? "spam"
+            : "general_inquiry";
+
+    await prisma.callAiSummary.create({
+      data: {
+        orgId: context.orgId,
+        callLogId: call.id,
+        summary: `Classified intent: ${intent}`,
+        extractedJson: { intent },
+        confidence: 0.68
+      }
+    });
+
+    return ok("CALL_INTENT_CLASSIFIED", { callId: call.id, intent }, `Call intent classified as ${intent}.`);
+  }
+};
+
+const suggestFrontDeskActionTool: ToolDefinition<{ callId?: string }> = {
+  key: "suggest_front_desk_action",
+  description: "Suggest next operator action based on call outcome and context.",
+  inputSchema: z.object({ callId: z.string().optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["call"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const call = await findCall(context.orgId, input.callId || context.entityId);
+    if (!call) return fail("CALL_NOT_FOUND");
+    const transcript = cleanText(call.transcript || call.aiSummary);
+    const action =
+      call.outcome === "APPOINTMENT_REQUEST" || scoreKeywordHits(transcript, ["appointment", "book"]) > 0
+        ? "Open booking triage and confirm appointment slot."
+        : call.outcome === "MISSED" || call.outcome === "ABANDONED"
+          ? "Send callback draft and create follow-up task."
+          : scoreKeywordHits(transcript, ["quote", "price"]) > 0
+            ? "Create quote follow-up task for lead ops."
+            : "Review transcript and close with notes.";
+    return ok("FRONT_DESK_ACTION_SUGGESTED", { callId: call.id, action }, "Front desk next action suggested.");
+  }
+};
+
 const createFollowupTaskTool: ToolDefinition<{ title?: string; description?: string; priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT" }> = {
   key: "create_followup_task",
   description: "Create a follow-up task and queue item.",
@@ -334,6 +394,79 @@ const assignTaskTool: ToolDefinition<{ taskId: string; assigneeUserId: string }>
   }
 };
 
+const buildCallbackQueueTool: ToolDefinition<{ limit?: number }> = {
+  key: "build_callback_queue",
+  description: "Build callback queue from recent missed/abandoned calls.",
+  inputSchema: z.object({ limit: z.number().int().min(1).max(100).optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["organization", "call"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const limit = Math.max(1, Math.min(100, Number(input.limit || 20)));
+    const calls = await prisma.callLog.findMany({
+      where: { orgId: context.orgId, outcome: { in: ["MISSED", "ABANDONED"] } },
+      orderBy: { createdAt: "desc" },
+      take: limit
+    });
+    let created = 0;
+    for (const call of calls) {
+      const existing = await prisma.followUpQueueItem.findFirst({
+        where: { orgId: context.orgId, entityType: "call", entityId: call.id, status: "OPEN" }
+      });
+      if (existing) continue;
+      await createFollowupTaskTool.execute(
+        {
+          title: `Callback needed: ${call.fromNumber}`,
+          description: `Missed call at ${call.createdAt.toISOString()} from ${call.fromNumber}`,
+          priority: "HIGH"
+        },
+        { ...context, entityType: "call", entityId: call.id }
+      );
+      created += 1;
+    }
+    return ok("CALLBACK_QUEUE_BUILT", { created, inspected: calls.length }, `Callback queue built with ${created} new items.`);
+  }
+};
+
+const escalateOverdueItemTool: ToolDefinition<{ taskId?: string }> = {
+  key: "escalate_overdue_item",
+  description: "Escalate overdue task priority and queue note.",
+  inputSchema: z.object({ taskId: z.string().optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["task", "organization"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const taskId = input.taskId || context.entityId;
+    if (!taskId) return fail("TASK_NOT_FOUND");
+    const task = await prisma.task.findFirst({ where: { id: taskId, orgId: context.orgId } });
+    if (!task) return fail("TASK_NOT_FOUND");
+    const overdue = Boolean(task.dueAt && task.dueAt.getTime() < Date.now() && task.status !== TaskStatus.DONE && task.status !== TaskStatus.CANCELED);
+    if (!overdue) return ok("TASK_NOT_OVERDUE", { taskId: task.id }, "Task is not overdue.");
+    await prisma.task.update({
+      where: { id: task.id },
+      data: {
+        priority: TaskPriority.URGENT,
+        status: task.status === TaskStatus.OPEN ? TaskStatus.BLOCKED : task.status,
+        description: `${task.description || ""}\n[AI Escalation] Overdue item escalated on ${new Date().toISOString()}`.trim()
+      }
+    });
+    await prisma.followUpQueueItem.create({
+      data: {
+        orgId: context.orgId,
+        taskId: task.id,
+        entityType: task.entityType,
+        entityId: task.entityId,
+        reason: "Overdue follow-up item escalated by AI agent",
+        status: "OPEN",
+        suggestedAt: new Date()
+      }
+    });
+    return ok("OVERDUE_ITEM_ESCALATED", { taskId: task.id }, "Overdue task escalated.");
+  }
+};
+
 const scoreLeadTool: ToolDefinition<{ leadId?: string }> = {
   key: "score_lead",
   description: "Score lead quality and persist lightweight pipeline record.",
@@ -435,6 +568,200 @@ const generateCallPrepTool: ToolDefinition<{ leadId?: string }> = {
   }
 };
 
+const previewImportTool: ToolDefinition<{ csv: string; mapping?: Record<string, string> }> = {
+  key: "preview_import",
+  description: "Preview CSV lead import and basic column mapping.",
+  inputSchema: z.object({ csv: z.string().min(5), mapping: z.record(z.string()).optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["organization"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input) {
+    const rows = input.csv
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (rows.length < 2) return fail("IMPORT_PREVIEW_EMPTY", "CSV must include header and at least one row.");
+
+    const headers = rows[0].split(",").map((item) => item.trim());
+    const sampleRows = rows.slice(1, 6).map((line) => line.split(",").map((cell) => cell.trim()));
+    const suggestedMapping: Record<string, string> = {};
+    for (const header of headers) {
+      const lower = header.toLowerCase();
+      if (lower.includes("name")) suggestedMapping[header] = "name";
+      if (lower.includes("company") || lower.includes("business")) suggestedMapping[header] = "business";
+      if (lower.includes("email")) suggestedMapping[header] = "email";
+      if (lower.includes("phone")) suggestedMapping[header] = "phone";
+      if (lower.includes("service")) suggestedMapping[header] = "serviceRequested";
+      if (lower.includes("message") || lower.includes("note")) suggestedMapping[header] = "message";
+    }
+    return ok(
+      "IMPORT_PREVIEW_READY",
+      { headers, sampleRows, totalRows: rows.length - 1, suggestedMapping, mapping: input.mapping || suggestedMapping },
+      `Import preview ready for ${rows.length - 1} rows.`
+    );
+  }
+};
+
+const importLeadsTool: ToolDefinition<{ csv: string; mapping?: Record<string, string> }> = {
+  key: "import_leads",
+  description: "Import leads from CSV into workspace lead table.",
+  inputSchema: z.object({ csv: z.string().min(5), mapping: z.record(z.string()).optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["organization"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const preview = await previewImportTool.execute(input, context);
+    if (!preview.ok) return preview;
+    const headers = (preview.output?.headers as string[]) || [];
+    const mapping = ((preview.output?.mapping as Record<string, string>) || {});
+    const rows = input.csv
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(1);
+
+    let imported = 0;
+    let skipped = 0;
+    for (const row of rows.slice(0, 500)) {
+      const cells = row.split(",").map((cell) => cell.trim());
+      const record: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        record[mapping[header] || header] = cells[index] || "";
+      });
+      const name = cleanText(record.name);
+      const email = cleanText(record.email);
+      const phone = cleanText(record.phone);
+      if (!name || (!email && !phone)) {
+        skipped += 1;
+        continue;
+      }
+      const existing = await prisma.lead.findFirst({
+        where: {
+          orgId: context.orgId,
+          OR: [{ email: email || "__none__" }, { phone: phone || "__none__" }]
+        }
+      });
+      if (existing) {
+        skipped += 1;
+        continue;
+      }
+      await prisma.lead.create({
+        data: {
+          orgId: context.orgId,
+          name,
+          business: cleanText(record.business) || "Imported Lead",
+          email: email || `${phone.replace(/\D/g, "") || "unknown"}@import.local`,
+          phone: phone || "unknown",
+          message: cleanText(record.message) || null,
+          serviceRequested: cleanText(record.serviceRequested) || null,
+          sourcePage: "ai-import",
+          source: "WEB_FORM"
+        }
+      });
+      imported += 1;
+    }
+
+    return ok("LEADS_IMPORTED", { imported, skipped }, `Imported ${imported} leads, skipped ${skipped}.`);
+  }
+};
+
+const dedupeLeadsTool: ToolDefinition<Record<string, unknown>> = {
+  key: "dedupe_leads",
+  description: "Find duplicate leads by normalized email/phone.",
+  inputSchema: z.object({}).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["organization"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(_, context) {
+    const leads = await prisma.lead.findMany({
+      where: { orgId: context.orgId },
+      select: { id: true, name: true, email: true, phone: true, createdAt: true },
+      take: 1000
+    });
+    const byKey = new Map<string, Array<{ id: string; name: string; createdAt: Date }>>();
+    for (const lead of leads) {
+      const normalized = `${lead.email.toLowerCase()}|${lead.phone.replace(/\D/g, "")}`;
+      if (!byKey.has(normalized)) byKey.set(normalized, []);
+      byKey.get(normalized)!.push({ id: lead.id, name: lead.name, createdAt: lead.createdAt });
+    }
+    const duplicates = [...byKey.values()]
+      .filter((group) => group.length > 1)
+      .map((group) => group.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()));
+    return ok(
+      "LEAD_DEDUPE_ANALYZED",
+      {
+        duplicateGroups: duplicates.map((group) => ({ canonicalId: group[0].id, members: group.map((item) => ({ id: item.id, name: item.name })) })),
+        duplicateCount: duplicates.reduce((sum, group) => sum + group.length - 1, 0)
+      },
+      `${duplicates.length} duplicate groups identified.`
+    );
+  }
+};
+
+const classifyLeadReplyTool: ToolDefinition<{ leadId?: string; text?: string }> = {
+  key: "classify_lead_reply",
+  description: "Classify inbound lead reply for pipeline follow-up.",
+  inputSchema: z.object({ leadId: z.string().optional(), text: z.string().optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["lead", "message_thread"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const lead = await findLead(context.orgId, input.leadId || context.entityId);
+    if (!lead) return fail("LEAD_NOT_FOUND");
+    let text = cleanText(input.text);
+    if (!text) {
+      const latestThread = await prisma.messageThread.findFirst({
+        where: { orgId: context.orgId, leadId: lead.id },
+        include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } }
+      });
+      text = cleanText(latestThread?.messages[0]?.body);
+    }
+    if (!text) return fail("NO_REPLY_TEXT", "No reply text found for classification.");
+    const classification = scoreKeywordHits(text, ["yes", "available", "schedule"]) > 0
+      ? "interested"
+      : scoreKeywordHits(text, ["later", "next week", "not now"]) > 0
+        ? "nurture"
+        : scoreKeywordHits(text, ["stop", "unsubscribe", "no thanks"]) > 0
+          ? "do_not_contact"
+          : "needs_review";
+    const recommendation =
+      classification === "interested"
+        ? "Schedule follow-up call within 24 hours."
+        : classification === "nurture"
+          ? "Set follow-up reminder for next week."
+          : classification === "do_not_contact"
+            ? "Mark lead DNC and stop outreach."
+            : "Review manually.";
+    return ok("LEAD_REPLY_CLASSIFIED", { leadId: lead.id, classification, recommendation }, `Lead reply classified as ${classification}.`);
+  }
+};
+
+const scheduleLeadFollowupTool: ToolDefinition<{ leadId?: string; reason?: string }> = {
+  key: "schedule_lead_followup",
+  description: "Create lead-linked follow-up task in queue.",
+  inputSchema: z.object({ leadId: z.string().optional(), reason: z.string().max(300).optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["lead"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const lead = await findLead(context.orgId, input.leadId || context.entityId);
+    if (!lead) return fail("LEAD_NOT_FOUND");
+    return createFollowupTaskTool.execute(
+      {
+        title: `Lead follow-up: ${lead.name}`,
+        description: cleanText(input.reason) || "AI scheduled lead follow-up task.",
+        priority: "MEDIUM"
+      },
+      { ...context, entityType: "lead", entityId: lead.id }
+    );
+  }
+};
+
 const classifyMessageTool: ToolDefinition<{ threadId?: string }> = {
   key: "classify_message",
   description: "Classify a message thread and persist classification.",
@@ -497,13 +824,18 @@ const detectOptOutTool: ToolDefinition<{ threadId?: string; text?: string }> = {
   idempotencyScope: "none",
   async execute(input, context) {
     let text = cleanText(input.text);
+    let threadLeadId: string | null = null;
     if (!text) {
       const thread = await findThread(context.orgId, input.threadId || context.entityId);
+      threadLeadId = thread?.leadId || null;
       text = cleanText(thread?.messages.find((m) => m.direction === MessageDirection.INBOUND)?.body);
     }
     if (!text) return fail("NO_CONTENT", "No inbound message text to inspect.");
     const optOutKeywords = ["stop", "unsubscribe", "do not text", "dont text", "remove me"];
     const optedOut = optOutKeywords.some((k) => text.toLowerCase().includes(k));
+    if (optedOut && threadLeadId) {
+      await prisma.lead.update({ where: { id: threadLeadId }, data: { dnc: true, notes: "Opt-out detected by communications agent." } });
+    }
     return ok("OPT_OUT_CHECKED", { optedOut }, optedOut ? "Opt-out intent detected." : "No opt-out intent detected.");
   }
 };
@@ -547,6 +879,61 @@ const createMessageFollowupTaskTool: ToolDefinition<{ threadId?: string }> = {
       },
       { ...context, entityType: "message_thread", entityId: thread.id }
     );
+  }
+};
+
+const routeThreadTool: ToolDefinition<{ threadId?: string; routeTo?: string }> = {
+  key: "route_thread",
+  description: "Route thread to an operational queue via follow-up item.",
+  inputSchema: z.object({ threadId: z.string().optional(), routeTo: z.string().max(80).optional() }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["message_thread"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "none",
+  async execute(input, context) {
+    const thread = await findThread(context.orgId, input.threadId || context.entityId);
+    if (!thread) return fail("THREAD_NOT_FOUND");
+    const routeTo = cleanText(input.routeTo) || "front-desk-review";
+    const queueItem = await prisma.followUpQueueItem.create({
+      data: {
+        orgId: context.orgId,
+        entityType: "message_thread",
+        entityId: thread.id,
+        reason: `Thread routed to ${routeTo}`,
+        status: "OPEN",
+        suggestedAt: new Date()
+      }
+    });
+    return ok("THREAD_ROUTED", { threadId: thread.id, routeTo, queueItemId: queueItem.id }, `Thread routed to ${routeTo}.`);
+  }
+};
+
+const markThreadStatusTool: ToolDefinition<{ threadId?: string; status: "OPEN" | "PENDING" | "RESOLVED" | "BLOCKED" }> = {
+  key: "mark_thread_status",
+  description: "Mark thread operational status in metadata.",
+  inputSchema: z.object({ threadId: z.string().optional(), status: z.enum(["OPEN", "PENDING", "RESOLVED", "BLOCKED"]) }).passthrough(),
+  requiredRoles: OPERATOR_ROLES,
+  entityTypes: ["message_thread"],
+  approvalPolicy: "NONE",
+  idempotencyScope: "org_entity_tool",
+  async execute(input, context) {
+    const thread = await prisma.messageThread.findFirst({ where: { id: input.threadId || context.entityId, orgId: context.orgId } });
+    if (!thread) return fail("THREAD_NOT_FOUND");
+    await prisma.messageThread.update({
+      where: { id: thread.id },
+      data: { updatedAt: new Date(), contactName: thread.contactName || null }
+    });
+    await prisma.entityNote.create({
+      data: {
+        orgId: context.orgId,
+        entityType: "message_thread",
+        entityId: thread.id,
+        noteType: "thread_status",
+        body: `Thread status marked ${input.status}`,
+        createdByUserId: context.actorUserId
+      }
+    });
+    return ok("THREAD_STATUS_MARKED", { threadId: thread.id, status: input.status }, `Thread status marked ${input.status}.`);
   }
 };
 
@@ -952,21 +1339,32 @@ const genericDraftTool = (key: string, description: string): ToolDefinition<{ co
 const toolDefinitions: Array<ToolDefinition<any>> = [
   summarizeCallTool,
   extractCallDetailsTool,
+  classifyCallIntentTool,
   detectUrgencyTool,
+  suggestFrontDeskActionTool,
   draftCallbackTool,
   createFollowupTaskTool,
+  previewImportTool,
+  importLeadsTool,
+  dedupeLeadsTool,
   scoreLeadTool,
   summarizeLeadTool,
   draftOutreachEmailTool,
   draftOutreachSmsTool,
+  classifyLeadReplyTool,
   generateCallPrepTool,
+  scheduleLeadFollowupTool,
   summarizeThreadTool,
   classifyMessageTool,
   detectOptOutTool,
   draftReplyTool,
+  routeThreadTool,
+  markThreadStatusTool,
   createMessageFollowupTaskTool,
   createTaskTool,
   assignTaskTool,
+  buildCallbackQueueTool,
+  escalateOverdueItemTool,
   suggestDueDateTool,
   createReminderTool,
   scheduleFollowupTool,

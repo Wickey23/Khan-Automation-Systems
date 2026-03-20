@@ -4,9 +4,11 @@ import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import {
   aiApprovalDecisionSchema,
+  aiFollowUpQueueUpdateSchema,
   aiQuerySchema,
   aiRetryRunSchema,
   aiRunCreateSchema,
+  aiTaskUpdateSchema,
   aiTimelineParamsSchema,
   aiToolExecuteSchema
 } from "./ai.schema";
@@ -223,12 +225,97 @@ aiRouter.get("/queues/follow-up", async (req: AuthenticatedRequest, res) => {
 
   const queue = await prisma.followUpQueueItem.findMany({
     where: { orgId, ...(queryParsed.data.status ? { status: queryParsed.data.status } : {}) },
-    include: { task: true },
+    include: {
+      task: {
+        include: {
+          assignedToUser: { select: { id: true, email: true } }
+        }
+      }
+    },
     orderBy: { createdAt: "desc" },
     take: queryParsed.data.limit
   });
 
   return res.json({ ok: true, data: { queue } });
+});
+
+aiRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res) => {
+  const parsed = aiTaskUpdateSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid task payload." });
+
+  const orgId = await resolveOrgId(req);
+  if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
+
+  const task = await prisma.task.findFirst({ where: { id: req.params.id, orgId } });
+  if (!task) return res.status(404).json({ ok: false, message: "TASK_NOT_FOUND" });
+
+  if (parsed.data.assignedToUserId) {
+    const assignee = await prisma.user.findFirst({ where: { id: parsed.data.assignedToUserId, orgId } });
+    if (!assignee) return res.status(404).json({ ok: false, message: "ASSIGNEE_NOT_FOUND" });
+  }
+
+  const updated = await prisma.task.update({
+    where: { id: task.id },
+    data: {
+      status: parsed.data.status,
+      priority: parsed.data.priority,
+      dueAt: parsed.data.dueAt === undefined ? undefined : parsed.data.dueAt ? new Date(parsed.data.dueAt) : null,
+      assignedToUserId: parsed.data.assignedToUserId === undefined ? undefined : parsed.data.assignedToUserId
+    },
+    include: { assignedToUser: { select: { id: true, email: true } } }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      orgId,
+      actorUserId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      action: "AI_TASK_UPDATED",
+      entityType: "task",
+      entityId: updated.id,
+      metadataJson: JSON.stringify({ status: updated.status, priority: updated.priority, dueAt: updated.dueAt })
+    }
+  });
+
+  return res.json({ ok: true, data: { task: updated } });
+});
+
+aiRouter.patch("/queues/follow-up/:id", async (req: AuthenticatedRequest, res) => {
+  const parsed = aiFollowUpQueueUpdateSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid follow-up payload." });
+
+  const orgId = await resolveOrgId(req);
+  if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
+
+  const item = await prisma.followUpQueueItem.findFirst({ where: { id: req.params.id, orgId } });
+  if (!item) return res.status(404).json({ ok: false, message: "FOLLOW_UP_ITEM_NOT_FOUND" });
+
+  const status = parsed.data.status.toUpperCase();
+  const updated = await prisma.followUpQueueItem.update({
+    where: { id: item.id },
+    data: { status, resolvedAt: status === "OPEN" ? null : new Date() },
+    include: {
+      task: {
+        include: {
+          assignedToUser: { select: { id: true, email: true } }
+        }
+      }
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      orgId,
+      actorUserId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      action: "AI_FOLLOWUP_STATUS_UPDATED",
+      entityType: "follow_up_queue_item",
+      entityId: updated.id,
+      metadataJson: JSON.stringify({ status: updated.status })
+    }
+  });
+
+  return res.json({ ok: true, data: { item: updated } });
 });
 
 aiRouter.get("/insights/manager-summary", async (req: AuthenticatedRequest, res) => {

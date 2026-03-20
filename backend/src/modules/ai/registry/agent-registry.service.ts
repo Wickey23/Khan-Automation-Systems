@@ -18,7 +18,16 @@ const DEFAULT_AGENTS: SeedAgent[] = [
     name: "Front Desk Agent",
     description: "Call triage, summaries, urgency, and callback recommendations.",
     domain: AiAgentDomain.FRONT_DESK,
-    allowedTools: ["summarize_call", "extract_call_details", "detect_urgency", "draft_callback", "create_followup_task"],
+    allowedTools: [
+      "summarize_call",
+      "extract_call_details",
+      "classify_call_intent",
+      "detect_urgency",
+      "suggest_front_desk_action",
+      "draft_callback",
+      "create_followup_task",
+      "queue_sms"
+    ],
     allowedEntities: ["call", "lead"]
   },
   {
@@ -26,7 +35,21 @@ const DEFAULT_AGENTS: SeedAgent[] = [
     name: "Lead Ops Agent",
     description: "Lead scoring, fit explanations, and outreach draft assistance.",
     domain: AiAgentDomain.LEAD_OPS,
-    allowedTools: ["score_lead", "summarize_lead", "draft_outreach_email", "draft_outreach_sms", "generate_call_prep"],
+    allowedTools: [
+      "preview_import",
+      "import_leads",
+      "dedupe_leads",
+      "score_lead",
+      "summarize_lead",
+      "draft_outreach_email",
+      "draft_outreach_sms",
+      "classify_lead_reply",
+      "generate_call_prep",
+      "mark_lead_status",
+      "schedule_lead_followup",
+      "queue_email",
+      "queue_sms"
+    ],
     allowedEntities: ["lead", "organization"]
   },
   {
@@ -34,7 +57,16 @@ const DEFAULT_AGENTS: SeedAgent[] = [
     name: "Communications Agent",
     description: "Thread classification and response drafting for inbox workflows.",
     domain: AiAgentDomain.COMMUNICATIONS,
-    allowedTools: ["summarize_thread", "classify_message", "detect_opt_out", "draft_reply", "create_message_followup_task"],
+    allowedTools: [
+      "summarize_thread",
+      "classify_message",
+      "detect_opt_out",
+      "draft_reply",
+      "route_thread",
+      "mark_thread_status",
+      "create_message_followup_task",
+      "queue_sms"
+    ],
     allowedEntities: ["message_thread", "lead"]
   },
   {
@@ -58,7 +90,15 @@ const DEFAULT_AGENTS: SeedAgent[] = [
     name: "Task/Follow-Up Agent",
     description: "Create, assign, and prioritize operational follow-up tasks.",
     domain: AiAgentDomain.TASK_FOLLOW_UP,
-    allowedTools: ["create_task", "assign_task", "suggest_due_date", "create_reminder", "schedule_followup"],
+    allowedTools: [
+      "create_task",
+      "assign_task",
+      "suggest_due_date",
+      "create_reminder",
+      "schedule_followup",
+      "build_callback_queue",
+      "escalate_overdue_item"
+    ],
     allowedEntities: ["call", "message_thread", "lead", "appointment", "task"]
   },
   {

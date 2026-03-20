@@ -3,7 +3,8 @@ import type { AgentPlanner } from "./agent.interface";
 export const taskFollowupAgent: AgentPlanner = {
   key: "task_followup",
   plan: (input) => {
-    return [
+    const prompt = input.prompt.toLowerCase();
+    const planned: Array<{ toolKey: string; input: Record<string, unknown>; reason: string }> = [
       {
         toolKey: "create_task",
         input: {
@@ -18,5 +19,12 @@ export const taskFollowupAgent: AgentPlanner = {
         reason: "Attach due-date guidance"
       }
     ];
+    if (prompt.includes("callback")) {
+      planned.push({ toolKey: "build_callback_queue", input: {}, reason: "Build callback queue for missed calls" });
+    }
+    if (prompt.includes("overdue") || prompt.includes("escalate")) {
+      planned.push({ toolKey: "escalate_overdue_item", input: { taskId: input.entityId }, reason: "Escalate overdue item" });
+    }
+    return planned;
   }
 };

@@ -37,7 +37,8 @@ export const aiRetryRunSchema = z.object({
 
 export const aiQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
-  status: z.string().optional()
+  status: z.string().optional(),
+  filter: z.string().optional()
 });
 
 export const aiToolExecuteSchema = z.object({
@@ -47,4 +48,15 @@ export const aiToolExecuteSchema = z.object({
   entityType: z.string().optional(),
   entityId: z.string().optional(),
   idempotencyKey: z.string().optional()
+});
+
+export const aiTaskUpdateSchema = z.object({
+  status: z.enum(["OPEN", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"]).optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
+  dueAt: z.string().datetime().nullable().optional(),
+  assignedToUserId: z.string().nullable().optional()
+});
+
+export const aiFollowUpQueueUpdateSchema = z.object({
+  status: z.string().min(2).max(30)
 });

@@ -16,9 +16,11 @@ import {
   Tag,
   User
 } from "lucide-react";
-import { fetchOrgLeads, getMe, updateLeadPipelineStage } from "@/lib/api";
+import { executeAiTool, fetchOrgLeads, getMe, updateLeadPipelineStage } from "@/lib/api";
 import type { FrontDeskPriority, Lead } from "@/lib/types";
 import { AskAiInline } from "@/components/ai/ask-ai-inline";
+import { AiWorkflowActions } from "@/components/ai/workflow-actions";
+import { EntityTimelineCard } from "@/components/ai/entity-timeline-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +88,18 @@ export default function AppLeadsPage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string>("");
   const [canEdit, setCanEdit] = useState(false);
   const [savingStage, setSavingStage] = useState<PipelineStage | null>(null);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [leadAiState, setLeadAiState] = useState<{
+    score?: number;
+    scoreReason?: string;
+    summary?: string;
+    callPrep?: string[];
+    emailDraft?: string;
+    smsDraft?: string;
+  }>({});
+  const [csvInput, setCsvInput] = useState("");
+  const [importPreview, setImportPreview] = useState<{ totalRows: number; headers: string[] } | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
 
   useEffect(() => {
     void getMe()
@@ -142,6 +156,17 @@ export default function AppLeadsPage() {
     leads[0] ||
     null;
 
+  useEffect(() => {
+    if (!selectedLead) {
+      setLeadAiState({});
+      return;
+    }
+    setLeadAiState((current) => ({
+      ...current,
+      summary: leadSummary(selectedLead)
+    }));
+  }, [selectedLead]);
+
   async function setStage(stage: PipelineStage) {
     if (!selectedLead || !canEdit) return;
     setSavingStage(stage);
@@ -150,6 +175,24 @@ export default function AppLeadsPage() {
       setLeads((current) => current.map((lead) => (lead.id === selectedLead.id ? { ...lead, pipelineStage: stage } : lead)));
     } finally {
       setSavingStage(null);
+    }
+  }
+
+  async function runBatchSmsDraft() {
+    if (!selectedLeadIds.length || batchBusy) return;
+    setBatchBusy(true);
+    try {
+      for (const leadId of selectedLeadIds.slice(0, 25)) {
+        await executeAiTool({
+          toolKey: "draft_outreach_sms",
+          agentKey: "lead_ops",
+          entityType: "lead",
+          entityId: leadId,
+          input: { leadId }
+        });
+      }
+    } finally {
+      setBatchBusy(false);
     }
   }
 
@@ -184,6 +227,19 @@ export default function AppLeadsPage() {
               </button>
             </div>
           </div>
+          {selectedLeadIds.length ? (
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-2">
+              <p className="text-xs text-slate-600">{selectedLeadIds.length} selected for outreach drafting.</p>
+              <button
+                type="button"
+                disabled={batchBusy}
+                onClick={() => void runBatchSmsDraft()}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-60"
+              >
+                {batchBusy ? "Generating..." : "Generate batch SMS drafts"}
+              </button>
+            </div>
+          ) : null}
 
           <div className="flex-1 overflow-y-auto">
             <table className="w-full border-collapse text-left">
@@ -211,6 +267,18 @@ export default function AppLeadsPage() {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedLeadIds.includes(lead.id)}
+                              onChange={(event) => {
+                                event.stopPropagation();
+                                setSelectedLeadIds((current) =>
+                                  event.target.checked ? [...new Set([...current, lead.id])] : current.filter((id) => id !== lead.id)
+                                );
+                              }}
+                              onClick={(event) => event.stopPropagation()}
+                              className="h-4 w-4 rounded border-slate-300"
+                            />
                             <div className={cn(
                               "flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold shadow-sm",
                               selected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
@@ -294,6 +362,81 @@ export default function AppLeadsPage() {
                     <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Operator Context</h4>
                   </div>
                   <p className="text-sm font-medium italic leading-relaxed text-slate-700">&ldquo;{leadSummary(selectedLead)}&rdquo;</p>
+                </div>
+
+                <AiWorkflowActions
+                  title="Lead Ops Workflow"
+                  description="Run lead scoring, summary, outreach drafts, and follow-up scheduling."
+                  agentKey="lead_ops"
+                  entityType="lead"
+                  entityId={selectedLead.id}
+                  actions={[
+                    { key: "score", label: "Score Lead", toolKey: "score_lead", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "summary", label: "Summarize Lead", toolKey: "summarize_lead", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "email", label: "Draft Outreach Email", toolKey: "draft_outreach_email", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "sms", label: "Draft Outreach SMS", toolKey: "draft_outreach_sms", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "prep", label: "Generate Call Prep", toolKey: "generate_call_prep", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "reply", label: "Classify Reply", toolKey: "classify_lead_reply", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "followup", label: "Schedule Follow-up", toolKey: "schedule_lead_followup", buildInput: () => ({ leadId: selectedLead.id }) },
+                    { key: "approve", label: "Queue First-touch Approval", toolKey: "queue_sms", buildInput: () => ({ content: leadAiState.smsDraft || `Follow up with ${leadName(selectedLead)}` }) }
+                  ]}
+                  onToolResult={(toolKey, payload) => {
+                    setLeadAiState((current) => ({
+                      ...current,
+                      score: toolKey === "score_lead" ? Number(payload?.score || current.score || 0) : current.score,
+                      scoreReason: toolKey === "score_lead" ? `Confidence ${(Number(payload?.confidence || 0) * 100).toFixed(0)}%` : current.scoreReason,
+                      summary: toolKey === "summarize_lead" ? String(payload?.summary || current.summary || "") : current.summary,
+                      emailDraft: toolKey === "draft_outreach_email" ? String(payload?.body || current.emailDraft || "") : current.emailDraft,
+                      smsDraft: toolKey === "draft_outreach_sms" ? String(payload?.draft || current.smsDraft || "") : current.smsDraft,
+                      callPrep: toolKey === "generate_call_prep" ? ((payload?.checklist as string[]) || current.callPrep || []) : current.callPrep
+                    }));
+                  }}
+                />
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">Lead score and reasoning</p>
+                  <p className="mt-1">Score: {leadAiState.score ?? "n/a"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
+                  {leadAiState.callPrep?.length ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {leadAiState.callPrep.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                <EntityTimelineCard entityType="lead" entityId={selectedLead.id} />
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-slate-900">CSV Import Preview</p>
+                  <textarea
+                    value={csvInput}
+                    onChange={(event) => setCsvInput(event.target.value)}
+                    placeholder="name,email,phone,business"
+                    className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold"
+                      onClick={async () => {
+                        const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                        setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
+                      }}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white"
+                      onClick={async () => {
+                        await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                        const data = await fetchOrgLeads();
+                        setLeads(data.leads || []);
+                      }}
+                    >
+                      Import
+                    </button>
+                  </div>
+                  {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
                 </div>
 
                 <div>

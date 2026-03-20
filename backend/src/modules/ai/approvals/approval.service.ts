@@ -75,9 +75,20 @@ export async function decideApproval(input: {
       where: { id: request.id },
       data: {
         status: nextStatus,
-        resolvedAt: new Date()
+        resolvedAt: new Date(),
+        outputSummary:
+          nextStatus === ApprovalStatus.APPROVED
+            ? "Approved by operator. Ready for execution in downstream delivery path."
+            : "Rejected by operator."
       }
     });
+
+    if (nextStatus === ApprovalStatus.APPROVED && request.entityType === "lead" && request.entityId && ["queue_sms", "queue_email"].includes(request.toolKey)) {
+      await tx.lead.updateMany({
+        where: { id: request.entityId, orgId: input.orgId },
+        data: { status: "CONTACTED" }
+      });
+    }
 
     await tx.auditLog.create({
       data: {

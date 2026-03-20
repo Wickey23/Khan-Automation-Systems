@@ -58,6 +58,7 @@ import type {
   AgentRun,
   ApprovalRequest,
   AiRunResponse,
+  FollowUpTask,
   FollowUpQueueItem,
   ManagerInsightSummary,
   OutreachBulkImportRowResult,
@@ -1629,4 +1630,49 @@ export async function fetchFollowUpQueue(status?: string) {
 
 export async function fetchManagerInsights() {
   return request<ManagerInsightSummary>("/api/org/ai/insights/manager-summary");
+}
+
+export async function executeAiTool(payload: {
+  toolKey: string;
+  input?: Record<string, unknown>;
+  agentKey?: string;
+  entityType?: string;
+  entityId?: string;
+  idempotencyKey?: string;
+}) {
+  const { toolKey, ...body } = payload;
+  return request<{
+    ok: boolean;
+    status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED";
+    message: string;
+    outputSummary?: string;
+    approvalRequired?: boolean;
+    approvalRequestId?: string;
+    output?: Record<string, unknown>;
+  }>(`/api/org/ai/tools/${encodeURIComponent(toolKey)}/execute`, {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function updateAiTask(
+  taskId: string,
+  payload: {
+    status?: "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELED";
+    priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+    dueAt?: string | null;
+    assignedToUserId?: string | null;
+  }
+) {
+  return request<{ task: FollowUpTask }>(`/api/org/ai/tasks/${encodeURIComponent(taskId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateFollowUpQueueItem(queueItemId: string, status: string) {
+  return request<{ item: FollowUpQueueItem }>(`/api/org/ai/queues/follow-up/${encodeURIComponent(queueItemId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
 }

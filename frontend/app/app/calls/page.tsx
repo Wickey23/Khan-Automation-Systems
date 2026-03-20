@@ -19,6 +19,8 @@ import {
 import { fetchOrgCalls, getMe, repopulateOrgCalls, updateLeadPipelineStage } from "@/lib/api";
 import type { FrontDeskPriority, OrgCallRecord } from "@/lib/types";
 import { AskAiInline } from "@/components/ai/ask-ai-inline";
+import { AiWorkflowActions } from "@/components/ai/workflow-actions";
+import { EntityTimelineCard } from "@/components/ai/entity-timeline-card";
 import { clientBadgeClass } from "@/lib/client-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -137,6 +139,13 @@ export default function AppCallsPage() {
   const [stateFilter, setStateFilter] = useState<QueueState>("ALL");
   const [canEditPipeline, setCanEditPipeline] = useState(false);
   const [savingLeadStage, setSavingLeadStage] = useState<PipelineStage | null>(null);
+  const [callAiState, setCallAiState] = useState<{
+    summary?: string;
+    intent?: string;
+    urgency?: string;
+    action?: string;
+    callbackDraft?: string;
+  }>({});
 
   const loadCalls = useCallback(async (search: string) => {
     const result = await fetchOrgCalls({
@@ -194,6 +203,17 @@ export default function AppCallsPage() {
     () => visibleCalls.find((call) => call.id === selectedCallId) || calls.find((call) => call.id === selectedCallId) || visibleCalls[0] || calls[0] || null,
     [calls, selectedCallId, visibleCalls]
   );
+
+  useEffect(() => {
+    if (!selectedCall) {
+      setCallAiState({});
+      return;
+    }
+    setCallAiState((current) => ({
+      ...current,
+      summary: selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || current.summary
+    }));
+  }, [selectedCall]);
 
   async function refreshQueue() {
     if (!shouldShowCallQueue) return;
@@ -421,7 +441,66 @@ export default function AppCallsPage() {
                           </p>
                         </div>
                       </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Intent</p>
+                          <p className="text-xs font-bold text-slate-900">{callAiState.intent || "Not classified"}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Urgency</p>
+                          <p className="text-xs font-bold text-slate-900">{callAiState.urgency || "Not detected"}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Next action</p>
+                          <p className="text-xs font-bold text-slate-900">{callAiState.action || "Run suggestion"}</p>
+                        </div>
+                      </div>
                     </div>
+
+                    <AiWorkflowActions
+                      title="Front Desk Workflow"
+                      description="Run call-specific AI actions with persisted results."
+                      agentKey="front_desk"
+                      entityType="call"
+                      entityId={selectedCall.id}
+                      actions={[
+                        { key: "summarize", label: "Summarize Call", toolKey: "summarize_call", buildInput: () => ({ callId: selectedCall.id }) },
+                        { key: "extract", label: "Extract Details", toolKey: "extract_call_details", buildInput: () => ({ callId: selectedCall.id }) },
+                        { key: "intent", label: "Classify Intent", toolKey: "classify_call_intent", buildInput: () => ({ callId: selectedCall.id }) },
+                        { key: "urgency", label: "Detect Urgency", toolKey: "detect_urgency", buildInput: () => ({ callId: selectedCall.id }) },
+                        { key: "action", label: "Suggest Action", toolKey: "suggest_front_desk_action", buildInput: () => ({ callId: selectedCall.id }) },
+                        { key: "callback", label: "Draft Callback", toolKey: "draft_callback", buildInput: () => ({ callId: selectedCall.id }) },
+                        {
+                          key: "task",
+                          label: "Create Follow-up Task",
+                          toolKey: "create_followup_task",
+                          buildInput: () => ({ title: `Follow up missed call ${selectedCall.fromNumber}`, description: "Generated from call workflow", priority: "HIGH" })
+                        },
+                        {
+                          key: "approval",
+                          label: "Queue Callback Approval",
+                          toolKey: "queue_sms",
+                          buildInput: () => ({ content: callAiState.callbackDraft || `Callback requested for ${selectedCall.fromNumber}` })
+                        }
+                      ]}
+                      onToolResult={(toolKey, payload) => {
+                        setCallAiState((current) => ({
+                          ...current,
+                          summary: toolKey === "summarize_call" ? String(payload?.summary || current.summary || "") : current.summary,
+                          intent: toolKey === "classify_call_intent" ? String(payload?.intent || current.intent || "") : current.intent,
+                          urgency: toolKey === "detect_urgency" ? String(payload?.urgency || current.urgency || "") : current.urgency,
+                          action: toolKey === "suggest_front_desk_action" ? String(payload?.action || current.action || "") : current.action,
+                          callbackDraft: toolKey === "draft_callback" ? String(payload?.draft || current.callbackDraft || "") : current.callbackDraft
+                        }));
+                      }}
+                    />
+                    {callAiState.callbackDraft ? (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                        <p className="mb-1 font-semibold text-slate-900">Callback draft</p>
+                        <p>{callAiState.callbackDraft}</p>
+                      </div>
+                    ) : null}
+                    <EntityTimelineCard entityType="call" entityId={selectedCall.id} />
 
                     <div>
                       <h4 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Call Transcript</h4>

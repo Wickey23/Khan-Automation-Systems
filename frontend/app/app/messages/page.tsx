@@ -24,6 +24,8 @@ import {
 import { fetchOrgMessages, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import type { OrgMessageThread } from "@/lib/types";
 import { AskAiInline } from "@/components/ai/ask-ai-inline";
+import { AiWorkflowActions } from "@/components/ai/workflow-actions";
+import { EntityTimelineCard } from "@/components/ai/entity-timeline-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageShell, SectionShell } from "@/components/ui/page";
@@ -102,6 +104,13 @@ export default function AppMessagesPage() {
   const [sending, setSending] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [savingStage, setSavingStage] = useState<PipelineStage | null>(null);
+  const [threadAiState, setThreadAiState] = useState<{
+    summary?: string;
+    classification?: string;
+    nextAction?: string;
+    replyDraft?: string;
+    optOut?: boolean;
+  }>({});
 
   const load = useCallback(async () => {
     const data = await fetchOrgMessages();
@@ -154,6 +163,17 @@ export default function AppMessagesPage() {
     filteredThreads[0] ||
     threads[0] ||
     null;
+
+  useEffect(() => {
+    if (!selectedThread) {
+      setThreadAiState({});
+      return;
+    }
+    setThreadAiState((current) => ({
+      ...current,
+      summary: selectedThread.frontDesk?.summary || selectedThread.lead?.frontDesk?.summary || current.summary
+    }));
+  }, [selectedThread]);
 
   useEffect(() => {
     if (selectedThread) {
@@ -318,6 +338,43 @@ export default function AppMessagesPage() {
               </header>
 
               <div className="flex-1 overflow-y-auto bg-slate-50/20 p-8 space-y-6">
+                <AiWorkflowActions
+                  title="Communications Workflow"
+                  description="Classify thread, detect opt-outs, draft replies, and route follow-up."
+                  agentKey="communications"
+                  entityType="message_thread"
+                  entityId={selectedThread.id}
+                  actions={[
+                    { key: "summary", label: "Summarize Thread", toolKey: "summarize_thread", buildInput: () => ({ threadId: selectedThread.id }) },
+                    { key: "classify", label: "Classify Message", toolKey: "classify_message", buildInput: () => ({ threadId: selectedThread.id }) },
+                    { key: "optout", label: "Detect Opt-out", toolKey: "detect_opt_out", buildInput: () => ({ threadId: selectedThread.id }) },
+                    { key: "draft", label: "Draft Reply", toolKey: "draft_reply", buildInput: () => ({ threadId: selectedThread.id }) },
+                    { key: "route", label: "Route Thread", toolKey: "route_thread", buildInput: () => ({ threadId: selectedThread.id, routeTo: "unresolved-inbox" }) },
+                    { key: "status", label: "Mark Pending", toolKey: "mark_thread_status", buildInput: () => ({ threadId: selectedThread.id, status: "PENDING" }) },
+                    { key: "task", label: "Create Follow-up Task", toolKey: "create_message_followup_task", buildInput: () => ({ threadId: selectedThread.id }) },
+                    { key: "approval", label: "Queue Reply Approval", toolKey: "queue_sms", buildInput: () => ({ content: threadAiState.replyDraft || body }) }
+                  ]}
+                  onToolResult={(toolKey, payload) => {
+                    setThreadAiState((current) => ({
+                      ...current,
+                      summary: toolKey === "summarize_thread" ? String(payload?.summary || current.summary || "") : current.summary,
+                      classification:
+                        toolKey === "classify_message" ? String(payload?.classification || current.classification || "") : current.classification,
+                      nextAction: toolKey === "route_thread" ? `Routed to ${String(payload?.routeTo || "queue")}` : current.nextAction,
+                      replyDraft: toolKey === "draft_reply" ? String(payload?.draft || current.replyDraft || "") : current.replyDraft,
+                      optOut: toolKey === "detect_opt_out" ? Boolean(payload?.optedOut) : current.optOut
+                    }));
+                  }}
+                />
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">Thread AI state</p>
+                  <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
+                  <p>Opt-out: {threadAiState.optOut ? "Detected" : "Not detected"}</p>
+                  <p>Next action: {threadAiState.nextAction || "Run route/action tool"}</p>
+                  {threadAiState.replyDraft ? <p className="mt-1">Draft: {threadAiState.replyDraft}</p> : null}
+                </div>
+                <EntityTimelineCard entityType="message_thread" entityId={selectedThread.id} />
+
                 {[...selectedThread.messages].map((message) => (
                   <div key={message.id} className={cn("flex", message.direction === "OUTBOUND" ? "justify-end" : "justify-start")}>
                     <div className="max-w-[70%] space-y-1">

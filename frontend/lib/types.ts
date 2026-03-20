@@ -1638,14 +1638,21 @@ export type FollowUpQueueItem = {
   reason: string;
   status: string;
   createdAt: string;
-  task: {
-    id: string;
-    title: string;
-    description: string | null;
-    status: string;
-    priority: string;
-    dueAt: string | null;
-  } | null;
+  resolvedAt?: string | null;
+  task: FollowUpTask | null;
+};
+
+export type FollowUpTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELED";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  dueAt: string | null;
+  assignedToUserId?: string | null;
+  assignedToUser?: { id: string; email: string } | null;
+  entityType?: string | null;
+  entityId?: string | null;
 };
 
 export type ManagerInsightSummary = {
