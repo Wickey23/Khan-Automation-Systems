@@ -42,7 +42,7 @@ async function loadSharedEntitySignals(input: {
 }) {
   const refs = toEntityRefs(input.base, input.linked);
   const whereOr = refs.map((ref) => ({ entityType: ref.entityType, entityId: ref.entityId }));
-  const [latestApproval, pendingApprovalCount, latestTask, openFollowUpCount, overdueTaskCount, recentAudit, recentHandoff] =
+  const [latestApproval, oldestPendingApproval, pendingApprovalCount, latestTask, openFollowUpCount, overdueTaskCount, recentAudit, recentHandoff] =
     await Promise.all([
       prisma.approvalRequest.findFirst({
         where: { orgId: input.orgId, OR: whereOr },
@@ -59,6 +59,15 @@ async function loadSharedEntitySignals(input: {
           retryable: true,
           updatedAt: true
         }
+      }),
+      prisma.approvalRequest.findFirst({
+        where: {
+          orgId: input.orgId,
+          status: "PENDING",
+          OR: whereOr
+        },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true }
       }),
       prisma.approvalRequest.count({
         where: {
@@ -114,11 +123,17 @@ async function loadSharedEntitySignals(input: {
 
   return {
     latestApproval,
+    pendingApprovalOldestMinutes: oldestPendingApproval
+      ? Math.max(0, Math.round((Date.now() - oldestPendingApproval.createdAt.getTime()) / (60 * 1000)))
+      : 0,
     pendingApprovalCount,
     latestTask,
     openFollowUpCount,
     overdueTaskCount,
     hadRecentHandoff: Boolean(recentHandoff),
+    lastMeaningfulActionAgeMinutes: recentAudit[0]
+      ? Math.max(0, Math.round((Date.now() - recentAudit[0].createdAt.getTime()) / (60 * 1000)))
+      : 9_999,
     recentAudit: recentAudit.map((row) => ({
       action: row.action,
       at: row.createdAt.toISOString(),
@@ -191,8 +206,10 @@ async function buildCallContext(orgId: string, entityId: string): Promise<Entity
     latestDeliveryStatus: shared.latestApproval?.deliveryStatus || null,
     latestApprovalEntityType: shared.latestApproval?.entityType || null,
     pendingApprovalCount: shared.pendingApprovalCount,
+    pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
     openFollowUpCount: shared.openFollowUpCount,
     overdueTaskCount: shared.overdueTaskCount,
+    lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
     latestTask: shared.latestTask,
     latestTaskStatus: shared.latestTask?.status || null,
     dnc: call.lead?.dnc || false,
@@ -269,8 +286,10 @@ async function buildLeadContext(orgId: string, entityId: string): Promise<Entity
     latestDeliveryStatus: shared.latestApproval?.deliveryStatus || null,
     latestApprovalEntityType: shared.latestApproval?.entityType || null,
     pendingApprovalCount: shared.pendingApprovalCount,
+    pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
     openFollowUpCount: shared.openFollowUpCount,
     overdueTaskCount: shared.overdueTaskCount,
+    lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
     latestTask: shared.latestTask,
     latestTaskStatus: shared.latestTask?.status || null,
     blockedReasons,
@@ -357,8 +376,10 @@ async function buildMessageThreadContext(orgId: string, entityId: string): Promi
     latestDeliveryStatus: shared.latestApproval?.deliveryStatus || null,
     latestApprovalEntityType: shared.latestApproval?.entityType || null,
     pendingApprovalCount: shared.pendingApprovalCount,
+    pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
     openFollowUpCount: shared.openFollowUpCount,
     overdueTaskCount: shared.overdueTaskCount,
+    lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
     latestTask: shared.latestTask,
     latestTaskStatus: shared.latestTask?.status || null,
     dnc: thread.lead?.dnc || false,
@@ -422,8 +443,10 @@ export async function buildEntityContext(input: {
         latestApprovalStatus: shared.latestApproval?.status || null,
         latestDeliveryStatus: shared.latestApproval?.deliveryStatus || null,
         pendingApprovalCount: shared.pendingApprovalCount,
+        pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
         openFollowUpCount: shared.openFollowUpCount,
         overdueTaskCount: shared.overdueTaskCount,
+        lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
         recentAudit: shared.recentAudit,
         latestTask: shared.latestTask,
         latestTaskStatus: shared.latestTask?.status || null,

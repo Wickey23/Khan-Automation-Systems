@@ -61,6 +61,7 @@ import type {
   FollowUpTask,
   FollowUpQueueItem,
   EntityAiTimelineResponse,
+  AttentionQueueItem,
   ManagerInsightSummary,
   OutreachBulkImportRowResult,
   OutreachCallerConfig,
@@ -1638,6 +1639,14 @@ export async function fetchEntityAiTimeline(entityType: string, entityId: string
 export async function fetchFollowUpQueue(status?: string) {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
   return request<{ queue: FollowUpQueueItem[] }>(`/api/org/ai/queues/follow-up${query}`);
+}
+
+export async function fetchAttentionQueue(payload?: { limit?: number; levels?: Array<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL"> }) {
+  const search = new URLSearchParams();
+  if (payload?.limit) search.set("limit", String(payload.limit));
+  if (payload?.levels?.length) search.set("levels", payload.levels.join(","));
+  const query = search.toString();
+  return request<{ items: AttentionQueueItem[] }>(`/api/org/ai/attention${query ? `?${query}` : ""}`);
 }
 
 export async function fetchManagerInsights() {

@@ -1,4 +1,5 @@
 import { buildEntityContext } from "./entity-context.service";
+import { deriveEntityAttention } from "./entity-attention.service";
 import { deriveNextBestAction, upsertEntityMemory } from "./entity-memory.service";
 
 function toStringArray(value: unknown) {
@@ -25,9 +26,19 @@ export async function refreshEntityOperationalMemory(input: {
     entityType: input.entityType,
     contextPayload: context.payload
   });
+  const attention = deriveEntityAttention({
+    entityType: input.entityType,
+    contextPayload: context.payload,
+    recommendation,
+    updatedAt: new Date()
+  });
 
   const riskFlags = [
-    ...new Set([...toStringArray(context.payload.blockedReasons), ...recommendation.blockedReasons])
+    ...new Set([
+      ...toStringArray(context.payload.blockedReasons),
+      ...recommendation.blockedReasons,
+      ...attention.topReasons.map((reason) => reason.toUpperCase().replace(/[^A-Z0-9]+/g, "_"))
+    ])
   ];
 
   return upsertEntityMemory({
@@ -53,6 +64,7 @@ export async function refreshEntityOperationalMemory(input: {
     context: {
       ...(context.payload as Record<string, unknown>),
       nextBestAction: recommendation,
+      attention,
       refreshedReason: input.reason || "operational_refresh"
     },
     updatedByRunId: input.updatedByRunId || null,

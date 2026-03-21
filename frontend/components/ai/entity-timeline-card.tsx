@@ -9,7 +9,8 @@ import type {
   AuditEvent,
   EntityHandoffInspection,
   EntityOperationalMemoryBlock,
-  EntityRecommendationInspection
+  EntityRecommendationInspection,
+  EntityAiTimelineResponse
 } from "@/lib/types";
 
 type EntityTimelineCardProps = {
@@ -27,6 +28,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
   const [operationalMemory, setOperationalMemory] = useState<EntityOperationalMemoryBlock | null>(null);
   const [recommendation, setRecommendation] = useState<EntityRecommendationInspection | null>(null);
   const [handoffs, setHandoffs] = useState<EntityHandoffInspection[]>([]);
+  const [attention, setAttention] = useState<EntityAiTimelineResponse["attention"]>(null);
 
   useEffect(() => {
     if (!entityType || !entityId) {
@@ -36,6 +38,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       setOperationalMemory(null);
       setRecommendation(null);
       setHandoffs([]);
+      setAttention(null);
       return;
     }
     let active = true;
@@ -50,6 +53,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
         setOperationalMemory(result.operationalMemory || null);
         setRecommendation(result.recommendation || null);
         setHandoffs(result.handoffs || []);
+        setAttention(result.attention || null);
       })
       .catch((timelineError) => {
         if (!active) return;
@@ -105,6 +109,17 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
           <p className="mt-1">Outbound blocked: {operationalMemory.outboundBlocked ? "yes" : "no"}</p>
           {operationalMemory.riskFlags.length ? <p className="mt-1">Flags: {operationalMemory.riskFlags.join(", ")}</p> : null}
           <p className="mt-1 text-slate-500">Updated: {new Date(operationalMemory.updatedAt).toLocaleString()}</p>
+        </div>
+      ) : null}
+      {attention ? (
+        <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+          <p className="font-medium">
+            Attention: {attention.attentionLevel || "UNKNOWN"}
+            {typeof attention.attentionScore === "number" ? ` (${attention.attentionScore})` : ""}
+          </p>
+          {attention.recommendedOwnerAction ? <p className="mt-1">Owner action: {attention.recommendedOwnerAction}</p> : null}
+          {attention.topReasons.length ? <p className="mt-1">Reasons: {attention.topReasons.join(" | ")}</p> : null}
+          <p className="mt-1 text-rose-700">Updated: {new Date(attention.updatedAt).toLocaleString()}</p>
         </div>
       ) : null}
       {!busy && !error && (runs.length > 0 || approvals.length > 0 || audit.length > 0 || handoffs.length > 0) ? (

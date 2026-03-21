@@ -48,6 +48,18 @@ export const aiQuerySchema = z.object({
   filter: z.string().optional()
 });
 
+export const aiAttentionQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(30),
+  levels: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((value) => {
+      if (!value) return [] as string[];
+      const values = Array.isArray(value) ? value : String(value).split(",");
+      return values.map((item) => item.trim().toUpperCase()).filter(Boolean);
+    })
+});
+
 export const aiToolExecuteSchema = z.object({
   toolKey: z.string().min(2),
   input: z.record(z.unknown()).optional().default({}),

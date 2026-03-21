@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import {
   aiApprovalDecisionSchema,
+  aiAttentionQuerySchema,
   aiApprovalRetrySchema,
   aiFollowUpQueueUpdateSchema,
   aiQuerySchema,
@@ -14,6 +15,7 @@ import {
   aiToolExecuteSchema
 } from "./ai.schema";
 import { decideApproval, retryApprovalDelivery } from "./approvals/approval.service";
+import { buildAttentionQueue, type AttentionLevel } from "./context/entity-attention.service";
 import { refreshEntityOperationalMemory } from "./context/entity-state-refresh.service";
 import { createAiRun } from "./orchestrator/orchestrator.service";
 import { fetchRegistryForOrg } from "./registry/agent-registry.service";
@@ -276,7 +278,9 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
       take: 40
     })
   ]);
-  const nextBestActionFromContext = parseMetadata(memory?.contextJson)?.nextBestAction as Record<string, unknown> | undefined;
+  const contextSnapshot = parseMetadata(memory?.contextJson);
+  const nextBestActionFromContext = contextSnapshot?.nextBestAction as Record<string, unknown> | undefined;
+  const attentionFromContext = contextSnapshot?.attention as Record<string, unknown> | undefined;
   const recommendation = memory
     ? {
         action: memory.latestRecommendation || (typeof nextBestActionFromContext?.action === "string" ? nextBestActionFromContext.action : null),
@@ -297,6 +301,21 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
           ])
         ),
         refreshedAt: memory.updatedAt
+      }
+    : null;
+  const attention = memory
+    ? {
+        attentionScore:
+          typeof attentionFromContext?.attentionScore === "number" ? attentionFromContext.attentionScore : null,
+        attentionLevel:
+          typeof attentionFromContext?.attentionLevel === "string" ? attentionFromContext.attentionLevel : null,
+        topReasons: toStringArray(attentionFromContext?.topReasons),
+        recommendedOwnerAction:
+          typeof attentionFromContext?.recommendedOwnerAction === "string"
+            ? attentionFromContext.recommendedOwnerAction
+            : recommendation?.action || null,
+        updatedAt:
+          typeof attentionFromContext?.updatedAt === "string" ? attentionFromContext.updatedAt : memory.updatedAt
       }
     : null;
 
@@ -347,7 +366,26 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
     };
   });
 
-  return res.json({ ok: true, data: { audit, runs, approvals, memory, operationalMemory, recommendation, handoffs } });
+  return res.json({ ok: true, data: { audit, runs, approvals, memory, operationalMemory, recommendation, attention, handoffs } });
+});
+
+aiRouter.get("/attention", async (req: AuthenticatedRequest, res) => {
+  const parsed = aiAttentionQuerySchema.safeParse(req.query || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid attention query." });
+
+  const orgId = await resolveOrgId(req);
+  if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
+
+  const levels = parsed.data.levels.filter((value): value is AttentionLevel =>
+    ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(value)
+  );
+  const items = await buildAttentionQueue({
+    orgId,
+    limit: parsed.data.limit,
+    levels: levels.length ? levels : undefined
+  });
+
+  return res.json({ ok: true, data: { items } });
 });
 
 aiRouter.get("/queues/follow-up", async (req: AuthenticatedRequest, res) => {

@@ -1701,7 +1701,43 @@ export type EntityAiTimelineResponse = {
   memory?: AgentEntityMemory | null;
   operationalMemory?: EntityOperationalMemoryBlock | null;
   recommendation?: EntityRecommendationInspection | null;
+  attention?: {
+    attentionScore: number | null;
+    attentionLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null;
+    topReasons: string[];
+    recommendedOwnerAction: string | null;
+    updatedAt: string;
+  } | null;
   handoffs?: EntityHandoffInspection[];
+};
+
+export type AttentionQueueItem = {
+  entityType: "call" | "lead" | "message_thread" | string;
+  entityId: string;
+  label: string;
+  title: string;
+  attentionScore: number;
+  attentionLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  topReasons: string[];
+  recommendedOwnerAction: string;
+  recommendationSummary: {
+    action: string;
+    why: string;
+    priority: string;
+  } | null;
+  blockedReasons: string[];
+  approvalContext: {
+    status: string | null;
+    deliveryStatus: string | null;
+    pendingCount: number;
+    oldestPendingMinutes: number | null;
+  };
+  followUpContext: {
+    openCount: number;
+    overdueCount: number;
+    latestTaskStatus: string | null;
+  };
+  updatedAt: string;
 };
 
 export type AiRunResponse = {
