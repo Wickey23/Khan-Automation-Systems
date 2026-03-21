@@ -1726,15 +1726,22 @@ export type AttentionQueueItem = {
     priority: string;
   } | null;
   blockedReasons: string[];
+  blocked: boolean;
+  stale: boolean;
+  unresolved: boolean;
+  entityHref: string;
   approvalContext: {
+    latestApprovalId: string | null;
     status: string | null;
     deliveryStatus: string | null;
+    retryable: boolean;
     pendingCount: number;
     oldestPendingMinutes: number | null;
   };
   followUpContext: {
     openCount: number;
     overdueCount: number;
+    latestTaskId: string | null;
     latestTaskStatus: string | null;
   };
   updatedAt: string;

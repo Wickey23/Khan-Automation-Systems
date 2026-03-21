@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { fetchEntityAiTimeline } from "@/lib/api";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -113,10 +114,23 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       ) : null}
       {attention ? (
         <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-          <p className="font-medium">
-            Attention: {attention.attentionLevel || "UNKNOWN"}
-            {typeof attention.attentionScore === "number" ? ` (${attention.attentionScore})` : ""}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium">Attention</p>
+            <StatusBadge
+              kind="feature"
+              state={
+                attention.attentionLevel === "CRITICAL"
+                  ? "blocked"
+                  : attention.attentionLevel === "HIGH"
+                    ? "limited"
+                    : attention.attentionLevel === "MEDIUM"
+                      ? "setup_required"
+                      : "ready"
+              }
+              label={`${attention.attentionLevel || "UNKNOWN"}${typeof attention.attentionScore === "number" ? ` ${attention.attentionScore}` : ""}`}
+              size="xs"
+            />
+          </div>
           {attention.recommendedOwnerAction ? <p className="mt-1">Owner action: {attention.recommendedOwnerAction}</p> : null}
           {attention.topReasons.length ? <p className="mt-1">Reasons: {attention.topReasons.join(" | ")}</p> : null}
           <p className="mt-1 text-rose-700">Updated: {new Date(attention.updatedAt).toLocaleString()}</p>

@@ -27,15 +27,22 @@ export type AttentionQueueItem = {
     priority: string;
   } | null;
   blockedReasons: string[];
+  blocked: boolean;
+  stale: boolean;
+  unresolved: boolean;
+  entityHref: string;
   approvalContext: {
+    latestApprovalId: string | null;
     status: string | null;
     deliveryStatus: string | null;
+    retryable: boolean;
     pendingCount: number;
     oldestPendingMinutes: number | null;
   };
   followUpContext: {
     openCount: number;
     overdueCount: number;
+    latestTaskId: string | null;
     latestTaskStatus: string | null;
   };
   updatedAt: string;
@@ -180,6 +187,13 @@ function buildEntityLabel(entityType: string, payload: Record<string, unknown>) 
   return asString(payload.id) || `${entityType} record`;
 }
 
+function buildEntityHref(entityType: string, entityId: string) {
+  if (entityType === "call") return `/app/calls?callId=${encodeURIComponent(entityId)}`;
+  if (entityType === "lead") return `/app/leads?leadId=${encodeURIComponent(entityId)}`;
+  if (entityType === "message_thread") return `/app/messages?threadId=${encodeURIComponent(entityId)}`;
+  return "/app";
+}
+
 export async function buildAttentionQueue(input: {
   orgId: string;
   limit?: number;
@@ -267,15 +281,25 @@ export async function buildAttentionQueue(input: {
           }
         : null,
       blockedReasons: recommendation.blockedReasons,
+      blocked: recommendation.blockedReasons.length > 0,
+      stale: attention.topReasons.some((reason) => /stale|aging|unresolved/i.test(reason)),
+      unresolved:
+        attention.attentionLevel === "HIGH" ||
+        attention.attentionLevel === "CRITICAL" ||
+        recommendation.blockedReasons.length > 0,
+      entityHref: buildEntityHref(ref.entityType, ref.entityId),
       approvalContext: {
+        latestApprovalId: asString(payload.latestApprovalId) || null,
         status: asString(payload.latestApprovalStatus) || null,
         deliveryStatus: asString(payload.latestDeliveryStatus) || null,
+        retryable: Boolean(payload.latestApprovalRetryable),
         pendingCount: asNumber(payload.pendingApprovalCount),
         oldestPendingMinutes: asNumber(payload.pendingApprovalOldestMinutes) || null
       },
       followUpContext: {
         openCount: asNumber(payload.openFollowUpCount),
         overdueCount: asNumber(payload.overdueTaskCount),
+        latestTaskId: asString(payload.latestTaskId) || null,
         latestTaskStatus: asString(payload.latestTaskStatus) || null
       },
       updatedAt: attention.updatedAt
