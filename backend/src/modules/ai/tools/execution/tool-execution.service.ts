@@ -1,4 +1,4 @@
-import { AiActionStatus, AiRunStatus, ApprovalStatus } from "@prisma/client";
+import { AiActionStatus, AiRunStatus, ApprovalStatus, type Prisma } from "@prisma/client";
 import { prisma } from "../../../../lib/prisma";
 import { createApprovalRequest } from "../../approvals/approval.service";
 import { toolRequiresApproval } from "../../approvals/approval-policy.service";
@@ -297,6 +297,10 @@ async function runAgentHandoffs(input: {
     entityId: input.entityId
   });
   const payload = entityContext?.payload || {};
+  const sourceRecommendation =
+    payload.nextBestAction && typeof payload.nextBestAction === "object"
+      ? (payload.nextBestAction as Record<string, unknown>)
+      : null;
   const dnc = Boolean(payload.dnc);
 
   const enqueueHandoff = async (handoff: {
@@ -306,6 +310,7 @@ async function runAgentHandoffs(input: {
     toolInput: Record<string, unknown>;
     skipIfOpenFollowup?: boolean;
     skipIfPendingApproval?: boolean;
+    skipIfRecentHandoff?: boolean;
   }) => {
     if (handoff.skipIfOpenFollowup && (await hasOpenFollowup(input.orgId, input.entityType, input.entityId))) {
       return;
@@ -320,6 +325,20 @@ async function runAgentHandoffs(input: {
       }))
     ) {
       return;
+    }
+    if (handoff.skipIfRecentHandoff) {
+      const recent = await prisma.auditLog.findFirst({
+        where: {
+          orgId: input.orgId,
+          action: "AI_AGENT_HANDOFF",
+          entityType: input.entityType,
+          entityId: input.entityId,
+          createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true }
+      });
+      if (recent) return;
     }
 
     const handoffResult = await executeTool({
@@ -336,6 +355,16 @@ async function runAgentHandoffs(input: {
       prompt: `${input.prompt} (handoff: ${handoff.reason})`,
       skipHandoffs: true
     });
+    const handoffMetadata: Prisma.InputJsonValue = JSON.parse(
+      JSON.stringify({
+        fromAgent: agentKey,
+        toAgent: handoff.toAgent,
+        sourceToolKey: input.sourceToolKey,
+        handoffReason: handoff.reason,
+        sourceRecommendationSnapshot: sourceRecommendation,
+        targetResultSummary: handoffResult.outputSummary || handoffResult.message || null
+      })
+    ) as Prisma.InputJsonValue;
 
     await createActionAudit({
       orgId: input.orgId,
@@ -349,7 +378,8 @@ async function runAgentHandoffs(input: {
       approvalRequired: Boolean(handoffResult.approvalRequired),
       approvalRequestId: handoffResult.approvalRequestId,
       entityType: input.entityType,
-      entityId: input.entityId
+      entityId: input.entityId,
+      metadataJson: handoffMetadata
     });
 
     await prisma.auditLog.create({
@@ -366,12 +396,14 @@ async function runAgentHandoffs(input: {
           toAgent: handoff.toAgent,
           sourceToolKey: input.sourceToolKey,
           handoffToolKey: handoff.toolKey,
-          reason: handoff.reason,
-          resultStatus: handoffResult.status,
-          approvalRequestId: handoffResult.approvalRequestId || null
-        })
-      }
-    });
+            reason: handoff.reason,
+            sourceRecommendationSnapshot: sourceRecommendation,
+            resultStatus: handoffResult.status,
+            targetResultSummary: handoffResult.outputSummary || handoffResult.message || null,
+            approvalRequestId: handoffResult.approvalRequestId || null
+          })
+        }
+      });
   };
 
   if (agentKey === "front_desk") {
@@ -382,7 +414,8 @@ async function runAgentHandoffs(input: {
         toolKey: "schedule_followup",
         reason: "Urgent or unresolved call needs operational follow-up.",
         toolInput: { reason: "Front desk handoff: urgent call follow-up required." },
-        skipIfOpenFollowup: true
+        skipIfOpenFollowup: true,
+        skipIfRecentHandoff: true
       });
     }
 
@@ -394,7 +427,8 @@ async function runAgentHandoffs(input: {
           toolKey: "queue_sms",
           reason: "Callback draft should move into approval queue.",
           toolInput: { content: draft, callId: input.entityId },
-          skipIfPendingApproval: true
+          skipIfPendingApproval: true,
+          skipIfRecentHandoff: true
         });
       }
     }
@@ -438,7 +472,8 @@ async function runAgentHandoffs(input: {
         toolKey: "schedule_lead_followup",
         reason: "Lead qualification requires explicit follow-up task.",
         toolInput: { leadId: input.entityId, reason: "Lead ops handoff for follow-up ownership." },
-        skipIfOpenFollowup: true
+        skipIfOpenFollowup: true,
+        skipIfRecentHandoff: true
       });
     }
   }
@@ -446,14 +481,15 @@ async function runAgentHandoffs(input: {
   if (agentKey === "communications") {
     if (input.sourceToolKey === "classify_message") {
       const classification = String((input.sourceResult.output as Record<string, unknown> | undefined)?.classification || payload.latestClassification || "").toUpperCase();
-      const payloadLead = payload.lead && typeof payload.lead === "object" ? (payload.lead as Record<string, unknown>) : null;
+      const payloadLead = payload.linkedLead && typeof payload.linkedLead === "object" ? (payload.linkedLead as Record<string, unknown>) : null;
       const payloadLeadId = payloadLead && typeof payloadLead.id === "string" ? payloadLead.id : null;
       await enqueueHandoff({
         toAgent: "task_followup",
         toolKey: "create_message_followup_task",
         reason: "Classified inbound thread should be tracked with follow-up ownership.",
         toolInput: { threadId: input.entityId },
-        skipIfOpenFollowup: true
+        skipIfOpenFollowup: true,
+        skipIfRecentHandoff: true
       });
       if (["BOOKING", "QUOTE"].includes(classification) && payloadLeadId) {
         await enqueueHandoff({
@@ -473,7 +509,8 @@ async function runAgentHandoffs(input: {
           toolKey: "schedule_followup",
           reason: "Opt-out requires compliance follow-up review.",
           toolInput: { reason: "Communications handoff: opt-out detected, review suppression state." },
-          skipIfOpenFollowup: true
+          skipIfOpenFollowup: true,
+          skipIfRecentHandoff: true
         });
       }
     }

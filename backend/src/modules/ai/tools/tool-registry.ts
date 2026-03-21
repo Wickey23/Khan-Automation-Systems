@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma";
+import { refreshEntityOperationalMemory } from "../context/entity-state-refresh.service";
 import type { ToolDefinition } from "./tool.interface";
 
 const OPERATOR_ROLES = [UserRole.CLIENT_ADMIN, UserRole.CLIENT_STAFF];
@@ -825,9 +826,11 @@ const detectOptOutTool: ToolDefinition<{ threadId?: string; text?: string }> = {
   async execute(input, context) {
     let text = cleanText(input.text);
     let threadLeadId: string | null = null;
+    let threadId: string | null = null;
     if (!text) {
       const thread = await findThread(context.orgId, input.threadId || context.entityId);
       threadLeadId = thread?.leadId || null;
+      threadId = thread?.id || null;
       text = cleanText(thread?.messages.find((m) => m.direction === MessageDirection.INBOUND)?.body);
     }
     if (!text) return fail("NO_CONTENT", "No inbound message text to inspect.");
@@ -835,6 +838,24 @@ const detectOptOutTool: ToolDefinition<{ threadId?: string; text?: string }> = {
     const optedOut = optOutKeywords.some((k) => text.toLowerCase().includes(k));
     if (optedOut && threadLeadId) {
       await prisma.lead.update({ where: { id: threadLeadId }, data: { dnc: true, notes: "Opt-out detected by communications agent." } });
+    }
+    if (threadId) {
+      await refreshEntityOperationalMemory({
+        orgId: context.orgId,
+        entityType: "message_thread",
+        entityId: threadId,
+        updatedByUserId: context.actorUserId,
+        reason: optedOut ? "opt_out_detected" : "opt_out_checked"
+      });
+    }
+    if (threadLeadId) {
+      await refreshEntityOperationalMemory({
+        orgId: context.orgId,
+        entityType: "lead",
+        entityId: threadLeadId,
+        updatedByUserId: context.actorUserId,
+        reason: optedOut ? "lead_dnc_updated" : "lead_opt_out_checked"
+      });
     }
     return ok("OPT_OUT_CHECKED", { optedOut }, optedOut ? "Opt-out intent detected." : "No opt-out intent detected.");
   }

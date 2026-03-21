@@ -80,6 +80,7 @@ export async function createActionAudit(input: {
   entityId?: string;
   errorCode?: string;
   errorSummary?: string;
+  metadataJson?: Prisma.InputJsonValue;
 }) {
   return prisma.agentActionLog.create({
     data: {
@@ -96,7 +97,8 @@ export async function createActionAudit(input: {
       entityType: input.entityType || null,
       entityId: input.entityId || null,
       errorCode: input.errorCode || null,
-      errorSummary: input.errorSummary || null
+      errorSummary: input.errorSummary || null,
+      metadataJson: input.metadataJson || undefined
     }
   });
 }

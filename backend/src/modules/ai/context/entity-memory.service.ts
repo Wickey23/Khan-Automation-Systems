@@ -23,11 +23,14 @@ export function deriveNextBestAction(input: {
   entityType: string;
   contextPayload: Record<string, unknown>;
 }): NextBestAction {
-  const blockedReasons = asStringArray(input.contextPayload.blockedReasons);
+  const blockedReasons = [...new Set(asStringArray(input.contextPayload.blockedReasons))];
   const latestDeliveryStatus = asString(input.contextPayload.latestDeliveryStatus);
   const hasOpenFollowups = Number(input.contextPayload.openFollowUpCount || 0) > 0;
   const dnc = Boolean(input.contextPayload.dnc);
   const overdueTaskCount = Number(input.contextPayload.overdueTaskCount || 0);
+  const pendingApprovalCount = Number(input.contextPayload.pendingApprovalCount || 0);
+  const retryableFailedDelivery = blockedReasons.includes("RETRYABLE_DELIVERY_FAILURE");
+  const hasRecentHandoff = blockedReasons.includes("RECENT_HANDOFF_ACTIVE");
 
   if (input.entityType === "call") {
     const urgency = asString(input.contextPayload.latestUrgency || input.contextPayload.urgency).toLowerCase();
@@ -38,8 +41,28 @@ export function deriveNextBestAction(input: {
         why: "Lead is marked do-not-contact.",
         priority: "HIGH",
         approvalNeeded: false,
-        shouldCreateFollowup: true,
+        shouldCreateFollowup: !hasOpenFollowups,
         blockedReasons: [...blockedReasons, "DNC_BLOCKED"]
+      };
+    }
+    if (retryableFailedDelivery) {
+      return {
+        action: "Retry latest failed outbound send",
+        why: "Recent approved outbound communication failed and is retryable.",
+        priority: "HIGH",
+        approvalNeeded: false,
+        shouldCreateFollowup: false,
+        blockedReasons
+      };
+    }
+    if (pendingApprovalCount > 0) {
+      return {
+        action: "Resolve pending approval before new outbound actions",
+        why: "A pending approval already exists for linked entities.",
+        priority: "HIGH",
+        approvalNeeded: false,
+        shouldCreateFollowup: !hasOpenFollowups,
+        blockedReasons
       };
     }
     if (urgency === "high" || outcome === "MISSED" || outcome === "ABANDONED") {
@@ -57,7 +80,7 @@ export function deriveNextBestAction(input: {
       why: "No urgent risk detected.",
       priority: "MEDIUM",
       approvalNeeded: false,
-      shouldCreateFollowup: false,
+      shouldCreateFollowup: !hasOpenFollowups && hasRecentHandoff,
       blockedReasons
     };
   }
@@ -71,8 +94,18 @@ export function deriveNextBestAction(input: {
         why: "Lead is flagged do-not-contact.",
         priority: "HIGH",
         approvalNeeded: false,
-        shouldCreateFollowup: false,
+        shouldCreateFollowup: !hasOpenFollowups,
         blockedReasons: [...blockedReasons, "DNC_BLOCKED"]
+      };
+    }
+    if (pendingApprovalCount > 0) {
+      return {
+        action: "Review pending approval and avoid duplicate outreach drafts",
+        why: "Outbound approval is already waiting for decision.",
+        priority: "HIGH",
+        approvalNeeded: false,
+        shouldCreateFollowup: !hasOpenFollowups,
+        blockedReasons
       };
     }
     if (latestDeliveryStatus === "FAILED") {
@@ -81,7 +114,7 @@ export function deriveNextBestAction(input: {
         why: "Latest approved delivery failed.",
         priority: "HIGH",
         approvalNeeded: false,
-        shouldCreateFollowup: true,
+        shouldCreateFollowup: !hasOpenFollowups,
         blockedReasons
       };
     }
@@ -96,8 +129,13 @@ export function deriveNextBestAction(input: {
       };
     }
     return {
-      action: "Maintain follow-up cadence",
-      why: overdueTaskCount > 0 ? "Existing overdue tasks require attention first." : "Continue qualification workflow.",
+        action: "Maintain follow-up cadence",
+      why:
+        overdueTaskCount > 0
+          ? "Existing overdue tasks require attention first."
+          : hasRecentHandoff
+            ? "Recent handoff exists; complete handed-off task before new outbound."
+            : "Continue qualification workflow.",
       priority: overdueTaskCount > 0 ? "HIGH" : "MEDIUM",
       approvalNeeded: false,
       shouldCreateFollowup: overdueTaskCount === 0 && !hasOpenFollowups,
@@ -113,8 +151,28 @@ export function deriveNextBestAction(input: {
         why: "Thread/lead is opt-out or do-not-contact.",
         priority: "HIGH",
         approvalNeeded: false,
-        shouldCreateFollowup: true,
+        shouldCreateFollowup: !hasOpenFollowups,
         blockedReasons: [...blockedReasons, "DNC_BLOCKED"]
+      };
+    }
+    if (pendingApprovalCount > 0) {
+      return {
+        action: "Wait for pending approval before drafting another outbound response",
+        why: "An approval for related outbound communication already exists.",
+        priority: "HIGH",
+        approvalNeeded: false,
+        shouldCreateFollowup: !hasOpenFollowups,
+        blockedReasons
+      };
+    }
+    if (retryableFailedDelivery) {
+      return {
+        action: "Retry failed approved outbound communication",
+        why: "Latest delivery failed and is marked retryable.",
+        priority: "HIGH",
+        approvalNeeded: false,
+        shouldCreateFollowup: !hasOpenFollowups,
+        blockedReasons
       };
     }
     if (classification === "BOOKING" || classification === "QUOTE") {
@@ -129,8 +187,8 @@ export function deriveNextBestAction(input: {
     }
     return {
       action: "Draft response and mark thread status",
-      why: "Thread requires standard communication handling.",
-      priority: "MEDIUM",
+      why: hasRecentHandoff ? "Recent handoff indicates pending owner action on this thread." : "Thread requires standard communication handling.",
+      priority: hasRecentHandoff ? "HIGH" : "MEDIUM",
       approvalNeeded: true,
       shouldCreateFollowup: false,
       blockedReasons

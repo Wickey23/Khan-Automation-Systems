@@ -5,6 +5,7 @@ import { sendSmsMessage } from "../../twilio/twilio.service";
 import { canApproveAsRole } from "./approval-policy.service";
 import { sendOutboundEmail } from "../../../services/email";
 import { upsertEntityMemory } from "../context/entity-memory.service";
+import { refreshEntityOperationalMemory } from "../context/entity-state-refresh.service";
 
 type ApprovalMode = "SEND_NOW" | "APPROVE_ONLY";
 
@@ -41,6 +42,56 @@ function parseApprovalInput(inputSummary?: string | null): ParsedApprovalInput {
     };
   } catch {
     return {};
+  }
+}
+
+async function refreshPrimaryAndLinkedEntities(input: {
+  orgId: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  updatedByUserId?: string | null;
+  reason: string;
+}) {
+  if (!input.entityType || !input.entityId) return;
+
+  const refs: Array<{ entityType: string; entityId: string }> = [{ entityType: input.entityType, entityId: input.entityId }];
+  if (input.entityType === "lead") {
+    const [latestCall, latestThread] = await Promise.all([
+      prisma.callLog.findFirst({
+        where: { orgId: input.orgId, leadId: input.entityId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true }
+      }),
+      prisma.messageThread.findFirst({
+        where: { orgId: input.orgId, leadId: input.entityId },
+        orderBy: { lastMessageAt: "desc" },
+        select: { id: true }
+      })
+    ]);
+    if (latestCall?.id) refs.push({ entityType: "call", entityId: latestCall.id });
+    if (latestThread?.id) refs.push({ entityType: "message_thread", entityId: latestThread.id });
+  } else if (input.entityType === "call") {
+    const call = await prisma.callLog.findFirst({
+      where: { orgId: input.orgId, id: input.entityId },
+      select: { leadId: true }
+    });
+    if (call?.leadId) refs.push({ entityType: "lead", entityId: call.leadId });
+  } else if (input.entityType === "message_thread") {
+    const thread = await prisma.messageThread.findFirst({
+      where: { orgId: input.orgId, id: input.entityId },
+      select: { leadId: true }
+    });
+    if (thread?.leadId) refs.push({ entityType: "lead", entityId: thread.leadId });
+  }
+
+  for (const ref of refs) {
+    await refreshEntityOperationalMemory({
+      orgId: input.orgId,
+      entityType: ref.entityType,
+      entityId: ref.entityId,
+      updatedByUserId: input.updatedByUserId || null,
+      reason: input.reason
+    });
   }
 }
 
@@ -300,7 +351,7 @@ async function persistRejectedDecision(input: {
   entityType?: string | null;
   entityId?: string | null;
 }) {
-  return prisma.$transaction(async (tx) => {
+  const approvalRequest = await prisma.$transaction(async (tx) => {
     const action = await tx.approvalAction.create({
       data: {
         orgId: input.orgId,
@@ -366,6 +417,14 @@ async function persistRejectedDecision(input: {
 
     return approvalRequest;
   });
+  await refreshPrimaryAndLinkedEntities({
+    orgId: input.orgId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    updatedByUserId: input.actorUserId,
+    reason: "approval_rejected"
+  });
+  return approvalRequest;
 }
 
 async function executeApprovedDelivery(input: {
@@ -492,6 +551,13 @@ async function executeApprovedDelivery(input: {
         updatedByUserId: input.actorUserId
       });
     }
+    await refreshPrimaryAndLinkedEntities({
+      orgId: input.orgId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      updatedByUserId: input.actorUserId,
+      reason: "approval_delivery_sent"
+    });
   } catch (error) {
     const failureReason = error instanceof Error ? error.message : "delivery_failed";
     const retryable = /timeout|429|temporar|network|twilio|resend/i.test(failureReason);
@@ -560,6 +626,13 @@ async function executeApprovedDelivery(input: {
         updatedByUserId: input.actorUserId
       });
     }
+    await refreshPrimaryAndLinkedEntities({
+      orgId: input.orgId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      updatedByUserId: input.actorUserId,
+      reason: "approval_delivery_failed"
+    });
     throw error;
   }
 }
@@ -718,6 +791,13 @@ export async function decideApproval(input: {
       outboundBlocked: false,
       riskFlags: mode === "SEND_NOW" ? [] : ["APPROVED_QUEUED"],
       updatedByUserId: input.actorUserId
+    });
+    await refreshPrimaryAndLinkedEntities({
+      orgId: input.orgId,
+      entityType: request.entityType,
+      entityId: request.entityId,
+      updatedByUserId: input.actorUserId,
+      reason: mode === "SEND_NOW" ? "approval_approved_sending" : "approval_approved_queued"
     });
   }
 

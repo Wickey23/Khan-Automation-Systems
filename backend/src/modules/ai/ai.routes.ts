@@ -14,6 +14,7 @@ import {
   aiToolExecuteSchema
 } from "./ai.schema";
 import { decideApproval, retryApprovalDelivery } from "./approvals/approval.service";
+import { refreshEntityOperationalMemory } from "./context/entity-state-refresh.service";
 import { createAiRun } from "./orchestrator/orchestrator.service";
 import { fetchRegistryForOrg } from "./registry/agent-registry.service";
 import { executeTool } from "./tools/execution/tool-execution.service";
@@ -312,6 +313,16 @@ aiRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res) => {
     }
   });
 
+  if (updated.entityType && updated.entityId) {
+    await refreshEntityOperationalMemory({
+      orgId,
+      entityType: updated.entityType,
+      entityId: updated.entityId,
+      updatedByUserId: req.auth!.userId,
+      reason: "task_updated"
+    });
+  }
+
   return res.json({ ok: true, data: { task: updated } });
 });
 
@@ -349,6 +360,25 @@ aiRouter.patch("/queues/follow-up/:id", async (req: AuthenticatedRequest, res) =
       metadataJson: JSON.stringify({ status: updated.status })
     }
   });
+
+  if (updated.entityType && updated.entityId) {
+    await refreshEntityOperationalMemory({
+      orgId,
+      entityType: updated.entityType,
+      entityId: updated.entityId,
+      updatedByUserId: req.auth!.userId,
+      reason: "followup_status_updated"
+    });
+  }
+  if (updated.task?.entityType && updated.task?.entityId) {
+    await refreshEntityOperationalMemory({
+      orgId,
+      entityType: updated.task.entityType,
+      entityId: updated.task.entityId,
+      updatedByUserId: req.auth!.userId,
+      reason: "followup_task_linked_update"
+    });
+  }
 
   return res.json({ ok: true, data: { item: updated } });
 });
