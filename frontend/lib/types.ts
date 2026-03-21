@@ -1574,6 +1574,7 @@ export type AgentActionLog = {
   entityId: string | null;
   errorCode: string | null;
   errorSummary: string | null;
+  metadataJson?: Record<string, unknown> | null;
   createdAt: string;
 };
 
@@ -1643,6 +1644,64 @@ export type AgentEntityMemory = {
   riskFlagsJson: string[];
   contextJson: Record<string, unknown>;
   updatedAt: string;
+};
+
+export type EntityRecommendationInspection = {
+  action: string | null;
+  why: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | null;
+  approvalNeeded: boolean;
+  shouldCreateFollowup: boolean;
+  blockedReasons: string[];
+  refreshedAt: string;
+};
+
+export type EntityOperationalMemoryBlock = {
+  entityType: string;
+  entityId: string;
+  latestSummary: string | null;
+  latestClassification: string | null;
+  recommendation: EntityRecommendationInspection | null;
+  approvalSnapshot: {
+    lastApprovalStatus: string | null;
+    lastDeliveryStatus: string | null;
+    approvalNeeded: boolean;
+  };
+  taskSnapshot: {
+    lastTaskStatus: string | null;
+    openFollowUpCount: number;
+  };
+  riskFlags: string[];
+  outboundBlocked: boolean;
+  updatedAt: string;
+};
+
+export type EntityHandoffInspection = {
+  id: string;
+  at: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED";
+  sourceAgent: string | null;
+  targetAgent: string | null;
+  targetTool: string | null;
+  reason: string | null;
+  sourceRecommendationSnapshot: Record<string, unknown> | null;
+  targetResultSummary: string | null;
+  suppressed: boolean;
+  suppressionReason: string | null;
+  createdApproval: boolean;
+  createdFollowup: boolean;
+  createdTask: boolean;
+  approvalRequestId: string | null;
+};
+
+export type EntityAiTimelineResponse = {
+  audit: AuditEvent[];
+  runs: AgentRun[];
+  approvals: ApprovalRequest[];
+  memory?: AgentEntityMemory | null;
+  operationalMemory?: EntityOperationalMemoryBlock | null;
+  recommendation?: EntityRecommendationInspection | null;
+  handoffs?: EntityHandoffInspection[];
 };
 
 export type AiRunResponse = {

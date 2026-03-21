@@ -56,11 +56,11 @@ import type {
   OrgNotification,
   AgentDefinition,
   AgentRun,
-  AgentEntityMemory,
   ApprovalRequest,
   AiRunResponse,
   FollowUpTask,
   FollowUpQueueItem,
+  EntityAiTimelineResponse,
   ManagerInsightSummary,
   OutreachBulkImportRowResult,
   OutreachCallerConfig,
@@ -1632,12 +1632,7 @@ export async function retryAiApprovalSend(approvalRequestId: string) {
 }
 
 export async function fetchEntityAiTimeline(entityType: string, entityId: string) {
-  return request<{
-    audit: AuditEvent[];
-    runs: AgentRun[];
-    approvals: ApprovalRequest[];
-    memory?: AgentEntityMemory | null;
-  }>(`/api/org/ai/timelines/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`);
+  return request<EntityAiTimelineResponse>(`/api/org/ai/timelines/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`);
 }
 
 export async function fetchFollowUpQueue(status?: string) {

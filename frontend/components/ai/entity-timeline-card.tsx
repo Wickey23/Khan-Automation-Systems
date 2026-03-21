@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { fetchEntityAiTimeline } from "@/lib/api";
-import type { AgentEntityMemory, AgentRun, ApprovalRequest, AuditEvent } from "@/lib/types";
+import type {
+  AgentRun,
+  ApprovalRequest,
+  AuditEvent,
+  EntityHandoffInspection,
+  EntityOperationalMemoryBlock,
+  EntityRecommendationInspection
+} from "@/lib/types";
 
 type EntityTimelineCardProps = {
   entityType?: string;
@@ -17,14 +24,18 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
-  const [memory, setMemory] = useState<AgentEntityMemory | null>(null);
+  const [operationalMemory, setOperationalMemory] = useState<EntityOperationalMemoryBlock | null>(null);
+  const [recommendation, setRecommendation] = useState<EntityRecommendationInspection | null>(null);
+  const [handoffs, setHandoffs] = useState<EntityHandoffInspection[]>([]);
 
   useEffect(() => {
     if (!entityType || !entityId) {
       setRuns([]);
       setApprovals([]);
       setAudit([]);
-      setMemory(null);
+      setOperationalMemory(null);
+      setRecommendation(null);
+      setHandoffs([]);
       return;
     }
     let active = true;
@@ -36,7 +47,9 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
         setRuns(result.runs || []);
         setApprovals(result.approvals || []);
         setAudit(result.audit || []);
-        setMemory(result.memory || null);
+        setOperationalMemory(result.operationalMemory || null);
+        setRecommendation(result.recommendation || null);
+        setHandoffs(result.handoffs || []);
       })
       .catch((timelineError) => {
         if (!active) return;
@@ -65,15 +78,36 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       {!busy && !error && entityType && runs.length === 0 && approvals.length === 0 && audit.length === 0 ? (
         <p className="mt-3 text-xs text-slate-500">No AI activity recorded yet.</p>
       ) : null}
-      {memory ? (
+      {recommendation ? (
         <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-          {memory.latestRecommendation ? <p className="font-medium">Next action: {memory.latestRecommendation}</p> : null}
-          {memory.recommendationWhy ? <p className="mt-1">{memory.recommendationWhy}</p> : null}
-          {memory.recommendationPriority ? <p className="mt-1">Priority: {memory.recommendationPriority}</p> : null}
-          {memory.riskFlagsJson?.length ? <p className="mt-1">Flags: {memory.riskFlagsJson.join(", ")}</p> : null}
+          {recommendation.action ? <p className="font-medium">Next action: {recommendation.action}</p> : null}
+          {recommendation.why ? <p className="mt-1">{recommendation.why}</p> : null}
+          <div className="mt-1 grid gap-1 text-[11px] text-blue-900 sm:grid-cols-2">
+            <p>Priority: {recommendation.priority || "MEDIUM"}</p>
+            <p>Approval needed: {recommendation.approvalNeeded ? "yes" : "no"}</p>
+            <p>Create follow-up: {recommendation.shouldCreateFollowup ? "yes" : "no"}</p>
+            <p>Refreshed: {new Date(recommendation.refreshedAt).toLocaleString()}</p>
+          </div>
+          {recommendation.blockedReasons.length ? <p className="mt-1">Blocked reasons: {recommendation.blockedReasons.join(", ")}</p> : null}
         </div>
       ) : null}
-      {!busy && !error && (runs.length > 0 || approvals.length > 0 || audit.length > 0) ? (
+      {operationalMemory ? (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <p className="font-medium text-slate-900">Operational memory</p>
+          {operationalMemory.latestSummary ? <p className="mt-1">Summary: {operationalMemory.latestSummary}</p> : null}
+          {operationalMemory.latestClassification ? <p className="mt-1">Classification: {operationalMemory.latestClassification}</p> : null}
+          <p className="mt-1">
+            Approval: {operationalMemory.approvalSnapshot.lastApprovalStatus || "-"} | Delivery: {operationalMemory.approvalSnapshot.lastDeliveryStatus || "-"}
+          </p>
+          <p className="mt-1">
+            Task: {operationalMemory.taskSnapshot.lastTaskStatus || "-"} | Open follow-up: {operationalMemory.taskSnapshot.openFollowUpCount}
+          </p>
+          <p className="mt-1">Outbound blocked: {operationalMemory.outboundBlocked ? "yes" : "no"}</p>
+          {operationalMemory.riskFlags.length ? <p className="mt-1">Flags: {operationalMemory.riskFlags.join(", ")}</p> : null}
+          <p className="mt-1 text-slate-500">Updated: {new Date(operationalMemory.updatedAt).toLocaleString()}</p>
+        </div>
+      ) : null}
+      {!busy && !error && (runs.length > 0 || approvals.length > 0 || audit.length > 0 || handoffs.length > 0) ? (
         <div className="mt-3 space-y-2">
           {runs.slice(0, 3).map((run) => (
             <div key={`run-${run.id}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
@@ -88,6 +122,22 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
               </p>
               {approval.failureReason ? <p className="mt-1 text-red-700">{approval.failureReason}</p> : null}
               {approval.approvedContent ? <p className="mt-1 text-amber-900">{approval.approvedContent.slice(0, 120)}</p> : null}
+            </div>
+          ))}
+          {handoffs.slice(0, 3).map((handoff) => (
+            <div key={`handoff-${handoff.id}`} className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
+              <p className="font-medium">
+                Handoff {handoff.sourceAgent || "agent"}
+                {" -> "}
+                {handoff.targetAgent || "agent"} ({handoff.targetTool || "tool"})
+              </p>
+              {handoff.reason ? <p className="mt-1">Reason: {handoff.reason}</p> : null}
+              {handoff.suppressed ? <p className="mt-1 text-amber-700">Suppressed: {handoff.suppressionReason || "suppressed"}</p> : null}
+              {handoff.targetResultSummary ? <p className="mt-1">{handoff.targetResultSummary}</p> : null}
+              <p className="mt-1 text-[11px] text-indigo-700">
+                Created - approval: {handoff.createdApproval ? "yes" : "no"}, follow-up: {handoff.createdFollowup ? "yes" : "no"}, task:{" "}
+                {handoff.createdTask ? "yes" : "no"}
+              </p>
             </div>
           ))}
           {audit.slice(0, 3).map((entry) => (

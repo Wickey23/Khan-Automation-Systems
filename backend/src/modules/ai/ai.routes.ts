@@ -33,6 +33,24 @@ function guardFeatureEnabled() {
   return String(process.env.FEATURE_AI_OPS_ENABLED || "false").toLowerCase() === "true";
 }
 
+function parseMetadata(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 aiRouter.use(async (req, res, next) => {
   if (!guardFeatureEnabled()) {
     return res.status(404).json({ ok: false, message: "AI ops is disabled." });
@@ -220,7 +238,7 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
   const orgId = await resolveOrgId(req);
   if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
 
-  const [audit, runs, approvals, memory] = await Promise.all([
+  const [audit, runs, approvals, memory, handoffActions] = await Promise.all([
     prisma.auditLog.findMany({
       where: { orgId, entityType: parsed.data.entityType, entityId: parsed.data.entityId },
       orderBy: { createdAt: "desc" },
@@ -246,10 +264,90 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
           entityId: parsed.data.entityId
         }
       }
+    }),
+    prisma.agentActionLog.findMany({
+      where: {
+        orgId,
+        entityType: parsed.data.entityType,
+        entityId: parsed.data.entityId,
+        actionType: "AGENT_HANDOFF"
+      },
+      orderBy: { createdAt: "desc" },
+      take: 40
     })
   ]);
+  const nextBestActionFromContext = parseMetadata(memory?.contextJson)?.nextBestAction as Record<string, unknown> | undefined;
+  const recommendation = memory
+    ? {
+        action: memory.latestRecommendation || (typeof nextBestActionFromContext?.action === "string" ? nextBestActionFromContext.action : null),
+        why: memory.recommendationWhy || (typeof nextBestActionFromContext?.why === "string" ? nextBestActionFromContext.why : null),
+        priority:
+          memory.recommendationPriority ||
+          (typeof nextBestActionFromContext?.priority === "string" ? nextBestActionFromContext.priority : null),
+        approvalNeeded:
+          typeof nextBestActionFromContext?.approvalNeeded === "boolean" ? nextBestActionFromContext.approvalNeeded : memory.approvalNeeded,
+        shouldCreateFollowup:
+          typeof nextBestActionFromContext?.shouldCreateFollowup === "boolean"
+            ? nextBestActionFromContext.shouldCreateFollowup
+            : false,
+        blockedReasons: Array.from(
+          new Set([
+            ...toStringArray(nextBestActionFromContext?.blockedReasons),
+            ...toStringArray(memory.riskFlagsJson)
+          ])
+        ),
+        refreshedAt: memory.updatedAt
+      }
+    : null;
 
-  return res.json({ ok: true, data: { audit, runs, approvals, memory } });
+  const operationalMemory = memory
+    ? {
+        entityType: memory.entityType,
+        entityId: memory.entityId,
+        latestSummary: memory.latestSummary,
+        latestClassification: memory.latestClassification,
+        recommendation,
+        approvalSnapshot: {
+          lastApprovalStatus: memory.lastApprovalStatus,
+          lastDeliveryStatus: memory.lastDeliveryStatus,
+          approvalNeeded: memory.approvalNeeded
+        },
+        taskSnapshot: {
+          lastTaskStatus: memory.lastTaskStatus,
+          openFollowUpCount: Number(parseMetadata(memory.contextJson)?.openFollowUpCount || 0)
+        },
+        riskFlags: toStringArray(memory.riskFlagsJson),
+        outboundBlocked: memory.outboundBlocked,
+        updatedAt: memory.updatedAt
+      }
+    : null;
+
+  const handoffs = handoffActions.map((action) => {
+    const metadata = parseMetadata(action.metadataJson) || {};
+    return {
+      id: action.id,
+      at: action.createdAt,
+      status: action.status,
+      sourceAgent: typeof metadata.fromAgent === "string" ? metadata.fromAgent : null,
+      targetAgent: typeof metadata.toAgent === "string" ? metadata.toAgent : null,
+      targetTool: typeof metadata.handoffToolKey === "string" ? metadata.handoffToolKey : action.toolKey || null,
+      reason: typeof metadata.handoffReason === "string" ? metadata.handoffReason : null,
+      sourceRecommendationSnapshot:
+        metadata.sourceRecommendationSnapshot && typeof metadata.sourceRecommendationSnapshot === "object"
+          ? (metadata.sourceRecommendationSnapshot as Record<string, unknown>)
+          : null,
+      targetResultSummary:
+        typeof metadata.targetResultSummary === "string" ? metadata.targetResultSummary : action.outputSummary || null,
+      suppressed: Boolean(metadata.suppressed),
+      suppressionReason: typeof metadata.suppressionReason === "string" ? metadata.suppressionReason : null,
+      createdApproval: Boolean(metadata.createdApproval),
+      createdFollowup: Boolean(metadata.createdFollowup),
+      createdTask: Boolean(metadata.createdTask),
+      approvalRequestId: action.approvalRequestId
+    };
+  });
+
+  return res.json({ ok: true, data: { audit, runs, approvals, memory, operationalMemory, recommendation, handoffs } });
 });
 
 aiRouter.get("/queues/follow-up", async (req: AuthenticatedRequest, res) => {
@@ -309,7 +407,21 @@ aiRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res) => {
       action: "AI_TASK_UPDATED",
       entityType: "task",
       entityId: updated.id,
-      metadataJson: JSON.stringify({ status: updated.status, priority: updated.priority, dueAt: updated.dueAt })
+      metadataJson: JSON.stringify({
+        interventionType: "manual_task_update",
+        before: {
+          status: task.status,
+          priority: task.priority,
+          dueAt: task.dueAt,
+          assignedToUserId: task.assignedToUserId
+        },
+        after: {
+          status: updated.status,
+          priority: updated.priority,
+          dueAt: updated.dueAt,
+          assignedToUserId: updated.assignedToUserId
+        }
+      })
     }
   });
 
@@ -357,7 +469,11 @@ aiRouter.patch("/queues/follow-up/:id", async (req: AuthenticatedRequest, res) =
       action: "AI_FOLLOWUP_STATUS_UPDATED",
       entityType: "follow_up_queue_item",
       entityId: updated.id,
-      metadataJson: JSON.stringify({ status: updated.status })
+      metadataJson: JSON.stringify({
+        interventionType: "manual_followup_status_update",
+        before: { status: item.status },
+        after: { status: updated.status }
+      })
     }
   });
 

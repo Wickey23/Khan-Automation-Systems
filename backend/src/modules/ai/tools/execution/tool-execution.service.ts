@@ -312,7 +312,51 @@ async function runAgentHandoffs(input: {
     skipIfPendingApproval?: boolean;
     skipIfRecentHandoff?: boolean;
   }) => {
+    const recordSuppressedHandoff = async (suppressionReason: string) => {
+      const suppressedMetadata: Prisma.InputJsonValue = JSON.parse(
+        JSON.stringify({
+          fromAgent: agentKey,
+          toAgent: handoff.toAgent,
+          sourceToolKey: input.sourceToolKey,
+          handoffToolKey: handoff.toolKey,
+          handoffReason: handoff.reason,
+          sourceRecommendationSnapshot: sourceRecommendation,
+          suppressionReason,
+          suppressed: true
+        })
+      ) as Prisma.InputJsonValue;
+
+      await createActionAudit({
+        orgId: input.orgId,
+        runId: input.runId,
+        agentDefinitionId: input.agentDefinitionId,
+        actionType: "AGENT_HANDOFF",
+        toolKey: handoff.toolKey,
+        status: AiActionStatus.REJECTED,
+        inputSummary: JSON.stringify(handoff.toolInput).slice(0, 600),
+        outputSummary: `Handoff suppressed (${suppressionReason}).`,
+        approvalRequired: false,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        metadataJson: suppressedMetadata
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          orgId: input.orgId,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          action: "AI_AGENT_HANDOFF_SUPPRESSED",
+          agentRunId: input.runId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          metadataJson: JSON.stringify(suppressedMetadata)
+        }
+      });
+    };
+
     if (handoff.skipIfOpenFollowup && (await hasOpenFollowup(input.orgId, input.entityType, input.entityId))) {
+      await recordSuppressedHandoff("OPEN_FOLLOWUP_EXISTS");
       return;
     }
     if (
@@ -324,6 +368,7 @@ async function runAgentHandoffs(input: {
         toolKey: handoff.toolKey
       }))
     ) {
+      await recordSuppressedHandoff("PENDING_APPROVAL_EXISTS");
       return;
     }
     if (handoff.skipIfRecentHandoff) {
@@ -338,7 +383,10 @@ async function runAgentHandoffs(input: {
         orderBy: { createdAt: "desc" },
         select: { id: true }
       });
-      if (recent) return;
+      if (recent) {
+        await recordSuppressedHandoff("RECENT_HANDOFF_EXISTS");
+        return;
+      }
     }
 
     const handoffResult = await executeTool({
@@ -362,7 +410,10 @@ async function runAgentHandoffs(input: {
         sourceToolKey: input.sourceToolKey,
         handoffReason: handoff.reason,
         sourceRecommendationSnapshot: sourceRecommendation,
-        targetResultSummary: handoffResult.outputSummary || handoffResult.message || null
+        targetResultSummary: handoffResult.outputSummary || handoffResult.message || null,
+        createdApproval: Boolean(handoffResult.approvalRequestId),
+        createdFollowup: Boolean((handoffResult.output as Record<string, unknown> | undefined)?.queueItemId),
+        createdTask: Boolean((handoffResult.output as Record<string, unknown> | undefined)?.taskId)
       })
     ) as Prisma.InputJsonValue;
 
@@ -400,7 +451,10 @@ async function runAgentHandoffs(input: {
             sourceRecommendationSnapshot: sourceRecommendation,
             resultStatus: handoffResult.status,
             targetResultSummary: handoffResult.outputSummary || handoffResult.message || null,
-            approvalRequestId: handoffResult.approvalRequestId || null
+            approvalRequestId: handoffResult.approvalRequestId || null,
+            createdApproval: Boolean(handoffResult.approvalRequestId),
+            createdFollowup: Boolean((handoffResult.output as Record<string, unknown> | undefined)?.queueItemId),
+            createdTask: Boolean((handoffResult.output as Record<string, unknown> | undefined)?.taskId)
           })
         }
       });
