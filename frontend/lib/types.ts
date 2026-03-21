@@ -1730,6 +1730,8 @@ export type AttentionQueueItem = {
   stale: boolean;
   unresolved: boolean;
   entityHref: string;
+  approvalsHref: string;
+  followUpHref: string;
   approvalContext: {
     latestApprovalId: string | null;
     status: string | null;
@@ -1741,6 +1743,7 @@ export type AttentionQueueItem = {
   followUpContext: {
     openCount: number;
     overdueCount: number;
+    latestQueueItemId: string | null;
     latestTaskId: string | null;
     latestTaskStatus: string | null;
   };

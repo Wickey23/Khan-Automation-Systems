@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { executeAiTool, fetchFollowUpQueue, getMe, updateAiTask, updateFollowUpQueueItem } from "@/lib/api";
 import type { FollowUpQueueItem } from "@/lib/types";
@@ -9,6 +10,10 @@ import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 export default function FollowUpPage() {
+  const searchParams = useSearchParams();
+  const selectedQueueItemId = searchParams.get("queueItemId") || "";
+  const selectedTaskId = searchParams.get("taskId") || "";
+  const source = searchParams.get("source") || "";
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queue, setQueue] = useState<FollowUpQueueItem[]>([]);
@@ -43,6 +48,8 @@ export default function FollowUpPage() {
     return queue.filter((item) => {
       const due = item.task?.dueAt ? new Date(item.task.dueAt).getTime() : null;
       if (filter === "all") return true;
+      if (selectedQueueItemId && item.id === selectedQueueItemId) return true;
+      if (selectedTaskId && item.task?.id === selectedTaskId) return true;
       if (filter === "assigned") return Boolean(item.task?.assignedToUserId);
       if (filter === "unassigned") return !item.task?.assignedToUserId;
       if (!due) return false;
@@ -51,7 +58,17 @@ export default function FollowUpPage() {
       if (filter === "soon") return due >= now && due < now + 3 * 24 * 60 * 60 * 1000;
       return true;
     });
-  }, [filter, queue]);
+  }, [filter, queue, selectedQueueItemId, selectedTaskId]);
+
+  useEffect(() => {
+    const targetId = selectedQueueItemId || selectedTaskId;
+    if (!targetId) return;
+    const timeout = setTimeout(() => {
+      const element = document.getElementById(`followup-${targetId}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => clearTimeout(timeout);
+  }, [busy, selectedQueueItemId, selectedTaskId, visibleQueue.length]);
 
   async function runQueueAction(item: FollowUpQueueItem, action: "done" | "open" | "assignMe" | "escalate") {
     if (actionBusyId) return;
@@ -91,6 +108,14 @@ export default function FollowUpPage() {
       />
 
       <SectionShell>
+        {source === "attention" ? (
+          <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Opened from attention queue.{" "}
+            <Link href="/app/attention" className="font-semibold text-blue-700 underline">
+              Back to attention
+            </Link>
+          </div>
+        ) : null}
         <div className="mb-3 flex flex-wrap gap-2">
           {(["all", "overdue", "today", "soon", "assigned", "unassigned"] as const).map((entry) => (
             <button
@@ -130,6 +155,8 @@ export default function FollowUpPage() {
           <div className="space-y-3">
             {visibleQueue.map((item) => (
               <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div id={`followup-${item.id}`} />
+                {item.task?.id ? <div id={`followup-${item.task.id}`} /> : null}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{item.task?.title || item.reason}</p>
@@ -137,6 +164,9 @@ export default function FollowUpPage() {
                   </div>
                   <StatusBadge kind="feature" state={item.status === "OPEN" ? "limited" : "ready"} label={item.status} size="xs" />
                 </div>
+                {selectedQueueItemId === item.id || (selectedTaskId && item.task?.id === selectedTaskId) ? (
+                  <p className="mt-2 text-xs font-semibold text-blue-700">Focused follow-up item from linked workflow</p>
+                ) : null}
 
                 {item.task?.description ? <p className="mt-2 text-sm text-slate-600">{item.task.description}</p> : null}
 

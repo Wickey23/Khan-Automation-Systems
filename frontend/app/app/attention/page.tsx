@@ -29,6 +29,13 @@ function entityLabel(entityType: string) {
   return entityType;
 }
 
+function withSource(href: string, source: string) {
+  const [path, search = ""] = href.split("?");
+  const params = new URLSearchParams(search);
+  params.set("source", source);
+  return `${path}?${params.toString()}`;
+}
+
 export default function AttentionPage() {
   const [items, setItems] = useState<AttentionQueueItem[]>([]);
   const [busy, setBusy] = useState(true);
@@ -228,13 +235,22 @@ export default function AttentionPage() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Link href={item.entityHref} className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">
+                  <Link
+                    href={withSource(item.entityHref, "attention")}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+                  >
                     Open entity
                   </Link>
-                  <Link href="/app/approvals" className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">
+                  <Link
+                    href={withSource(item.approvalsHref || "/app/approvals", "attention")}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+                  >
                     Open approvals
                   </Link>
-                  <Link href="/app/follow-up" className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">
+                  <Link
+                    href={withSource(item.followUpHref || "/app/follow-up", "attention")}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+                  >
                     Open follow-up
                   </Link>
                   {item.approvalContext.latestApprovalId && item.approvalContext.deliveryStatus === "FAILED" && item.approvalContext.retryable ? (

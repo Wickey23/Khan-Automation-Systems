@@ -42,7 +42,7 @@ async function loadSharedEntitySignals(input: {
 }) {
   const refs = toEntityRefs(input.base, input.linked);
   const whereOr = refs.map((ref) => ({ entityType: ref.entityType, entityId: ref.entityId }));
-  const [latestApproval, oldestPendingApproval, pendingApprovalCount, latestTask, openFollowUpCount, overdueTaskCount, recentAudit, recentHandoff] =
+  const [latestApproval, oldestPendingApproval, pendingApprovalCount, latestTask, latestFollowUpItem, openFollowUpCount, overdueTaskCount, recentAudit, recentHandoff] =
     await Promise.all([
       prisma.approvalRequest.findFirst({
         where: { orgId: input.orgId, OR: whereOr },
@@ -92,6 +92,17 @@ async function loadSharedEntitySignals(input: {
           assignedToUserId: true
         }
       }),
+      prisma.followUpQueueItem.findFirst({
+        where: { orgId: input.orgId, OR: whereOr },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          entityType: true,
+          entityId: true,
+          taskId: true
+        }
+      }),
       prisma.followUpQueueItem.count({
         where: { orgId: input.orgId, status: "OPEN", OR: whereOr }
       }),
@@ -128,6 +139,7 @@ async function loadSharedEntitySignals(input: {
       : 0,
     pendingApprovalCount,
     latestTask,
+    latestFollowUpItem,
     openFollowUpCount,
     overdueTaskCount,
     hadRecentHandoff: Boolean(recentHandoff),
@@ -210,6 +222,8 @@ async function buildCallContext(orgId: string, entityId: string): Promise<Entity
     pendingApprovalCount: shared.pendingApprovalCount,
     pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
     openFollowUpCount: shared.openFollowUpCount,
+    latestFollowUpItemId: shared.latestFollowUpItem?.id || null,
+    latestFollowUpItemStatus: shared.latestFollowUpItem?.status || null,
     overdueTaskCount: shared.overdueTaskCount,
     lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
     latestTask: shared.latestTask,
@@ -293,6 +307,8 @@ async function buildLeadContext(orgId: string, entityId: string): Promise<Entity
     pendingApprovalCount: shared.pendingApprovalCount,
     pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
     openFollowUpCount: shared.openFollowUpCount,
+    latestFollowUpItemId: shared.latestFollowUpItem?.id || null,
+    latestFollowUpItemStatus: shared.latestFollowUpItem?.status || null,
     overdueTaskCount: shared.overdueTaskCount,
     lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
     latestTask: shared.latestTask,
@@ -386,6 +402,8 @@ async function buildMessageThreadContext(orgId: string, entityId: string): Promi
     pendingApprovalCount: shared.pendingApprovalCount,
     pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
     openFollowUpCount: shared.openFollowUpCount,
+    latestFollowUpItemId: shared.latestFollowUpItem?.id || null,
+    latestFollowUpItemStatus: shared.latestFollowUpItem?.status || null,
     overdueTaskCount: shared.overdueTaskCount,
     lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
     latestTask: shared.latestTask,
@@ -456,6 +474,8 @@ export async function buildEntityContext(input: {
         pendingApprovalCount: shared.pendingApprovalCount,
         pendingApprovalOldestMinutes: shared.pendingApprovalOldestMinutes,
         openFollowUpCount: shared.openFollowUpCount,
+        latestFollowUpItemId: shared.latestFollowUpItem?.id || null,
+        latestFollowUpItemStatus: shared.latestFollowUpItem?.status || null,
         overdueTaskCount: shared.overdueTaskCount,
         lastMeaningfulActionAgeMinutes: shared.lastMeaningfulActionAgeMinutes,
         recentAudit: shared.recentAudit,

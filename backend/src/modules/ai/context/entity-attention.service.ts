@@ -31,6 +31,8 @@ export type AttentionQueueItem = {
   stale: boolean;
   unresolved: boolean;
   entityHref: string;
+  approvalsHref: string;
+  followUpHref: string;
   approvalContext: {
     latestApprovalId: string | null;
     status: string | null;
@@ -42,6 +44,7 @@ export type AttentionQueueItem = {
   followUpContext: {
     openCount: number;
     overdueCount: number;
+    latestQueueItemId: string | null;
     latestTaskId: string | null;
     latestTaskStatus: string | null;
   };
@@ -288,6 +291,14 @@ export async function buildAttentionQueue(input: {
         attention.attentionLevel === "CRITICAL" ||
         recommendation.blockedReasons.length > 0,
       entityHref: buildEntityHref(ref.entityType, ref.entityId),
+      approvalsHref: `/app/approvals${asString(payload.latestApprovalId) ? `?approvalId=${encodeURIComponent(asString(payload.latestApprovalId))}` : ""}`,
+      followUpHref: `/app/follow-up${
+        asString(payload.latestFollowUpItemId)
+          ? `?queueItemId=${encodeURIComponent(asString(payload.latestFollowUpItemId))}`
+          : asString(payload.latestTaskId)
+            ? `?taskId=${encodeURIComponent(asString(payload.latestTaskId))}`
+            : ""
+      }`,
       approvalContext: {
         latestApprovalId: asString(payload.latestApprovalId) || null,
         status: asString(payload.latestApprovalStatus) || null,
@@ -299,6 +310,7 @@ export async function buildAttentionQueue(input: {
       followUpContext: {
         openCount: asNumber(payload.openFollowUpCount),
         overdueCount: asNumber(payload.overdueTaskCount),
+        latestQueueItemId: asString(payload.latestFollowUpItemId) || null,
         latestTaskId: asString(payload.latestTaskId) || null,
         latestTaskStatus: asString(payload.latestTaskStatus) || null
       },

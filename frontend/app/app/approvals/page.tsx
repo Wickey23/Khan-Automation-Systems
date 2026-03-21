@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { approveAiAction, fetchAiApprovals, rejectAiAction, retryAiApprovalSend } from "@/lib/api";
 import type { ApprovalRequest } from "@/lib/types";
@@ -40,6 +42,10 @@ function parseDraft(approval: ApprovalRequest): DraftEditState {
 }
 
 export default function ApprovalsPage() {
+  const searchParams = useSearchParams();
+  const selectedApprovalId = searchParams.get("approvalId") || "";
+  const statusFilter = searchParams.get("status") || "";
+  const source = searchParams.get("source") || "";
   const [busy, setBusy] = useState(true);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +53,11 @@ export default function ApprovalsPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [draftEdits, setDraftEdits] = useState<Record<string, DraftEditState>>({});
 
-  async function load() {
+  const load = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetchAiApprovals();
+      const response = await fetchAiApprovals(statusFilter || undefined);
       setApprovals(response.approvals);
       setDraftEdits((current) => {
         const next = { ...current };
@@ -67,11 +73,20 @@ export default function ApprovalsPage() {
     } finally {
       setBusy(false);
     }
-  }
+  }, [statusFilter]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    if (!selectedApprovalId) return;
+    const timeout = setTimeout(() => {
+      const element = document.getElementById(`approval-${selectedApprovalId}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => clearTimeout(timeout);
+  }, [busy, selectedApprovalId, approvals.length]);
 
   async function decide(approvalRequestId: string, mode: "approve" | "reject") {
     if (actionBusyId) return;
@@ -122,6 +137,14 @@ export default function ApprovalsPage() {
       <SectionShell>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">{pendingCount} requests pending approval.</p>
+          {source === "attention" ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Opened from attention queue.{" "}
+              <Link href="/app/attention" className="font-semibold text-blue-700 underline">
+                Back to attention
+              </Link>
+            </p>
+          ) : null}
         </div>
       </SectionShell>
 
@@ -144,7 +167,11 @@ export default function ApprovalsPage() {
             {approvals.map((approval) => {
               const actionBusy = actionBusyId === approval.id;
               return (
-                <div key={approval.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div
+                  key={approval.id}
+                  className={`rounded-2xl border bg-white p-4 shadow-sm ${selectedApprovalId === approval.id ? "border-blue-400 ring-2 ring-blue-100" : "border-slate-200"}`}
+                >
+                  <div id={`approval-${approval.id}`} />
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{approval.toolKey}</p>
@@ -158,6 +185,9 @@ export default function ApprovalsPage() {
                       label={approval.status}
                     />
                   </div>
+                  {selectedApprovalId === approval.id ? (
+                    <p className="mt-2 text-xs font-semibold text-blue-700">Focused approval from linked workflow</p>
+                  ) : null}
 
                   {approval.inputSummary ? <p className="mt-3 text-sm text-slate-600">{approval.inputSummary}</p> : null}
                   {approval.reason ? <p className="mt-2 text-xs text-slate-500">{approval.reason}</p> : null}
