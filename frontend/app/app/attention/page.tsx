@@ -12,6 +12,7 @@ type AttentionLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type EntityTypeFilter = "all" | "call" | "lead" | "message_thread";
 type BlockedFilter = "all" | "blocked" | "unblocked";
 type StaleFilter = "all" | "stale" | "active";
+type UnresolvedFilter = "all" | "unresolved" | "resolved";
 type SortMode = "score" | "updatedAt";
 
 function levelTone(level: AttentionLevel) {
@@ -38,6 +39,7 @@ export default function AttentionPage() {
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>("all");
   const [blockedFilter, setBlockedFilter] = useState<BlockedFilter>("all");
   const [staleFilter, setStaleFilter] = useState<StaleFilter>("all");
+  const [unresolvedFilter, setUnresolvedFilter] = useState<UnresolvedFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
   async function loadAttention() {
@@ -68,6 +70,8 @@ export default function AttentionPage() {
       if (blockedFilter === "unblocked" && item.blocked) return false;
       if (staleFilter === "stale" && !item.stale) return false;
       if (staleFilter === "active" && item.stale) return false;
+      if (unresolvedFilter === "unresolved" && !item.unresolved) return false;
+      if (unresolvedFilter === "resolved" && item.unresolved) return false;
       return true;
     });
     filtered.sort((a, b) => {
@@ -75,7 +79,7 @@ export default function AttentionPage() {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
     return filtered;
-  }, [blockedFilter, entityFilter, items, sortMode, staleFilter]);
+  }, [blockedFilter, entityFilter, items, sortMode, staleFilter, unresolvedFilter]);
 
   async function onRetrySend(item: AttentionQueueItem) {
     if (!item.approvalContext.latestApprovalId || !item.approvalContext.retryable) return;
@@ -140,6 +144,15 @@ export default function AttentionPage() {
             <option value="active">Active / fresh</option>
           </select>
           <select
+            value={unresolvedFilter}
+            onChange={(event) => setUnresolvedFilter(event.target.value as UnresolvedFilter)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+          >
+            <option value="all">Unresolved + resolved</option>
+            <option value="unresolved">Unresolved only</option>
+            <option value="resolved">Resolved only</option>
+          </select>
+          <select
             value={sortMode}
             onChange={(event) => setSortMode(event.target.value as SortMode)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
@@ -185,6 +198,7 @@ export default function AttentionPage() {
                     </span>
                     <StatusBadge kind="feature" state={item.blocked ? "blocked" : "ready"} label={item.blocked ? "blocked" : "unblocked"} size="xs" />
                     {item.stale ? <StatusBadge kind="feature" state="limited" label="stale" size="xs" /> : null}
+                    {item.unresolved ? <StatusBadge kind="feature" state="setup_required" label="unresolved" size="xs" /> : null}
                   </div>
                 </div>
 
