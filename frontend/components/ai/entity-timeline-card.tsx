@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { fetchEntityAiTimeline } from "@/lib/api";
-import type { AgentRun, ApprovalRequest, AuditEvent } from "@/lib/types";
+import type { AgentEntityMemory, AgentRun, ApprovalRequest, AuditEvent } from "@/lib/types";
 
 type EntityTimelineCardProps = {
   entityType?: string;
@@ -17,12 +17,14 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [memory, setMemory] = useState<AgentEntityMemory | null>(null);
 
   useEffect(() => {
     if (!entityType || !entityId) {
       setRuns([]);
       setApprovals([]);
       setAudit([]);
+      setMemory(null);
       return;
     }
     let active = true;
@@ -34,6 +36,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
         setRuns(result.runs || []);
         setApprovals(result.approvals || []);
         setAudit(result.audit || []);
+        setMemory(result.memory || null);
       })
       .catch((timelineError) => {
         if (!active) return;
@@ -62,6 +65,14 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       {!busy && !error && entityType && runs.length === 0 && approvals.length === 0 && audit.length === 0 ? (
         <p className="mt-3 text-xs text-slate-500">No AI activity recorded yet.</p>
       ) : null}
+      {memory ? (
+        <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          {memory.latestRecommendation ? <p className="font-medium">Next action: {memory.latestRecommendation}</p> : null}
+          {memory.recommendationWhy ? <p className="mt-1">{memory.recommendationWhy}</p> : null}
+          {memory.recommendationPriority ? <p className="mt-1">Priority: {memory.recommendationPriority}</p> : null}
+          {memory.riskFlagsJson?.length ? <p className="mt-1">Flags: {memory.riskFlagsJson.join(", ")}</p> : null}
+        </div>
+      ) : null}
       {!busy && !error && (runs.length > 0 || approvals.length > 0 || audit.length > 0) ? (
         <div className="mt-3 space-y-2">
           {runs.slice(0, 3).map((run) => (
@@ -71,7 +82,12 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
           ))}
           {approvals.slice(0, 3).map((approval) => (
             <div key={`approval-${approval.id}`} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Approval {approval.toolKey} - {approval.status}
+              <p>
+                Approval {approval.toolKey} - {approval.status}
+                {approval.deliveryStatus ? ` - ${approval.deliveryStatus}` : ""}
+              </p>
+              {approval.failureReason ? <p className="mt-1 text-red-700">{approval.failureReason}</p> : null}
+              {approval.approvedContent ? <p className="mt-1 text-amber-900">{approval.approvedContent.slice(0, 120)}</p> : null}
             </div>
           ))}
           {audit.slice(0, 3).map((entry) => (

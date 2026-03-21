@@ -59,6 +59,15 @@ async function sendViaResend(subject: string, text: string, to: string, kind: Se
       const body = await response.text().catch(() => "");
       throw new Error(`resend_send_failed_${response.status}${body ? `_${body}` : ""}`);
     }
+
+    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    const providerMessageId =
+      typeof payload?.id === "string"
+        ? payload.id
+        : typeof payload?.["data"] === "object" && payload.data && typeof (payload.data as Record<string, unknown>).id === "string"
+          ? ((payload.data as Record<string, unknown>).id as string)
+          : null;
+    return { provider: "resend" as const, providerMessageId, raw: payload };
   } finally {
     clearTimeout(timeout);
   }
@@ -78,7 +87,12 @@ async function sendViaSmtp(subject: string, text: string, to: string, kind: Send
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error("smtp_send_timeout")), SEND_TIMEOUT_MS);
   });
-  await Promise.race([sendPromise, timeoutPromise]);
+  const info = await Promise.race([sendPromise, timeoutPromise]);
+  return {
+    provider: "smtp" as const,
+    providerMessageId: typeof info?.messageId === "string" ? info.messageId : null,
+    raw: info && typeof info === "object" ? (info as unknown as Record<string, unknown>) : null
+  };
 }
 
 async function sendOrLog(subject: string, text: string, to: string, kind: SenderKind = "legacy", html?: string) {
@@ -107,6 +121,44 @@ async function sendOrLog(subject: string, text: string, to: string, kind: Sender
 
   // eslint-disable-next-line no-console
   console.log("[email-stub]", subject, "\n" + text);
+}
+
+export async function sendOutboundEmail(payload: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  kind?: "product" | "alerts" | "legacy";
+}) {
+  const kind = payload.kind || "legacy";
+  const errors: string[] = [];
+  if (isResendConfigured(kind)) {
+    try {
+      return await sendViaResend(payload.subject, payload.text, payload.to, kind, payload.html);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "resend_unknown_error");
+    }
+  }
+
+  if (isSmtpConfigured()) {
+    try {
+      return await sendViaSmtp(payload.subject, payload.text, payload.to, kind, payload.html);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "smtp_unknown_error");
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`email_send_failed:${errors.join("|")}`);
+  }
+
+  // eslint-disable-next-line no-console
+  console.log("[email-stub]", payload.subject, "\n" + payload.text);
+  return {
+    provider: "stub" as const,
+    providerMessageId: null,
+    raw: null
+  };
 }
 
 export async function sendLeadNotificationEmail(payload: {

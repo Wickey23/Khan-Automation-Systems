@@ -56,6 +56,7 @@ import type {
   OrgNotification,
   AgentDefinition,
   AgentRun,
+  AgentEntityMemory,
   ApprovalRequest,
   AiRunResponse,
   FollowUpTask,
@@ -1601,10 +1602,18 @@ export async function fetchAiApprovals(status?: string) {
   return request<{ approvals: ApprovalRequest[] }>(`/api/org/ai/approvals${query}`);
 }
 
-export async function approveAiAction(approvalRequestId: string, note?: string) {
+export async function approveAiAction(
+  approvalRequestId: string,
+  payload?: {
+    note?: string;
+    mode?: "SEND_NOW" | "APPROVE_ONLY";
+    editedSubject?: string;
+    editedContent?: string;
+  }
+) {
   return request<ApprovalRequest>(`/api/org/ai/approvals/${approvalRequestId}/approve`, {
     method: "POST",
-    body: JSON.stringify({ note })
+    body: JSON.stringify(payload || {})
   });
 }
 
@@ -1615,11 +1624,19 @@ export async function rejectAiAction(approvalRequestId: string, note?: string) {
   });
 }
 
+export async function retryAiApprovalSend(approvalRequestId: string) {
+  return request<ApprovalRequest>(`/api/org/ai/approvals/${approvalRequestId}/retry-send`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
 export async function fetchEntityAiTimeline(entityType: string, entityId: string) {
   return request<{
     audit: AuditEvent[];
     runs: AgentRun[];
     approvals: ApprovalRequest[];
+    memory?: AgentEntityMemory | null;
   }>(`/api/org/ai/timelines/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`);
 }
 

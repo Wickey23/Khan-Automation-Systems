@@ -23,6 +23,13 @@ export const aiRunCreateSchema = z.object({
 });
 
 export const aiApprovalDecisionSchema = z.object({
+  note: z.string().max(1000).optional(),
+  mode: z.enum(["SEND_NOW", "APPROVE_ONLY"]).optional(),
+  editedSubject: z.string().max(300).optional(),
+  editedContent: z.string().max(6000).optional()
+});
+
+export const aiApprovalRetrySchema = z.object({
   note: z.string().max(1000).optional()
 });
 

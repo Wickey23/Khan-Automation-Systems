@@ -476,6 +476,7 @@ model Organization {
   followUpQueueItems       FollowUpQueueItem[]
   pipelineRecords          PipelineRecord[]
   pipelineActivityLogs     PipelineActivityLog[]
+  agentEntityMemories      AgentEntityMemory[]
 
   // Outbound Safety Quotas
   maxMessagesPerDay Int      @default(100)
@@ -1935,6 +1936,19 @@ model ApprovalRequest {
   reason              String?
   inputSummary        String?
   outputSummary       String?
+  approvedSubject     String?
+  approvedContent     String?
+  deliveryChannel     String?
+  deliveryStatus      String?
+  deliveryProvider    String?
+  providerMessageId   String?
+  deliveryMetadata    Json?
+  deliveryAttemptedAt DateTime?
+  sentAt              DateTime?
+  failedAt            DateTime?
+  failureReason       String?
+  retryable           Boolean        @default(false)
+  retryCount          Int            @default(0)
   expiresAt           DateTime?
   resolvedAt          DateTime?
   createdAt           DateTime       @default(now())
@@ -1943,6 +1957,7 @@ model ApprovalRequest {
 
   @@index([orgId, status, createdAt])
   @@index([orgId, entityType, entityId, createdAt])
+  @@index([orgId, deliveryStatus, createdAt])
 }
 
 model ApprovalAction {
@@ -2131,4 +2146,32 @@ model PipelineActivityLog {
   createdAt           DateTime       @default(now())
 
   @@index([orgId, pipelineRecordId, createdAt])
+}
+
+model AgentEntityMemory {
+  id                     String       @id @default(cuid())
+  orgId                  String
+  organization           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entityType             String
+  entityId               String
+  latestSummary          String?
+  latestClassification   String?
+  latestRecommendation   String?
+  recommendationWhy      String?
+  recommendationPriority String?
+  approvalNeeded         Boolean      @default(false)
+  outboundBlocked        Boolean      @default(false)
+  lastApprovalStatus     String?
+  lastDeliveryStatus     String?
+  lastTaskStatus         String?
+  riskFlagsJson          Json         @default("[]")
+  contextJson            Json         @default("{}")
+  updatedByRunId         String?
+  updatedByUserId        String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([orgId, entityType, entityId])
+  @@index([orgId, updatedAt])
+  @@index([orgId, entityType, updatedAt])
 }

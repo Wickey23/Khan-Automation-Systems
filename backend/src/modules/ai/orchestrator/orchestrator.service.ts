@@ -90,6 +90,7 @@ export async function createAiRun(input: { context: AiRunContext; payload: AiRun
       orgId: input.context.orgId,
       runId: run.id,
       agentDefinitionId: selected.id,
+      agentKey: selected.key,
       actorUserId: input.context.actorUserId,
       actorRole: input.context.actorRole,
       toolKey: step.toolKey,

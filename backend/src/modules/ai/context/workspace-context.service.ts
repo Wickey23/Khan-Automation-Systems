@@ -11,11 +11,14 @@ export type WorkspaceContext = {
   callVolume7d: number;
   messageVolume7d: number;
   bookingDemand7d: number;
+  pendingApprovals: number;
+  failedDeliveries7d: number;
+  openFollowUps: number;
 };
 
 export async function buildWorkspaceContext(orgId: string): Promise<WorkspaceContext> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [org, settings, callVolume7d, messageVolume7d, bookingDemand7d] = await Promise.all([
+  const [org, settings, callVolume7d, messageVolume7d, bookingDemand7d, pendingApprovals, failedDeliveries7d, openFollowUps] = await Promise.all([
     prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } }),
     prisma.businessSettings.findUnique({
       where: { orgId },
@@ -29,7 +32,10 @@ export async function buildWorkspaceContext(orgId: string): Promise<WorkspaceCon
     }),
     prisma.callLog.count({ where: { orgId, createdAt: { gte: since } } }),
     prisma.message.count({ where: { orgId, createdAt: { gte: since } } }),
-    prisma.appointmentRequest.count({ where: { orgId, createdAt: { gte: since } } })
+    prisma.appointmentRequest.count({ where: { orgId, createdAt: { gte: since } } }),
+    prisma.approvalRequest.count({ where: { orgId, status: "PENDING" } }),
+    prisma.approvalRequest.count({ where: { orgId, failedAt: { gte: since } } }),
+    prisma.followUpQueueItem.count({ where: { orgId, status: "OPEN" } })
   ]);
 
   return {
@@ -42,6 +48,9 @@ export async function buildWorkspaceContext(orgId: string): Promise<WorkspaceCon
     smsConsentCopy: settings?.smsConsentText || null,
     callVolume7d,
     messageVolume7d,
-    bookingDemand7d
+    bookingDemand7d,
+    pendingApprovals,
+    failedDeliveries7d,
+    openFollowUps
   };
 }

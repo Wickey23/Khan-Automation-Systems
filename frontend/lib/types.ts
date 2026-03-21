@@ -1606,6 +1606,17 @@ export type ApprovalRequest = {
   entityType: string | null;
   entityId: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+  deliveryChannel: "SMS" | "EMAIL" | null;
+  deliveryStatus: "PENDING" | "QUEUED" | "SENDING" | "SENT" | "FAILED" | "REJECTED" | null;
+  deliveryProvider: string | null;
+  providerMessageId: string | null;
+  approvedSubject: string | null;
+  approvedContent: string | null;
+  sentAt: string | null;
+  failedAt: string | null;
+  failureReason: string | null;
+  retryable: boolean;
+  retryCount: number;
   reason: string | null;
   inputSummary: string | null;
   outputSummary: string | null;
@@ -1613,6 +1624,25 @@ export type ApprovalRequest = {
   updatedAt: string;
   requestedByUser?: { id: string; email: string } | null;
   actions: ApprovalAction[];
+};
+
+export type AgentEntityMemory = {
+  id: string;
+  entityType: string;
+  entityId: string;
+  latestSummary: string | null;
+  latestClassification: string | null;
+  latestRecommendation: string | null;
+  recommendationWhy: string | null;
+  recommendationPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | null;
+  approvalNeeded: boolean;
+  outboundBlocked: boolean;
+  lastApprovalStatus: string | null;
+  lastDeliveryStatus: string | null;
+  lastTaskStatus: string | null;
+  riskFlagsJson: string[];
+  contextJson: Record<string, unknown>;
+  updatedAt: string;
 };
 
 export type AiRunResponse = {

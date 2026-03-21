@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import { requireAnyRole, requireAuth, type AuthenticatedRequest } from "../../middleware/require-auth";
 import {
   aiApprovalDecisionSchema,
+  aiApprovalRetrySchema,
   aiFollowUpQueueUpdateSchema,
   aiQuerySchema,
   aiRetryRunSchema,
@@ -12,7 +13,7 @@ import {
   aiTimelineParamsSchema,
   aiToolExecuteSchema
 } from "./ai.schema";
-import { decideApproval } from "./approvals/approval.service";
+import { decideApproval, retryApprovalDelivery } from "./approvals/approval.service";
 import { createAiRun } from "./orchestrator/orchestrator.service";
 import { fetchRegistryForOrg } from "./registry/agent-registry.service";
 import { executeTool } from "./tools/execution/tool-execution.service";
@@ -152,11 +153,36 @@ aiRouter.post("/approvals/:id/approve", async (req: AuthenticatedRequest, res) =
       actorUserId: req.auth!.userId,
       actorRole: req.auth!.role,
       decision: "APPROVED",
-      note: parsed.data.note
+      note: parsed.data.note,
+      mode: parsed.data.mode,
+      editedSubject: parsed.data.editedSubject,
+      editedContent: parsed.data.editedContent
     });
     return res.json({ ok: true, data: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "APPROVAL_FAILED";
+    const status = message === "FORBIDDEN_ROLE" ? 403 : 409;
+    return res.status(status).json({ ok: false, message });
+  }
+});
+
+aiRouter.post("/approvals/:id/retry-send", async (req: AuthenticatedRequest, res) => {
+  const parsed = aiApprovalRetrySchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ ok: false, message: "Invalid retry payload." });
+
+  const orgId = await resolveOrgId(req);
+  if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
+
+  try {
+    const updated = await retryApprovalDelivery({
+      orgId,
+      approvalRequestId: req.params.id,
+      actorUserId: req.auth!.userId,
+      actorRole: req.auth!.role
+    });
+    return res.json({ ok: true, data: updated });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "APPROVAL_RETRY_FAILED";
     const status = message === "FORBIDDEN_ROLE" ? 403 : 409;
     return res.status(status).json({ ok: false, message });
   }
@@ -193,7 +219,7 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
   const orgId = await resolveOrgId(req);
   if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
 
-  const [audit, runs, approvals] = await Promise.all([
+  const [audit, runs, approvals, memory] = await Promise.all([
     prisma.auditLog.findMany({
       where: { orgId, entityType: parsed.data.entityType, entityId: parsed.data.entityId },
       orderBy: { createdAt: "desc" },
@@ -210,10 +236,19 @@ aiRouter.get("/timelines/:entityType/:entityId", async (req: AuthenticatedReques
       include: { actions: true },
       orderBy: { createdAt: "desc" },
       take: 20
+    }),
+    prisma.agentEntityMemory.findUnique({
+      where: {
+        orgId_entityType_entityId: {
+          orgId,
+          entityType: parsed.data.entityType,
+          entityId: parsed.data.entityId
+        }
+      }
     })
   ]);
 
-  return res.json({ ok: true, data: { audit, runs, approvals } });
+  return res.json({ ok: true, data: { audit, runs, approvals, memory } });
 });
 
 aiRouter.get("/queues/follow-up", async (req: AuthenticatedRequest, res) => {
@@ -380,6 +415,7 @@ aiRouter.post("/tools/:toolKey/execute", async (req: AuthenticatedRequest, res) 
     orgId,
     runId: run.id,
     agentDefinitionId: chosenAgent.id,
+    agentKey: chosenAgent.key,
     actorUserId: req.auth!.userId,
     actorRole: req.auth!.role,
     toolKey: bodyParsed.data.toolKey,
@@ -424,6 +460,7 @@ aiRouter.post("/knowledge/search", async (req: AuthenticatedRequest, res) => {
     orgId,
     runId: run.id,
     agentDefinitionId: run.agentDefinitionId,
+    agentKey: "knowledge",
     actorUserId: req.auth!.userId,
     actorRole: req.auth!.role,
     toolKey: "search_workspace_knowledge",
@@ -466,6 +503,7 @@ aiRouter.post("/knowledge/answer", async (req: AuthenticatedRequest, res) => {
     orgId,
     runId: run.id,
     agentDefinitionId: run.agentDefinitionId,
+    agentKey: "knowledge",
     actorUserId: req.auth!.userId,
     actorRole: req.auth!.role,
     toolKey: "answer_internal_question",
