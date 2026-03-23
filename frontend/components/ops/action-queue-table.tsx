@@ -20,6 +20,7 @@ export type ActionQueueRow = {
   onRowFocus?: () => void;
   onRowSelect?: () => void;
   rowId?: string;
+  isActive?: boolean;
 };
 
 function statusTone(status: ActionQueueRow["status"]) {
@@ -69,19 +70,13 @@ export function ActionQueueTable({
           <div
             key={row.id}
             id={row.rowId}
-            tabIndex={0}
             aria-label={row.rowAriaLabel || row.item}
-            onFocus={row.onRowFocus}
+            aria-current={row.isActive ? "true" : undefined}
+            onFocusCapture={row.onRowFocus}
             onClick={row.onRowSelect}
-            onKeyDown={(event) => {
-              if (!row.onRowSelect) return;
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              row.onRowSelect();
-            }}
             className={cn(
               "flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-inset",
+              row.isActive ? "bg-slate-50 ring-1 ring-slate-200 ring-inset" : "",
               row.onRowSelect ? "cursor-pointer" : ""
             )}
           >
@@ -89,14 +84,14 @@ export function ActionQueueTable({
               <p className="truncate text-base font-semibold text-slate-900">{row.item}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-slate-600">Owner: {row.owner}</span>
+                <span className="text-slate-300">|</span>
+                <span className="text-xs text-slate-500">Due: {row.due}</span>
                 {row.ageLabel ? (
                   <>
                     <span className="text-slate-300">|</span>
                     <span className="text-xs text-slate-500">Age: {row.ageLabel}</span>
                   </>
                 ) : null}
-                <span className="text-slate-300">|</span>
-                <span className="text-xs text-slate-500">Due: {row.due}</span>
               </div>
               <p className="mt-1 truncate text-xs text-slate-500">{row.detail || "No additional detail."}</p>
             </div>
@@ -119,6 +114,7 @@ export function ActionQueueTable({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
+                    row.onRowSelect?.();
                     row.onPrimaryAction?.();
                   }}
                   aria-label={`${row.primaryActionLabel} for ${row.item}`}

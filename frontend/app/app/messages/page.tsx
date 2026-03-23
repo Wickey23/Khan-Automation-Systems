@@ -179,6 +179,17 @@ export default function AppMessagesPage() {
     filteredThreads[0] ||
     threads[0] ||
     null;
+
+  useEffect(() => {
+    if (!filteredThreads.length) {
+      setSelectedId("");
+      return;
+    }
+    if (!selectedId || !filteredThreads.some((thread) => thread.id === selectedId)) {
+      setSelectedId(filteredThreads[0].id);
+    }
+  }, [filteredThreads, selectedId]);
+
   const threadRows = useMemo(
     () =>
       filteredThreads.map((thread) => {
@@ -233,12 +244,13 @@ export default function AppMessagesPage() {
               : [])
           ],
           detail: threadPreview(thread),
+          isActive: selectedId === thread.id,
           onRowSelect: () => setSelectedId(thread.id),
           onRowFocus: () => setSelectedId(thread.id),
           rowAriaLabel: `${displayName(thread)}. ${threadType(thread)}.`
         };
       }),
-    [filteredThreads, localReturnTo]
+    [filteredThreads, localReturnTo, selectedId]
   );
   const threadRiskItems = useMemo(
     () => [

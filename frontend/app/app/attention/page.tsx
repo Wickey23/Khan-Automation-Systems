@@ -306,6 +306,7 @@ export default function AttentionPage() {
             href: action.href || buildWorkflowHref(item.entityHref, { source: "attention", returnTo, returnLabel: "Needs Attention" })
           })),
           detail: item.recommendedOwnerAction || item.topReasons[0] || "Review context and decide next step.",
+          isActive: previewKey === `${item.entityType}:${item.entityId}`,
           onRowSelect: () => setPreviewKey(`${item.entityType}:${item.entityId}`),
           onRowFocus: () => setPreviewKey(`${item.entityType}:${item.entityId}`),
           rowAriaLabel: `${item.label}. Owner ${
@@ -313,7 +314,7 @@ export default function AttentionPage() {
           }.`
         };
       }),
-    [actionBusyId, onRetrySend, ownershipByEntity, returnTo, visibleItems]
+    [actionBusyId, onRetrySend, ownershipByEntity, previewKey, returnTo, visibleItems]
   );
   const attentionRiskItems = useMemo(
     () => [

@@ -179,6 +179,17 @@ export default function AppLeadsPage() {
     filteredLeads[0] ||
     leads[0] ||
     null;
+
+  useEffect(() => {
+    if (!filteredLeads.length) {
+      setSelectedLeadId("");
+      return;
+    }
+    if (!selectedLeadId || !filteredLeads.some((lead) => lead.id === selectedLeadId)) {
+      setSelectedLeadId(filteredLeads[0].id);
+    }
+  }, [filteredLeads, selectedLeadId]);
+
   const leadRows = useMemo(
     () =>
       filteredLeads.map((lead) => {
@@ -229,12 +240,13 @@ export default function AppLeadsPage() {
               : [])
           ],
           detail: `${leadStatus(lead)} | ${leadSource(lead)}${selectedForBatch ? " | Selected for batch" : ""}`,
+          isActive: selectedLeadId === lead.id,
           onRowSelect: () => setSelectedLeadId(lead.id),
           onRowFocus: () => setSelectedLeadId(lead.id),
           rowAriaLabel: `${leadName(lead)}. ${leadStatus(lead)}.`
         };
       }),
-    [filteredLeads, localReturnTo, selectedLeadIds]
+    [filteredLeads, localReturnTo, selectedLeadId, selectedLeadIds]
   );
   const leadRiskItems = useMemo(
     () => [

@@ -414,16 +414,17 @@ export default function FollowUpPage() {
                 ]
               : []),
             ...(relatedApprovalsHref ? [{ label: "Open approvals", href: relatedApprovalsHref }] : []),
-            { label: "Assign to me", onClick: () => void runQueueAction(item, "assignMe") },
-            { label: "Escalate overdue", onClick: () => void runQueueAction(item, "escalate") }
+            ...(item.task?.id && ownerState !== "mine" ? [{ label: "Assign to me", onClick: () => void runQueueAction(item, "assignMe") }] : []),
+            ...(item.task?.id && isOverdue ? [{ label: "Escalate overdue", onClick: () => void runQueueAction(item, "escalate") }] : [])
           ],
           detail: item.reason,
+          isActive: previewQueueItemId === item.id,
           onRowSelect: () => setPreviewQueueItemId(item.id),
           onRowFocus: () => setPreviewQueueItemId(item.id),
           rowAriaLabel: `${item.task?.title || item.reason}. ${ownerLabel}.`
         };
       }),
-    [actionBusyId, localReturnTo, meId, runQueueAction, visibleQueue]
+    [actionBusyId, localReturnTo, meId, previewQueueItemId, runQueueAction, visibleQueue]
   );
 
   const followUpRiskItems = useMemo(
@@ -573,21 +574,22 @@ export default function FollowUpPage() {
             { keys: "Alt+E", label: "Escalate overdue (eligible)" }
           ]}
         />
-        <QueueSectionHeader
-          title="Ownership Snapshot"
-          description="Quick workload split from current follow-up queue."
-          className="mb-3"
-          actions={
-            <div className="flex flex-wrap gap-2 text-[11px]">
-              <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">All {ownershipSnapshot.all}</span>
-              <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">Mine {ownershipSnapshot.mine}</span>
-              <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">Unassigned {ownershipSnapshot.unassigned}</span>
-              <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Overdue mine {ownershipSnapshot.overdueMine}</span>
-              <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">Overdue unassigned {ownershipSnapshot.overdueUnassigned}</span>
-              <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">At risk {ownershipSnapshot.atRisk}</span>
-            </div>
-          }
-        />
+        <SectionDisclosure title="Ownership Snapshot" storageKey="follow-up-ownership-snapshot" defaultCollapsed className="mb-3">
+          <QueueSectionHeader
+            title="Ownership Snapshot"
+            description="Quick workload split from current follow-up queue."
+            actions={
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">All {ownershipSnapshot.all}</span>
+                <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">Mine {ownershipSnapshot.mine}</span>
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">Unassigned {ownershipSnapshot.unassigned}</span>
+                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Overdue mine {ownershipSnapshot.overdueMine}</span>
+                <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">Overdue unassigned {ownershipSnapshot.overdueUnassigned}</span>
+                <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">At risk {ownershipSnapshot.atRisk}</span>
+              </div>
+            }
+          />
+        </SectionDisclosure>
         <QueueBulkActionBar
           selectedCount={selectedIds.length}
           onClear={() => setSelectedIds([])}

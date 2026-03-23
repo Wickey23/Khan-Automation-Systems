@@ -202,6 +202,16 @@ export default function AppCallsPage() {
     });
   }, [calls, stateFilter]);
 
+  useEffect(() => {
+    if (!visibleCalls.length) {
+      setSelectedCallId(null);
+      return;
+    }
+    if (!selectedCallId || !visibleCalls.some((call) => call.id === selectedCallId)) {
+      setSelectedCallId(visibleCalls[0].id);
+    }
+  }, [selectedCallId, visibleCalls]);
+
   const selectedCall = useMemo(
     () => visibleCalls.find((call) => call.id === selectedCallId) || calls.find((call) => call.id === selectedCallId) || visibleCalls[0] || calls[0] || null,
     [calls, selectedCallId, visibleCalls]
@@ -255,12 +265,13 @@ export default function AppCallsPage() {
               : [])
           ],
           detail: call.frontDesk?.summary || call.aiSummary || call.summary || dispositionLabel(call),
+          isActive: selectedCallId === call.id,
           onRowSelect: () => setSelectedCallId(call.id),
           onRowFocus: () => setSelectedCallId(call.id),
           rowAriaLabel: `${callerName(call)}. ${dispositionLabel(call)}.`
         };
       }),
-    [localReturnTo, visibleCalls]
+    [localReturnTo, selectedCallId, visibleCalls]
   );
   const callRiskItems = useMemo(
     () => [

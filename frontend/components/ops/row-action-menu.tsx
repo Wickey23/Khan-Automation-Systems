@@ -50,12 +50,23 @@ export function RowActionMenu({ actions, triggerLabel }: { actions: RowAction[];
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open ? (
-      <div id={menuId.current} role="menu" className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+      <div
+        id={menuId.current}
+        role="menu"
+        className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            closeMenu(true);
+          }
+        }}
+      >
         {actions.map((action) =>
           action.href ? (
             <Link
               key={action.label}
               href={action.href}
+              role="menuitem"
               className="block rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
               onClick={() => closeMenu(true)}
             >
@@ -65,6 +76,7 @@ export function RowActionMenu({ actions, triggerLabel }: { actions: RowAction[];
             <button
               key={action.label}
               type="button"
+              role="menuitem"
               onClick={() => {
                 action.onClick?.();
                 closeMenu(true);

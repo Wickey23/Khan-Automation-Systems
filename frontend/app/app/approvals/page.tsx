@@ -365,12 +365,13 @@ export default function ApprovalsPage() {
             }
           ],
           detail: approvalDecisionHint(approval),
+          isActive: previewApprovalId === approval.id,
           onRowSelect: () => setPreviewApprovalId(approval.id),
           onRowFocus: () => setPreviewApprovalId(approval.id),
           rowAriaLabel: `${approval.toolKey}. ${approval.status}.`
         };
       }),
-    [actionBusyId, decide, localReturnTo, returnTo, retrySend, visibleApprovals]
+    [actionBusyId, decide, localReturnTo, previewApprovalId, returnTo, retrySend, visibleApprovals]
   );
   const approvalRiskItems = useMemo(
     () => [
