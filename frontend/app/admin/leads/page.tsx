@@ -7,10 +7,11 @@ import { fetchLeads } from "@/lib/api";
 import type { Lead } from "@/lib/types";
 import { LeadsTable } from "@/components/admin/leads-table";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
+import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 import { siteConfig } from "@/lib/config";
 
 export default function AdminLeadsPage() {
@@ -72,21 +73,27 @@ export default function AdminLeadsPage() {
 
   if (error) {
     return (
-      <div className="page-shell space-y-6">
-        <Card>
-          <CardContent className="space-y-4 p-6">
-            <p className="font-medium text-red-700">{error}</p>
-            <Button asChild variant="outline">
-              <Link href="/admin/login">Back to login</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminGuard>
+        <PageShell className="space-y-6">
+          <AdminTopTabs />
+          <StateCard
+            variant="error"
+            title="Unable to load leads"
+            description={error}
+            action={
+              <Button asChild variant="outline">
+                <Link href="/admin/login">Back to login</Link>
+              </Button>
+            }
+          />
+        </PageShell>
+      </AdminGuard>
     );
   }
 
   return (
-    <div className="page-shell space-y-6">
+    <AdminGuard>
+    <PageShell className="space-y-6">
       <AdminTopTabs />
 
       <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
@@ -158,17 +165,16 @@ export default function AdminLeadsPage() {
         </div>
       </div>
 
-      {loading ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="empty-state">Loading leads...</div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="table-shell">
-          <LeadsTable leads={leads} deletePassword={deletePassword} onDeleted={reloadLeads} />
-        </div>
-      )}
-    </div>
+      <SectionShell className="surface-panel">
+        {loading ? (
+          <StateCard variant="loading" title="Loading leads" />
+        ) : (
+          <div className="table-shell">
+            <LeadsTable leads={leads} deletePassword={deletePassword} onDeleted={reloadLeads} />
+          </div>
+        )}
+      </SectionShell>
+    </PageShell>
+    </AdminGuard>
   );
 }
