@@ -673,37 +673,38 @@ export default function AppMessagesPage() {
                   }}
                   refreshing={entityStateBusy}
                 />
-                <div id="message-ai-workflow">
-                  <AiWorkflowActions
-                    title="Communications Workflow"
-                    description="Classify thread, detect opt-outs, draft replies, and route follow-up."
-                    agentKey="communications"
-                    entityType="message_thread"
-                    entityId={selectedThread.id}
-                    actions={[
-                      { key: "summary", label: "Summarize Thread", toolKey: "summarize_thread", buildInput: () => ({ threadId: selectedThread.id }) },
-                      { key: "classify", label: "Classify Message", toolKey: "classify_message", buildInput: () => ({ threadId: selectedThread.id }) },
-                      { key: "optout", label: "Detect Opt-out", toolKey: "detect_opt_out", buildInput: () => ({ threadId: selectedThread.id }) },
-                      { key: "draft", label: "Draft Reply", toolKey: "draft_reply", buildInput: () => ({ threadId: selectedThread.id }) },
-                      { key: "route", label: "Route Thread", toolKey: "route_thread", buildInput: () => ({ threadId: selectedThread.id, routeTo: "unresolved-inbox" }) },
-                      { key: "status", label: "Mark Pending", toolKey: "mark_thread_status", buildInput: () => ({ threadId: selectedThread.id, status: "PENDING" }) },
-                      { key: "task", label: "Create Follow-up Task", toolKey: "create_message_followup_task", buildInput: () => ({ threadId: selectedThread.id }) },
-                      { key: "approval", label: "Queue Reply Approval", toolKey: "queue_sms", buildInput: () => ({ content: threadAiState.replyDraft || body }) }
-                    ]}
-                    onToolResult={(toolKey, payload) => {
-                      setThreadAiState((current) => ({
-                        ...current,
-                        summary: toolKey === "summarize_thread" ? String(payload?.summary || current.summary || "") : current.summary,
-                        classification:
-                          toolKey === "classify_message" ? String(payload?.classification || current.classification || "") : current.classification,
-                        nextAction: toolKey === "route_thread" ? `Routed to ${String(payload?.routeTo || "queue")}` : current.nextAction,
-                        replyDraft: toolKey === "draft_reply" ? String(payload?.draft || current.replyDraft || "") : current.replyDraft,
-                        optOut: toolKey === "detect_opt_out" ? Boolean(payload?.optedOut) : current.optOut
-                      }));
-                      void refreshEntityState();
-                    }}
-                  />
-                </div>
+                <SectionDisclosure title="Deep Workflow Detail" storageKey="messages-deep-workflow-detail" defaultCollapsed>
+                  <div id="message-ai-workflow">
+                    <AiWorkflowActions
+                      title="Communications Workflow"
+                      description="Classify thread, detect opt-outs, draft replies, and route follow-up."
+                      agentKey="communications"
+                      entityType="message_thread"
+                      entityId={selectedThread.id}
+                      actions={[
+                        { key: "summary", label: "Summarize Thread", toolKey: "summarize_thread", buildInput: () => ({ threadId: selectedThread.id }) },
+                        { key: "classify", label: "Classify Message", toolKey: "classify_message", buildInput: () => ({ threadId: selectedThread.id }) },
+                        { key: "optout", label: "Detect Opt-out", toolKey: "detect_opt_out", buildInput: () => ({ threadId: selectedThread.id }) },
+                        { key: "draft", label: "Draft Reply", toolKey: "draft_reply", buildInput: () => ({ threadId: selectedThread.id }) },
+                        { key: "route", label: "Route Thread", toolKey: "route_thread", buildInput: () => ({ threadId: selectedThread.id, routeTo: "unresolved-inbox" }) },
+                        { key: "status", label: "Mark Pending", toolKey: "mark_thread_status", buildInput: () => ({ threadId: selectedThread.id, status: "PENDING" }) },
+                        { key: "task", label: "Create Follow-up Task", toolKey: "create_message_followup_task", buildInput: () => ({ threadId: selectedThread.id }) },
+                        { key: "approval", label: "Queue Reply Approval", toolKey: "queue_sms", buildInput: () => ({ content: threadAiState.replyDraft || body }) }
+                      ]}
+                      onToolResult={(toolKey, payload) => {
+                        setThreadAiState((current) => ({
+                          ...current,
+                          summary: toolKey === "summarize_thread" ? String(payload?.summary || current.summary || "") : current.summary,
+                          classification:
+                            toolKey === "classify_message" ? String(payload?.classification || current.classification || "") : current.classification,
+                          nextAction: toolKey === "route_thread" ? `Routed to ${String(payload?.routeTo || "queue")}` : current.nextAction,
+                          replyDraft: toolKey === "draft_reply" ? String(payload?.draft || current.replyDraft || "") : current.replyDraft,
+                          optOut: toolKey === "detect_opt_out" ? Boolean(payload?.optedOut) : current.optOut
+                        }));
+                        void refreshEntityState();
+                      }}
+                    />
+                  </div>
                 <SectionDisclosure title="Secondary Operational Context" storageKey="messages-secondary-context" defaultCollapsed>
                   <div className="grid gap-4 lg:grid-cols-2">
                     {relatedContext ? (
@@ -735,6 +736,7 @@ export default function AppMessagesPage() {
                   loading={entityStateBusy}
                   error={entityStateError}
                 />
+                </SectionDisclosure>
 
                 {[...selectedThread.messages].map((message) => (
                   <div key={message.id} className={cn("flex", message.direction === "OUTBOUND" ? "justify-end" : "justify-start")}>
