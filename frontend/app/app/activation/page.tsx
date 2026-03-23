@@ -326,6 +326,10 @@ export default function AppActivationPage() {
     () => steps.filter((step) => step.status === "setup_required").length,
     [steps]
   );
+  const nextSetupSteps = useMemo(
+    () => steps.filter((step) => step.status !== "ready").slice(0, 3),
+    [steps]
+  );
 
   const isWorkspaceReady = flowStatus === "ready" && remainingCount === 0;
   const workspaceLive = isWorkspaceReady && isCoreFeatureReady(access);
@@ -612,7 +616,7 @@ export default function AppActivationPage() {
       <PageHeader
         eyebrow="Guided activation"
         title={organization?.name ? `${organization.name} activation` : "Activation control center"}
-        description="Follow this sequence to move your workspace from setup to safe production readiness."
+        description="Readiness-first control board for moving from setup into safe live operations."
         actions={
           <Link href="/app/onboarding">
             <Button variant="outline">Edit onboarding package</Button>
@@ -620,7 +624,7 @@ export default function AppActivationPage() {
         }
       />
 
-      <SectionShell className="surface-panel space-y-5">
+      <SectionShell className="surface-panel space-y-5 border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Activation progress</p>
@@ -666,9 +670,26 @@ export default function AppActivationPage() {
                   : `Finish ${remainingCount} remaining step${remainingCount === 1 ? "" : "s"} to go live safely.`
           }
         />
+        {!workspaceLive ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Next steps</p>
+            <div className="mt-2 space-y-2">
+              {nextSetupSteps.length ? (
+                nextSetupSteps.map((step) => (
+                  <Link key={step.id} href={step.ctaHref} className="block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
+                    <p className="text-sm font-semibold text-slate-900">{step.label}</p>
+                    <p className="text-xs text-slate-600">{step.summary}</p>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-xs text-slate-600">No setup actions required.</p>
+              )}
+            </div>
+          </div>
+        ) : null}
       </SectionShell>
 
-      <SectionShell className="surface-panel space-y-4">
+      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
         <SectionHeading
           title={workspaceLive ? "Go-live confidence" : "Go-live readiness"}
           description={
@@ -705,7 +726,7 @@ export default function AppActivationPage() {
                 </div>
                 <p className="mt-1 text-sm text-emerald-700">
                   {firstSuccessLabel(organization?.firstSuccessType)}
-                  {firstSuccessTimestampLabel ? ` • ${firstSuccessTimestampLabel}` : ""}
+                  {firstSuccessTimestampLabel ? ` - ${firstSuccessTimestampLabel}` : ""}
                 </p>
               </div>
             ) : null}
@@ -734,7 +755,7 @@ export default function AppActivationPage() {
       </SectionShell>
 
       {workspaceLive ? (
-        <SectionShell className="surface-panel space-y-4">
+        <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
           <SectionHeading
             title="Test your system"
             description="Run these first-use checks to confirm live calls, messaging, and booking behavior in production."
@@ -829,7 +850,7 @@ export default function AppActivationPage() {
         </SectionShell>
       ) : null}
 
-      <SectionShell className="surface-panel space-y-4">
+      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
         <SectionHeading
           title="Ordered activation path"
           description="Each step maps directly to your readiness model and points to the correct configuration surface."
@@ -863,7 +884,7 @@ export default function AppActivationPage() {
         </div>
       </SectionShell>
 
-      <SectionShell className="surface-panel space-y-4">
+      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
         <SectionHeading
           title="Feature readiness definitions"
           description="Availability here reflects real plan, org enablement, and setup readiness checks."
@@ -894,7 +915,7 @@ export default function AppActivationPage() {
         </div>
       </SectionShell>
 
-      <SectionShell className="surface-panel">
+      <SectionShell className="surface-panel border border-slate-200 bg-slate-50">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Rollout checkpoint</p>

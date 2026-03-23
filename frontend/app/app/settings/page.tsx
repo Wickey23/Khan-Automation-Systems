@@ -650,6 +650,54 @@ export default function AppSettingsPage() {
       hasHours
     };
   }, [state.transferNumbers, state.notificationEmails, state.notificationPhones, state.hours]);
+  const readinessOverview = useMemo(() => {
+    if (!accessSummary) {
+      return {
+        status: "loading" as const,
+        label: "Checking readiness",
+        summary: "Loading workspace access and setup checks.",
+        topActions: [] as Array<{ label: string; section: SettingsSectionId }>
+      };
+    }
+
+    const featureStates = Object.values(accessSummary.features);
+    const blockedOrGated = featureStates.filter((feature) => feature.status === "blocked" || feature.status === "gated").length;
+    const setupRequired = featureStates.filter((feature) => feature.status === "setup_required").length;
+    const checklistMissing = accessSummary.readinessChecklist.filter((check) => check.status !== "ready").length;
+
+    const topActions: Array<{ label: string; section: SettingsSectionId }> = [];
+    if (!readinessHints.hasHours) topActions.push({ label: "Set business hours", section: "Operations" });
+    if (!readinessHints.transfer.length) topActions.push({ label: "Add transfer number", section: "Telephony" });
+    if (!readinessHints.emails.length && !readinessHints.phones.length) topActions.push({ label: "Add alert routing contacts", section: "Telephony" });
+    const hasCalendarConnection = activeCalendarProviders.length > 0 && Boolean(
+      selectedPrimaryConnectionId || activeCalendarProviders.find((provider) => provider.isPrimary) || activeCalendarProviders[0]
+    );
+    if (!hasCalendarConnection) topActions.push({ label: "Connect a calendar", section: "Calendar" });
+    if (knowledgeFiles.length === 0) topActions.push({ label: "Add one knowledge file", section: "Profile" });
+
+    if (blockedOrGated > 0) {
+      return {
+        status: "not_ready" as const,
+        label: "Not fully activated",
+        summary: "Some features are gated or blocked. Resolve plan/access gates, then complete missing setup items.",
+        topActions: topActions.slice(0, 3)
+      };
+    }
+    if (setupRequired > 0 || checklistMissing > 0 || topActions.length > 0) {
+      return {
+        status: "partial" as const,
+        label: "Partially configured",
+        summary: "Core setup is in progress. Complete the next readiness items to activate more workflows.",
+        topActions: topActions.slice(0, 3)
+      };
+    }
+    return {
+      status: "ready" as const,
+      label: "Configured and ready",
+      summary: "Workspace setup is complete. If queues are quiet, run live workflows from Calls, Leads, or Messages.",
+      topActions: [] as Array<{ label: string; section: SettingsSectionId }>
+    };
+  }, [accessSummary, activeCalendarProviders, selectedPrimaryConnectionId, knowledgeFiles.length, readinessHints.emails.length, readinessHints.hasHours, readinessHints.phones.length, readinessHints.transfer.length]);
   const transferNumberCount = readinessHints.transfer.length;
   const openDaysCount = DAYS.filter((day) => !state.hours[day.key].closed).length;
   const primaryCalendarConnection =
@@ -810,6 +858,78 @@ export default function AppSettingsPage() {
       />
 
       <WorkspaceAccessSection access={accessSummary} focusSection={focusSection} />
+      <SectionShell className="surface-panel space-y-4">
+        <SectionHeading
+          title="Activation readiness summary"
+          description="See whether setup is complete, partially configured, or still blocked by missing access/setup."
+          actions={
+            <Link href="/app">
+              <Button size="sm" variant="outline">Open dashboard</Button>
+            </Link>
+          }
+        />
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge
+                kind="feature"
+                state={
+                  readinessOverview.status === "ready"
+                    ? "ready"
+                    : readinessOverview.status === "partial"
+                      ? "setup_required"
+                      : readinessOverview.status === "not_ready"
+                        ? "blocked"
+                        : "limited"
+                }
+                label={readinessOverview.label}
+                size="xs"
+              />
+              {accessSummary ? (
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                  Plan {accessSummary.plan.name}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-2 text-sm text-slate-600">{readinessOverview.summary}</p>
+            {accessSummary ? (
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
+                  Ready {Object.values(accessSummary.features).filter((feature) => feature.status === "ready").length}
+                </span>
+                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+                  Setup required {Object.values(accessSummary.features).filter((feature) => feature.status === "setup_required").length}
+                </span>
+                <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+                  Gated/blocked {Object.values(accessSummary.features).filter((feature) => feature.status === "gated" || feature.status === "blocked").length}
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Top next steps</p>
+            {readinessOverview.topActions.length ? (
+              <div className="mt-2 space-y-2">
+                {readinessOverview.topActions.map((step) => (
+                  <button
+                    type="button"
+                    key={step.label}
+                    onClick={() => focusSection(step.section)}
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700"
+                  >
+                    <span>{step.label}</span>
+                    <span className="text-slate-400">{step.section}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-600">
+                No required setup actions detected. If queues are quiet, run workflows from Calls, Leads, or Messages.
+              </p>
+            )}
+          </div>
+        </div>
+      </SectionShell>
 
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
