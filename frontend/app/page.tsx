@@ -99,12 +99,12 @@ const faqItems = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-transparent font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-700">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.08),transparent_52%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-700">
       <PublicNav />
       <main>
-        <section className="relative px-6 pb-24 pt-32">
+        <section className="relative px-6 pb-24 pt-28 sm:pt-32">
           <div className="absolute inset-x-0 top-24 mx-auto h-64 max-w-6xl rounded-full bg-gradient-to-r from-sky-200/40 via-blue-200/35 to-cyan-200/35 blur-3xl" />
-          <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-12">
+          <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-12 rounded-[36px] border border-white/70 bg-white/70 p-8 shadow-[0_28px_56px_-36px_rgba(15,23,42,0.5)] backdrop-blur sm:p-10">
             <div className="space-y-8">
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/70 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-700">
                 <Sparkles size={12} />
@@ -150,7 +150,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="border-y border-slate-200/80 bg-white/65 px-6 py-8 backdrop-blur">
+        <section className="border-y border-slate-200/80 bg-white/72 px-6 py-8 backdrop-blur">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
             {trustItems.map((item) => (
               <span key={item} className="rounded-full border border-slate-200/80 bg-white px-4 py-2">{item}</span>
@@ -199,7 +199,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="features" className="bg-white/70 px-6 py-24 backdrop-blur">
+        <section id="features" className="bg-white/76 px-6 py-24 backdrop-blur">
           <div className="mx-auto max-w-7xl">
             <div className="mb-16 max-w-3xl">
               <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">Feature Grid</p>
@@ -223,7 +223,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="pricing" className="bg-white/70 px-6 py-24 backdrop-blur">
+        <section id="pricing" className="bg-white/76 px-6 py-24 backdrop-blur">
           <div className="mx-auto max-w-7xl">
             <div className="mb-20 text-center">
               <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Pilot-first pricing built for disciplined rollout.</h2>
