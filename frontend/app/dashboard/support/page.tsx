@@ -7,6 +7,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function DashboardSupportPage() {
@@ -23,11 +24,7 @@ export default function DashboardSupportPage() {
       setSubject("");
       setMessage("");
     } catch (error) {
-      showToast({
-        title: "Failed to send",
-        description: error instanceof Error ? error.message : "Try again.",
-        variant: "error"
-      });
+      showToast({ title: "Failed to send", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
     } finally {
       setSending(false);
     }
@@ -35,22 +32,18 @@ export default function DashboardSupportPage() {
 
   return (
     <ClientGuard>
-      <div className="container max-w-3xl py-10">
-        <h1 className="text-3xl font-bold">Support</h1>
-        <div className="mt-6 space-y-4">
-          <div>
-            <Label>Subject</Label>
-            <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
-          </div>
-          <div>
-            <Label>Message</Label>
-            <Textarea value={message} onChange={(event) => setMessage(event.target.value)} />
-          </div>
-          <Button onClick={onSend} disabled={sending}>
-            {sending ? "Sending..." : "Send"}
-          </Button>
-        </div>
-      </div>
+      <PageShell className="space-y-6">
+        <PageHeader
+          eyebrow="Legacy support"
+          title="Support"
+          description="Send a direct support message to the operations team."
+        />
+        <SectionShell className="surface-panel space-y-4">
+          <div><Label>Subject</Label><Input value={subject} onChange={(event) => setSubject(event.target.value)} /></div>
+          <div><Label>Message</Label><Textarea value={message} onChange={(event) => setMessage(event.target.value)} /></div>
+          <Button onClick={onSend} disabled={sending}>{sending ? "Sending..." : "Send"}</Button>
+        </SectionShell>
+      </PageShell>
     </ClientGuard>
   );
 }

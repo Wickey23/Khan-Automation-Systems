@@ -10,13 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
-type DayHours = {
-  enabled: boolean;
-  start: string;
-  end: string;
-};
+type DayHours = { enabled: boolean; start: string; end: string };
 type HoursState = Record<DayKey, DayHours>;
 
 const DEFAULT_HOURS: HoursState = {
@@ -39,30 +37,18 @@ const DAY_ROWS: Array<{ key: DayKey; label: string }> = [
   { key: "sunday", label: "Sunday" }
 ];
 
-const TIMEZONE_OPTIONS = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Phoenix"
-];
+const TIMEZONE_OPTIONS = ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Phoenix"];
 
 function parseHoursState(raw: string | undefined | null): { timezone: string; hours: HoursState } {
   if (!raw) return { timezone: "America/New_York", hours: DEFAULT_HOURS };
   try {
-    const parsed = JSON.parse(raw) as {
-      timezone?: string;
-      schedule?: Partial<Record<DayKey, { start?: string; end?: string }>>;
-    };
+    const parsed = JSON.parse(raw) as { timezone?: string; schedule?: Partial<Record<DayKey, { start?: string; end?: string }>> };
     const timezone = parsed.timezone || "America/New_York";
     const next: HoursState = { ...DEFAULT_HOURS };
     DAY_ROWS.forEach(({ key }) => {
       const value = parsed.schedule?.[key];
-      if (!value || !value.start || !value.end) {
-        next[key] = { ...DEFAULT_HOURS[key], enabled: false };
-      } else {
-        next[key] = { enabled: true, start: value.start, end: value.end };
-      }
+      if (!value || !value.start || !value.end) next[key] = { ...DEFAULT_HOURS[key], enabled: false };
+      else next[key] = { enabled: true, start: value.start, end: value.end };
     });
     return { timezone, hours: next };
   } catch {
@@ -112,9 +98,7 @@ export default function DashboardSetupPage() {
       }
     }
     void load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   async function onSave() {
@@ -122,17 +106,13 @@ export default function DashboardSetupPage() {
       showToast({ title: "Transfer number is required.", variant: "error" });
       return;
     }
-
     const schedule = DAY_ROWS.reduce<Record<string, { start: string; end: string }>>((acc, row) => {
       const item = hoursByDay[row.key];
       if (item.enabled) acc[row.key] = { start: item.start, end: item.end };
       return acc;
     }, {});
 
-    const servicesArray = servicesText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+    const servicesArray = servicesText.split("\n").map((line) => line.trim()).filter(Boolean);
 
     setSaving(true);
     try {
@@ -145,11 +125,7 @@ export default function DashboardSetupPage() {
       });
       showToast({ title: "Setup saved" });
     } catch (error) {
-      showToast({
-        title: "Save failed",
-        description: error instanceof Error ? error.message : "Try again.",
-        variant: "error"
-      });
+      showToast({ title: "Save failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -157,34 +133,23 @@ export default function DashboardSetupPage() {
 
   return (
     <ClientGuard>
-      <div className="container max-w-3xl py-10">
-        <h1 className="text-3xl font-bold">Setup Wizard</h1>
+      <PageShell className="space-y-6">
+        <PageHeader eyebrow="Legacy setup" title="Setup wizard" description="Capture core business settings for this workspace." />
         {client && !client.phoneLine?.phoneNumber ? (
-          <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
             Your number is being assigned by our team. Status: {client.status}.
           </div>
         ) : null}
         {loading ? (
-          <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
+          <StateCard variant="loading" title="Loading setup" />
         ) : (
-          <div className="mt-6 space-y-4">
-            <div>
-              <Label>Business Name</Label>
-              <Input value={businessName} onChange={(event) => setBusinessName(event.target.value)} />
-            </div>
+          <SectionShell className="surface-panel space-y-4">
+            <div><Label>Business Name</Label><Input value={businessName} onChange={(event) => setBusinessName(event.target.value)} /></div>
             <div>
               <Label>Timezone</Label>
               <Select value={timezone} onValueChange={setTimezone}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEZONE_OPTIONS.map((zone) => (
-                    <SelectItem key={zone} value={zone}>
-                      {zone}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectTrigger><SelectValue placeholder="Select timezone" /></SelectTrigger>
+                <SelectContent>{TIMEZONE_OPTIONS.map((zone) => <SelectItem key={zone} value={zone}>{zone}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2 rounded-lg border p-4">
@@ -195,66 +160,22 @@ export default function DashboardSetupPage() {
                   <div key={row.key} className="grid gap-2 sm:grid-cols-[110px_90px_1fr_1fr] sm:items-center">
                     <p className="text-sm">{row.label}</p>
                     <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={value.enabled}
-                        onChange={(event) =>
-                          setHoursByDay((prev) => ({
-                            ...prev,
-                            [row.key]: { ...prev[row.key], enabled: event.target.checked }
-                          }))
-                        }
-                      />
+                      <input type="checkbox" checked={value.enabled} onChange={(event) => setHoursByDay((prev) => ({ ...prev, [row.key]: { ...prev[row.key], enabled: event.target.checked } }))} />
                       Open
                     </label>
-                    <Input
-                      type="time"
-                      value={value.start}
-                      disabled={!value.enabled}
-                      onChange={(event) =>
-                        setHoursByDay((prev) => ({
-                          ...prev,
-                          [row.key]: { ...prev[row.key], start: event.target.value }
-                        }))
-                      }
-                    />
-                    <Input
-                      type="time"
-                      value={value.end}
-                      disabled={!value.enabled}
-                      onChange={(event) =>
-                        setHoursByDay((prev) => ({
-                          ...prev,
-                          [row.key]: { ...prev[row.key], end: event.target.value }
-                        }))
-                      }
-                    />
+                    <Input type="time" value={value.start} disabled={!value.enabled} onChange={(event) => setHoursByDay((prev) => ({ ...prev, [row.key]: { ...prev[row.key], start: event.target.value } }))} />
+                    <Input type="time" value={value.end} disabled={!value.enabled} onChange={(event) => setHoursByDay((prev) => ({ ...prev, [row.key]: { ...prev[row.key], end: event.target.value } }))} />
                   </div>
                 );
               })}
             </div>
-            <div>
-              <Label>Transfer Number (required)</Label>
-              <Input value={transferNumber} onChange={(event) => setTransferNumber(event.target.value)} placeholder="+15165551234" />
-            </div>
-            <div>
-              <Label>Services (one per line)</Label>
-              <Textarea
-                value={servicesText}
-                onChange={(event) => setServicesText(event.target.value)}
-                placeholder={"Roadside Assistance\nFleet Diagnostics\nPreventive Maintenance"}
-              />
-            </div>
-            <div>
-              <Label>Booking Link</Label>
-              <Input value={bookingLink} onChange={(event) => setBookingLink(event.target.value)} placeholder="https://..." />
-            </div>
-            <Button onClick={onSave} disabled={saving}>
-              {saving ? "Saving..." : "Save setup"}
-            </Button>
-          </div>
+            <div><Label>Transfer Number (required)</Label><Input value={transferNumber} onChange={(event) => setTransferNumber(event.target.value)} placeholder="+15165551234" /></div>
+            <div><Label>Services (one per line)</Label><Textarea value={servicesText} onChange={(event) => setServicesText(event.target.value)} placeholder={"Roadside Assistance\nFleet Diagnostics\nPreventive Maintenance"} /></div>
+            <div><Label>Booking Link</Label><Input value={bookingLink} onChange={(event) => setBookingLink(event.target.value)} placeholder="https://..." /></div>
+            <Button onClick={onSave} disabled={saving}>{saving ? "Saving..." : "Save setup"}</Button>
+          </SectionShell>
         )}
-      </div>
+      </PageShell>
     </ClientGuard>
   );
 }

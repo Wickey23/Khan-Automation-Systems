@@ -7,6 +7,7 @@ import { useToast } from "@/components/site/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function DashboardSettingsPage() {
@@ -50,9 +51,13 @@ export default function DashboardSettingsPage() {
 
   return (
     <ClientGuard>
-      <div className="container max-w-3xl py-10">
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <div className="mt-6 space-y-4">
+      <PageShell className="space-y-6">
+        <PageHeader
+          eyebrow="Legacy settings"
+          title="Workspace settings"
+          description="Directly manage raw workspace configuration values."
+        />
+        <SectionShell className="surface-panel space-y-4">
           <div>
             <Label>Business Hours JSON</Label>
             <Textarea value={businessHoursJson} onChange={(event) => setBusinessHoursJson(event.target.value)} />
@@ -74,8 +79,8 @@ export default function DashboardSettingsPage() {
             Pause call handling
           </label>
           <Button onClick={onSave}>Save settings</Button>
-        </div>
-      </div>
+        </SectionShell>
+      </PageShell>
     </ClientGuard>
   );
 }
