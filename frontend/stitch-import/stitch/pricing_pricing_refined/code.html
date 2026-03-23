@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pricing | Khan Systems Front Desk OS</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "surface-container-lowest": "#ffffff",
+                "surface-tint": "#3755c3",
+                "on-tertiary": "#fcf7ff",
+                "on-error-container": "#752121",
+                "error": "#9f403d",
+                "background": "#f7f9fb",
+                "error-dim": "#4e0309",
+                "tertiary": "#605c78",
+                "tertiary-fixed": "#e3dbfd",
+                "surface-dim": "#cfdce3",
+                "surface-container": "#e8eff3",
+                "inverse-primary": "#6d89fa",
+                "surface-variant": "#d9e4ea",
+                "surface-bright": "#f7f9fb",
+                "on-tertiary-container": "#514d68",
+                "surface-container-highest": "#d9e4ea",
+                "on-secondary-fixed": "#324053",
+                "surface": "#f7f9fb",
+                "secondary-fixed": "#d5e3fc",
+                "on-secondary-fixed-variant": "#4e5c71",
+                "inverse-surface": "#0b0f10",
+                "primary-fixed": "#dde1ff",
+                "on-tertiary-fixed-variant": "#5b5672",
+                "on-secondary-container": "#455367",
+                "outline": "#717c82",
+                "on-primary": "#f8f7ff",
+                "on-secondary": "#f8f8ff",
+                "on-primary-fixed": "#0732a3",
+                "primary-fixed-dim": "#cad2ff",
+                "surface-container-low": "#f0f4f7",
+                "surface-container-high": "#e1e9ee",
+                "error-container": "#fe8983",
+                "on-primary-fixed-variant": "#3352c0",
+                "secondary-container": "#d5e3fc",
+                "inverse-on-surface": "#9a9d9f",
+                "primary": "#3755c3",
+                "on-surface-variant": "#566166",
+                "outline-variant": "#a9b4b9",
+                "primary-dim": "#2848b7",
+                "on-tertiary-fixed": "#3e3a54",
+                "tertiary-container": "#e3dbfd",
+                "on-surface": "#2a3439",
+                "tertiary-fixed-dim": "#d4cdee",
+                "on-background": "#2a3439",
+                "on-primary-container": "#2747b6",
+                "secondary": "#526074",
+                "secondary-fixed-dim": "#c7d5ed",
+                "primary-container": "#dde1ff",
+                "secondary-dim": "#465468",
+                "on-error": "#fff7f6",
+                "tertiary-dim": "#54506b"
+              },
+              fontFamily: {
+                "headline": ["Manrope"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+              },
+              borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #3755c3 0%, #2848b7 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopAppBar -->
+<nav class="fixed top-0 w-full z-50 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50">
+<div class="flex justify-between items-center max-w-7xl mx-auto px-6 h-16">
+<div class="text-xl font-bold tracking-tight text-slate-900">Khan Systems</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium" href="#">Solutions</a>
+<a class="text-blue-600 border-b-2 border-blue-600 pb-1 text-sm font-medium" href="#">Pricing</a>
+<a class="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium" href="#">Case Studies</a>
+<a class="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium" href="#">Documentation</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Sign In</button>
+<button class="primary-gradient text-on-primary px-5 py-2 rounded-md text-sm font-medium shadow-sm active:scale-95 duration-150">Get Started</button>
+</div>
+</div>
+</nav>
+<main class="pt-32 pb-24">
+<!-- Hero Section -->
+<section class="max-w-7xl mx-auto px-6 mb-20">
+<div class="max-w-3xl">
+<span class="inline-block py-1 px-3 rounded-full bg-primary-container text-on-primary-container text-[10px] font-bold tracking-widest uppercase mb-6">Pricing Plans</span>
+<h1 class="text-5xl font-bold text-on-surface tracking-tight leading-tight mb-6">Simple, transparent pricing for growing service businesses.</h1>
+<p class="text-on-surface-variant text-lg leading-relaxed font-body max-w-2xl">
+                    Scale your front desk operations with AI-powered voice, automated follow-ups, and seamless calendar synchronization. No hidden fees, just pure efficiency.
+                </p>
+</div>
+</section>
+<!-- Pricing Cards -->
+<section class="max-w-7xl mx-auto px-6 mb-24">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+<!-- Starter -->
+<div class="bg-surface-container-low rounded-xl p-8 transition-all hover:bg-surface-container-lowest">
+<h3 class="text-xl font-bold text-on-surface mb-2">Starter</h3>
+<p class="text-on-surface-variant text-sm mb-6">Perfect for solo operators and small shops.</p>
+<div class="mb-8">
+<span class="text-4xl font-extrabold text-on-surface">$49</span>
+<span class="text-on-surface-variant">/mo</span>
+</div>
+<ul class="space-y-4 mb-8">
+<li class="flex items-center gap-3 text-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                            50 AI Voice Minutes
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                            SMS Follow-ups
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                            1 Calendar Integration
+                        </li>
+</ul>
+<button class="w-full py-3 px-4 rounded-lg bg-surface-container-highest text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors">Start Free Trial</button>
+</div>
+<!-- Pro -->
+<div class="relative bg-surface-container-lowest rounded-xl p-8 shadow-2xl shadow-on-surface/5 border border-primary/10 scale-105 z-10">
+<div class="absolute -top-4 left-1/2 -translate-x-1/2 primary-gradient text-on-primary px-4 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">Most Popular</div>
+<h3 class="text-xl font-bold text-on-surface mb-2">Pro</h3>
+<p class="text-on-surface-variant text-sm mb-6">For growing teams requiring high automation.</p>
+<div class="mb-8">
+<span class="text-4xl font-extrabold text-on-surface">$149</span>
+<span class="text-on-surface-variant">/mo</span>
+</div>
+<ul class="space-y-4 mb-8">
+<li class="flex items-center gap-3 text-sm text-on-surface font-medium">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            1,000 AI Voice Minutes
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface font-medium">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            SMS Follow-ups
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface font-medium">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Unlimited Calendars
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface font-medium">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Priority Support
+                        </li>
+</ul>
+<button class="w-full py-3 px-4 rounded-lg primary-gradient text-on-primary font-semibold text-sm shadow-md active:scale-[0.98] transition-all">Get Started with Pro</button>
+</div>
+<!-- Enterprise -->
+<div class="bg-surface-container-low rounded-xl p-8 transition-all hover:bg-surface-container-lowest">
+<h3 class="text-xl font-bold text-on-surface mb-2">Enterprise</h3>
+<p class="text-on-surface-variant text-sm mb-6">Custom solutions for large-scale enterprises.</p>
+<div class="mb-8">
+<span class="text-4xl font-extrabold text-on-surface">Custom</span>
+</div>
+<ul class="space-y-4 mb-8">
+<li class="flex items-center gap-3 text-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                            Unlimited Voice Minutes
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                            Custom AI Voice Training
+                        </li>
+<li class="flex items-center gap-3 text-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                            Dedicated Account Manager
+                        </li>
+</ul>
+<button class="w-full py-3 px-4 rounded-lg bg-surface-container-highest text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors">Contact Sales</button>
+</div>
+</div>
+</section>
+<!-- Feature Comparison Grid -->
+<section class="max-w-7xl mx-auto px-6 mb-32">
+<h2 class="text-3xl font-bold text-on-surface mb-12">Detailed Comparison</h2>
+<div class="bg-surface-container-low rounded-2xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high/50">
+<th class="py-6 px-8 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Feature</th>
+<th class="py-6 px-8 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Starter</th>
+<th class="py-6 px-8 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Pro</th>
+<th class="py-6 px-8 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Enterprise</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container transition-colors">
+<td class="py-6 px-8 text-sm font-semibold text-on-surface">AI Voice Minutes</td>
+<td class="py-6 px-8 text-sm text-on-surface-variant">50 / mo</td>
+<td class="py-6 px-8 text-sm text-on-surface-variant">1,000 / mo</td>
+<td class="py-6 px-8 text-sm font-bold text-primary">Unlimited</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="py-6 px-8 text-sm font-semibold text-on-surface">SMS Automated Follow-ups</td>
+<td class="py-6 px-8 text-sm text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span></td>
+<td class="py-6 px-8 text-sm text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span></td>
+<td class="py-6 px-8 text-sm text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="py-6 px-8 text-sm font-semibold text-on-surface">Calendar Integrations</td>
+<td class="py-6 px-8 text-sm text-on-surface-variant">1 account</td>
+<td class="py-6 px-8 text-sm text-on-surface-variant">Unlimited</td>
+<td class="py-6 px-8 text-sm text-on-surface-variant">Unlimited</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="py-6 px-8 text-sm font-semibold text-on-surface">Custom AI Voice Training</td>
+<td class="py-6 px-8 text-sm text-outline-variant">—</td>
+<td class="py-6 px-8 text-sm text-outline-variant">—</td>
+<td class="py-6 px-8 text-sm text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="py-6 px-8 text-sm font-semibold text-on-surface">Priority Support</td>
+<td class="py-6 px-8 text-sm text-outline-variant">—</td>
+<td class="py-6 px-8 text-sm text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span></td>
+<td class="py-6 px-8 text-sm text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- FAQ Section -->
+<section class="max-w-4xl mx-auto px-6 mb-32">
+<h2 class="text-3xl font-bold text-on-surface mb-12 text-center">Operational Readiness FAQ</h2>
+<div class="grid grid-cols-1 gap-8">
+<div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+<h3 class="text-lg font-bold text-on-surface mb-3">How fast can I go live?</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        Standard setups for Starter and Pro plans take less than 15 minutes. Once you connect your calendar and define your service hours, our AI can start handling calls immediately.
+                    </p>
+</div>
+<div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+<h3 class="text-lg font-bold text-on-surface mb-3">Is my data secure?</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        We use enterprise-grade AES-256 encryption for all data at rest and TLS 1.3 for data in transit. We are SOC2 Type II compliant and perform regular third-party security audits.
+                    </p>
+</div>
+<div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+<h3 class="text-lg font-bold text-on-surface mb-3">Can I change plans at any time?</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        Yes. You can upgrade or downgrade your plan directly from your dashboard. Upgrades are applied immediately, and downgrades take effect at the end of your current billing cycle.
+                    </p>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="max-w-7xl mx-auto px-6">
+<div class="primary-gradient rounded-3xl p-12 md:p-20 text-center relative overflow-hidden">
+<!-- Abstract visual element -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+<div class="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full -ml-20 -mb-20 blur-3xl"></div>
+<h2 class="text-4xl md:text-5xl font-bold text-on-primary mb-8 relative z-10">Ready to automate your front desk?</h2>
+<div class="flex flex-col md:flex-row justify-center items-center gap-4 relative z-10">
+<button class="bg-surface-container-lowest text-primary px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:scale-105 transition-transform">Start Your 14-Day Free Trial</button>
+<button class="text-on-primary border border-on-primary/30 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/10 transition-colors">Book a Live Demo</button>
+</div>
+<p class="text-on-primary/70 mt-8 text-sm relative z-10">No credit card required for trial. Cancel anytime.</p>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-slate-200 bg-slate-100">
+<div class="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col items-center md:items-start gap-4">
+<div class="text-lg font-bold text-slate-800">Khan Systems</div>
+<div class="text-xs text-slate-500 font-body">© 2024 Khan Systems Inc. All rights reserved.</div>
+</div>
+<div class="flex gap-8 text-sm font-semibold text-slate-500 font-label">
+<a class="hover:text-blue-600 transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-blue-600 transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-blue-600 transition-colors" href="#">Security</a>
+<a class="hover:text-blue-600 transition-colors" href="#">Status</a>
+</div>
+</div>
+</footer>
+</body></html>

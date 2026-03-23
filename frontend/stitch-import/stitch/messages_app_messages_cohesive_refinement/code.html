@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Khan Systems - Messages</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#d9e4ea",
+              "surface-variant": "#d9e4ea",
+              "tertiary-dim": "#54506b",
+              "secondary-fixed-dim": "#c7d5ed",
+              "on-tertiary-container": "#514d68",
+              "inverse-on-surface": "#9a9d9f",
+              "inverse-primary": "#6d89fa",
+              "primary-fixed-dim": "#cad2ff",
+              "on-primary-container": "#2747b6",
+              "on-error": "#fff7f6",
+              "tertiary-fixed-dim": "#d4cdee",
+              "on-secondary-fixed-variant": "#4e5c71",
+              "on-tertiary": "#fcf7ff",
+              "on-surface-variant": "#566166",
+              "primary-dim": "#2848b7",
+              "error": "#9f403d",
+              "on-surface": "#2a3439",
+              "tertiary": "#605c78",
+              "on-primary": "#f8f7ff",
+              "outline-variant": "#a9b4b9",
+              "secondary": "#526074",
+              "primary-fixed": "#dde1ff",
+              "on-tertiary-fixed-variant": "#5b5672",
+              "on-secondary": "#f8f8ff",
+              "secondary-fixed": "#d5e3fc",
+              "on-error-container": "#752121",
+              "primary": "#3755c3",
+              "outline": "#717c82",
+              "background": "#f7f9fb",
+              "on-tertiary-fixed": "#3e3a54",
+              "surface-container-low": "#f0f4f7",
+              "tertiary-container": "#e3dbfd",
+              "on-primary-fixed": "#0732a3",
+              "on-secondary-fixed": "#324053",
+              "secondary-container": "#d5e3fc",
+              "error-container": "#fe8983",
+              "error-dim": "#4e0309",
+              "surface-container-high": "#e1e9ee",
+              "surface": "#f7f9fb",
+              "on-primary-fixed-variant": "#3352c0",
+              "surface-dim": "#cfdce3",
+              "tertiary-fixed": "#e3dbfd",
+              "surface-tint": "#3755c3",
+              "surface-bright": "#f7f9fb",
+              "on-background": "#2a3439",
+              "surface-container-lowest": "#ffffff",
+              "secondary-dim": "#465468",
+              "primary-container": "#dde1ff",
+              "on-secondary-container": "#455367",
+              "inverse-surface": "#0b0f10",
+              "surface-container": "#e8eff3"
+            },
+            fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "2xl": "1rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4 { font-family: 'Manrope', sans-serif; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d9e4ea; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container font-body overflow-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-white border-r border-outline-variant/20 py-6 px-4 z-50">
+<div class="mb-10 px-3 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-xl">auto_fix</span>
+</div>
+<h1 class="text-xl font-extrabold tracking-tight text-on-surface">Khan Systems</h1>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span class="text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app/activation">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+<span class="text-sm">Activation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app/calls">
+<span class="material-symbols-outlined text-[20px]">call</span>
+<span class="text-sm">Calls</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-primary font-semibold bg-primary/5 rounded-xl transition-all" href="/app/messages">
+<span class="material-symbols-outlined text-[20px] font-variation-settings-fill-1">forum</span>
+<span class="text-sm">Messages</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app/appointments">
+<span class="material-symbols-outlined text-[20px]">calendar_today</span>
+<span class="text-sm">Appointments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app/leads">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span class="text-sm">Leads</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app/customers">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span class="text-sm">Customer Base</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-xl transition-all" href="/app/outreach">
+<span class="material-symbols-outlined text-[20px]">campaign</span>
+<span class="text-sm">Outreach</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-outline-variant/10 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface transition-all" href="/app/billing">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="text-sm">Billing</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:text-on-surface transition-all" href="/app/settings">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="text-sm">Settings</span>
+</a>
+<div class="flex items-center gap-3 px-3 py-4 mt-2">
+<div class="w-9 h-9 rounded-xl bg-surface-container-highest flex items-center justify-center overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA23lUWMy6HF_gjVdEJHQBRdLp53jsvq83MD3QyxXSYSWVNObGgWUVAGTCm55qLHCRyVk_4YMK62cgX1lSkENLc7emsoYA_z8yic23juCrJWx2cAGp-bKCVq5LCs4VWdU73Icz3k-rUfJb_QSDliOuCsUJCJJFZGpcUQMI_c3HU1r1Bh44LgR4Y_I4K4087NuNGZXBMNRgcTi_CqpSfidoaxqdknLcj3Jj7lVBLbvoBNCmJwv8kJrE2cg-5oneF9IWk9PiDMosrCg1U"/>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-on-surface">Alex Reed</span>
+<span class="text-[10px] text-on-surface-variant">Admin Account</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-8 h-16">
+<div class="flex items-center gap-4">
+<nav class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+<a class="hover:text-primary transition-colors" href="#">Front Desk OS</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface">Messages</span>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/60 text-lg">search</span>
+<input class="bg-surface-container-low border-none rounded-xl pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Search threads..." type="text"/>
+</div>
+<button class="bg-primary text-on-primary px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">New Broadcast</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 h-screen flex flex-col bg-surface">
+<!-- SMS Compliance Banner -->
+<div class="bg-tertiary-container/30 border-b border-tertiary-container/50 px-8 py-2.5 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">info</span>
+<p class="text-[11px] font-semibold text-on-tertiary-container tracking-tight">A2P 10DLC registration is 85% complete. Outbound messaging capacity is currently restricted.</p>
+</div>
+<button class="text-[10px] font-extrabold text-on-tertiary-container uppercase tracking-widest border border-on-tertiary-container/20 px-3 py-1 rounded-lg hover:bg-tertiary-container/50 transition-colors">View Compliance Status</button>
+</div>
+<div class="flex-1 flex overflow-hidden">
+<!-- Left: Thread List -->
+<section class="w-80 lg:w-96 flex flex-col bg-white border-r border-outline-variant/10">
+<div class="p-6">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 material-symbols-outlined text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-on-surface-variant/60" placeholder="Search conversations..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-3 space-y-1 pb-6">
+<!-- Thread Active -->
+<div class="p-4 bg-primary/5 rounded-2xl border border-primary/10 cursor-pointer transition-all relative">
+<div class="absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full"></div>
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-sm font-bold text-on-surface">Elena Rodriguez</h4>
+<span class="text-[10px] text-primary font-bold">2m ago</span>
+</div>
+<p class="text-xs text-on-surface font-medium line-clamp-1 mb-3">Yes, please reschedule my appointment to Thursday...</p>
+<div class="flex items-center justify-between">
+<span class="px-2 py-0.5 bg-primary/10 text-primary rounded-lg text-[9px] font-bold uppercase tracking-wider">Inbound Received</span>
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+</div>
+</div>
+<!-- Thread Inactive -->
+<div class="p-4 hover:bg-surface-container-low rounded-2xl cursor-pointer transition-all border border-transparent">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-sm font-bold text-on-surface">Marcus Chen</h4>
+<span class="text-[10px] text-on-surface-variant/60 font-medium">45m ago</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-1 mb-3">AI: I have confirmed your spot for tomorrow's...</p>
+<div class="flex items-center justify-between">
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant rounded-lg text-[9px] font-bold uppercase tracking-wider">Automation Pending</span>
+<span class="material-symbols-outlined text-on-surface-variant/40 text-sm" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+<!-- Thread Inactive -->
+<div class="p-4 hover:bg-surface-container-low rounded-2xl cursor-pointer transition-all border border-transparent">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-sm font-bold text-on-surface">Sarah Jenkins</h4>
+<span class="text-[10px] text-on-surface-variant/60 font-medium">2h ago</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-1 mb-3">Is there any parking available near the entrance?</p>
+<div class="flex items-center justify-between">
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant rounded-lg text-[9px] font-bold uppercase tracking-wider">Sent</span>
+<span class="material-symbols-outlined text-on-surface-variant/40 text-sm">done</span>
+</div>
+</div>
+<!-- Thread Opted Out -->
+<div class="p-4 opacity-50 rounded-2xl grayscale transition-all">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-sm font-bold text-on-surface">David Miller</h4>
+<span class="text-[10px] text-on-surface-variant/60 font-medium">1d ago</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-1 mb-3">STOP</p>
+<div class="flex items-center justify-between">
+<span class="px-2 py-0.5 bg-error/10 text-error rounded-lg text-[9px] font-bold uppercase tracking-wider">Opt Out</span>
+<span class="material-symbols-outlined text-error/40 text-sm">block</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Right: Message View -->
+<section class="flex-1 flex flex-col bg-white">
+<!-- Chat Header -->
+<header class="h-16 flex items-center justify-between px-8 border-b border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-primary-fixed-dim flex items-center justify-center text-on-primary-fixed font-bold text-sm">ER</div>
+<div>
+<h3 class="text-sm font-bold text-on-surface tracking-tight">Elena Rodriguez</h3>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Active via SMS</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-xl">
+<span class="material-symbols-outlined text-[20px]">call</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-xl">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+</div>
+</header>
+<!-- Message List -->
+<div class="flex-1 overflow-y-auto p-8 space-y-6">
+<div class="flex justify-center">
+<span class="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-[0.2em] bg-surface-container-low px-4 py-1 rounded-full">Today</span>
+</div>
+<!-- Customer Message -->
+<div class="flex flex-col items-start max-w-[70%]">
+<div class="flex items-center gap-2 mb-1.5 ml-1">
+<span class="text-[10px] font-bold text-on-surface">Elena Rodriguez</span>
+<span class="text-[10px] text-on-surface-variant/60 font-medium">10:42 AM</span>
+</div>
+<div class="bg-surface-container-low text-on-surface px-5 py-3.5 rounded-2xl rounded-tl-none text-sm leading-relaxed shadow-sm border border-outline-variant/5">
+                        Hi, I need to reschedule my appointment for tomorrow. Something came up at work.
+                    </div>
+</div>
+<!-- AI Response -->
+<div class="flex flex-col items-end ml-auto max-w-[70%]">
+<div class="flex items-center gap-2 mb-1.5 mr-1">
+<span class="text-[10px] text-on-surface-variant/60 font-medium">10:43 AM</span>
+<span class="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">auto_fix</span>
+                            AI Receptionist
+                        </span>
+</div>
+<div class="bg-primary text-on-primary px-5 py-3.5 rounded-2xl rounded-tr-none text-sm leading-relaxed shadow-lg shadow-primary/10">
+                        No problem at all! I can help with that. When would you like to move it to? We have openings this Thursday afternoon.
+                    </div>
+<div class="flex items-center gap-1 mt-1.5 mr-1">
+<span class="text-[9px] font-bold text-on-surface-variant/40 uppercase tracking-widest">Delivered</span>
+<span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+<!-- Customer Message -->
+<div class="flex flex-col items-start max-w-[70%]">
+<div class="flex items-center gap-2 mb-1.5 ml-1">
+<span class="text-[10px] font-bold text-on-surface">Elena Rodriguez</span>
+<span class="text-[10px] text-on-surface-variant/60 font-medium">10:45 AM</span>
+</div>
+<div class="bg-surface-container-low text-on-surface px-5 py-3.5 rounded-2xl rounded-tl-none text-sm leading-relaxed shadow-sm border border-outline-variant/5">
+                        Yes, please reschedule my appointment to Thursday at 4 PM.
+                    </div>
+</div>
+<!-- Gating Warning -->
+<div class="flex justify-center my-6">
+<div class="bg-error/5 border border-error/10 text-error px-5 py-3 rounded-xl flex items-center gap-3 max-w-md">
+<span class="material-symbols-outlined text-lg">warning</span>
+<p class="text-[11px] font-medium leading-tight">Confirmation SMS is currently pending manual approval due to A2P volume limits.</p>
+<button class="text-[10px] font-extrabold uppercase tracking-widest whitespace-nowrap hover:underline">Approve</button>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<footer class="p-6 border-t border-outline-variant/10">
+<div class="bg-surface-container-low rounded-2xl p-3 border border-outline-variant/10 focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/5 transition-all shadow-sm">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-sm resize-none py-1 px-2 placeholder:text-on-surface-variant/60" placeholder="Type a message or use '/' for templates..." rows="2"></textarea>
+<div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/5">
+<div class="flex items-center gap-1">
+<button class="p-2 text-on-surface-variant/60 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+</button>
+<button class="p-2 text-on-surface-variant/60 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">mood</span>
+</button>
+<div class="h-4 w-px bg-outline-variant/20 mx-2"></div>
+<button class="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/5 rounded-lg transition-colors uppercase tracking-widest">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">auto_fix</span>
+                                AI Suggest
+                            </button>
+</div>
+<button class="bg-primary text-on-primary w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-[0.95] transition-all">
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</div>
+</div>
+<div class="flex justify-between items-center mt-3 px-2">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">Character: 54/160</span>
+<span class="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">Segments: 1</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Carrier Ready</span>
+</div>
+</div>
+</footer>
+</section>
+</div>
+</main>
+</body></html>

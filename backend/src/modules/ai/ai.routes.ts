@@ -16,6 +16,7 @@ import {
 } from "./ai.schema";
 import { decideApproval, retryApprovalDelivery } from "./approvals/approval.service";
 import { buildAttentionQueue, type AttentionLevel } from "./context/entity-attention.service";
+import { buildOperationsFeed } from "./context/operations-feed.service";
 import { refreshEntityOperationalMemory } from "./context/entity-state-refresh.service";
 import { createAiRun } from "./orchestrator/orchestrator.service";
 import { fetchRegistryForOrg } from "./registry/agent-registry.service";
@@ -564,6 +565,22 @@ aiRouter.get("/insights/manager-summary", async (req: AuthenticatedRequest, res)
       pendingApprovals
     }
   });
+});
+
+aiRouter.get("/insights/operations-feed", async (req: AuthenticatedRequest, res) => {
+  const queryParsed = aiQuerySchema.safeParse(req.query);
+  if (!queryParsed.success) return res.status(400).json({ ok: false, message: "Invalid query." });
+
+  const orgId = await resolveOrgId(req);
+  if (!orgId) return res.status(400).json({ ok: false, message: "ORG_SCOPE_REQUIRED" });
+
+  const events = await buildOperationsFeed({
+    orgId,
+    limit: queryParsed.data.limit,
+    filter: queryParsed.data.filter
+  });
+
+  return res.json({ ok: true, data: { events } });
 });
 
 aiRouter.post("/tools/:toolKey/execute", async (req: AuthenticatedRequest, res) => {

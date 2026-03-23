@@ -1,0 +1,8 @@
+{
+  "name": "Front Desk OS",
+  "description": "A high-fidelity SaaS control plane for front desk operations, featuring call queues, lead management, and appointment scheduling.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
