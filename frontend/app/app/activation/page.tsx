@@ -625,7 +625,7 @@ export default function AppActivationPage() {
         }
       />
 
-      <SectionShell className="surface-panel space-y-5 border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50">
+      <SectionShell className="surface-panel space-y-5 border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Activation progress</p>
@@ -935,3 +935,4 @@ export default function AppActivationPage() {
     </PageShell>
   );
 }
+

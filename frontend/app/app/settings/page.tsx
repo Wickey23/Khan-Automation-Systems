@@ -935,7 +935,7 @@ export default function AppSettingsPage() {
         <WorkspaceAccessSection access={accessSummary} focusSection={focusSection} />
       </SectionDisclosure>
 
-      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="border-b border-slate-200 bg-slate-50/60 p-5 lg:border-b-0 lg:border-r">
             <div className="space-y-1">
@@ -965,7 +965,7 @@ export default function AppSettingsPage() {
           </aside>
 
           <div id="settings-content-root" className="space-y-6 p-6">
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
                   <activeMenuItem.icon className="h-7 w-7" />
@@ -1921,4 +1921,6 @@ export default function AppSettingsPage() {
     </div>
   );
 }
+
+
 

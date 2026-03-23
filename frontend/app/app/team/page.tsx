@@ -295,7 +295,7 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-6">
           <div>
             <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Team Management</h2>
@@ -543,7 +543,7 @@ export default function TeamPage() {
             <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
           </div>
           {seatsFull ? (
-            <p className="rounded-[18px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] px-3 py-2 text-amber-950 shadow-[0_10px_22px_rgba(217,119,6,0.10)]">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
               {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
               {" "}
               <Link href="/app/billing" className="font-medium underline">
@@ -598,4 +598,6 @@ export default function TeamPage() {
     </div>
   );
 }
+
+
 

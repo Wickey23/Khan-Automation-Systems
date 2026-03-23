@@ -271,7 +271,7 @@ export default function AppAnalyticsPage() {
       </SectionShell>
 
       {isViewer ? (
-        <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_100%)]`}>
+        <Card className={`${frontDeskWorkspaceCardClass("subtle")} border-amber-200 bg-amber-50`}>
           <CardContent className="p-4 text-sm text-amber-950">Viewer role access: summary KPI cards only.</CardContent>
         </Card>
       ) : null}
@@ -359,7 +359,7 @@ export default function AppAnalyticsPage() {
         {data?.charts.leadsPerDay?.length ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {data.charts.leadsPerDay.map((row) => (
-              <div key={row.day} className="rounded-[20px] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(244,247,251,0.96)_100%)] p-4 text-sm shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+              <div key={row.day} className="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
                 <p className="page-eyebrow">{row.day}</p>
                 <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{row.value}</p>
               </div>
@@ -376,4 +376,5 @@ export default function AppAnalyticsPage() {
     </PageShell>
   );
 }
+
 

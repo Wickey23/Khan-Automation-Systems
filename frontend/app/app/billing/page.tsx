@@ -385,7 +385,7 @@ export default function AppBillingPage() {
       </div>
 
       <section className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_360px]">
-        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50/60 p-8">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -469,12 +469,12 @@ export default function AppBillingPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 bg-slate-50/60 p-8">
             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Payment Method</h3>
           </div>
           <div className="flex h-full flex-col justify-between p-8">
-            <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
               <div className="mb-8 flex items-center justify-between">
                 <CreditCard className="h-8 w-8 text-slate-400" />
                 <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-primary">
@@ -734,7 +734,7 @@ export default function AppBillingPage() {
           </div>
 
           {diagnosticsError ? (
-            <div className="rounded-[20px] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96)_0%,rgba(254,243,199,0.92)_100%)] p-4 text-amber-950 shadow-[0_12px_24px_rgba(217,119,6,0.10)]">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
               {diagnosticsError} Billing actions are still available.
             </div>
           ) : null}
@@ -804,4 +804,7 @@ export default function AppBillingPage() {
     </div>
   );
 }
+
+
+
 
