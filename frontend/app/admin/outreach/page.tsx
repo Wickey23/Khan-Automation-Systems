@@ -280,7 +280,7 @@ export default function AdminOutreachOverviewPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-col gap-1">
                       <p className="font-semibold text-slate-900">
-                        {event.channel} · {event.eventType}
+                        {event.channel} - {event.eventType}
                         <span className="ml-2 text-xs uppercase tracking-[0.18em] text-slate-400">{event.channel === "EMAIL" ? "Email" : "Phone"}</span>
                       </p>
                       <p className="text-sm text-slate-500">{event.channel === "EMAIL" ? event.subject || "Email outreach" : event.summary || "Phone outreach"}</p>
@@ -291,7 +291,7 @@ export default function AdminOutreachOverviewPage() {
                     <span>{new Date(event.createdAt).toLocaleString()}</span>
                     <span>
                       {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
-                      {event.errorMessage ? ` · ${event.errorMessage}` : ""}
+                      {event.errorMessage ? ` - ${event.errorMessage}` : ""}
                     </span>
                   </div>
                   {event.channel === "PHONE" && event.summary ? <p className="mt-2 text-sm text-slate-500">{event.summary}</p> : null}
@@ -311,3 +311,4 @@ function humanize(value?: string | null) {
   if (!value) return "Unknown";
   return value.replaceAll("_", " ");
 }
+

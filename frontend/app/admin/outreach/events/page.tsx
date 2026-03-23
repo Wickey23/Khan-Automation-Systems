@@ -295,7 +295,7 @@ function EventsListSection({
                   </p>
                   <p className="text-sm text-slate-500">
                     {event.channel === "EMAIL" ? event.toEmail : event.toPhone}
-                    {event.lead?.companyName ? ` · ${event.lead.companyName}` : ""}
+                    {event.lead?.companyName ? ` - ${event.lead.companyName}` : ""}
                   </p>
                 </div>
                 <StatusBadge kind={event.channel === "PHONE" ? "call" : "sms"} state={event.eventType} label={humanize(event.eventType)} size="xs" />
@@ -351,3 +351,4 @@ function EventsListSection({
     </SectionShell>
   );
 }
+
