@@ -121,6 +121,9 @@ export default function AppCallsPage() {
   const callsAccess = accessSummary?.features.calls;
   const gatingStatus = callsAccess?.status;
   const shouldShowCallQueue = !callsAccess || gatingStatus === "ready";
+  const callReadinessSteps = (accessSummary?.readinessChecklist || []).filter((check) =>
+    ["phoneRouting", "transferRouting", "opsApproval"].includes(check.key)
+  );
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -515,6 +518,37 @@ export default function AppCallsPage() {
               </Link>
             }
           />
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">What to fix now</p>
+            <div className="mt-3 space-y-2">
+              {callsAccess.status === "blocked" ? (
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <p className="text-sm text-slate-700">Billing must be active for call handling.</p>
+                  <Link href="/app/billing" className="text-xs font-semibold text-slate-700 underline underline-offset-2">
+                    Open billing
+                  </Link>
+                </div>
+              ) : null}
+              {callReadinessSteps.map((check) => (
+                <div key={check.key} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{check.label}</p>
+                    <p className="text-xs text-slate-600">{check.description}</p>
+                  </div>
+                  <Link
+                    href={
+                      check.key === "opsApproval"
+                        ? "/app/activation"
+                        : "/app/settings#settings-telephony"
+                    }
+                    className="text-xs font-semibold text-slate-700 underline underline-offset-2"
+                  >
+                    Open
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
         </SectionShell>
       </PageShell>
     );

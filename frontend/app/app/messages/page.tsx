@@ -100,6 +100,9 @@ export default function AppMessagesPage() {
   const accessSummary = useAccessSummary();
   const smsAccess = accessSummary?.features.sms;
   const shouldShowMessages = !smsAccess || smsAccess.status === "ready";
+  const smsReadinessSteps = (accessSummary?.readinessChecklist || []).filter((check) =>
+    ["phoneRouting", "smsProvisioning", "opsApproval"].includes(check.key)
+  );
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState(searchParams.get("q") || "");
@@ -499,6 +502,44 @@ export default function AppMessagesPage() {
               </Link>
             }
           />
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">What to fix now</p>
+            <div className="mt-3 space-y-2">
+              {smsAccess.status === "gated" ? (
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  Messaging is org-gated for this workspace. Complete readiness and request ops enablement.
+                </div>
+              ) : null}
+              {smsAccess.status === "blocked" ? (
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <p className="text-sm text-slate-700">Billing/plan must support messaging before SMS can run.</p>
+                  <Link href="/app/billing" className="text-xs font-semibold text-slate-700 underline underline-offset-2">
+                    Open billing
+                  </Link>
+                </div>
+              ) : null}
+              {smsReadinessSteps.map((check) => (
+                <div key={check.key} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{check.label}</p>
+                    <p className="text-xs text-slate-600">{check.description}</p>
+                  </div>
+                  <Link
+                    href={
+                      check.key === "smsProvisioning"
+                        ? "/app/settings#settings-ai-identity"
+                        : check.key === "opsApproval"
+                          ? "/app/activation"
+                          : "/app/settings#settings-telephony"
+                    }
+                    className="text-xs font-semibold text-slate-700 underline underline-offset-2"
+                  >
+                    Open
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
         </SectionShell>
       </PageShell>
     );
