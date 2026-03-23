@@ -428,7 +428,7 @@ export default function AttentionPage() {
           ))}
         </div>
         <div className="mb-3 flex flex-wrap gap-2">
-          {(["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((entry) => (
+          {(["all", "CRITICAL", "HIGH"] as const).map((entry) => (
             <button
               key={entry}
               type="button"
@@ -448,59 +448,6 @@ export default function AttentionPage() {
             <option value="lead">Leads</option>
             <option value="message_thread">Messages</option>
           </select>
-          <select
-            value={blockedFilter}
-            onChange={(event) => setBlockedFilter(event.target.value as BlockedFilter)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-          >
-            <option value="all">Blocked + unblocked</option>
-            <option value="blocked">Blocked only</option>
-            <option value="unblocked">Unblocked only</option>
-          </select>
-          <select
-            value={staleFilter}
-            onChange={(event) => setStaleFilter(event.target.value as StaleFilter)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-          >
-            <option value="all">Stale + active</option>
-            <option value="stale">Stale / unresolved</option>
-            <option value="active">Active / fresh</option>
-          </select>
-          <select
-            value={unresolvedFilter}
-            onChange={(event) => setUnresolvedFilter(event.target.value as UnresolvedFilter)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-          >
-            <option value="all">Unresolved + resolved</option>
-            <option value="unresolved">Unresolved only</option>
-            <option value="resolved">Resolved only</option>
-          </select>
-          <select
-            value={ownershipFilter}
-            onChange={(event) => setOwnershipFilter(event.target.value as OwnershipFilter)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-          >
-            <option value="all">All ownership</option>
-            <option value="mine">Mine</option>
-            <option value="unassigned">Unassigned</option>
-          </select>
-          <select
-            value={riskFilter}
-            onChange={(event) => setRiskFilter(event.target.value as RiskFilter)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-          >
-            <option value="all">{ATTENTION_RISK_LABELS.all}</option>
-            <option value="at_risk">{ATTENTION_RISK_LABELS.at_risk}</option>
-            <option value="critical_unowned">{ATTENTION_RISK_LABELS.critical_unowned}</option>
-          </select>
-          <select
-            value={sortMode}
-            onChange={(event) => setSortMode(event.target.value as SortMode)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-          >
-            <option value="score">Sort by score</option>
-            <option value="updatedAt">Sort by updated</option>
-          </select>
           <button
             type="button"
             onClick={async () => {
@@ -512,7 +459,73 @@ export default function AttentionPage() {
             Refresh
           </button>
         </div>
-        <SectionDisclosure title="Queue controls and shortcuts" storageKey="attention-controls-shortcuts" defaultCollapsed className="mb-3">
+        <SectionDisclosure title="Advanced filters and shortcuts" storageKey="attention-controls-shortcuts" defaultCollapsed className="mb-3">
+          <div className="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <select
+              value={levelFilter}
+              onChange={(event) => setLevelFilter(event.target.value as AttentionLevel | "all")}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="all">All levels</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+            <select
+              value={blockedFilter}
+              onChange={(event) => setBlockedFilter(event.target.value as BlockedFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="all">Blocked + unblocked</option>
+              <option value="blocked">Blocked only</option>
+              <option value="unblocked">Unblocked only</option>
+            </select>
+            <select
+              value={staleFilter}
+              onChange={(event) => setStaleFilter(event.target.value as StaleFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="all">Stale + active</option>
+              <option value="stale">Stale / unresolved</option>
+              <option value="active">Active / fresh</option>
+            </select>
+            <select
+              value={unresolvedFilter}
+              onChange={(event) => setUnresolvedFilter(event.target.value as UnresolvedFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="all">Unresolved + resolved</option>
+              <option value="unresolved">Unresolved only</option>
+              <option value="resolved">Resolved only</option>
+            </select>
+            <select
+              value={ownershipFilter}
+              onChange={(event) => setOwnershipFilter(event.target.value as OwnershipFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="all">All ownership</option>
+              <option value="mine">Mine</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+            <select
+              value={riskFilter}
+              onChange={(event) => setRiskFilter(event.target.value as RiskFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="all">{ATTENTION_RISK_LABELS.all}</option>
+              <option value="at_risk">{ATTENTION_RISK_LABELS.at_risk}</option>
+              <option value="critical_unowned">{ATTENTION_RISK_LABELS.critical_unowned}</option>
+            </select>
+            <select
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              <option value="score">Sort by score</option>
+              <option value="updatedAt">Sort by updated</option>
+            </select>
+          </div>
           <QueueShortcutHint
             summary="Use shortcuts on the focused attention item."
             items={[
@@ -612,7 +625,7 @@ export default function AttentionPage() {
                       {previewRiskFlags.length ? (
                         <ul className="space-y-1 text-xs text-slate-700">
                           {previewRiskFlags.slice(0, 5).map((flag) => (
-                            <li key={flag}>• {flag}</li>
+                            <li key={flag}>- {flag}</li>
                           ))}
                         </ul>
                       ) : (
@@ -627,7 +640,7 @@ export default function AttentionPage() {
                           : triage.recentEvents.length
                             ? triage.recentEvents
                                 .slice(0, 4)
-                                .map((event) => `${event.label} · ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
+                                .map((event) => `${event.label} - ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
                                 .join(" | ")
                             : "No recent events."}
                       </p>
@@ -657,3 +670,4 @@ export default function AttentionPage() {
     </PageShell>
   );
 }
+
