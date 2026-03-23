@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageShell, SectionShell, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
 type SequenceTemplate = {
@@ -372,7 +372,7 @@ export default function AdminOutreachSequencesPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <div className="container space-y-6 py-10">
+      <PageShell className="space-y-6">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Internal growth"
@@ -380,24 +380,26 @@ export default function AdminOutreachSequencesPage() {
           description="Build reusable cold outreach campaigns, start from proven templates, and preview the timing before you enroll leads."
         />
         <OutreachSubnav />
-        <WorkflowHint
-          title="How to use sequences"
-          items={[
-            { label: "Purpose", text: "Sequences control the email lane only. Use them when you want a paced outreach campaign instead of an immediate phone-first approach." },
-            { label: "Structure", text: "Keep the sequence short, relevant, and operational. Strong steps usually make one point and one ask rather than trying to explain everything." },
-            { label: "Operator rule", text: "If a lead replies or moves into Caller AI, stop treating the sequence as the primary lane unless you deliberately want both channels live." }
-          ]}
-        />
+        <SectionShell className="surface-panel">
+          <WorkflowHint
+            title="How to use sequences"
+            items={[
+              { label: "Purpose", text: "Sequences control the email lane only. Use them when you want a paced outreach campaign instead of an immediate phone-first approach." },
+              { label: "Structure", text: "Keep the sequence short, relevant, and operational. Strong steps usually make one point and one ask rather than trying to explain everything." },
+              { label: "Operator rule", text: "If a lead replies or moves into Caller AI, stop treating the sequence as the primary lane unless you deliberately want both channels live." }
+            ]}
+          />
+        </SectionShell>
 
         <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
           <div className="space-y-6">
-            <Card>
+            <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
               <CardHeader>
                 <CardTitle>Premade sequences</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 lg:grid-cols-3">
                 {PREMADE_TEMPLATES.map((template) => (
-                  <div key={template.id} className="rounded-lg border p-4">
+                  <div key={template.id} className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4">
                     <div className="font-semibold">{template.name}</div>
                     <div className="mt-2 text-sm text-muted-foreground">{template.description}</div>
                     <div className="mt-3 text-xs text-muted-foreground">{template.fit}</div>
@@ -417,7 +419,7 @@ export default function AdminOutreachSequencesPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
               <CardHeader>
                 <CardTitle>{editingId ? "Edit sequence" : "Create sequence"}</CardTitle>
               </CardHeader>
@@ -457,7 +459,7 @@ export default function AdminOutreachSequencesPage() {
 
                 <div className="space-y-4">
                   {form.steps.map((step, index) => (
-                    <div key={`${step.stepNumber}-${index}`} className="rounded-lg border p-4 space-y-4">
+                    <div key={`${step.stepNumber}-${index}`} className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">Step {index + 1}</div>
@@ -526,13 +528,13 @@ export default function AdminOutreachSequencesPage() {
           </div>
 
           <div className="space-y-6">
-            <Card>
+            <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
               <CardHeader>
                 <CardTitle>Cadence preview</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {cadencePreview.map((step) => (
-                  <div key={step.stepNumber} className="rounded-lg border p-3">
+                  <div key={step.stepNumber} className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3">
                     <div className="font-medium">Step {step.stepNumber}</div>
                     <div className="mt-1 text-sm text-muted-foreground">
                       Delay: {hoursLabel(step.delayHours)}
@@ -546,7 +548,7 @@ export default function AdminOutreachSequencesPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
               <CardHeader>
                 <CardTitle>Writing notes</CardTitle>
               </CardHeader>
@@ -560,14 +562,14 @@ export default function AdminOutreachSequencesPage() {
           </div>
         </div>
 
-        <Card>
+        <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
           <CardHeader>
             <CardTitle>Saved sequences</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {sequences.length ? (
               sequences.map((sequence) => (
-                <div key={sequence.id} className="rounded-lg border p-4 space-y-4">
+                <div key={sequence.id} className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{sequence.name}</div>
@@ -610,7 +612,7 @@ export default function AdminOutreachSequencesPage() {
 
                   <div className="grid gap-3 lg:grid-cols-3">
                     {sequence.steps.map((step) => (
-                      <div key={step.stepNumber} className="rounded-lg border p-3">
+                      <div key={step.stepNumber} className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3">
                         <div className="font-medium">Step {step.stepNumber}</div>
                         <div className="mt-1 text-xs text-muted-foreground">{hoursLabel(step.delayHours)}</div>
                         <div className="mt-2 text-sm font-medium">{step.subject || "No subject yet."}</div>
@@ -621,14 +623,14 @@ export default function AdminOutreachSequencesPage() {
                 </div>
               ))
             ) : (
-              <div className="space-y-4 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              <div className="space-y-4 rounded-2xl border border-dashed border-slate-300/80 bg-slate-50/65 p-6 text-sm text-muted-foreground">
                 <div>No sequences created yet.</div>
                 <div>Start with one of the premade sequences above or build a custom cadence from scratch.</div>
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
+      </PageShell>
     </AdminGuard>
   );
 }

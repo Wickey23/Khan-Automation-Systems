@@ -173,7 +173,7 @@ export default function AdminOutreachCallerPage() {
 
         <div className="grid gap-4 md:grid-cols-4">
           {readinessItems.map((item) => (
-            <Card key={item.label}>
+            <Card key={item.label} className="border-slate-200/90 bg-white/95 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.38)]">
               <CardContent className="p-5">
                 <p className="page-eyebrow">{item.label}</p>
                 <p className="mt-2 text-lg font-semibold text-slate-950">{item.state}</p>
@@ -184,7 +184,7 @@ export default function AdminOutreachCallerPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <Card>
+          <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
             <CardHeader>
               <CardTitle>Caller profiles</CardTitle>
             </CardHeader>
@@ -233,7 +233,7 @@ export default function AdminOutreachCallerPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
             <CardHeader>
               <CardTitle>{selectedId ? "Edit caller profile" : "Create caller profile"}</CardTitle>
             </CardHeader>
