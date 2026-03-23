@@ -146,6 +146,14 @@ export default function TeamPage() {
     () => members.filter((member) => member.status === "INVITED").length,
     [members]
   );
+  const adminCount = useMemo(
+    () => members.filter((member) => member.role === "ADMIN").length,
+    [members]
+  );
+  const operatorCount = useMemo(
+    () => members.filter((member) => member.role === "MANAGER" || member.role === "VIEWER").length,
+    [members]
+  );
   const usedSeats = (seats.activeMembers ?? activeCount) + (seats.pendingInvites ?? pendingCount);
   const seatsFull = usedSeats >= seats.allowedSeats;
   const visibleMembers = useMemo(() => {
@@ -263,6 +271,28 @@ export default function TeamPage() {
           }
         ]}
       />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className={`${frontDeskMetricCardClass()} text-sm`}>
+          <p className="page-eyebrow">Seat usage</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">{usedSeats}/{seats.allowedSeats}</p>
+          <p className="mt-1 text-xs text-slate-500">{seatsFull ? "Seat cap reached" : "Seats available"}</p>
+        </div>
+        <div className={`${frontDeskMetricCardClass()} text-sm`}>
+          <p className="page-eyebrow">Active members</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.activeMembers ?? activeCount}</p>
+          <p className="mt-1 text-xs text-slate-500">Members with active access</p>
+        </div>
+        <div className={`${frontDeskMetricCardClass()} text-sm`}>
+          <p className="page-eyebrow">Admins</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">{adminCount}</p>
+          <p className="mt-1 text-xs text-slate-500">Can manage invites and roles</p>
+        </div>
+        <div className={`${frontDeskMetricCardClass()} text-sm`}>
+          <p className="page-eyebrow">Operators</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">{operatorCount}</p>
+          <p className="mt-1 text-xs text-slate-500">Manager and viewer seats</p>
+        </div>
+      </div>
 
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-6">
