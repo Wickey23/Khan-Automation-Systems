@@ -9,7 +9,6 @@ import {
   CheckCheck,
   Inbox,
   Paperclip,
-  Phone,
   PhoneCall,
   Plus,
   Search,
@@ -622,7 +621,7 @@ export default function AppMessagesPage() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
           {selectedThread ? (
             <>
-              <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/80 px-8 backdrop-blur-sm">
+              <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xs font-bold text-slate-500 shadow-sm">
@@ -644,9 +643,7 @@ export default function AppMessagesPage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{threadType(selectedThread)} - {threadStatusLabel(selectedThread)}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" disabled title="Direct call not available in this release" className="cursor-not-allowed rounded-xl border border-transparent p-2.5 text-slate-300"><Phone className="h-4.5 w-4.5" /></button>
-                </div>
+                <div />
               </header>
 
               <div className="flex-1 space-y-6 overflow-y-auto bg-slate-50/20 p-8">

@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  Calendar,
   Mail,
   Phone,
   Search,
@@ -735,24 +734,9 @@ export default function AppLeadsPage() {
                 <div className="border-t border-slate-200 pt-4">
                   <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Primary Action</h3>
                   <div className="space-y-3">
-                    <button
-                      type="button"
-                      disabled
-                      title="Use Lead Ops Workflow actions above for this release"
-                      className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-300 py-3.5 text-xs font-bold uppercase tracking-widest text-white"
-                    >
-                      <Phone className="h-4 w-4" />
-                      {leadRecommendedAction(selectedLead)}
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      title="Use booking request links and scheduling workflow in this release"
-                      className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-widest text-slate-400"
-                    >
-                      <Calendar className="h-4 w-4" />
-                      Book Appointment
-                    </button>
+                    <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      Use <span className="font-semibold">Recommended Next Action</span> and <span className="font-semibold">Lead Ops Workflow</span> above to progress this lead.
+                    </p>
                     {selectedLead.latestMessageThreadId ? (
                       <Button asChild variant="outline" className="w-full">
                         <Link href={buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(selectedLead.latestMessageThreadId)}`, { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })}>Open inbox thread</Link>

@@ -8,7 +8,6 @@ import {
   Paperclip,
   Phone,
   Search,
-  Send,
   Smile,
   X
 } from "lucide-react";
@@ -840,15 +839,9 @@ export default function AppCallsPage() {
                             <Paperclip className="h-4 w-4 cursor-pointer transition-colors hover:text-primary" />
                             <Clock className="h-4 w-4 cursor-pointer transition-colors hover:text-primary" />
                           </div>
-                          <button
-                            type="button"
-                            disabled
-                            title="Use Queue Callback Approval in Front Desk Workflow"
-                            className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-slate-300 px-4 py-2 text-xs font-bold text-white"
-                          >
-                            Send SMS
-                            <Send className="h-3.5 w-3.5" />
-                          </button>
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                            Send via callback approval workflow
+                          </span>
                         </div>
                       </div>
                       <p className="mt-2 text-[11px] text-slate-500">Use <span className="font-semibold">Queue Callback Approval</span> in Front Desk Workflow to send safely through approvals.</p>
