@@ -29,7 +29,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, PageHelpFab, SectionHeading, SectionShell } from "@/components/ui/page";
+import { PageHelpFab, SectionHeading, SectionShell } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StateCard } from "@/components/ui/state-card";
@@ -828,7 +829,7 @@ export default function AppSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <CommandHeader
         eyebrow="Assistant configuration"
         title="Receptionist Setup"
         description="Use this page to decide how your receptionist behaves: call routing, booking rules, alerts, business hours, and the knowledge your team wants the assistant to use."

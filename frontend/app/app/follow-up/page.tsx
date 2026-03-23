@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { executeAiTool, fetchFollowUpQueue, getMe, updateAiTask, updateFollowUpQueueItem } from "@/lib/api";
 import type { FollowUpQueueItem } from "@/lib/types";
-import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
+import { PageShell, SectionShell } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueBulkActionBar, QueueSectionHeader, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
@@ -411,7 +412,7 @@ export default function FollowUpPage() {
 
   return (
     <PageShell>
-      <PageHeader
+      <CommandHeader
         eyebrow="AI Operations"
         title="Follow-Up Queue"
         description="Operational follow-up items created by AI workflows and human actions."

@@ -119,7 +119,7 @@ export function QueueActionLink({ href, children, className, tone = "default", s
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center rounded-md border font-semibold transition-colors hover:brightness-[0.98]",
+        "inline-flex items-center rounded-md border font-semibold transition-colors hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
         size === "xs" ? "max-w-full px-2 py-1 text-xs leading-4" : "max-w-full px-3 py-1.5 text-sm",
         toneClasses.wrapper,
         className
@@ -156,7 +156,7 @@ export function QueueActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center rounded-md border font-semibold transition-colors hover:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex items-center rounded-md border font-semibold transition-colors hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60",
         size === "xs" ? "max-w-full px-2 py-1 text-xs leading-4" : "max-w-full px-3 py-1.5 text-sm",
         toneClasses.wrapper,
         className

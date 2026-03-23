@@ -45,6 +45,7 @@ import {
 } from "@/components/queue/operational-row";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
+import { CommandHeader } from "@/components/ops";
 
 const stateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type QueueState = (typeof stateFilters)[number];
@@ -519,6 +520,11 @@ export default function AppCallsPage() {
 
   return (
     <div className="space-y-5">
+      <CommandHeader
+        eyebrow="AI Operations"
+        title="Calls"
+        description="Review call outcomes, prioritize follow-up, and execute next actions with queue context."
+      />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
       <AskAiInline page="calls" entityType={selectedCall ? "call" : undefined} entityId={selectedCall?.id} defaultAgentKey="front_desk" />
       <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">

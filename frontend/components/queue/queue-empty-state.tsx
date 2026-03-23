@@ -5,8 +5,9 @@ type QueueEmptyStateProps = {
 
 export function QueueEmptyState({ title, description }: QueueEmptyStateProps) {
   return (
-    <div className="flex min-h-[140px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/75 px-6 py-8 text-center">
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
+    <div className="flex min-h-[140px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Queue State</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-xs text-slate-600">{description}</p>
     </div>
   );

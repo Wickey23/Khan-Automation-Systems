@@ -7,7 +7,8 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { fetchManagerInsights, fetchOperationsFeed } from "@/lib/api";
 import { OperationsFeedList } from "@/components/ai/operations-feed-list";
 import type { ManagerInsightSummary, OperationsFeedEvent } from "@/lib/types";
-import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
+import { PageShell, SectionShell } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { OPERATIONAL_LABELS } from "@/lib/operational-language";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
@@ -196,7 +197,7 @@ export default function InsightsPage() {
 
   return (
     <PageShell className="space-y-6">
-      <PageHeader
+      <CommandHeader
         eyebrow="AI Operations"
         title="Operational Insights"
         description="Action-oriented review of workflow usage, friction, and recent operations."

@@ -39,6 +39,7 @@ import {
 } from "@/components/queue/operational-row";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
+import { CommandHeader } from "@/components/ops";
 
 type PipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -391,6 +392,11 @@ export default function AppLeadsPage() {
 
   return (
     <div className="space-y-5">
+      <CommandHeader
+        eyebrow="AI Operations"
+        title="Leads"
+        description="Prioritize lead outreach, ownership, and next actions from one triage queue."
+      />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
       <AskAiInline page="leads" entityType={selectedLead ? "lead" : undefined} entityId={selectedLead?.id} defaultAgentKey="lead_ops" />
       <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">

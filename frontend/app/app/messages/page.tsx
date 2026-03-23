@@ -48,6 +48,7 @@ import {
 } from "@/components/queue/operational-row";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
+import { CommandHeader } from "@/components/ops";
 
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -441,6 +442,11 @@ export default function AppMessagesPage() {
 
   return (
     <div className="space-y-5">
+      <CommandHeader
+        eyebrow="AI Operations"
+        title="Messages"
+        description="Manage customer threads, approvals, and follow-up from the operator inbox."
+      />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
       <AskAiInline
         page="messages"

@@ -58,12 +58,13 @@ const navItems: Array<{
   { href: "/app/leads", label: "Leads", icon: Users },
   { href: "/app/messages", label: "Messages", icon: MessageSquare },
   { href: "/app/insights", label: "Insights", icon: BrainCircuit, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
-  { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
+  { href: "/app/settings", label: "Settings", icon: Settings, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/activation", label: "Activation", icon: Shield, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
   { href: "/app/outreach", label: "Outreach", icon: Rocket, comingSoon: true },
   { href: "/app/team", label: "Team", icon: Users, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", icon: CreditCard, requiredRoles: ["CLIENT_ADMIN"] },
-  { href: "/app/settings", label: "Settings", icon: Settings, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
+  { href: "/app/analytics", label: "Analytics", icon: BrainCircuit, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] }
 ];
 
 const navFeatureAccess: Record<string, AccessFeatureKey | undefined> = {

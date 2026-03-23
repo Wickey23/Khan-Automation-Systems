@@ -105,19 +105,19 @@ export function RecommendedNextActionPanel({
               <StatusBadge
                 kind="feature"
                 state={stateForPriority(recommendation?.priority)}
-                label={`Priority ${recommendation?.priority || "MEDIUM"}`}
+                label={`Needs action ${recommendation?.priority || "MEDIUM"}`}
                 size="xs"
               />
               <StatusBadge
                 kind="feature"
                 state={recommendation?.approvalNeeded ? "limited" : "ready"}
-                label={recommendation?.approvalNeeded ? "Approval needed" : "No approval gate"}
+                label={recommendation?.approvalNeeded ? "Blocked approval needed" : "Resolved no approval gate"}
                 size="xs"
               />
               <StatusBadge
                 kind="feature"
                 state={operationalMemory?.taskSnapshot.openFollowUpCount ? "setup_required" : "ready"}
-                label={operationalMemory?.taskSnapshot.openFollowUpCount ? "Follow-up open" : "No follow-up open"}
+                label={operationalMemory?.taskSnapshot.openFollowUpCount ? "At risk follow-up open" : "Resolved no follow-up open"}
                 size="xs"
               />
             </div>

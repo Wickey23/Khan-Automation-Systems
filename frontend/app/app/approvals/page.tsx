@@ -6,7 +6,8 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { approveAiAction, fetchAiApprovals, rejectAiAction, retryAiApprovalSend } from "@/lib/api";
 import type { ApprovalRequest } from "@/lib/types";
-import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
+import { PageShell, SectionShell } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
@@ -380,7 +381,7 @@ export default function ApprovalsPage() {
 
   return (
     <PageShell>
-      <PageHeader
+      <CommandHeader
         eyebrow="AI Operations"
         title="Approval Queue"
         description="Review and approve AI actions before external communication or sensitive mutations execute."

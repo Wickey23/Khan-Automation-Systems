@@ -87,7 +87,8 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Timeline</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{title}</p>
       {effectiveBusy ? (
         <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />

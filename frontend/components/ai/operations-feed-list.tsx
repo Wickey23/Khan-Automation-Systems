@@ -38,6 +38,13 @@ function statusTone(status: OperationsFeedEvent["status"]) {
   return "border-slate-200 text-slate-700 bg-slate-100";
 }
 
+function statusLabel(status: OperationsFeedEvent["status"]) {
+  if (status === "critical") return "Blocked";
+  if (status === "warning") return "At risk";
+  if (status === "success") return "Resolved";
+  return "Needs action";
+}
+
 function iconForEventType(eventType: string) {
   if (eventType.includes("approval")) return <Mail size={14} />;
   if (eventType.includes("delivery") || eventType.includes("retry")) return <CheckCircle2 size={14} />;
@@ -107,8 +114,8 @@ export function OperationsFeedList({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-900">{event.title}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{formatRelative(event.createdAt)}</p>
-                <p className={cn("mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase", statusTone(event.status))}>
-                  {event.status}
+                <p className={cn("mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]", statusTone(event.status))}>
+                  {statusLabel(event.status)}
                 </p>
                 <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">{event.summary}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-3">

@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RefreshCcw } from "lucide-react";
 import { fetchAttentionQueue, fetchFollowUpQueue, getMe, retryAiApprovalSend } from "@/lib/api";
 import type { AttentionQueueItem } from "@/lib/types";
-import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
+import { PageShell, SectionShell } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
@@ -345,7 +346,7 @@ export default function AttentionPage() {
 
   return (
     <PageShell>
-      <PageHeader
+      <CommandHeader
         eyebrow="AI Operations"
         title="Needs Attention"
         description="Prioritized operator queue across calls, leads, and messages using current recommendation, approval, delivery, and follow-up state."
