@@ -7,9 +7,7 @@ import {
   Archive,
   Calendar,
   CheckCheck,
-  Filter,
   Inbox,
-  Info,
   Paperclip,
   Phone,
   PhoneCall,
@@ -18,8 +16,7 @@ import {
   Send,
   Smile,
   Sparkles,
-  Tag,
-  Video
+  Tag
 } from "lucide-react";
 import { fetchOrgMessages, getMe, retryAiApprovalSend, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import type { OrgMessageThread } from "@/lib/types";
@@ -575,8 +572,8 @@ export default function AppMessagesPage() {
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/30">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
             <div className="flex items-center gap-2">
@@ -585,9 +582,9 @@ export default function AppMessagesPage() {
               </div>
               <h1 className="text-sm font-bold uppercase tracking-widest text-slate-900">Operator Inbox</h1>
             </div>
-            <button className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100">
-              <Filter className="h-[18px] w-[18px]" />
-            </button>
+            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+              {filteredThreads.length} active
+            </span>
           </header>
 
           <div className="p-4">
@@ -649,7 +646,6 @@ export default function AppMessagesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" disabled title="Direct call not available in this release" className="cursor-not-allowed rounded-xl border border-transparent p-2.5 text-slate-300"><Phone className="h-4.5 w-4.5" /></button>
-                  <button type="button" disabled title="Video call not available in this release" className="cursor-not-allowed rounded-xl border border-transparent p-2.5 text-slate-300"><Video className="h-4.5 w-4.5" /></button>
                 </div>
               </header>
 
@@ -801,7 +797,7 @@ export default function AppMessagesPage() {
         <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/50 xl:flex">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Thread Context</h2>
-            <button type="button" disabled title="Context help not available in this release" className="cursor-not-allowed rounded-lg p-2 text-slate-300"><Info className="h-[18px] w-[18px]" /></button>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Support</span>
           </header>
 
           {selectedThread ? (
@@ -812,10 +808,6 @@ export default function AppMessagesPage() {
                 </div>
                 <h3 className="text-lg font-bold tracking-tight text-slate-900">{displayName(selectedThread)}</h3>
                 <p className="mt-1 text-xs font-medium text-slate-500">{selectedThread.contactPhone}</p>
-                <div className="mt-4 flex justify-center gap-2">
-                  <button type="button" disabled title="Profile view not available in this release" className="cursor-not-allowed rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">View Profile</button>
-                  <button type="button" disabled title="Profile edit not available in this release" className="cursor-not-allowed rounded-xl bg-slate-300 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white">Edit</button>
-                </div>
               </div>
 
               <div className="space-y-5">
