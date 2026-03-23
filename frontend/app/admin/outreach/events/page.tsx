@@ -215,37 +215,46 @@ function FiltersSection({
     <SectionShell className="surface-panel space-y-4">
       <SectionHeading title="Filters & search" description="Limit the log by channel, event type, or keywords." />
       <div className="grid gap-4 md:grid-cols-3">
-        <select
-          value={channel}
-          onChange={(event) => setChannel(event.target.value)}
-          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
-        >
-          <option value="ALL">All channels</option>
-          <option value="EMAIL">Email only</option>
-          <option value="PHONE">Caller AI only</option>
-        </select>
-        <select
-          value={eventType}
-          onChange={(event) => setEventType(event.target.value)}
-          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
-        >
-          <option value="ALL">All event types</option>
-          {EVENT_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {humanize(type)}
-            </option>
-          ))}
-        </select>
-        <div className="relative flex items-center gap-3">
-          <Input
-            className="pl-3"
-            placeholder="Search email, phone, company, subject, or summary"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <Button variant="ghost" size="sm" onClick={() => void load()}>
-            Go
-          </Button>
+        <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Channel</p>
+          <select
+            value={channel}
+            onChange={(event) => setChannel(event.target.value)}
+            className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
+          >
+            <option value="ALL">All channels</option>
+            <option value="EMAIL">Email only</option>
+            <option value="PHONE">Caller AI only</option>
+          </select>
+        </div>
+        <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Event type</p>
+          <select
+            value={eventType}
+            onChange={(event) => setEventType(event.target.value)}
+            className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
+          >
+            <option value="ALL">All event types</option>
+            {EVENT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {humanize(type)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Search</p>
+          <div className="mt-2 flex items-center gap-3">
+            <Input
+              className="pl-3"
+              placeholder="Search email, phone, company, subject, or summary"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Button variant="ghost" size="sm" onClick={() => void load()}>
+              Go
+            </Button>
+          </div>
         </div>
       </div>
     </SectionShell>
@@ -287,7 +296,7 @@ function EventsListSection({
                   ? "Caller AI configuration is required for phone retries."
                   : "Retry is not available for this event.";
             return (
-              <div key={`${event.channel}-${event.id}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div key={`${event.channel}-${event.id}`} className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-[0_16px_28px_-24px_rgba(15,23,42,0.34)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="max-w-[65%]">
                   <p className="text-lg font-semibold text-slate-900">

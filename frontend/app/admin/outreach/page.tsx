@@ -223,7 +223,7 @@ export default function AdminOutreachOverviewPage() {
           ) : attentionItems.length ? (
             <div className="space-y-3">
               {attentionItems.map((item) => (
-                <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={item.title} className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-[0_16px_28px_-24px_rgba(15,23,42,0.34)]">
                   <div className="flex items-center justify-between gap-4">
                     <p className="font-semibold text-slate-900">{item.title}</p>
                     <StatusBadge kind="job" state={item.state} label={item.state === "failed" ? "Issue" : humanize(item.state)} size="xs" />
@@ -256,7 +256,7 @@ export default function AdminOutreachOverviewPage() {
           ) : (
             <div className="space-y-4">
               {operationalRead.map((lane) => (
-                <div key={lane.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={lane.title} className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-[0_16px_28px_-24px_rgba(15,23,42,0.34)]">
                   <div className="flex items-center justify-between gap-4">
                     <p className="font-semibold text-slate-900">{lane.title}</p>
                     <StatusBadge kind="job" state={lane.state} label={humanize(lane.state)} size="xs" />
@@ -276,7 +276,7 @@ export default function AdminOutreachOverviewPage() {
           ) : data?.recentEvents?.length ? (
             <div className="space-y-3">
               {data.recentEvents.map((event) => (
-                <div key={`${event.channel}-${event.id}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div key={`${event.channel}-${event.id}`} className="rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.32)]">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-col gap-1">
                       <p className="font-semibold text-slate-900">
