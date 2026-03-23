@@ -857,7 +857,7 @@ export default function AppSettingsPage() {
         ]}
       />
 
-      <WorkspaceAccessSection access={accessSummary} focusSection={focusSection} />
+      <SectionDisclosure title="Readiness Summary" storageKey="settings-readiness-summary" defaultCollapsed>
       <SectionShell className="surface-panel space-y-4">
         <SectionHeading
           title="Activation readiness summary"
@@ -930,8 +930,9 @@ export default function AppSettingsPage() {
           </div>
         </div>
       </SectionShell>
-      <SectionDisclosure title="Ask AI Assistance" storageKey="settings-ask-ai" defaultCollapsed>
-        <AskAiInline page="settings" entityType="organization" defaultAgentKey="knowledge" placeholder="Ask AI about policy wording, routing rules, or readiness impacts..." />
+      </SectionDisclosure>
+      <SectionDisclosure title="Detailed Access and Readiness" storageKey="settings-detailed-access" defaultCollapsed>
+        <WorkspaceAccessSection access={accessSummary} focusSection={focusSection} />
       </SectionDisclosure>
 
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
@@ -975,30 +976,32 @@ export default function AppSettingsPage() {
                   <p className="mt-3 text-base leading-7 text-slate-500">{activeSectionDescriptions[activeSection]}</p>
                 </div>
               </div>
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
-                <div className={frontDeskContextPanelClass()}>
-                  <p className="page-eyebrow">Coverage</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{state.timezone} workspace timezone</p>
+              <SectionDisclosure title="Current configuration snapshot" storageKey="settings-configuration-snapshot" defaultCollapsed>
+                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                  <div className={frontDeskContextPanelClass()}>
+                    <p className="page-eyebrow">Coverage</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-950">{openDaysCount} open day{openDaysCount === 1 ? "" : "s"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{state.timezone} workspace timezone</p>
+                  </div>
+                  <div className={frontDeskContextPanelClass()}>
+                    <p className="page-eyebrow">Calendar</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-950">{primaryCalendarConnection ? "Connected" : "Manual scheduling"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {primaryCalendarConnection ? `${primaryCalendarConnection.provider} primary connection` : "No active provider selected"}
+                    </p>
+                  </div>
+                  <div className={frontDeskContextPanelClass()}>
+                    <p className="page-eyebrow">Alert routing</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-950">
+                      {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Configured" : "Needs routing"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {readinessHints.emails.length + readinessHints.phones.length} active contact point
+                      {readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
                 </div>
-                <div className={frontDeskContextPanelClass()}>
-                  <p className="page-eyebrow">Calendar</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{primaryCalendarConnection ? "Connected" : "Manual scheduling"}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {primaryCalendarConnection ? `${primaryCalendarConnection.provider} primary connection` : "No active provider selected"}
-                  </p>
-                </div>
-                <div className={frontDeskContextPanelClass()}>
-                  <p className="page-eyebrow">Alert routing</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">
-                    {readinessHints.emails.length + readinessHints.phones.length > 0 ? "Configured" : "Needs routing"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {readinessHints.emails.length + readinessHints.phones.length} active contact point
-                    {readinessHints.emails.length + readinessHints.phones.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-              </div>
+              </SectionDisclosure>
             </div>
 
       <Accordion type="multiple" defaultValue={["security", "calendar", "booking", "notifications", "knowledge", "business-hours", "services", "policies", "sms"]} className="space-y-4">
@@ -1912,6 +1915,9 @@ export default function AppSettingsPage() {
           </div>
         </div>
       </section>
+      <SectionDisclosure title="Ask AI Assistance" storageKey="settings-ask-ai" defaultCollapsed>
+        <AskAiInline page="settings" entityType="organization" defaultAgentKey="knowledge" placeholder="Ask AI about policy wording, routing rules, or readiness impacts..." />
+      </SectionDisclosure>
     </div>
   );
 }

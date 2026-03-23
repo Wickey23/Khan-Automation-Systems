@@ -224,14 +224,20 @@ export default function InsightsPage() {
         {!busySummary && !summaryError && summary ? (
           <>
             <p className="mb-4 text-sm text-slate-500">Window start: {new Date(summary.since).toLocaleString()}</p>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
+              <MetricCard label="Open follow-up" value={summary.openFollowUps} />
+            </div>
+            <SectionDisclosure title="Full Operational Snapshot" storageKey="insights-full-summary" className="mt-3" defaultCollapsed>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard label="Total calls" value={summary.callsTotal} />
               <MetricCard label="Missed calls" value={summary.callsMissed} />
               <MetricCard label="Messages" value={summary.messagesTotal} />
               <MetricCard label="Booking requests" value={summary.bookingRequests} />
               <MetricCard label="Open follow-up" value={summary.openFollowUps} />
               <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
-            </div>
+              </div>
+            </SectionDisclosure>
           </>
         ) : null}
       </SectionShell>
