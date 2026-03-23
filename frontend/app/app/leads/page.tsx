@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  ArrowRight,
   Calendar,
   Mail,
   MessageSquare,
@@ -28,18 +27,9 @@ import { useEntityAiState } from "@/lib/hooks/use-entity-ai-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import {
-  normalizeOperationalQuickActions,
-  normalizeOperationalSignals,
-  OperationalQuickActions,
-  OperationalRowSummary,
-  OperationalSummaryItem,
-  OperationalSignal,
-  OperationalSignalChips
-} from "@/components/queue/operational-row";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { CommandHeader } from "@/components/ops";
+import { ActionQueueTable, CommandHeader, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type PipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -189,6 +179,80 @@ export default function AppLeadsPage() {
     filteredLeads[0] ||
     leads[0] ||
     null;
+  const leadRows = useMemo(
+    () =>
+      filteredLeads.map((lead) => {
+        const status = leadStatus(lead).toLowerCase();
+        const severity = priorityToSeverity(lead.frontDesk?.frontDeskPriority || "medium");
+        const selectedForBatch = selectedLeadIds.includes(lead.id);
+        return {
+          id: lead.id,
+          item: `${leadName(lead)} - ${lead.phone || lead.email || "No contact"}`,
+          owner: lead.latestMessageThreadId ? "Linked thread" : "Unassigned",
+          due: dueLabel(lead.updatedAt),
+          ageLabel: ageFromDate(lead.frontDesk?.lastActivityAt || lead.updatedAt || lead.createdAt),
+          severity,
+          status: statusToOperatorState(status),
+          primaryActionLabel: leadRecommendedAction(lead),
+          onPrimaryAction: () => setSelectedLeadId(lead.id),
+          secondaryActions: [
+            {
+              label: selectedForBatch ? "Remove from batch" : "Select for batch",
+              onClick: () =>
+                setSelectedLeadIds((current) =>
+                  selectedForBatch ? current.filter((id) => id !== lead.id) : [...new Set([...current, lead.id])]
+                )
+            },
+            {
+              label: "Open approvals",
+              href: buildWorkflowHref(`/app/approvals?status=PENDING&leadId=${encodeURIComponent(lead.id)}`, {
+                source: "leads",
+                returnTo: localReturnTo,
+                returnLabel: "Leads"
+              })
+            },
+            {
+              label: "Open follow-up",
+              href: buildWorkflowHref("/app/follow-up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })
+            },
+            ...(lead.latestMessageThreadId
+              ? [
+                  {
+                    label: "Open thread",
+                    href: buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`, {
+                      source: "leads",
+                      returnTo: localReturnTo,
+                      returnLabel: "Leads"
+                    })
+                  }
+                ]
+              : [])
+          ],
+          detail: `${leadStatus(lead)} | ${leadSource(lead)}${selectedForBatch ? " | Selected for batch" : ""}`,
+          onRowSelect: () => setSelectedLeadId(lead.id),
+          onRowFocus: () => setSelectedLeadId(lead.id),
+          rowAriaLabel: `${leadName(lead)}. ${leadStatus(lead)}.`
+        };
+      }),
+    [filteredLeads, localReturnTo, selectedLeadIds]
+  );
+  const leadRiskItems = useMemo(
+    () => [
+      {
+        id: "needs-follow-up",
+        title: "Needs follow-up",
+        detail: `${filteredLeads.filter((lead) => lead.frontDesk?.state === "needs_follow_up").length} leads awaiting first response.`,
+        level: "warning" as const
+      },
+      {
+        id: "dnc-blocked",
+        title: "Outbound blocked",
+        detail: `${filteredLeads.filter((lead) => lead.dnc).length} leads marked DNC/blocked.`,
+        level: "critical" as const
+      }
+    ],
+    [filteredLeads]
+  );
 
   useEffect(() => {
     if (!selectedLead) {
@@ -441,136 +505,20 @@ export default function AppLeadsPage() {
             </div>
           ) : null}
 
-          <div className="flex-1 overflow-y-auto">
-            <table className="w-full border-collapse text-left">
-              <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                <tr>
-                  <th className="px-6 py-3">Lead Info</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Urgency</th>
-                  <th className="px-6 py-3">Last Activity</th>
-                  <th className="px-6 py-3 text-right">Recommended Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr><td className="px-6 py-10 text-sm text-slate-500" colSpan={5}>Loading leads...</td></tr>
-                ) : filteredLeads.length ? (
-                  filteredLeads.map((lead) => {
-                    const urgency = leadUrgency(lead.frontDesk?.frontDeskPriority);
-                    const selected = selectedLead?.id === lead.id;
-                    return (
-                      <tr
-                        key={lead.id}
-                        onClick={() => setSelectedLeadId(lead.id)}
-                        className={cn("group cursor-pointer transition-colors hover:bg-slate-50", selected && "bg-primary/5")}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedLeadIds.includes(lead.id)}
-                              onChange={(event) => {
-                                event.stopPropagation();
-                                setSelectedLeadIds((current) =>
-                                  event.target.checked ? [...new Set([...current, lead.id])] : current.filter((id) => id !== lead.id)
-                                );
-                              }}
-                              onClick={(event) => event.stopPropagation()}
-                              className="h-4 w-4 rounded border-slate-300"
-                            />
-                            <div className={cn(
-                              "flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold shadow-sm",
-                              selected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
-                            )}>
-                              {initials(leadName(lead))}
-                            </div>
-                            <div>
-                              <div className="text-sm font-bold text-slate-900">{leadName(lead)}</div>
-                              <div className="text-[11px] font-medium text-slate-500">{lead.phone || lead.email || "No contact info"}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Tag className="h-3 w-3 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-600">{leadStatus(lead)}</span>
-                          </div>
-                          <div className="mt-1">
-                            <OperationalSignalChips signals={leadSignals(lead)} />
-                            <OperationalRowSummary items={leadRowSummary(lead)} />
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", urgency.bg, urgency.color)}>
-                            <AlertCircle className="h-2.5 w-2.5" />
-                            {urgency.label}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-[11px] font-bold uppercase tracking-tighter text-slate-400">{activityLabel(lead)}</td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedLeadId(lead.id);
-                            }}
-                            className={cn(
-                              "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all",
-                              lead.frontDesk?.frontDeskPriority === "urgent"
-                                ? "bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            )}
-                          >
-                            {leadRecommendedAction(lead)}
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
-                          <div className="mt-1 flex justify-end">
-                            <OperationalQuickActions
-                              actions={normalizeOperationalQuickActions([
-                                {
-                                  key: "approvals",
-                                  href: buildWorkflowHref(`/app/approvals?status=PENDING&leadId=${encodeURIComponent(lead.id)}`, {
-                                    source: "leads",
-                                    returnTo: localReturnTo,
-                                    returnLabel: "Leads"
-                                  })
-                                },
-                                {
-                                  key: "follow_up",
-                                  href: buildWorkflowHref("/app/follow-up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })
-                                },
-                                ...(lead.latestMessageThreadId
-                                  ? [
-                                      {
-                                        key: "thread" as const,
-                                        href: buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`, {
-                                          source: "leads",
-                                          returnTo: localReturnTo,
-                                          returnLabel: "Leads"
-                                        })
-                                      }
-                                    ]
-                                  : [])
-                              ])}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td className="px-6 py-6" colSpan={5}>
-                      <QueueEmptyState
-                        title="No Leads Match This Search"
-                        description="Try a broader term or clear the query to view the full lead queue."
-                      />
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="flex-1 overflow-y-auto p-4">
+            {loading ? (
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading leads...</div>
+            ) : filteredLeads.length ? (
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <ActionQueueTable title="Lead Queue" rows={leadRows} />
+                <RiskRailCard title="Lead Risk" items={leadRiskItems} />
+              </div>
+            ) : (
+              <QueueEmptyState
+                title="No Leads Match This Search"
+                description="Try a broader term or clear the query to view the full lead queue."
+              />
+            )}
           </div>
         </div>
 
@@ -623,21 +571,20 @@ export default function AppLeadsPage() {
                   }}
                   refreshing={entityStateBusy}
                 />
-                <div className="px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secondary</p>
-                </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {relatedContext ? (
-                    <RelatedContextCard
-                      title="Related Context"
-                      description="Nearby linked records and operational state for this lead."
-                      stats={relatedContext.stats}
-                      links={relatedContext.links}
-                      flags={relatedContext.flags}
-                    />
-                  ) : null}
-                  <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
-                </div>
+                <SectionDisclosure title="Secondary Operational Context" storageKey="leads-secondary-context" defaultCollapsed>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {relatedContext ? (
+                      <RelatedContextCard
+                        title="Related Context"
+                        description="Nearby linked records and operational state for this lead."
+                        stats={relatedContext.stats}
+                        links={relatedContext.links}
+                        flags={relatedContext.flags}
+                      />
+                    ) : null}
+                    <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
+                  </div>
+                </SectionDisclosure>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
@@ -821,31 +768,4 @@ export default function AppLeadsPage() {
   );
 }
 
-function isStaleLead(lead: Lead) {
-  const value = lead.frontDesk?.lastActivityAt || lead.updatedAt || lead.createdAt;
-  const hours = (Date.now() - new Date(value).getTime()) / (60 * 60 * 1000);
-  return hours >= 24 && (lead.frontDesk?.state === "needs_follow_up" || lead.frontDesk?.state === "contacted");
-}
-
-function leadSignals(lead: Lead): OperationalSignal[] {
-  const signals: OperationalSignal[] = [];
-  if (lead.dnc) signals.push({ key: "outbound_blocked" });
-  if (lead.frontDesk?.state === "needs_follow_up") signals.push({ key: "needs_action" });
-  if (lead.latestMessageThreadId) signals.push({ key: "inbox_linked" });
-  if (lead.latestAppointmentRequestId) signals.push({ key: "booking", label: "Booking linked" });
-  if (isStaleLead(lead)) signals.push({ key: "stale" });
-  if (lead.classification) signals.push({ key: "classification", label: lead.classification.replaceAll("_", " ") });
-  return normalizeOperationalSignals(signals);
-}
-
-function leadRowSummary(lead: Lead): OperationalSummaryItem[] {
-  const pipeline = (lead.pipelineStage || "NEW_LEAD").replaceAll("_", " ");
-  const outbound = lead.dnc ? "Blocked" : "Available";
-  const linked = lead.latestAppointmentRequestId ? "Booking linked" : lead.latestMessageThreadId ? "Thread linked" : "None";
-  return [
-    { key: "pipeline", label: "Pipeline", value: pipeline },
-    { key: "outbound", label: "Outbound", value: outbound, tone: lead.dnc ? "critical" : "success" },
-    { key: "linked", label: "Linked", value: linked, tone: linked === "None" ? "default" : "success" }
-  ];
-}
 
