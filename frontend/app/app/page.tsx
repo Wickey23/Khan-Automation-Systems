@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Calendar, Mail, Phone, Sparkles, UserPlus } from "lucide-react";
 import {
   fetchAiApprovals,
   fetchAttentionQueue,
@@ -33,7 +32,7 @@ import type {
 import { buildReturnTo, buildWorkflowHref } from "@/lib/workflow-nav";
 import { consumeDailyReviewDirtyReasons } from "@/lib/review-loop";
 import { OPERATIONAL_LABELS } from "@/lib/operational-language";
-import { SectionDisclosure } from "@/components/ops";
+import { CommandHeader, KpiCard, RiskRailCard, SectionDisclosure } from "@/components/ops";
 
 type DashboardState = {
   calls: OrgCallRecord[];
@@ -133,22 +132,6 @@ export default function AppOverviewPage() {
     };
   }, [loadDashboard]);
 
-  const metrics = useMemo(() => {
-    const callsToday = state.calls.filter((call) => new Date(call.startedAt).toDateString() === new Date().toDateString()).length;
-    const activeLeads = state.leads.filter((lead) => lead.frontDesk?.needsFollowUp || lead.pipelineStage !== "COMPLETED").length;
-    const bookings = state.insights?.bookingRequests ?? state.requests.filter((request) => request.status === "SCHEDULED" || request.status === "APPROVED").length;
-    const missed = state.insights?.callsMissed ?? state.calls.filter((call) => call.outcome === "MISSED").length;
-    const unresolved = state.attention.filter((item) => item.unresolved).length;
-    return [
-      { label: "Total Calls", value: String(state.insights?.callsTotal ?? state.calls.length), trend: callsToday > 0 ? `+${callsToday} today` : "No calls today", icon: Phone, color: "text-emerald-500", path: "M0,15 Q25,5 50,15 T100,5" },
-      { label: "Active Leads", value: String(activeLeads), trend: state.leads.length ? `${state.leads.length} in queue` : "No leads yet", icon: UserPlus, color: "text-emerald-500", path: "M0,18 Q30,15 45,5 T80,12 T100,2" },
-      { label: "Bookings", value: String(bookings), trend: state.requests.length ? `${state.requests.length} requests` : "No bookings yet", icon: Calendar, color: "text-emerald-500", path: "M0,10 Q10,20 30,5 T70,15 T100,5" },
-      { label: "Missed Calls", value: String(missed), trend: missed > 0 ? "Needs callback review" : OPERATIONAL_LABELS.healthy, icon: AlertCircle, color: missed > 0 ? "text-amber-600" : "text-emerald-500", path: "M0,12 Q20,2 40,13 T80,7 T100,10" },
-      { label: "Pending Approvals", value: String(state.insights?.pendingApprovals ?? state.approvals.length), trend: state.approvals.length ? "Operator review required" : "Nothing pending", icon: Mail, color: state.approvals.length ? "text-amber-600" : "text-emerald-500", path: "M0,10 Q20,14 40,6 T100,8" },
-      { label: "Needs Attention", value: String(unresolved), trend: unresolved > 0 ? "Prioritized by urgency" : "No critical queue", icon: Sparkles, color: unresolved > 0 ? "text-amber-600" : "text-emerald-500", path: "M0,9 Q25,5 50,12 T100,6" }
-    ];
-  }, [state.approvals.length, state.attention, state.calls, state.insights, state.leads, state.requests]);
-
   const attentionItems = useMemo(() => state.attention.slice(0, 5), [state.attention]);
   const topPendingApproval = useMemo(() => state.approvals[0] || null, [state.approvals]);
   const overdueFollowUps = useMemo(() => state.followUps.filter((item) => item.task?.dueAt && new Date(item.task.dueAt).getTime() < Date.now()), [state.followUps]);
@@ -235,60 +218,52 @@ export default function AppOverviewPage() {
   }, [state.accessSummary]);
 
   const onboardingReady = state.onboardingStatus && ["SUBMITTED", "REVIEWED", "APPROVED"].includes(state.onboardingStatus);
+  const activeThroughput = state.calls.length + state.leads.length + state.requests.length;
+  const meanTriageTime = `${Math.max(2.1, Number(((state.followUps.length + state.approvals.length) / 5).toFixed(1)))}m`;
+  const blockedItems = atRiskSnapshot.overdueUnassigned + atRiskSnapshot.criticalUnownedAttention;
+  const riskItems = [
+    {
+      id: "critical-unassigned",
+      title: "Critical/high unassigned",
+      detail: "Needs ownership assignment now.",
+      level: "critical" as const,
+      meter: Math.min(100, atRiskSnapshot.criticalUnownedAttention * 20)
+    },
+    {
+      id: "stale-assigned",
+      title: "Stale assigned follow-up",
+      detail: "Response times are beyond target window.",
+      level: "warning" as const
+    }
+  ];
 
   return (
     <div className="flex-1 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100">
       <div className="grid h-full xl:grid-cols-1">
         <div className="overflow-y-auto bg-slate-100 p-4 md:p-6 xl:p-8">
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operational Command</p>
-                <h2 className="mt-1 text-4xl font-bold tracking-[-0.04em] text-slate-900">Daily Triage</h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
-                >
-                  Export Manifest
-                </button>
-                <Link
-                  href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
-                >
-                  Run Priority Triage
-                </Link>
-              </div>
-            </div>
-            <p className="mt-2 text-sm text-slate-500">
-              {onboardingReady
+          <CommandHeader
+            className="mb-6"
+            title="Daily Triage"
+            description={
+              onboardingReady
                 ? "Queues are live. Monitor risk and clear work items during this shift."
-                : "Finish setup so calls, messages, and bookings route correctly before full rollout."}
-            </p>
-          </div>
+                : "Finish setup so calls, messages, and bookings route correctly before full rollout."
+            }
+            actions={
+              <Link
+                href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-slate-800 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
+              >
+                Run Priority Triage
+              </Link>
+            }
+          />
 
           <div className="mb-8 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Active Throughput</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">{loading ? "-" : state.calls.length + state.leads.length + state.requests.length}</p>
-              <p className="mt-2 text-xs font-semibold text-emerald-700">{metrics[0]?.trend || "Stable"}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Mean Triage Time</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">{loading ? "-" : `${Math.max(2.1, Number(((state.followUps.length + state.approvals.length) / 5).toFixed(1)))}m`}</p>
-              <p className="mt-2 text-xs font-semibold text-rose-700">{overdueFollowUps.length > 0 ? `${overdueFollowUps.length} overdue tasks` : "Within expected range"}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Open Approvals</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">{loading ? "-" : state.approvals.length}</p>
-              <p className="mt-2 text-xs font-semibold text-slate-600">{topPendingApproval?.toolKey || "Steady"}</p>
-            </div>
-            <div className="rounded-xl border-l-4 border-l-rose-600 border-t border-r border-b border-rose-200 bg-rose-50/50 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-700">Blocked Items</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-rose-800">{loading ? "-" : atRiskSnapshot.overdueUnassigned + atRiskSnapshot.criticalUnownedAttention}</p>
-              <p className="mt-2 text-xs font-semibold text-rose-700">Escalation required</p>
-            </div>
+            <KpiCard label="Active Throughput" value={loading ? "-" : String(activeThroughput)} detail={activeThroughput > 0 ? "Live workflow volume" : "No live volume yet"} />
+            <KpiCard label="Mean Triage Time" value={loading ? "-" : meanTriageTime} detail={overdueFollowUps.length > 0 ? `${overdueFollowUps.length} overdue tasks` : "Within expected range"} />
+            <KpiCard label="Open Approvals" value={loading ? "-" : String(state.approvals.length)} detail={topPendingApproval?.toolKey || "Steady"} />
+            <KpiCard label="Blocked Items" value={loading ? "-" : String(blockedItems)} detail="Escalation required" emphasis="risk" />
           </div>
 
           <div className="mb-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
@@ -342,38 +317,14 @@ export default function AppOverviewPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border-t-4 border-t-rose-700 border border-slate-200 bg-white p-4">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-700">At Risk Items</h3>
-              <div className="mt-3 space-y-3">
-                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-900">Critical/high unassigned</p>
-                    <span className="text-[11px] font-semibold uppercase text-rose-700">Critical</span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-600">Needs ownership assignment now.</p>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
-                    <div
-                      className="h-full rounded-full bg-rose-600"
-                      style={{ width: `${Math.min(100, (atRiskSnapshot.criticalUnownedAttention || 0) * 20)}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-900">Stale assigned follow-up</p>
-                    <span className="text-[11px] font-semibold uppercase text-amber-700">Warning</span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-600">Response times are beyond target window.</p>
-                </div>
-              </div>
-              <Link
-                href={buildWorkflowHref("/app/insights", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition-colors hover:bg-slate-100"
-              >
-                View full audit log
-              </Link>
-            </div>
-          </div>          <SectionDisclosure
+            <RiskRailCard
+              title="At Risk Items"
+              items={riskItems}
+              ctaHref={buildWorkflowHref("/app/insights", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
+              ctaLabel="View full audit log"
+            />
+          </div>
+          <SectionDisclosure
             title="Operational Detail"
             storageKey="dashboard-operational-detail"
             defaultCollapsed
@@ -479,7 +430,8 @@ export default function AppOverviewPage() {
               <AskAiInline page="dashboard" defaultAgentKey="manager_analytics" placeholder="Ask for a manager summary, risks, or recommended next actions..." />
             </div>
           </SectionDisclosure>
-        </div></div>
+        </div>
+      </div>
     </div>
   );
 }
