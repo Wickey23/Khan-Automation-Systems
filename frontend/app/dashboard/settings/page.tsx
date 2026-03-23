@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchClientWorkspace, updateClientSettings } from "@/lib/api";
 import { useToast } from "@/components/site/toast-provider";
@@ -58,6 +59,12 @@ export default function DashboardSettingsPage() {
           description="Directly manage raw workspace configuration values."
         />
         <SectionShell className="surface-panel space-y-4">
+          <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
+            <p className="inline-flex items-center gap-2 font-medium text-slate-900">
+              <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+              This editor writes raw JSON values. Use the setup wizard for guided changes.
+            </p>
+          </div>
           <div>
             <Label>Business Hours JSON</Label>
             <Textarea value={businessHoursJson} onChange={(event) => setBusinessHoursJson(event.target.value)} />

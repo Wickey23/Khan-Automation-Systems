@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CalendarClock, Wrench } from "lucide-react";
 import { ClientGuard } from "@/components/dashboard/client-guard";
 import { fetchClientWorkspace, updateClientSettings } from "@/lib/api";
 import type { Client } from "@/lib/types";
@@ -144,6 +145,12 @@ export default function DashboardSetupPage() {
           <StateCard variant="loading" title="Loading setup" />
         ) : (
           <SectionShell className="surface-panel space-y-4">
+            <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
+              <p className="inline-flex items-center gap-2 font-medium text-slate-900">
+                <Wrench className="h-4 w-4 text-slate-500" />
+                Configure core workspace defaults before routing production calls.
+              </p>
+            </div>
             <div><Label>Business Name</Label><Input value={businessName} onChange={(event) => setBusinessName(event.target.value)} /></div>
             <div>
               <Label>Timezone</Label>
@@ -152,12 +159,15 @@ export default function DashboardSetupPage() {
                 <SelectContent>{TIMEZONE_OPTIONS.map((zone) => <SelectItem key={zone} value={zone}>{zone}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 rounded-lg border p-4">
-              <p className="text-sm font-medium">Business Hours</p>
+            <div className="space-y-2 rounded-2xl border border-slate-200/90 bg-white p-4">
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-900">
+                <CalendarClock className="h-4 w-4 text-slate-500" />
+                Business Hours
+              </p>
               {DAY_ROWS.map((row) => {
                 const value = hoursByDay[row.key];
                 return (
-                  <div key={row.key} className="grid gap-2 sm:grid-cols-[110px_90px_1fr_1fr] sm:items-center">
+                  <div key={row.key} className="grid gap-2 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 sm:grid-cols-[110px_90px_1fr_1fr] sm:items-center">
                     <p className="text-sm">{row.label}</p>
                     <label className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={value.enabled} onChange={(event) => setHoursByDay((prev) => ({ ...prev, [row.key]: { ...prev[row.key], enabled: event.target.checked } }))} />
