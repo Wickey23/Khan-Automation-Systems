@@ -626,120 +626,122 @@ export default function AppLeadsPage() {
                   <p className="text-sm font-medium italic leading-relaxed text-slate-700">&ldquo;{leadSummary(selectedLead)}&rdquo;</p>
                 </div>
 
-                <div id="lead-ai-workflow">
-                  <AiWorkflowActions
-                    title="Lead Ops Workflow"
-                    description="Run lead scoring, summary, outreach drafts, and follow-up scheduling."
-                    agentKey="lead_ops"
+                <SectionDisclosure title="Deep Workflow Detail" storageKey="leads-deep-workflow-detail" defaultCollapsed>
+                  <div id="lead-ai-workflow">
+                    <AiWorkflowActions
+                      title="Lead Ops Workflow"
+                      description="Run lead scoring, summary, outreach drafts, and follow-up scheduling."
+                      agentKey="lead_ops"
+                      entityType="lead"
+                      entityId={selectedLead.id}
+                      actions={[
+                        { key: "score", label: "Score Lead", toolKey: "score_lead", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "summary", label: "Summarize Lead", toolKey: "summarize_lead", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "email", label: "Draft Outreach Email", toolKey: "draft_outreach_email", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "sms", label: "Draft Outreach SMS", toolKey: "draft_outreach_sms", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "prep", label: "Generate Call Prep", toolKey: "generate_call_prep", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "reply", label: "Classify Reply", toolKey: "classify_lead_reply", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "followup", label: "Schedule Follow-up", toolKey: "schedule_lead_followup", buildInput: () => ({ leadId: selectedLead.id }) },
+                        { key: "approve", label: "Queue First-touch Approval", toolKey: "queue_sms", buildInput: () => ({ content: leadAiState.smsDraft || `Follow up with ${leadName(selectedLead)}` }) }
+                      ]}
+                      onToolResult={(toolKey, payload) => {
+                        setLeadAiState((current) => ({
+                          ...current,
+                          score: toolKey === "score_lead" ? Number(payload?.score || current.score || 0) : current.score,
+                          scoreReason: toolKey === "score_lead" ? `Confidence ${(Number(payload?.confidence || 0) * 100).toFixed(0)}%` : current.scoreReason,
+                          summary: toolKey === "summarize_lead" ? String(payload?.summary || current.summary || "") : current.summary,
+                          emailDraft: toolKey === "draft_outreach_email" ? String(payload?.body || current.emailDraft || "") : current.emailDraft,
+                          smsDraft: toolKey === "draft_outreach_sms" ? String(payload?.draft || current.smsDraft || "") : current.smsDraft,
+                          callPrep: toolKey === "generate_call_prep" ? ((payload?.checklist as string[]) || current.callPrep || []) : current.callPrep
+                        }));
+                        void refreshEntityState();
+                      }}
+                    />
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                    <p className="font-semibold text-slate-900">Lead score and reasoning</p>
+                    <p className="mt-1">Score: {leadAiState.score ?? "n/a"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
+                    {leadAiState.callPrep?.length ? (
+                      <ul className="mt-2 list-disc space-y-1 pl-5">
+                        {leadAiState.callPrep.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  <div className="px-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
+                  </div>
+                  <EntityTimelineCard
                     entityType="lead"
                     entityId={selectedLead.id}
-                    actions={[
-                      { key: "score", label: "Score Lead", toolKey: "score_lead", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "summary", label: "Summarize Lead", toolKey: "summarize_lead", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "email", label: "Draft Outreach Email", toolKey: "draft_outreach_email", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "sms", label: "Draft Outreach SMS", toolKey: "draft_outreach_sms", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "prep", label: "Generate Call Prep", toolKey: "generate_call_prep", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "reply", label: "Classify Reply", toolKey: "classify_lead_reply", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "followup", label: "Schedule Follow-up", toolKey: "schedule_lead_followup", buildInput: () => ({ leadId: selectedLead.id }) },
-                      { key: "approve", label: "Queue First-touch Approval", toolKey: "queue_sms", buildInput: () => ({ content: leadAiState.smsDraft || `Follow up with ${leadName(selectedLead)}` }) }
-                    ]}
-                    onToolResult={(toolKey, payload) => {
-                      setLeadAiState((current) => ({
-                        ...current,
-                        score: toolKey === "score_lead" ? Number(payload?.score || current.score || 0) : current.score,
-                        scoreReason: toolKey === "score_lead" ? `Confidence ${(Number(payload?.confidence || 0) * 100).toFixed(0)}%` : current.scoreReason,
-                        summary: toolKey === "summarize_lead" ? String(payload?.summary || current.summary || "") : current.summary,
-                        emailDraft: toolKey === "draft_outreach_email" ? String(payload?.body || current.emailDraft || "") : current.emailDraft,
-                        smsDraft: toolKey === "draft_outreach_sms" ? String(payload?.draft || current.smsDraft || "") : current.smsDraft,
-                        callPrep: toolKey === "generate_call_prep" ? ((payload?.checklist as string[]) || current.callPrep || []) : current.callPrep
-                      }));
-                      void refreshEntityState();
-                    }}
+                    timelineData={entityState}
+                    loading={entityStateBusy}
+                    error={entityStateError}
                   />
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
-                  <p className="font-semibold text-slate-900">Lead score and reasoning</p>
-                  <p className="mt-1">Score: {leadAiState.score ?? "n/a"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
-                  {leadAiState.callPrep?.length ? (
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {leadAiState.callPrep.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-                <div className="px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
-                </div>
-                <EntityTimelineCard
-                  entityType="lead"
-                  entityId={selectedLead.id}
-                  timelineData={entityState}
-                  loading={entityStateBusy}
-                  error={entityStateError}
-                />
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold text-slate-900">CSV Import Preview</p>
-                  <textarea
-                    value={csvInput}
-                    onChange={(event) => setCsvInput(event.target.value)}
-                    placeholder="name,email,phone,business"
-                    className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  />
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold"
-                      onClick={async () => {
-                        const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
-                        setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
-                      }}
-                    >
-                      Preview
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white"
-                      onClick={async () => {
-                        await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
-                        const data = await fetchOrgLeads();
-                        setLeads(data.leads || []);
-                        await refreshEntityState();
-                      }}
-                    >
-                      Import
-                    </button>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold text-slate-900">CSV Import Preview</p>
+                    <textarea
+                      value={csvInput}
+                      onChange={(event) => setCsvInput(event.target.value)}
+                      placeholder="name,email,phone,business"
+                      className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold"
+                        onClick={async () => {
+                          const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                          setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
+                        }}
+                      >
+                        Preview
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white"
+                        onClick={async () => {
+                          await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                          const data = await fetchOrgLeads();
+                          setLeads(data.leads || []);
+                          await refreshEntityState();
+                        }}
+                      >
+                        Import
+                      </button>
+                    </div>
+                    {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
                   </div>
-                  {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
-                </div>
 
-                <div>
-                  <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Lead Details</h3>
-                  <div className="space-y-4 px-1">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Phone className="h-3.5 w-3.5" /></div>
-                      <div>
-                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Phone</p>
-                        <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "N/A"}</p>
+                  <div>
+                    <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Lead Details</h3>
+                    <div className="space-y-4 px-1">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Phone className="h-3.5 w-3.5" /></div>
+                        <div>
+                          <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Phone</p>
+                          <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "N/A"}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Mail className="h-3.5 w-3.5" /></div>
-                      <div>
-                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</p>
-                        <p className="text-xs font-bold text-slate-900">{selectedLead.email || "N/A"}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Mail className="h-3.5 w-3.5" /></div>
+                        <div>
+                          <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</p>
+                          <p className="text-xs font-bold text-slate-900">{selectedLead.email || "N/A"}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><User className="h-3.5 w-3.5" /></div>
-                      <div>
-                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Source</p>
-                        <p className="text-xs font-bold text-slate-900">{leadSource(selectedLead)}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><User className="h-3.5 w-3.5" /></div>
+                        <div>
+                          <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Source</p>
+                          <p className="text-xs font-bold text-slate-900">{leadSource(selectedLead)}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </SectionDisclosure>
 
                 <div className="border-t border-slate-200 pt-4">
                   <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Primary Action</h3>
