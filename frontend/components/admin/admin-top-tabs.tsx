@@ -190,8 +190,8 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
           </div>
         </div>
       ) : null}
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-950 px-5 py-3 text-white">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200/90 bg-white/95 shadow-[0_22px_42px_-30px_rgba(15,23,42,0.42)]">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-[linear-gradient(135deg,#020617_0%,#0f172a_62%,#1e293b_100%)] px-5 py-3 text-white">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
               <Shield className="h-4 w-4" />
@@ -214,14 +214,14 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
 
         <div className="space-y-4 px-5 py-5">
           {activeTab?.description ? (
-            <p className="text-xs font-medium text-slate-500">{activeTab.description}</p>
+            <p className="rounded-2xl border border-slate-200/90 bg-slate-50/75 px-3 py-2 text-xs font-medium text-slate-600">{activeTab.description}</p>
           ) : null}
           <div className="grid gap-3 md:grid-cols-3">
           {visibleGroups.map((group) => {
             if (!group.tabs.length) return null;
             const Icon = group.icon;
             return (
-              <div key={group.label} className={cn("rounded-2xl border bg-gradient-to-b p-3", group.tone)}>
+              <div key={group.label} className={cn("rounded-2xl border bg-gradient-to-b p-3 shadow-[0_12px_24px_-20px_rgba(15,23,42,0.35)]", group.tone)}>
                 <p className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">
                   <Icon className="h-3.5 w-3.5" />
                   {group.label}
@@ -234,7 +234,7 @@ export function AdminTopTabs({ className, backFallbackHref = "/admin", hideSyste
                       className={cn(
                         "rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
                         isActive(tab)
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          ? "border-primary/80 bg-primary text-primary-foreground shadow-[0_12px_20px_-14px_rgba(37,99,235,0.75)]"
                           : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
                       )}
                     >
