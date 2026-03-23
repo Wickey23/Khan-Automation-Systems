@@ -5,6 +5,7 @@ import { ClientGuard } from "@/components/dashboard/client-guard";
 import { createCustomerPortalSession, fetchClientWorkspace } from "@/lib/api";
 import type { Client } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell, SectionShell } from "@/components/ui/page";
 
 export default function DashboardBillingPage() {
   const [client, setClient] = useState<Client | null>(null);
@@ -26,15 +27,18 @@ export default function DashboardBillingPage() {
 
   return (
     <ClientGuard>
-      <div className="container py-10">
-        <h1 className="text-3xl font-bold">Billing</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Current plan: {client?.subscriptions?.[0]?.plan || "No active plan"}
-        </p>
-        <Button className="mt-6" onClick={onManageBilling} disabled={loading}>
-          {loading ? "Opening..." : "Manage Billing"}
-        </Button>
-      </div>
+      <PageShell className="space-y-6">
+        <PageHeader
+          eyebrow="Legacy billing"
+          title="Billing"
+          description={`Current plan: ${client?.subscriptions?.[0]?.plan || "No active plan"}`}
+        />
+        <SectionShell className="surface-panel">
+          <Button onClick={onManageBilling} disabled={loading}>
+            {loading ? "Opening..." : "Manage Billing"}
+          </Button>
+        </SectionShell>
+      </PageShell>
     </ClientGuard>
   );
 }
