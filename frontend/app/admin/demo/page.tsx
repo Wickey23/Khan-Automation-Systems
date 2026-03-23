@@ -5,6 +5,8 @@ import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/site/toast-provider";
 import { fetchAdminDemoCalls, fetchAdminDemoConfig, fetchAdminVapiResources, updateAdminDemoConfig } from "@/lib/api";
@@ -170,16 +172,39 @@ export default function AdminDemoPage() {
     }
   }
 
+  const demoStats = [
+    { label: "Assistants", value: assistants.length },
+    { label: "Phone numbers", value: phoneNumbers.length },
+    { label: "Demo calls", value: calls.length },
+    { label: "Appointment intent", value: calls.filter((call) => call.outcome === "APPOINTMENT_REQUEST").length }
+  ];
+
   return (
     <AdminGuard>
-      <div className="container py-10">
-        <AdminTopTabs className="mb-3" />
-        <h1 className="text-3xl font-bold">Demo Configuration</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configure the public voice demo block shown on the landing page and review structured demo call results.
-        </p>
+      <PageShell className="space-y-6">
+        <AdminTopTabs />
+        <PageHeader
+          eyebrow="Demo operations"
+          title="Public voice demo configuration"
+          description="Manage assistant and number bindings for the public demo experience and review structured demo call outcomes."
+          actions={
+            <Button variant="outline" onClick={() => void loadDemoCalls()} disabled={callsLoading}>
+              {callsLoading ? "Refreshing..." : "Refresh calls"}
+            </Button>
+          }
+        />
 
-        <div className="mt-5 rounded-lg border bg-white p-5">
+        <div className="grid gap-3 md:grid-cols-4">
+          {demoStats.map((item) => (
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading title="Demo setup" description="Bind Vapi resources and configure visitor-facing copy." />
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Select Vapi assistant</label>
@@ -256,20 +281,18 @@ export default function AdminDemoPage() {
               {saving ? "Saving..." : "Save demo config"}
             </Button>
           </div>
-        </div>
+        </SectionShell>
 
-        <div className="mt-6 rounded-lg border bg-white p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Demo Call Logs</h2>
-              <p className="text-sm text-muted-foreground">
-                Calls made to the demo assistant or number. Each result is shaped to show what the office sees after a missed or handled call.
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => void loadDemoCalls()} disabled={callsLoading}>
-              {callsLoading ? "Refreshing..." : "Refresh"}
-            </Button>
-          </div>
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading
+            title="Demo call logs"
+            description="Calls made to the demo assistant or number, with structured intake summaries."
+            actions={
+              <Button variant="outline" onClick={() => void loadDemoCalls()} disabled={callsLoading}>
+                {callsLoading ? "Refreshing..." : "Refresh"}
+              </Button>
+            }
+          />
 
           <div className="space-y-3">
             {calls.map((call) => (
@@ -321,11 +344,11 @@ export default function AdminDemoPage() {
               </div>
             ))}
             {!callsLoading && !calls.length ? (
-              <p className="text-sm text-muted-foreground">No demo calls logged yet.</p>
+              <StateCard variant="empty" title="No demo calls logged yet" />
             ) : null}
           </div>
-        </div>
-      </div>
+        </SectionShell>
+      </PageShell>
     </AdminGuard>
   );
 }
