@@ -15,7 +15,7 @@ import { ATTENTION_RISK_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type AttentionLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type EntityTypeFilter = "all" | "call" | "lead" | "message_thread";
@@ -422,16 +422,12 @@ export default function AttentionPage() {
         <div className="mb-3">
           <WorkflowReturnBanner returnTo={returnToQuery} returnLabel={returnLabel} />
         </div>
-        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {summaryStrip.map((metric) => (
-            <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
-              <p className="text-xs text-slate-500">{metric.note}</p>
-            </div>
+            <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
           ))}
         </div>
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           {(["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((entry) => (
             <button
               key={entry}
@@ -516,16 +512,17 @@ export default function AttentionPage() {
             Refresh
           </button>
         </div>
-        <QueueShortcutHint
-          className="mb-3"
-          summary="Use shortcuts on the focused attention item."
-          items={[
-            { keys: "J / K", label: "Move focus" },
-            { keys: "Enter", label: "Open entity" },
-            { keys: "Alt+A", label: "Open approvals (if linked)" },
-            { keys: "Alt+F", label: "Open follow-up (if linked)" }
-          ]}
-        />
+        <SectionDisclosure title="Queue controls and shortcuts" storageKey="attention-controls-shortcuts" defaultCollapsed className="mb-3">
+          <QueueShortcutHint
+            summary="Use shortcuts on the focused attention item."
+            items={[
+              { keys: "J / K", label: "Move focus" },
+              { keys: "Enter", label: "Open entity" },
+              { keys: "Alt+A", label: "Open approvals (if linked)" },
+              { keys: "Alt+F", label: "Open follow-up (if linked)" }
+            ]}
+          />
+        </SectionDisclosure>
 
         {busy ? <QueueSurfaceStateCard kind="loading" message="Loading attention queue..." /> : null}
 

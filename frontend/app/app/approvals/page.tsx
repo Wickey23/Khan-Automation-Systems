@@ -15,7 +15,7 @@ import { APPROVAL_FOCUS_LABELS, OPERATIONAL_LABELS, formatApprovalStatusLabel } 
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type DraftEditState = {
   subject: string;
@@ -527,31 +527,28 @@ export default function ApprovalsPage() {
       />
 
       <SectionShell>
-        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {approvalSummaryStrip.map((metric) => (
-            <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
-              <p className="text-xs text-slate-500">{metric.note}</p>
-            </div>
+            <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
           ))}
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2">
             <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
           </div>
-          <QueueShortcutHint
-            className="mb-2"
-            summary="Use row focus to review and act faster."
-            items={[
-              { keys: "J / K", label: "Move focus" },
-              { keys: "Enter", label: "Open related entity" },
-              { keys: "Alt+S", label: "Approve & send" },
-              { keys: "Alt+O", label: "Approve only" },
-              { keys: "Alt+X", label: "Reject" },
-              { keys: "Alt+R", label: "Retry send (eligible)" }
-            ]}
-          />
+          <SectionDisclosure title="Queue controls and shortcuts" storageKey="approvals-controls-shortcuts" defaultCollapsed className="mb-2">
+            <QueueShortcutHint
+              summary="Use row focus to review and act faster."
+              items={[
+                { keys: "J / K", label: "Move focus" },
+                { keys: "Enter", label: "Open related entity" },
+                { keys: "Alt+S", label: "Approve & send" },
+                { keys: "Alt+O", label: "Approve only" },
+                { keys: "Alt+X", label: "Reject" },
+                { keys: "Alt+R", label: "Retry send (eligible)" }
+              ]}
+            />
+          </SectionDisclosure>
           <div className="flex flex-wrap gap-2">
             {(["", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
               <Link
