@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHelpFab, SectionHeading, SectionShell } from "@/components/ui/page";
-import { CommandHeader } from "@/components/ops";
+import { CommandHeader, SectionDisclosure } from "@/components/ops";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StateCard } from "@/components/ui/state-card";
@@ -839,7 +839,6 @@ export default function AppSettingsPage() {
           </Button>
         }
       />
-      <AskAiInline page="settings" entityType="organization" defaultAgentKey="knowledge" placeholder="Ask AI about policy wording, routing rules, or readiness impacts..." />
 
       <PageHelpFab
         items={[
@@ -931,6 +930,9 @@ export default function AppSettingsPage() {
           </div>
         </div>
       </SectionShell>
+      <SectionDisclosure title="Ask AI Assistance" storageKey="settings-ask-ai" defaultCollapsed>
+        <AskAiInline page="settings" entityType="organization" defaultAgentKey="knowledge" placeholder="Ask AI about policy wording, routing rules, or readiness impacts..." />
+      </SectionDisclosure>
 
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">

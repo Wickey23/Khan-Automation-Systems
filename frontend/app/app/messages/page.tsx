@@ -551,14 +551,30 @@ export default function AppMessagesPage() {
         eyebrow="AI Operations"
         title="Messages"
         description="Manage customer threads, approvals, and follow-up from the operator inbox."
+        actions={
+          <Link
+            href={buildWorkflowHref("/app/messages?q=follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}
+            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Open unresolved threads
+          </Link>
+        }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-      <AskAiInline
-        page="messages"
-        entityType={selectedThread ? "message_thread" : undefined}
-        entityId={selectedThread?.id}
-        defaultAgentKey="communications"
-      />
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Active threads", value: filteredThreads.length, note: "Current inbox scope" },
+          { label: "Needs reply", value: filteredThreads.filter((thread) => (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up").length, note: "Action required" },
+          { label: "Urgent threads", value: filteredThreads.filter((thread) => threadType(thread) === "Emergency").length, note: "Priority risk" },
+          { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate" }
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+            <p className="text-xs text-slate-500">{metric.note}</p>
+          </div>
+        ))}
+      </div>
       <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
         <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/30">
@@ -861,6 +877,14 @@ export default function AppMessagesPage() {
         </aside>
       </div>
       </div>
+      <SectionDisclosure title="Ask AI Assistance" storageKey="messages-ask-ai" defaultCollapsed>
+        <AskAiInline
+          page="messages"
+          entityType={selectedThread ? "message_thread" : undefined}
+          entityId={selectedThread?.id}
+          defaultAgentKey="communications"
+        />
+      </SectionDisclosure>
     </div>
   );
 }

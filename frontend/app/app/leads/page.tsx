@@ -472,9 +472,30 @@ export default function AppLeadsPage() {
         eyebrow="AI Operations"
         title="Leads"
         description="Prioritize lead outreach, ownership, and next actions from one triage queue."
+        actions={
+          <Link
+            href={buildWorkflowHref("/app/leads?q=needs+follow+up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })}
+            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Work hot leads
+          </Link>
+        }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-      <AskAiInline page="leads" entityType={selectedLead ? "lead" : undefined} entityId={selectedLead?.id} defaultAgentKey="lead_ops" />
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Needs follow-up", value: filteredLeads.filter((lead) => lead.frontDesk?.state === "needs_follow_up").length, note: "Action required" },
+          { label: "High urgency", value: filteredLeads.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high").length, note: "Priority leads" },
+          { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate" },
+          { label: "Open follow-up", value: entityState?.operationalMemory?.taskSnapshot.openFollowUpCount || 0, note: "Linked workload" }
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+            <p className="text-xs text-slate-500">{metric.note}</p>
+          </div>
+        ))}
+      </div>
       <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -776,6 +797,9 @@ export default function AppLeadsPage() {
         </aside>
       </div>
       </div>
+      <SectionDisclosure title="Ask AI Assistance" storageKey="leads-ask-ai" defaultCollapsed>
+        <AskAiInline page="leads" entityType={selectedLead ? "lead" : undefined} entityId={selectedLead?.id} defaultAgentKey="lead_ops" />
+      </SectionDisclosure>
     </div>
   );
 }

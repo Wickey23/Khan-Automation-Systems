@@ -14,7 +14,7 @@ import { FOLLOW_UP_FILTER_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { ActionQueueTable, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type FollowUpFilter =
   | "all"
@@ -427,23 +427,14 @@ export default function FollowUpPage() {
     [actionBusyId, localReturnTo, meId, previewQueueItemId, runQueueAction, visibleQueue]
   );
 
-  const followUpRiskItems = useMemo(
+  const followUpSummaryStrip = useMemo(
     () => [
-      {
-        id: "overdue-unassigned",
-        title: "Overdue unassigned",
-        detail: `${ownershipSnapshot.overdueUnassigned} items are overdue with no owner.`,
-        level: ownershipSnapshot.overdueUnassigned > 0 ? ("critical" as const) : ("warning" as const)
-      },
-      {
-        id: "at-risk",
-        title: "At risk queue items",
-        detail: `${ownershipSnapshot.atRisk} items need escalation review.`,
-        level: "warning" as const,
-        meter: Math.min(100, ownershipSnapshot.atRisk * 10)
-      }
+      { label: "Open items", value: visibleQueue.filter((item) => item.status === "OPEN").length, note: "Active commitments" },
+      { label: "Overdue", value: visibleQueue.filter((item) => isItemOverdue(item) && item.status === "OPEN").length, note: "Needs immediate action" },
+      { label: "Unassigned overdue", value: ownershipSnapshot.overdueUnassigned, note: "Ownership risk" },
+      { label: "Mine overdue", value: ownershipSnapshot.overdueMine, note: "Your urgent load" }
     ],
-    [ownershipSnapshot.atRisk, ownershipSnapshot.overdueUnassigned]
+    [ownershipSnapshot.overdueMine, ownershipSnapshot.overdueUnassigned, visibleQueue]
   );
 
   async function runBulkAction(action: "done" | "open" | "assignMe" | "escalate") {
@@ -498,6 +489,11 @@ export default function FollowUpPage() {
         eyebrow="AI Operations"
         title="Follow-Up Queue"
         description="Operational follow-up items created by AI workflows and human actions."
+        actions={
+          <QueueActionLink href={buildWorkflowHref("/app/follow-up?status=overdue", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}>
+            Open overdue follow-up
+          </QueueActionLink>
+        }
       />
 
       <SectionShell>
@@ -508,6 +504,15 @@ export default function FollowUpPage() {
         ) : null}
         <div className="mb-3">
           <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
+        </div>
+        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {followUpSummaryStrip.map((metric) => (
+            <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+              <p className="text-xs text-slate-500">{metric.note}</p>
+            </div>
+          ))}
         </div>
         <div className="mb-3 flex flex-wrap gap-2">
           {(
@@ -638,13 +643,78 @@ export default function FollowUpPage() {
 
         {!busy && !error && visibleQueue.length > 0 ? (
           <>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
               <ActionQueueTable
                 title="Follow-Up Queue"
                 rows={followUpRows}
                 viewAllHref={buildWorkflowHref("/app/follow-up", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
               />
-              <RiskRailCard title="Follow-Up Risk" items={followUpRiskItems} />
+              <aside className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                {previewItem ? (
+                  <>
+                    <section className="space-y-1 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected follow-up</p>
+                      <p className="text-sm font-semibold text-slate-900">{previewItem.task?.title || previewItem.reason}</p>
+                      <p className="text-xs text-slate-600">{previewItem.reason}</p>
+                    </section>
+                    <section className="space-y-1 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Owner and due context</p>
+                      <p className="text-xs text-slate-700">
+                        Owner: {previewItem.task?.assignedToUser?.email || "Unassigned"}
+                      </p>
+                      <p className="text-xs text-slate-700">Due: {dueLabel(previewItem.task?.dueAt)}</p>
+                    </section>
+                    <section className="space-y-1 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recommended next action</p>
+                      <p className="text-sm font-medium text-slate-900">
+                        {triage.data?.recommendation?.action || (previewItem.status === "OPEN" ? "Complete follow-up now" : "Reopen if unresolved")}
+                      </p>
+                    </section>
+                    <section className="space-y-2 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Related workflow context</p>
+                      <div className="flex flex-wrap gap-2">
+                        {previewItem.entityType && previewItem.entityId ? (
+                          <QueueActionLink
+                            size="sm"
+                            href={buildWorkflowHref(
+                              previewItem.entityType === "message_thread"
+                                ? `/app/messages?threadId=${encodeURIComponent(previewItem.entityId)}`
+                                : previewItem.entityType === "call"
+                                  ? `/app/calls?callId=${encodeURIComponent(previewItem.entityId)}`
+                                  : `/app/leads?leadId=${encodeURIComponent(previewItem.entityId)}`,
+                              { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }
+                            )}
+                          >
+                            Open entity
+                          </QueueActionLink>
+                        ) : null}
+                        <QueueActionButton
+                          size="sm"
+                          disabled={actionBusyId === previewItem.id}
+                          onClick={() => void runQueueAction(previewItem, previewItem.status === "OPEN" ? "done" : "open")}
+                        >
+                          {previewItem.status === "OPEN" ? "Mark done" : "Reopen"}
+                        </QueueActionButton>
+                      </div>
+                    </section>
+                    <section className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recent activity</p>
+                      <p className="text-xs text-slate-600">
+                        {triage.loading
+                          ? "Loading activity..."
+                          : triage.recentEvents.length
+                            ? triage.recentEvents
+                                .slice(0, 4)
+                                .map((event) => `${event.label} · ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
+                                .join(" | ")
+                            : "No recent events."}
+                      </p>
+                    </section>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-500">Select a follow-up item to load context.</p>
+                )}
+              </aside>
             </div>
           {previewItem ? (
             <SectionDisclosure title="Focused Follow-Up Diagnostics" storageKey="follow-up-focused-diagnostics" className="mt-4">

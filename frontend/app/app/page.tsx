@@ -298,7 +298,7 @@ export default function AppOverviewPage() {
                   href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
                 >
-                  Start New Operation
+                  Run Priority Triage
                 </Link>
               </div>
             </div>
@@ -307,9 +307,6 @@ export default function AppOverviewPage() {
                 ? "Queues are live. Monitor risk and clear work items during this shift."
                 : "Finish setup so calls, messages, and bookings route correctly before full rollout."}
             </p>
-            <div className="mt-4">
-              <AskAiInline page="dashboard" defaultAgentKey="manager_analytics" placeholder="Ask for a manager summary, risks, or recommended next actions..." />
-            </div>
           </div>
 
           <div className="mb-8 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -417,6 +414,13 @@ export default function AppOverviewPage() {
                 View full audit log
               </Link>
             </div>
+          </div>
+          <div className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">AI Assistant</h3>
+              <span className="text-xs text-slate-500">Supportive, not primary</span>
+            </div>
+            <AskAiInline page="dashboard" defaultAgentKey="manager_analytics" placeholder="Ask for a manager summary, risks, or recommended next actions..." />
           </div>
 
           <div className="mb-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">

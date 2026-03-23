@@ -8,7 +8,7 @@ import { fetchManagerInsights, fetchOperationsFeed } from "@/lib/api";
 import { OperationsFeedList } from "@/components/ai/operations-feed-list";
 import type { ManagerInsightSummary, OperationsFeedEvent } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
-import { CommandHeader } from "@/components/ops";
+import { CommandHeader, SectionDisclosure } from "@/components/ops";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { OPERATIONAL_LABELS } from "@/lib/operational-language";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
@@ -201,6 +201,14 @@ export default function InsightsPage() {
         eyebrow="AI Operations"
         title="Operational Insights"
         description="Action-oriented review of workflow usage, friction, and recent operations."
+        actions={
+          <Link
+            href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })}
+            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Return to action queues
+          </Link>
+        }
       />
 
       <SectionShell className="surface-panel">
@@ -243,18 +251,17 @@ export default function InsightsPage() {
             Refresh signals
           </button>
         </div>
+        <SectionDisclosure title="Workflow usage and friction breakdown" storageKey="insights-usage-breakdown" defaultCollapsed>
+          {busyUsage ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading AI usage signals...
+            </div>
+          ) : null}
 
-        {busyUsage ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading AI usage signals...
-          </div>
-        ) : null}
+          {!busyUsage && usageError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{usageError}</div> : null}
 
-        {!busyUsage && usageError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{usageError}</div> : null}
-
-        {!busyUsage && !usageError ? (
-          <>
+          {!busyUsage && !usageError ? (
             <div className="space-y-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Needs action</p>
@@ -352,8 +359,8 @@ export default function InsightsPage() {
               </div>
 
             </div>
-          </>
-        ) : null}
+          ) : null}
+        </SectionDisclosure>
       </SectionShell>
 
       <SectionShell className="surface-panel">

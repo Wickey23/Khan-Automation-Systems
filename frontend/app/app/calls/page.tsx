@@ -297,6 +297,15 @@ export default function AppCallsPage() {
     selectedCall ? "call" : undefined,
     selectedCall?.id
   );
+  const callSummaryStrip = useMemo(
+    () => [
+      { label: "Needs follow-up", value: visibleCalls.filter((call) => call.frontDesk?.followUpState === "needs_follow_up").length, note: "Action required" },
+      { label: "Missed/abandoned", value: visibleCalls.filter((call) => call.outcome === "MISSED" || call.outcome === "ABANDONED").length, note: "Callback risk" },
+      { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate" },
+      { label: "Open follow-up", value: entityState?.operationalMemory?.taskSnapshot.openFollowUpCount || 0, note: "Linked workload" }
+    ],
+    [entityState?.approvals, entityState?.operationalMemory?.taskSnapshot.openFollowUpCount, visibleCalls]
+  );
 
   useEffect(() => {
     if (!selectedCall) {
@@ -560,9 +569,25 @@ export default function AppCallsPage() {
         eyebrow="AI Operations"
         title="Calls"
         description="Review call outcomes, prioritize follow-up, and execute next actions with queue context."
+        actions={
+          <Link
+            href={buildWorkflowHref("/app/calls?state=needs_follow_up", { source: "calls", returnTo: localReturnTo, returnLabel: "Calls" })}
+            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Review missed calls
+          </Link>
+        }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-      <AskAiInline page="calls" entityType={selectedCall ? "call" : undefined} entityId={selectedCall?.id} defaultAgentKey="front_desk" />
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {callSummaryStrip.map((metric) => (
+          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+            <p className="text-xs text-slate-500">{metric.note}</p>
+          </div>
+        ))}
+      </div>
       <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
         <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-slate-50 py-4 lg:flex">
@@ -899,6 +924,9 @@ export default function AppCallsPage() {
         </div>
       </div>
       </div>
+      <SectionDisclosure title="Ask AI Assistance" storageKey="calls-ask-ai" defaultCollapsed>
+        <AskAiInline page="calls" entityType={selectedCall ? "call" : undefined} entityId={selectedCall?.id} defaultAgentKey="front_desk" />
+      </SectionDisclosure>
     </div>
   );
 }
