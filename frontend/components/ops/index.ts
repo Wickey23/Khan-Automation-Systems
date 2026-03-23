@@ -4,3 +4,4 @@ export * from "./action-queue-table";
 export * from "./risk-rail-card";
 export * from "./section-disclosure";
 export * from "./row-action-menu";
+export * from "./queue-row-model";

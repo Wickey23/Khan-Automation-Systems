@@ -3,12 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { approveAiAction, fetchAiApprovals, rejectAiAction, retryAiApprovalSend } from "@/lib/api";
 import type { ApprovalRequest } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
@@ -17,6 +15,7 @@ import { APPROVAL_FOCUS_LABELS, OPERATIONAL_LABELS, formatApprovalStatusLabel } 
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
+import { ActionQueueTable, RiskRailCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type DraftEditState = {
   subject: string;
@@ -67,15 +66,6 @@ function toApprovalRowStatus(approval: ApprovalRequest) {
   if (approval.status === "APPROVED" && approval.deliveryStatus === "SENT") return { label: "Sent", tone: "ready" as const };
   if (approval.status === "REJECTED" || approval.status === "EXPIRED") return { label: formatApprovalStatusLabel(approval.status), tone: "requires_review" as const };
   return { label: formatApprovalStatusLabel(approval.status), tone: "ready" as const };
-}
-
-function relativeAgeLabel(createdAt: string) {
-  const minutes = Math.max(1, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
-  if (minutes < 60) return `${minutes}m old`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h old`;
-  const days = Math.floor(hours / 24);
-  return `${days}d old`;
 }
 
 function approvalDecisionHint(approval: ApprovalRequest) {
@@ -132,7 +122,6 @@ export default function ApprovalsPage() {
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
-  const [notes, setNotes] = useState<Record<string, string>>({});
   const [draftEdits, setDraftEdits] = useState<Record<string, DraftEditState>>({});
   const [previewApprovalId, setPreviewApprovalId] = useState(selectedApprovalId);
   const [queueUpdateNote, setQueueUpdateNote] = useState<string | null>(null);
@@ -209,13 +198,12 @@ export default function ApprovalsPage() {
       if (mode === "approve") {
         const edit = draftEdits[approvalRequestId];
         await approveAiAction(approvalRequestId, {
-          note: notes[approvalRequestId] || undefined,
           mode: approveMode || edit?.mode || "SEND_NOW",
           editedSubject: edit?.subject || undefined,
           editedContent: edit?.content || undefined
         });
       } else {
-        await rejectAiAction(approvalRequestId, notes[approvalRequestId] || undefined);
+        await rejectAiAction(approvalRequestId);
       }
       markDailyReviewDirty("approvals");
       await load();
@@ -305,11 +293,98 @@ export default function ApprovalsPage() {
 
   const localReturnTo = buildReturnTo(pathname, searchParams);
   const previewApproval = visibleApprovals.find((item) => item.id === previewApprovalId) || null;
-  const triage = useQueueTriageEnrichment(previewApproval?.entityType, previewApproval?.entityId);
-  const visibleApprovalIds = useMemo(() => visibleApprovals.map((item) => item.id), [visibleApprovals]);
-
   const pendingCount = useMemo(() => approvals.filter((item) => item.status === "PENDING").length, [approvals]);
   const retryableFailedCount = useMemo(() => approvals.filter((item) => isNeedsRetry(item)).length, [approvals]);
+  const approvalRows = useMemo(
+    () =>
+      visibleApprovals.map((approval) => {
+        const state = toApprovalRowStatus(approval);
+        const primaryActionLabel =
+          approval.status === "PENDING"
+            ? "Approve & send"
+            : isNeedsRetry(approval)
+              ? "Retry send"
+              : entityHref(approval)
+                ? "Open entity"
+                : "Open approval";
+        return {
+          id: approval.id,
+          item: approval.toolKey,
+          owner: approval.status === "PENDING" ? "Pending review" : "Operator reviewed",
+          due: approval.status === "PENDING" ? "Now" : new Date(approval.updatedAt).toLocaleString(),
+          ageLabel: ageFromDate(approval.createdAt),
+          severity: priorityToSeverity(state.tone),
+          status: statusToOperatorState(state.label),
+          onPrimaryAction:
+            approval.status === "PENDING"
+              ? () => void decide(approval.id, "approve", "SEND_NOW")
+              : isNeedsRetry(approval)
+                ? () => void retrySend(approval.id)
+                : undefined,
+          primaryActionDisabled: actionBusyId === approval.id,
+          href:
+            approval.status === "PENDING"
+              ? undefined
+              : isNeedsRetry(approval)
+                ? undefined
+                : buildWorkflowHref(
+                    entityHref(approval) || `/app/approvals?approvalId=${encodeURIComponent(approval.id)}`,
+                    { source: "approvals", returnTo: returnTo || localReturnTo, returnLabel: "Approval Queue" }
+                  ),
+          primaryActionLabel,
+          secondaryActions: [
+            ...(approval.status === "PENDING"
+              ? [
+                  { label: "Approve only", onClick: () => void decide(approval.id, "approve", "APPROVE_ONLY") },
+                  { label: "Reject", onClick: () => void decide(approval.id, "reject") }
+                ]
+              : []),
+            ...(entityHref(approval)
+              ? [
+                  {
+                    label: "Open entity",
+                    href: buildWorkflowHref(entityHref(approval), {
+                      source: "approvals",
+                      returnTo: returnTo || localReturnTo,
+                      returnLabel: "Approval Queue"
+                    })
+                  }
+                ]
+              : []),
+            {
+              label: "Open approval",
+              href: buildWorkflowHref(`/app/approvals?approvalId=${encodeURIComponent(approval.id)}`, {
+                source: "approvals",
+                returnTo: returnTo || localReturnTo,
+                returnLabel: "Approval Queue"
+              })
+            }
+          ],
+          detail: approvalDecisionHint(approval)
+        };
+      }),
+    [actionBusyId, decide, localReturnTo, returnTo, retrySend, visibleApprovals]
+  );
+  const approvalRiskItems = useMemo(
+    () => [
+      {
+        id: "pending-review",
+        title: "Pending review",
+        detail: `${pendingCount} requests still awaiting operator decision.`,
+        level: "warning" as const
+      },
+      {
+        id: "failed-retry",
+        title: "Retryable failures",
+        detail: `${retryableFailedCount} delivery failures can be retried now.`,
+        level: retryableFailedCount > 0 ? ("critical" as const) : ("warning" as const),
+        meter: Math.min(100, retryableFailedCount * 20)
+      }
+    ],
+    [pendingCount, retryableFailedCount]
+  );
+  const triage = useQueueTriageEnrichment(previewApproval?.entityType, previewApproval?.entityId);
+  const visibleApprovalIds = useMemo(() => visibleApprovals.map((item) => item.id), [visibleApprovals]);
   const previewShortcutHints = useMemo(() => {
     if (!previewApproval) return [] as Array<{ keys: string; label: string }>;
     const hints: Array<{ keys: string; label: string }> = [];
@@ -500,167 +575,17 @@ export default function ApprovalsPage() {
         ) : null}
 
         {!busy && !error && visibleApprovals.length > 0 ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="space-y-3">
-            {visibleApprovals.map((approval) => {
-              const actionBusy = actionBusyId === approval.id;
-              return (
-                <div
-                  key={approval.id}
-                  onClick={() => setPreviewApprovalId(approval.id)}
-                  className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-sm ${previewApprovalId === approval.id ? "border-blue-400 ring-2 ring-blue-100" : "border-slate-200"}`}
-                >
-                  <div id={`approval-${approval.id}`} />
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{approval.toolKey}</p>
-                      <p className="text-xs text-slate-500">
-                        {approval.actionType} {approval.entityType ? `- ${approval.entityType}` : ""} - {relativeAgeLabel(approval.createdAt)}
-                      </p>
-                    </div>
-                    <StatusBadge kind="feature" state={toApprovalRowStatus(approval).tone} label={toApprovalRowStatus(approval).label} />
-                  </div>
-                  {selectedApprovalId === approval.id ? (
-                    <p className="mt-2 text-xs font-semibold text-blue-700">Focused approval from linked workflow</p>
-                  ) : null}
-
-                  {approval.inputSummary ? <p className="mt-3 text-sm text-slate-600">{approval.inputSummary}</p> : null}
-                  {approval.reason ? <p className="mt-2 text-xs text-slate-500">{approval.reason}</p> : null}
-                  <p className="mt-2 text-xs font-medium text-slate-600">{approvalDecisionHint(approval)}</p>
-                  {approval.deliveryStatus ? (
-                    <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                      <p>
-                        Delivery: <span className="font-semibold">{formatApprovalStatusLabel(approval.deliveryStatus)}</span>
-                        {approval.deliveryProvider ? ` via ${approval.deliveryProvider}` : ""}
-                      </p>
-                      {approval.providerMessageId ? <p>Provider ID: {approval.providerMessageId}</p> : null}
-                      {approval.failureReason ? <p className="text-red-700">Failure: {approval.failureReason}</p> : null}
-                      {approval.deliveryStatus === "FAILED" ? (
-                        <p className="text-red-700">{approval.retryable ? "Retry eligible" : "Retry not eligible"}</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {approval.status === "PENDING" ? (
-                    <div className="mt-3 space-y-2">
-                      <textarea
-                        value={notes[approval.id] || ""}
-                        onChange={(event) => setNotes((current) => ({ ...current, [approval.id]: event.target.value }))}
-                        placeholder="Optional review note..."
-                        className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-700"
-                        rows={2}
-                      />
-                      {approval.toolKey.includes("email") ? (
-                        <input
-                          type="text"
-                          value={draftEdits[approval.id]?.subject || ""}
-                          onChange={(event) =>
-                            setDraftEdits((current) => ({
-                              ...current,
-                              [approval.id]: { ...(current[approval.id] || parseDraft(approval)), subject: event.target.value }
-                            }))
-                          }
-                          placeholder="Email subject"
-                          className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700"
-                        />
-                      ) : null}
-                      <textarea
-                        value={draftEdits[approval.id]?.content || ""}
-                        onChange={(event) =>
-                          setDraftEdits((current) => ({
-                            ...current,
-                            [approval.id]: { ...(current[approval.id] || parseDraft(approval)), content: event.target.value }
-                          }))
-                        }
-                        placeholder="Final approved content..."
-                        className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-700"
-                        rows={4}
-                      />
-                      <label className="flex items-center gap-2 text-xs text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={(draftEdits[approval.id]?.mode || "SEND_NOW") === "APPROVE_ONLY"}
-                          onChange={(event) =>
-                            setDraftEdits((current) => ({
-                              ...current,
-                              [approval.id]: {
-                                ...(current[approval.id] || parseDraft(approval)),
-                                mode: event.target.checked ? "APPROVE_ONLY" : "SEND_NOW"
-                              }
-                            }))
-                          }
-                        />
-                        Approve only (keep queued, do not send yet)
-                      </label>
-                    </div>
-                  ) : null}
-
-                  {approval.status === "PENDING" ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void decide(approval.id, "approve", "SEND_NOW")}
-                        disabled={actionBusy}
-                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                      >
-                        {actionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                        Approve and send
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void decide(approval.id, "approve", "APPROVE_ONLY")}
-                        disabled={actionBusy}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
-                      >
-                        {actionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                        Approve only
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void decide(approval.id, "reject")}
-                        disabled={actionBusy}
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-60"
-                      >
-                        {actionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-                        Reject
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {approval.status === "APPROVED" && (approval.deliveryStatus === "FAILED" || approval.deliveryStatus === "QUEUED") ? (
-                    <div className="mt-4">
-                      <QueueActionButton
-                        onClick={() => void retrySend(approval.id)}
-                        disabled={actionBusy || !approval.retryable}
-                        tone="primary"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        {actionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                        Retry send now
-                      </QueueActionButton>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {approval.retryable
-                          ? "Retry uses the latest approved content."
-                          : "Retry is disabled because this item is not retryable."}
-                      </p>
-                    </div>
-                  ) : null}
-                  {entityHref(approval) ? (
-                    <div className="mt-3">
-                      <QueueActionLink
-                        href={buildWorkflowHref(entityHref(approval), { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })}
-                        tone="primary"
-                      >
-                        Open related entity
-                      </QueueActionLink>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+          <>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <ActionQueueTable
+                title="Approval Queue"
+                rows={approvalRows}
+                viewAllHref={buildWorkflowHref("/app/approvals", { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })}
+              />
+              <RiskRailCard title="Approval Risk" items={approvalRiskItems} />
             </div>
             {previewApproval ? (
+              <SectionDisclosure title="Focused Approval Diagnostics" storageKey="approvals-focused-diagnostics" className="mt-4">
               <QueueTriagePanel
                 title={previewApproval.toolKey}
                 subtitle={`${previewApproval.actionType}${previewApproval.entityType ? ` - ${previewApproval.entityType}` : ""}`}
@@ -788,8 +713,9 @@ export default function ApprovalsPage() {
                   </>
                 }
               />
+              </SectionDisclosure>
             ) : null}
-          </div>
+          </>
         ) : null}
       </SectionShell>
     </PageShell>

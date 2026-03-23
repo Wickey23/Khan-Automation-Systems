@@ -7,7 +7,6 @@ import { fetchAttentionQueue, fetchFollowUpQueue, getMe, retryAiApprovalSend } f
 import type { AttentionQueueItem } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
@@ -16,6 +15,7 @@ import { ATTENTION_RISK_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
+import { ActionQueueTable, RiskRailCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type AttentionLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type EntityTypeFilter = "all" | "call" | "lead" | "message_thread";
@@ -45,20 +45,6 @@ function attentionRiskSignals(item: AttentionQueueItem, owner?: OwnershipSummary
   if (item.stale && item.unresolved) signals.push("stale_unresolved");
   if (item.followUpContext.openCount > 0 && owner?.state === "unassigned") signals.push("follow_up_open_unowned");
   return signals;
-}
-
-function levelTone(level: AttentionLevel) {
-  if (level === "CRITICAL") return "border-red-200 bg-red-50 text-red-700";
-  if (level === "HIGH") return "border-orange-200 bg-orange-50 text-orange-700";
-  if (level === "MEDIUM") return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-slate-200 bg-slate-50 text-slate-600";
-}
-
-function entityLabel(entityType: string) {
-  if (entityType === "call") return "Call";
-  if (entityType === "lead") return "Lead";
-  if (entityType === "message_thread") return "Message";
-  return entityType;
 }
 
 function quickActions(item: AttentionQueueItem, context: { returnTo: string }) {
@@ -267,6 +253,57 @@ export default function AttentionPage() {
   const previewItem = useMemo(
     () => visibleItems.find((item) => `${item.entityType}:${item.entityId}` === previewKey) || null,
     [previewKey, visibleItems]
+  );
+  const attentionRows = useMemo(
+    () =>
+      visibleItems.map((item) => {
+        const owner = ownershipByEntity[`${item.entityType}:${item.entityId}`];
+        const actions = quickActions(item, { returnTo });
+        const primary = actions.find((action) => !action.retry && action.href) || actions.find((action) => action.retry) || null;
+        const secondaries = actions.filter((action) => action !== primary);
+        return {
+          id: `${item.entityType}:${item.entityId}`,
+          item: item.label,
+          owner:
+            owner?.state === "mine"
+              ? "You"
+              : owner?.state === "assigned_elsewhere"
+                ? owner.ownerEmail || "Assigned"
+                : "Unassigned",
+          due: item.followUpContext.overdueCount > 0 ? `${item.followUpContext.overdueCount} overdue` : "Within SLA",
+          ageLabel: ageFromDate(item.updatedAt),
+          severity: priorityToSeverity(item.attentionLevel),
+          status: statusToOperatorState(item.unresolved ? "pending" : item.blocked ? "blocked" : "done"),
+          href: primary?.retry ? undefined : primary?.href || buildWorkflowHref(item.entityHref, { source: "attention", returnTo, returnLabel: "Needs Attention" }),
+          onPrimaryAction: primary?.retry ? () => void onRetrySend(item) : undefined,
+          primaryActionDisabled: primary?.retry ? actionBusyId === item.entityType + item.entityId : false,
+          primaryActionLabel: primary?.retry ? (actionBusyId === item.entityType + item.entityId ? "Retrying..." : "Retry send") : primary?.label || "Open entity",
+          secondaryActions: secondaries.map((action) => ({
+            label: action.label,
+            href: action.href || buildWorkflowHref(item.entityHref, { source: "attention", returnTo, returnLabel: "Needs Attention" })
+          })),
+          detail: item.recommendedOwnerAction || item.topReasons[0] || "Review context and decide next step."
+        };
+      }),
+    [actionBusyId, buildWorkflowHref, onRetrySend, ownershipByEntity, returnTo, visibleItems]
+  );
+  const attentionRiskItems = useMemo(
+    () => [
+      {
+        id: "critical_unowned",
+        title: "High/critical unowned",
+        detail: "Items with high urgency and no assigned owner.",
+        level: "critical" as const,
+        meter: Math.min(100, Math.max(0, visibleItems.filter((item) => attentionRiskSignals(item, ownershipByEntity[`${item.entityType}:${item.entityId}`]).includes("high_or_critical_unowned")).length * 20))
+      },
+      {
+        id: "stale_unresolved",
+        title: "Stale unresolved",
+        detail: "Attention items stale and unresolved.",
+        level: "warning" as const
+      }
+    ],
+    [ownershipByEntity, visibleItems]
   );
   const triage = useQueueTriageEnrichment(previewItem?.entityType, previewItem?.entityId);
   const visibleItemKeys = useMemo(() => visibleItems.map((item) => `${item.entityType}:${item.entityId}`), [visibleItems]);
@@ -490,109 +527,18 @@ export default function AttentionPage() {
         ) : null}
 
         {!busy && !error && visibleItems.length > 0 ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="space-y-3">
-            {visibleItems.map((item) => {
-              const itemActions = quickActions(item, { returnTo });
-              const owner = ownershipByEntity[`${item.entityType}:${item.entityId}`];
-              const riskSignals = attentionRiskSignals(item, owner);
-              return (
-              <div
-                key={`${item.entityType}-${item.entityId}`}
-                onClick={() => setPreviewKey(`${item.entityType}:${item.entityId}`)}
-                className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-sm ${
-                  previewKey === `${item.entityType}:${item.entityId}` ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-200"
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                    <p className="text-xs text-slate-500">{item.title}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${levelTone(item.attentionLevel)}`}>
-                      {item.attentionLevel} {item.attentionScore}
-                    </span>
-                    <StatusBadge kind="feature" state={item.blocked ? "blocked" : "ready"} label={item.blocked ? "blocked" : "unblocked"} size="xs" />
-                    {item.stale ? <StatusBadge kind="feature" state="limited" label="stale" size="xs" /> : null}
-                    {item.unresolved ? <StatusBadge kind="feature" state="setup_required" label="unresolved" size="xs" /> : null}
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                  <p className="font-semibold text-slate-900">Recommended action</p>
-                  <p className="mt-1">{item.recommendedOwnerAction || "Review record context and decide next step."}</p>
-                  {item.recommendationSummary?.why ? <p className="mt-1 text-slate-600">{item.recommendationSummary.why}</p> : null}
-                </div>
-
-                {item.topReasons.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {item.topReasons.map((reason) => (
-                      <span key={reason} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
-                        {reason}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-                  <p>Entity: {entityLabel(item.entityType)}</p>
-                  <p>Updated: {new Date(item.updatedAt).toLocaleString()}</p>
-                  <p>Blocked reasons: {item.blockedReasons.length ? item.blockedReasons.join(", ") : "none"}</p>
-                  <p>Approvals: {item.approvalContext.pendingCount} pending</p>
-                  <p>Delivery: {item.approvalContext.deliveryStatus || "-"}</p>
-                  <p>Follow-up open/overdue: {item.followUpContext.openCount}/{item.followUpContext.overdueCount}</p>
-                </div>
-                {owner ? (
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                    {owner.state === "mine" ? <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">Follow-up owned by me</span> : null}
-                    {owner.state === "assigned_elsewhere" ? (
-                      <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-slate-700">Owned by {owner.ownerEmail || "teammate"}</span>
-                    ) : null}
-                    {owner.state === "unassigned" ? <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">No follow-up owner</span> : null}
-                    {owner.overdueOpenCount > 0 ? <span className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 font-semibold text-red-700">{owner.overdueOpenCount} overdue open</span> : null}
-                  </div>
-                ) : null}
-                {riskSignals.length ? (
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                    {riskSignals.includes("high_or_critical_unowned") ? (
-                      <span className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 font-semibold text-red-700">Important and unassigned</span>
-                    ) : null}
-                    {riskSignals.includes("stale_unresolved") ? (
-                      <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">Stale unresolved</span>
-                    ) : null}
-                    {riskSignals.includes("follow_up_open_unowned") ? (
-                      <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">Open follow-up without owner</span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {itemActions.map((action) =>
-                    action.retry ? (
-                      <QueueActionButton
-                        key={action.key}
-                        disabled={actionBusyId === item.entityType + item.entityId}
-                        onClick={() => void onRetrySend(item)}
-                        tone="warning"
-                      >
-                        {actionBusyId === item.entityType + item.entityId ? "Retrying..." : "Retry send"}
-                      </QueueActionButton>
-                    ) : (
-                      <QueueActionLink
-                        key={action.key}
-                        href={action.href || buildWorkflowHref(item.entityHref, { source: "attention", returnTo, returnLabel: "Needs Attention" })}
-                      >
-                        {action.label}
-                      </QueueActionLink>
-                    )
-                  )}
-                </div>
-              </div>
-            )})}
+          <>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <ActionQueueTable
+                title="Needs Attention Queue"
+                rows={attentionRows}
+                viewAllHref={buildWorkflowHref("/app/attention", { source: "attention", returnTo, returnLabel: "Needs Attention" })}
+              />
+              <RiskRailCard title="At Risk Summary" items={attentionRiskItems} />
             </div>
             {previewItem ? (
-              <QueueTriagePanel
+              <SectionDisclosure title="Focused Item Diagnostics" storageKey="attention-focused-diagnostics" className="mt-4">
+                <QueueTriagePanel
                 title={previewItem.label}
                 subtitle={previewItem.title}
                 badges={[
@@ -683,8 +629,9 @@ export default function AttentionPage() {
                   </>
                 }
               />
+              </SectionDisclosure>
             ) : null}
-          </div>
+          </>
         ) : null}
       </SectionShell>
     </PageShell>
