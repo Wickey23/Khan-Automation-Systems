@@ -10,7 +10,6 @@ import {
   Clock,
   Inbox,
   MessageSquare,
-  Plus,
   XCircle
 } from "lucide-react";
 import {
@@ -235,7 +234,7 @@ export default function AppAppointmentsPage() {
           title="Booking triage"
           description="Handle appointment requests, expose failure states, and escalate reviews without leaving one calm workspace."
           actions={
-            <div className="flex items-center gap-3">
+            <div className="flex items-center">
               <input
                 type="text"
                 value={query}
@@ -243,10 +242,6 @@ export default function AppAppointmentsPage() {
                 placeholder="Search requests..."
                 className="h-10 w-64 rounded-xl border border-slate-200 bg-white px-4 text-xs outline-none focus:border-primary"
               />
-              <button className="flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90">
-                <Plus className="h-4 w-4" />
-                New request
-              </button>
             </div>
           }
         />
