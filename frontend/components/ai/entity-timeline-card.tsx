@@ -18,11 +18,15 @@ type EntityTimelineCardProps = {
   entityType?: string;
   entityId?: string;
   title?: string;
+  timelineData?: EntityAiTimelineResponse | null;
+  loading?: boolean;
+  error?: string | null;
 };
 
-export function EntityTimelineCard({ entityType, entityId, title = "AI Activity Timeline" }: EntityTimelineCardProps) {
+export function EntityTimelineCard({ entityType, entityId, title = "AI Activity Timeline", timelineData, loading, error }: EntityTimelineCardProps) {
+  const controlled = timelineData !== undefined;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
@@ -32,6 +36,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
   const [attention, setAttention] = useState<EntityAiTimelineResponse["attention"]>(null);
 
   useEffect(() => {
+    if (controlled) return;
     if (!entityType || !entityId) {
       setRuns([]);
       setApprovals([]);
@@ -40,11 +45,12 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       setRecommendation(null);
       setHandoffs([]);
       setAttention(null);
+      setLocalError(null);
       return;
     }
     let active = true;
     setBusy(true);
-    setError(null);
+    setLocalError(null);
     void fetchEntityAiTimeline(entityType, entityId)
       .then((result) => {
         if (!active) return;
@@ -58,7 +64,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       })
       .catch((timelineError) => {
         if (!active) return;
-        setError(timelineError instanceof Error ? timelineError.message : "Failed to load timeline.");
+        setLocalError(timelineError instanceof Error ? timelineError.message : "Failed to load timeline.");
       })
       .finally(() => {
         if (!active) return;
@@ -67,83 +73,93 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
     return () => {
       active = false;
     };
-  }, [entityId, entityType]);
+  }, [controlled, entityId, entityType]);
+
+  const effectiveBusy = controlled ? Boolean(loading) : busy;
+  const effectiveError = controlled ? error || null : localError;
+  const effectiveRuns = controlled ? timelineData?.runs || [] : runs;
+  const effectiveApprovals = controlled ? timelineData?.approvals || [] : approvals;
+  const effectiveAudit = controlled ? timelineData?.audit || [] : audit;
+  const effectiveOperationalMemory = controlled ? timelineData?.operationalMemory || null : operationalMemory;
+  const effectiveRecommendation = controlled ? timelineData?.recommendation || null : recommendation;
+  const effectiveHandoffs = controlled ? timelineData?.handoffs || [] : handoffs;
+  const effectiveAttention = controlled ? timelineData?.attention || null : attention;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">{title}</p>
-      {busy ? (
+      {effectiveBusy ? (
         <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Loading timeline...
         </div>
       ) : null}
-      {error ? <p className="mt-3 text-xs text-red-700">{error}</p> : null}
-      {!busy && !error && !entityType ? <p className="mt-3 text-xs text-slate-500">Select an entity to view timeline.</p> : null}
-      {!busy && !error && entityType && runs.length === 0 && approvals.length === 0 && audit.length === 0 ? (
+      {effectiveError ? <p className="mt-3 text-xs text-red-700">{effectiveError}</p> : null}
+      {!effectiveBusy && !effectiveError && !entityType ? <p className="mt-3 text-xs text-slate-500">Select an entity to view timeline.</p> : null}
+      {!effectiveBusy && !effectiveError && entityType && effectiveRuns.length === 0 && effectiveApprovals.length === 0 && effectiveAudit.length === 0 ? (
         <p className="mt-3 text-xs text-slate-500">No AI activity recorded yet.</p>
       ) : null}
-      {recommendation ? (
+      {effectiveRecommendation ? (
         <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-          {recommendation.action ? <p className="font-medium">Next action: {recommendation.action}</p> : null}
-          {recommendation.why ? <p className="mt-1">{recommendation.why}</p> : null}
+          {effectiveRecommendation.action ? <p className="font-medium">Next action: {effectiveRecommendation.action}</p> : null}
+          {effectiveRecommendation.why ? <p className="mt-1">{effectiveRecommendation.why}</p> : null}
           <div className="mt-1 grid gap-1 text-[11px] text-blue-900 sm:grid-cols-2">
-            <p>Priority: {recommendation.priority || "MEDIUM"}</p>
-            <p>Approval needed: {recommendation.approvalNeeded ? "yes" : "no"}</p>
-            <p>Create follow-up: {recommendation.shouldCreateFollowup ? "yes" : "no"}</p>
-            <p>Refreshed: {new Date(recommendation.refreshedAt).toLocaleString()}</p>
+            <p>Priority: {effectiveRecommendation.priority || "MEDIUM"}</p>
+            <p>Approval needed: {effectiveRecommendation.approvalNeeded ? "yes" : "no"}</p>
+            <p>Create follow-up: {effectiveRecommendation.shouldCreateFollowup ? "yes" : "no"}</p>
+            <p>Refreshed: {new Date(effectiveRecommendation.refreshedAt).toLocaleString()}</p>
           </div>
-          {recommendation.blockedReasons.length ? <p className="mt-1">Blocked reasons: {recommendation.blockedReasons.join(", ")}</p> : null}
+          {effectiveRecommendation.blockedReasons.length ? <p className="mt-1">Blocked reasons: {effectiveRecommendation.blockedReasons.join(", ")}</p> : null}
         </div>
       ) : null}
-      {operationalMemory ? (
+      {effectiveOperationalMemory ? (
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
           <p className="font-medium text-slate-900">Operational memory</p>
-          {operationalMemory.latestSummary ? <p className="mt-1">Summary: {operationalMemory.latestSummary}</p> : null}
-          {operationalMemory.latestClassification ? <p className="mt-1">Classification: {operationalMemory.latestClassification}</p> : null}
+          {effectiveOperationalMemory.latestSummary ? <p className="mt-1">Summary: {effectiveOperationalMemory.latestSummary}</p> : null}
+          {effectiveOperationalMemory.latestClassification ? <p className="mt-1">Classification: {effectiveOperationalMemory.latestClassification}</p> : null}
           <p className="mt-1">
-            Approval: {operationalMemory.approvalSnapshot.lastApprovalStatus || "-"} | Delivery: {operationalMemory.approvalSnapshot.lastDeliveryStatus || "-"}
+            Approval: {effectiveOperationalMemory.approvalSnapshot.lastApprovalStatus || "-"} | Delivery: {effectiveOperationalMemory.approvalSnapshot.lastDeliveryStatus || "-"}
           </p>
           <p className="mt-1">
-            Task: {operationalMemory.taskSnapshot.lastTaskStatus || "-"} | Open follow-up: {operationalMemory.taskSnapshot.openFollowUpCount}
+            Task: {effectiveOperationalMemory.taskSnapshot.lastTaskStatus || "-"} | Open follow-up: {effectiveOperationalMemory.taskSnapshot.openFollowUpCount}
           </p>
-          <p className="mt-1">Outbound blocked: {operationalMemory.outboundBlocked ? "yes" : "no"}</p>
-          {operationalMemory.riskFlags.length ? <p className="mt-1">Flags: {operationalMemory.riskFlags.join(", ")}</p> : null}
-          <p className="mt-1 text-slate-500">Updated: {new Date(operationalMemory.updatedAt).toLocaleString()}</p>
+          <p className="mt-1">Outbound blocked: {effectiveOperationalMemory.outboundBlocked ? "yes" : "no"}</p>
+          {effectiveOperationalMemory.riskFlags.length ? <p className="mt-1">Flags: {effectiveOperationalMemory.riskFlags.join(", ")}</p> : null}
+          <p className="mt-1 text-slate-500">Updated: {new Date(effectiveOperationalMemory.updatedAt).toLocaleString()}</p>
         </div>
       ) : null}
-      {attention ? (
+      {effectiveAttention ? (
         <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-900">
           <div className="flex items-center gap-2">
             <p className="font-medium">Attention</p>
             <StatusBadge
               kind="feature"
               state={
-                attention.attentionLevel === "CRITICAL"
+                effectiveAttention.attentionLevel === "CRITICAL"
                   ? "blocked"
-                  : attention.attentionLevel === "HIGH"
+                  : effectiveAttention.attentionLevel === "HIGH"
                     ? "limited"
-                    : attention.attentionLevel === "MEDIUM"
+                    : effectiveAttention.attentionLevel === "MEDIUM"
                       ? "setup_required"
                       : "ready"
               }
-              label={`${attention.attentionLevel || "UNKNOWN"}${typeof attention.attentionScore === "number" ? ` ${attention.attentionScore}` : ""}`}
+              label={`${effectiveAttention.attentionLevel || "UNKNOWN"}${typeof effectiveAttention.attentionScore === "number" ? ` ${effectiveAttention.attentionScore}` : ""}`}
               size="xs"
             />
           </div>
-          {attention.recommendedOwnerAction ? <p className="mt-1">Owner action: {attention.recommendedOwnerAction}</p> : null}
-          {attention.topReasons.length ? <p className="mt-1">Reasons: {attention.topReasons.join(" | ")}</p> : null}
-          <p className="mt-1 text-rose-700">Updated: {new Date(attention.updatedAt).toLocaleString()}</p>
+          {effectiveAttention.recommendedOwnerAction ? <p className="mt-1">Owner action: {effectiveAttention.recommendedOwnerAction}</p> : null}
+          {effectiveAttention.topReasons.length ? <p className="mt-1">Reasons: {effectiveAttention.topReasons.join(" | ")}</p> : null}
+          <p className="mt-1 text-rose-700">Updated: {new Date(effectiveAttention.updatedAt).toLocaleString()}</p>
         </div>
       ) : null}
-      {!busy && !error && (runs.length > 0 || approvals.length > 0 || audit.length > 0 || handoffs.length > 0) ? (
+      {!effectiveBusy && !effectiveError && (effectiveRuns.length > 0 || effectiveApprovals.length > 0 || effectiveAudit.length > 0 || effectiveHandoffs.length > 0) ? (
         <div className="mt-3 space-y-2">
-          {runs.slice(0, 3).map((run) => (
+          {effectiveRuns.slice(0, 3).map((run) => (
             <div key={`run-${run.id}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
               Run {run.routeReason} - {run.status}
             </div>
           ))}
-          {approvals.slice(0, 3).map((approval) => (
+          {effectiveApprovals.slice(0, 3).map((approval) => (
             <div key={`approval-${approval.id}`} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <p>
                 Approval {approval.toolKey} - {approval.status}
@@ -153,7 +169,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
               {approval.approvedContent ? <p className="mt-1 text-amber-900">{approval.approvedContent.slice(0, 120)}</p> : null}
             </div>
           ))}
-          {handoffs.slice(0, 3).map((handoff) => (
+          {effectiveHandoffs.slice(0, 3).map((handoff) => (
             <div key={`handoff-${handoff.id}`} className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
               <p className="font-medium">
                 Handoff {handoff.sourceAgent || "agent"}
@@ -169,7 +185,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
               </p>
             </div>
           ))}
-          {audit.slice(0, 3).map((entry) => (
+          {effectiveAudit.slice(0, 3).map((entry) => (
             <div key={`audit-${entry.id}`} className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
               {entry.action}
             </div>
