@@ -345,8 +345,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     children: (
       <AccessSummaryProvider value={accessSummary}>
         <div className="relative flex h-screen overflow-hidden bg-slate-100">
-          <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 flex-col border-r border-slate-200 bg-slate-100 xl:flex">
-            <div className="flex min-h-0 flex-1 flex-col gap-6 p-6">
+          <aside className="sticky top-0 hidden h-screen w-[288px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-100 xl:flex">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-center gap-3">
                   <div className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700">
@@ -359,7 +359,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2">{navItems.map(renderNavItem)}</nav>
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2 pr-1">{navItems.map(renderNavItem)}</nav>
             </div>
 
             <div className="border-t border-slate-200 p-4">
@@ -405,6 +405,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <CircleHelp className="h-5 w-5" />
                   </button>
                   <div className="hidden h-8 w-px bg-slate-200 sm:block" />
+                  <div className="flex items-center gap-1 sm:hidden">
+                    <Link
+                      href="/app/settings"
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                      aria-label="Open settings"
+                      title="Settings"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href="/auth/logout"
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                      aria-label="Logout"
+                      title="Logout"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Link>
+                  </div>
                   <div className="hidden items-center gap-2 sm:flex">
                     <Link
                       href="/app/settings"
