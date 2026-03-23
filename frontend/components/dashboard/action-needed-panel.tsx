@@ -91,7 +91,7 @@ export function ActionNeededPanel({
                       {item.detail ? <p className={`text-sm leading-5 ${dark ? "text-slate-300" : "text-muted-foreground"}`}>{item.detail}</p> : null}
                       <div className={`flex flex-wrap items-center gap-2 text-xs ${dark ? "text-slate-400" : "text-muted-foreground"}`}>
                         <span className="font-medium text-slate-700">{sourceLabel(item.sourceModule)}</span>
-                        <span aria-hidden="true">•</span>
+                        <span aria-hidden="true">-</span>
                         <span className={dark ? "" : "text-slate-500"}>{item.severity}</span>
                         {item.timestamp ? <span>{new Date(item.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span> : null}
                       </div>

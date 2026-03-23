@@ -55,9 +55,9 @@ const navItems: Array<{
   { href: "/app/leads", label: "Leads", icon: Users },
   { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
   { href: "/app/messages", label: "Messages", icon: MessageSquare },
-  { href: "/app/attention", label: "Needs Attention", icon: AlertTriangle, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/attention", label: "Attention", icon: AlertTriangle, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/approvals", label: "Approvals", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
-  { href: "/app/follow-up", label: "Follow-Up", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/follow-up", label: "Follow-up", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/insights", label: "Insights", icon: BrainCircuit, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/outreach", label: "Outreach", icon: Rocket, comingSoon: true },
   { href: "/app/team", label: "Team", icon: Users, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
@@ -299,7 +299,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (locked) {
       return (
-        <div key={item.href} className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-semibold text-slate-400">
+        <div key={item.href} className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium text-slate-400">
           <span className="flex items-center gap-3">
             <Icon className="h-4 w-4 text-slate-500" />
             <span>{item.label}</span>
@@ -318,16 +318,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200",
+          "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-200",
           active
-            ? "border-sky-200/70 bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_14px_24px_-16px_rgba(14,116,214,0.85)]"
-            : "border-transparent text-slate-600 hover:border-sky-100 hover:bg-sky-50/70 hover:text-slate-900"
+            ? "bg-white text-slate-900 shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)]"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         )}
       >
-        <Icon className={cn("h-4 w-4", active ? "text-white" : "text-slate-400 group-hover:text-sky-600")} />
+        <span className={cn("h-6 w-0.5 rounded-full", active ? "bg-slate-900" : "bg-transparent")} />
+        <Icon className={cn("h-4 w-4", active ? "text-slate-900" : "text-slate-400 group-hover:text-slate-700")} />
         <span>{item.label}</span>
         {item.comingSoon ? (
-          <Badge className={cn("ml-auto", active ? "border-white/30 bg-white/20 text-white" : clientBadgeClass("pending"))}>
+          <Badge className={cn("ml-auto", active ? "border-slate-300 bg-slate-100 text-slate-700" : clientBadgeClass("pending"))}>
             Soon
           </Badge>
         ) : null}
@@ -338,36 +339,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="relative flex h-screen overflow-hidden bg-background-light">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-sky-200/25 via-transparent to-blue-200/20" />
-          <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col justify-between border-r border-white/70 bg-white/65 backdrop-blur-xl xl:flex">
+        <div className="relative flex h-screen overflow-hidden bg-slate-100">
+          <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col justify-between border-r border-slate-200 bg-slate-100 xl:flex">
             <div className="flex flex-col gap-6 p-6">
-              <div className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-[0_20px_34px_-28px_rgba(15,23,42,0.6)]">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 p-2 text-white shadow-lg shadow-sky-300/50">
-                    <ConciergeBell className="h-6 w-6" />
+                  <div className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700">
+                    <ConciergeBell className="h-5 w-5" />
                   </div>
                   <div className="flex flex-col">
                     <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-900">Front Desk OS</h1>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Reception Manager</p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Operational Console</p>
                   </div>
                 </div>
               </div>
 
-              <nav className="space-y-1 rounded-2xl border border-white/70 bg-white/70 p-3 backdrop-blur-sm">{navItems.map(renderNavItem)}</nav>
+              <nav className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">{navItems.map(renderNavItem)}</nav>
             </div>
 
-            <div className="border-t border-slate-200/70 p-6">
+            <div className="border-t border-slate-200 p-6">
               <Link
                 href="/app/appointments"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_20px_26px_-18px_rgba(14,116,214,0.82)] transition-all duration-200 hover:brightness-105"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
               >
                 <Calendar className="h-4 w-4" />
                 <span>New Booking</span>
               </Link>
               <Link
                 href="/auth/logout"
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-white"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
@@ -376,7 +376,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <header className="sticky top-0 z-20 border-b border-white/70 bg-white/75 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+            <header className="sticky top-0 z-20 border-b border-slate-200 bg-slate-100 px-4 py-3 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-1 items-center gap-3">
                   <div className="relative w-full max-w-2xl">
@@ -385,18 +385,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       type="text"
                       readOnly
                       value=""
-                      placeholder="Search leads, bookings, calls, or follow-up..."
-                      className="h-10 w-full rounded-xl border border-slate-200/80 bg-white/85 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500"
+                      placeholder="Quick search operations..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <button className="relative rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700">
+                  <button className="relative rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
                     <Bell className="h-5 w-5" />
                     <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
                   </button>
-                  <button className="rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700">
+                  <button className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
                     <MessageSquare className="h-5 w-5" />
                   </button>
                   <div className="hidden h-8 w-px bg-slate-200 sm:block" />
@@ -425,8 +425,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition",
                         active
-                          ? "border-sky-200 bg-sky-500 text-white"
-                          : "border-slate-200 bg-white/85 text-slate-600 hover:border-slate-300"
+                          ? "border-slate-300 bg-slate-900 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
                       )}
                     >
                       <Icon className="h-3.5 w-3.5" />
@@ -439,38 +439,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             <main className="flex-1 overflow-y-auto">
               <div className="px-4 py-6 sm:px-6 lg:px-8">
-                <div className="mb-6 rounded-[28px] border border-white/75 bg-white/78 p-6 shadow-[0_24px_44px_-30px_rgba(15,23,42,0.45)] backdrop-blur animate-fade-slide-up">
-                  <div className="flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Front Desk Workspace</p>
-                      <h1 className="mt-2 text-[30px] font-black tracking-[-0.04em] text-slate-900">{pageLabel}</h1>
-                    </div>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Operational Command</p>
+                    <h1 className="mt-1 text-xl font-bold text-slate-900">{pageLabel}</h1>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em]", liveBadge.classes)}>
                       <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "animate-pulse bg-emerald-500" : "bg-amber-500")} />
                       {liveBadge.label}
                     </span>
-                  </div>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Plan</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{currentPlan || "No active plan"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Feature readiness</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">
-                        {readinessSnapshot.totalFeatures > 0
-                          ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} ready`
-                          : "Checking"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Readiness checks</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">
-                        {readinessSnapshot.remainingChecks > 0
-                          ? `${readinessSnapshot.remainingChecks} remaining`
-                          : "All clear"}
-                      </p>
-                    </div>
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-600">
+                      {readinessSnapshot.totalFeatures > 0
+                        ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} features ready`
+                        : "Checking features"}
+                    </span>
                   </div>
                 </div>
 
