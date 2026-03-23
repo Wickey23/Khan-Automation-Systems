@@ -52,11 +52,12 @@ export function SignupForm() {
   }
 
   return (
-    <Card className="mx-auto max-w-lg">
-      <CardHeader>
-        <CardTitle>Create your workspace</CardTitle>
+    <Card className="mx-auto w-full max-w-lg overflow-hidden rounded-[24px] border-slate-200/90 bg-white/95 shadow-[0_28px_56px_-34px_rgba(15,23,42,0.45)]">
+      <CardHeader className="border-b border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.9)_0%,rgba(240,249,255,0.75)_100%)]">
+        <CardTitle className="text-2xl tracking-[-0.02em] text-slate-950">Create your workspace</CardTitle>
+        <p className="text-sm text-slate-600">Set up your account details to start onboarding.</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">

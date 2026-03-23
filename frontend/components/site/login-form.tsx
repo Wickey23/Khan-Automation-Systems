@@ -100,11 +100,12 @@ export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
   }
 
   return (
-    <Card className="mx-auto max-w-md">
-      <CardHeader>
-        <CardTitle>Login</CardTitle>
+    <Card className="mx-auto w-full max-w-md overflow-hidden rounded-[24px] border-slate-200/90 bg-white/95 shadow-[0_28px_56px_-34px_rgba(15,23,42,0.45)]">
+      <CardHeader className="border-b border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.9)_0%,rgba(241,245,249,0.72)_100%)]">
+        <CardTitle className="text-2xl tracking-[-0.02em] text-slate-950">Login</CardTitle>
+        <p className="text-sm text-slate-600">Access your workspace and continue live operations.</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         {step === "credentials" ? (
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-1.5">
@@ -128,7 +129,9 @@ export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
           </form>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Enter the 6-digit code sent to {maskedEmail}.</p>
+            <p className="rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
+              Enter the 6-digit code sent to {maskedEmail}.
+            </p>
             <div className="space-y-1.5">
               <Label htmlFor="otpCode">Verification code</Label>
               <Input id="otpCode" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))} />
