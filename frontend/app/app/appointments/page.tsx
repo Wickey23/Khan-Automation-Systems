@@ -29,6 +29,7 @@ import { PageHeader, PageShell, SectionHeading, SectionShell, WorkflowHint } fro
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
+import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 
 const tabs = ["Needs Review", "Ready to Book", "Awaiting Reply", "Booked", "Resolved"] as const;
 
@@ -239,7 +240,7 @@ export default function AppAppointmentsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search requests..."
-                className="h-10 w-64 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs outline-none focus:border-primary"
+                className="h-10 w-64 rounded-xl border border-slate-200 bg-white px-4 text-xs outline-none focus:border-primary"
               />
               <button className="flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90">
                 <Plus className="h-4 w-4" />
@@ -365,7 +366,10 @@ export default function AppAppointmentsPage() {
                 </table>
               </div>
             ) : (
-              <StateCard variant="empty" title="No requests in this queue state" description="Switch tabs or update search filters to find booking workflow items." />
+              <QueueEmptyState
+                title="No Requests In This Queue State"
+                description="Switch tabs or update your search to find booking workflow items."
+              />
             )}
           </SectionShell>
         </div>
@@ -513,7 +517,10 @@ export default function AppAppointmentsPage() {
               </div>
             </SectionShell>
           ) : (
-            <StateCard variant="empty" title="Select a request" description="Choose a booking request to inspect its pipeline, notes, and operator actions." />
+            <QueueEmptyState
+              title="No Request Selected"
+              description="Choose a booking request to inspect pipeline state, notes, and operator actions."
+            />
           )}
         </aside>
       </div>
