@@ -8,14 +8,14 @@ import type { ApprovalRequest } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
+import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
 import { markDailyReviewDirty } from "@/lib/review-loop";
 import { APPROVAL_FOCUS_LABELS, OPERATIONAL_LABELS, formatApprovalStatusLabel } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, RiskRailCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { ActionQueueTable, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type DraftEditState = {
   subject: string;
@@ -299,6 +299,11 @@ export default function ApprovalsPage() {
   const previewApproval = visibleApprovals.find((item) => item.id === previewApprovalId) || null;
   const pendingCount = useMemo(() => approvals.filter((item) => item.status === "PENDING").length, [approvals]);
   const retryableFailedCount = useMemo(() => approvals.filter((item) => isNeedsRetry(item)).length, [approvals]);
+  const inDeliveryCount = useMemo(() => approvals.filter((item) => isInDelivery(item)).length, [approvals]);
+  const agingPendingCount = useMemo(
+    () => approvals.filter((item) => item.status === "PENDING" && Date.now() - new Date(item.createdAt).getTime() >= 2 * 60 * 60 * 1000).length,
+    [approvals]
+  );
   const approvalRows = useMemo(
     () =>
       visibleApprovals.map((approval) => {
@@ -373,24 +378,6 @@ export default function ApprovalsPage() {
       }),
     [actionBusyId, decide, localReturnTo, previewApprovalId, returnTo, retrySend, visibleApprovals]
   );
-  const approvalRiskItems = useMemo(
-    () => [
-      {
-        id: "pending-review",
-        title: "Pending review",
-        detail: `${pendingCount} requests still awaiting operator decision.`,
-        level: "warning" as const
-      },
-      {
-        id: "failed-retry",
-        title: "Retryable failures",
-        detail: `${retryableFailedCount} delivery failures can be retried now.`,
-        level: retryableFailedCount > 0 ? ("critical" as const) : ("warning" as const),
-        meter: Math.min(100, retryableFailedCount * 20)
-      }
-    ],
-    [pendingCount, retryableFailedCount]
-  );
   const triage = useQueueTriageEnrichment(previewApproval?.entityType, previewApproval?.entityId);
   const visibleApprovalIds = useMemo(() => visibleApprovals.map((item) => item.id), [visibleApprovals]);
   const previewShortcutHints = useMemo(() => {
@@ -462,21 +449,99 @@ export default function ApprovalsPage() {
     ]
   });
 
+  const approvalSummaryStrip = useMemo(
+    () => [
+      { label: "Pending now", value: pendingCount, note: "Decision required" },
+      { label: "Aging pending", value: agingPendingCount, note: "Older than 2h" },
+      { label: "Retryable failed", value: retryableFailedCount, note: "Can resend now" },
+      { label: "In delivery", value: inDeliveryCount, note: "Monitor execution" }
+    ],
+    [agingPendingCount, inDeliveryCount, pendingCount, retryableFailedCount]
+  );
+
+  const primaryCta = useMemo(() => {
+    if (previewApproval?.status === "PENDING") {
+      return (
+        <QueueActionButton
+          size="sm"
+          tone="primary"
+          disabled={actionBusyId === previewApproval.id}
+          onClick={() => void decide(previewApproval.id, "approve", "SEND_NOW")}
+        >
+          {actionBusyId === previewApproval.id ? "Approving..." : "Approve & send selected"}
+        </QueueActionButton>
+      );
+    }
+    const pending = visibleApprovals.find((item) => item.status === "PENDING") || approvals.find((item) => item.status === "PENDING") || null;
+    if (pending) {
+      return (
+        <QueueActionLink
+          size="sm"
+          tone="primary"
+          href={buildWorkflowHref(`/app/approvals?approvalId=${encodeURIComponent(pending.id)}&focus=needs_review`, {
+            source: "approvals",
+            returnTo: localReturnTo,
+            returnLabel: "Approval Queue"
+          })}
+        >
+          Open next pending approval
+        </QueueActionLink>
+      );
+    }
+    return (
+      <QueueActionLink
+        size="sm"
+        tone="primary"
+        href={buildWorkflowHref("/app/approvals?focus=needs_retry", {
+          source: "approvals",
+          returnTo: localReturnTo,
+          returnLabel: "Approval Queue"
+        })}
+      >
+        Review retryable failures
+      </QueueActionLink>
+    );
+  }, [actionBusyId, approvals, decide, localReturnTo, previewApproval, visibleApprovals]);
+
+  const previewRiskFlags = useMemo(() => {
+    if (!previewApproval) return [] as string[];
+    const flags: string[] = [];
+    if (previewApproval.status === "PENDING") flags.push("Pending operator decision");
+    if (isNeedsRetry(previewApproval)) flags.push("Delivery failed and retryable");
+    if (previewApproval.status === "APPROVED" && previewApproval.deliveryStatus === "FAILED" && !previewApproval.retryable) {
+      flags.push("Delivery failed and not retryable");
+    }
+    if (previewApproval.status === "EXPIRED") flags.push("Approval expired");
+    if (previewApproval.status === "REJECTED") flags.push("Approval rejected");
+    if (previewApproval.failureReason) flags.push(previewApproval.failureReason);
+    return flags;
+  }, [previewApproval]);
+
   return (
     <PageShell>
       <CommandHeader
         eyebrow="AI Operations"
         title="Approval Queue"
-        description="Review and approve AI actions before external communication or sensitive mutations execute."
+        description="Operator decision desk for pending, aging, and at-risk approval actions."
+        actions={primaryCta}
       />
 
       <SectionShell>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">
-            {pendingCount} requests pending approval. {retryableFailedCount} failed delivery{retryableFailedCount === 1 ? "" : "s"} ready for retry.
-          </p>
+        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {approvalSummaryStrip.map((metric) => (
+            <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+              <p className="text-xs text-slate-500">{metric.note}</p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <div className="mb-2">
+            <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
+          </div>
           <QueueShortcutHint
-            className="mt-2"
+            className="mb-2"
             summary="Use row focus to review and act faster."
             items={[
               { keys: "J / K", label: "Move focus" },
@@ -487,7 +552,7 @@ export default function ApprovalsPage() {
               { keys: "Alt+R", label: "Retry send (eligible)" }
             ]}
           />
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {(["", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
               <Link
                 key={status || "ALL"}
@@ -499,8 +564,6 @@ export default function ApprovalsPage() {
                 {status ? formatApprovalStatusLabel(status) : "All"}
               </Link>
             ))}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
             {(
               [
                 { key: "all", label: APPROVAL_FOCUS_LABELS.all },
@@ -529,9 +592,6 @@ export default function ApprovalsPage() {
                 {entry.label}
               </Link>
             ))}
-          </div>
-          <div className="mt-2">
-            <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
           </div>
         </div>
       </SectionShell>
@@ -584,145 +644,144 @@ export default function ApprovalsPage() {
 
         {!busy && !error && visibleApprovals.length > 0 ? (
           <>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
               <ActionQueueTable
                 title="Approval Queue"
                 rows={approvalRows}
                 viewAllHref={buildWorkflowHref("/app/approvals", { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })}
               />
-              <RiskRailCard title="Approval Risk" items={approvalRiskItems} />
-            </div>
-            {previewApproval ? (
-              <SectionDisclosure title="Focused Approval Diagnostics" storageKey="approvals-focused-diagnostics" className="mt-4">
-              <QueueTriagePanel
-                title={previewApproval.toolKey}
-                subtitle={`${previewApproval.actionType}${previewApproval.entityType ? ` - ${previewApproval.entityType}` : ""}`}
-                badges={[
-                  {
-                    label: previewApproval.status,
-                    tone: previewApproval.status === "PENDING" ? "warning" : previewApproval.status === "APPROVED" ? "success" : "default"
-                  },
-                  ...(previewApproval.deliveryStatus
-                    ? [
-                        {
-                          label: formatApprovalStatusLabel(previewApproval.deliveryStatus),
-                          tone:
-                            previewApproval.deliveryStatus === "FAILED"
-                              ? ("critical" as const)
-                              : previewApproval.deliveryStatus === "SENT"
-                                ? ("success" as const)
-                                : ("info" as const)
-                        }
-                      ]
-                    : [])
-                ]}
-                sections={[
-                  { title: "Request", content: previewApproval.inputSummary || "No summary provided." },
-                  { title: "Reason", content: previewApproval.reason || "No additional reason." },
-                  { title: "Decision guidance", content: approvalDecisionHint(previewApproval) },
-                  {
-                    title: "Linked entity",
-                    content: previewApproval.entityType && previewApproval.entityId ? `${previewApproval.entityType} ${previewApproval.entityId}` : "No linked entity"
-                  },
-                  {
-                    title: "Delivery",
-                    content: `${formatApprovalStatusLabel(previewApproval.deliveryStatus)}${previewApproval.deliveryProvider ? ` via ${previewApproval.deliveryProvider}` : ""}${previewApproval.failureReason ? ` (${previewApproval.failureReason})` : ""}`
-                  },
-                  {
-                    title: "Retry / send history",
-                    content: `Retry count ${previewApproval.retryCount}${previewApproval.sentAt ? `, sent ${new Date(previewApproval.sentAt).toLocaleString()}` : ""}${previewApproval.failedAt ? `, failed ${new Date(previewApproval.failedAt).toLocaleString()}` : ""}`
-                  },
-                  {
-                    title: "Related entity state",
-                    content: triage.loading
-                      ? "Loading entity context..."
-                      : triage.data?.recommendation?.action
-                        ? `${triage.data.recommendation.action}${triage.data.recommendation.priority ? ` (${triage.data.recommendation.priority})` : ""}`
-                        : "No recommendation context available."
-                  },
-                  {
-                    title: "Attention / follow-up",
-                    content: `${triage.data?.attention?.attentionLevel || "-"} / open follow-up ${triage.data?.operationalMemory?.taskSnapshot.openFollowUpCount || 0}`
-                  },
-                  {
-                    title: "Blocked / risk signals",
-                    content: triage.loading
-                      ? "Loading risk context..."
-                      : triage.data?.recommendation?.blockedReasons?.length
-                        ? triage.data.recommendation.blockedReasons.join(", ")
-                        : triage.data?.operationalMemory?.riskFlags?.length
-                          ? triage.data.operationalMemory.riskFlags.join(", ")
-                          : "No blocking signals recorded."
-                  },
-                  {
-                    title: "Recent history",
-                    content: triage.loading
-                      ? "Loading history..."
-                      : triage.recentEvents.length
-                        ? triage.recentEvents.map((event) => `${event.label} - ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`).join(" | ")
-                        : "No recent history."
-                  },
-                  ...(triage.error ? [{ title: "Enrichment", content: triage.error }] : [])
-                ]}
-                actions={
+              <aside className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                {previewApproval ? (
                   <>
-                    {previewApproval.status === "PENDING" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => void decide(previewApproval.id, "approve", "SEND_NOW")}
-                          disabled={actionBusyId === previewApproval.id}
-                          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                        >
-                          Approve and send
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void decide(previewApproval.id, "approve", "APPROVE_ONLY")}
-                          disabled={actionBusyId === previewApproval.id}
-                          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
-                        >
-                          Approve only
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void decide(previewApproval.id, "reject")}
-                          disabled={actionBusyId === previewApproval.id}
-                          className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-60"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    ) : null}
-                    {previewApproval.status === "APPROVED" && (previewApproval.deliveryStatus === "FAILED" || previewApproval.deliveryStatus === "QUEUED") ? (
-                      <QueueActionButton
-                        onClick={() => void retrySend(previewApproval.id)}
-                        disabled={actionBusyId === previewApproval.id || !previewApproval.retryable}
-                        tone="primary"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        Retry send now
-                      </QueueActionButton>
-                    ) : null}
-                    {entityHref(previewApproval) ? (
-                      <QueueActionLink
-                        href={buildWorkflowHref(entityHref(previewApproval), {
-                          source: "approvals",
-                          returnTo: localReturnTo,
-                          returnLabel: "Approval Queue"
-                        })}
-                        size="sm"
-                      >
-                        Open related entity
-                      </QueueActionLink>
-                    ) : null}
-                    <ContextualShortcutHints items={previewShortcutHints} />
+                    <section className="space-y-1 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected approval</p>
+                      <p className="text-sm font-semibold text-slate-900">{previewApproval.toolKey}</p>
+                      <p className="text-xs text-slate-600">{`${previewApproval.actionType}${previewApproval.entityType ? ` · ${previewApproval.entityType}` : ""}`}</p>
+                    </section>
+                    <section className="space-y-1 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recommended next action</p>
+                      <p className="text-sm font-medium text-slate-900">{approvalDecisionHint(previewApproval)}</p>
+                    </section>
+                    <section className="space-y-2 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Decision and safety context</p>
+                      <p className="text-xs text-slate-700">
+                        Delivery: {formatApprovalStatusLabel(previewApproval.deliveryStatus)}
+                        {previewApproval.deliveryProvider ? ` via ${previewApproval.deliveryProvider}` : ""}
+                      </p>
+                      <p className="text-xs text-slate-700">
+                        Retry count: {previewApproval.retryCount}
+                        {previewApproval.sentAt ? ` · sent ${new Date(previewApproval.sentAt).toLocaleString()}` : ""}
+                        {previewApproval.failedAt ? ` · failed ${new Date(previewApproval.failedAt).toLocaleString()}` : ""}
+                      </p>
+                      {triage.data?.recommendation?.blockedReasons?.length ? (
+                        <p className="text-xs text-slate-700">Blocked reasons: {triage.data.recommendation.blockedReasons.join(", ")}</p>
+                      ) : null}
+                    </section>
+                    <section className="space-y-2 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Workflow links</p>
+                      <div className="flex flex-wrap gap-2">
+                        {previewApproval.status === "PENDING" ? (
+                          <QueueActionButton
+                            size="sm"
+                            tone="primary"
+                            onClick={() => void decide(previewApproval.id, "approve", "SEND_NOW")}
+                            disabled={actionBusyId === previewApproval.id}
+                          >
+                            {actionBusyId === previewApproval.id ? "Approving..." : "Approve & send"}
+                          </QueueActionButton>
+                        ) : null}
+                        {previewApproval.status === "PENDING" ? (
+                          <QueueActionButton
+                            size="sm"
+                            onClick={() => void decide(previewApproval.id, "approve", "APPROVE_ONLY")}
+                            disabled={actionBusyId === previewApproval.id}
+                          >
+                            Approve only
+                          </QueueActionButton>
+                        ) : null}
+                        {previewApproval.status === "PENDING" ? (
+                          <QueueActionButton
+                            size="sm"
+                            tone="critical"
+                            onClick={() => void decide(previewApproval.id, "reject")}
+                            disabled={actionBusyId === previewApproval.id}
+                          >
+                            Reject
+                          </QueueActionButton>
+                        ) : null}
+                        {isNeedsRetry(previewApproval) ? (
+                          <QueueActionButton
+                            size="sm"
+                            tone="warning"
+                            onClick={() => void retrySend(previewApproval.id)}
+                            disabled={actionBusyId === previewApproval.id}
+                          >
+                            Retry send
+                          </QueueActionButton>
+                        ) : null}
+                        {entityHref(previewApproval) ? (
+                          <QueueActionLink
+                            size="sm"
+                            href={buildWorkflowHref(entityHref(previewApproval), {
+                              source: "approvals",
+                              returnTo: localReturnTo,
+                              returnLabel: "Approval Queue"
+                            })}
+                          >
+                            Open entity
+                          </QueueActionLink>
+                        ) : null}
+                      </div>
+                    </section>
+                    <section className="space-y-1 border-b border-slate-200 pb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Risk or failure flags</p>
+                      {previewRiskFlags.length ? (
+                        <ul className="space-y-1 text-xs text-slate-700">
+                          {previewRiskFlags.slice(0, 5).map((flag) => (
+                            <li key={flag}>• {flag}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-slate-600">No active risk flags.</p>
+                      )}
+                    </section>
+                    <section className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recent activity</p>
+                      <p className="text-xs text-slate-600">
+                        {triage.loading
+                          ? "Loading activity..."
+                          : triage.recentEvents.length
+                            ? triage.recentEvents
+                                .slice(0, 4)
+                                .map((event) => `${event.label} · ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
+                                .join(" | ")
+                            : "No recent history."}
+                      </p>
+                    </section>
                   </>
-                }
-              />
-              </SectionDisclosure>
-            ) : null}
+                ) : (
+                  <p className="text-sm text-slate-500">Select an approval to review decision context.</p>
+                )}
+              </aside>
+            </div>
+            <SectionDisclosure title="Secondary Diagnostics and History" storageKey="approvals-focused-diagnostics" className="mt-4" defaultCollapsed>
+              {previewApproval ? (
+                <div className="space-y-3 text-sm text-slate-700">
+                  <p><span className="font-semibold text-slate-900">Request:</span> {previewApproval.inputSummary || "No summary provided."}</p>
+                  <p><span className="font-semibold text-slate-900">Reason:</span> {previewApproval.reason || "No additional reason."}</p>
+                  <p><span className="font-semibold text-slate-900">Related state:</span> {triage.loading
+                    ? "Loading entity context..."
+                    : triage.data?.recommendation?.action
+                      ? `${triage.data.recommendation.action}${triage.data.recommendation.priority ? ` (${triage.data.recommendation.priority})` : ""}`
+                      : "No recommendation context available."}</p>
+                  <p><span className="font-semibold text-slate-900">Attention / follow-up:</span> {`${triage.data?.attention?.attentionLevel || "-"} / open follow-up ${triage.data?.operationalMemory?.taskSnapshot.openFollowUpCount || 0}`}</p>
+                  {triage.error ? <p><span className="font-semibold text-slate-900">Enrichment:</span> {triage.error}</p> : null}
+                  <ContextualShortcutHints items={previewShortcutHints} />
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No focused approval.</p>
+              )}
+            </SectionDisclosure>
           </>
         ) : null}
       </SectionShell>
