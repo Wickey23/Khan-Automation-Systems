@@ -388,17 +388,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       readOnly
                       value=""
                       placeholder="Quick search operations..."
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500"
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-slate-300"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <button className="relative rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
+                  <button className="relative rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300">
                     <Bell className="h-5 w-5" />
                     <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
                   </button>
-                  <button className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
+                  <button className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300">
                     <CircleHelp className="h-5 w-5" />
                   </button>
                   <div className="hidden h-8 w-px bg-slate-200 sm:block" />

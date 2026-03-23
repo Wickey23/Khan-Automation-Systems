@@ -482,7 +482,7 @@ export default function AppLeadsPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search leads..."
-                  className="h-8 w-72 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary"
+                  className="h-8 w-72 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
                 />
               </div>
               <button type="button" disabled title="Use CSV import preview below to add leads in this release" className="flex h-8 cursor-not-allowed items-center gap-2 rounded-lg bg-slate-300 px-3 text-xs font-bold text-white">
@@ -652,7 +652,7 @@ export default function AppLeadsPage() {
                     value={csvInput}
                     onChange={(event) => setCsvInput(event.target.value)}
                     placeholder="name,email,phone,business"
-                    className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs"
+                    className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   />
                   <div className="mt-2 flex gap-2">
                     <button

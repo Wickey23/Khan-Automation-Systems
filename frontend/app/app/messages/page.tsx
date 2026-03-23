@@ -529,7 +529,7 @@ export default function AppMessagesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search conversations..."
-                className="h-9 w-full rounded-xl border border-slate-200 bg-white/95 pl-9 pr-4 text-xs outline-none focus:border-primary"
+                className="h-9 w-full rounded-xl border border-slate-200 bg-white/95 pl-9 pr-4 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </div>
           </div>
@@ -696,7 +696,7 @@ export default function AppMessagesPage() {
                       value={body}
                       onChange={(event) => setBody(event.target.value)}
                       placeholder="Type a message..."
-                      className="min-h-[44px] w-full resize-none border-none bg-transparent p-2 text-sm outline-none"
+                      className="min-h-[44px] w-full resize-none border-none bg-transparent p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       rows={1}
                     />
                     <div className="flex items-center justify-between px-2 pb-1">

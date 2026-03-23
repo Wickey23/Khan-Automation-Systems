@@ -570,7 +570,7 @@ export default function AppCallsPage() {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search calls..."
-                    className="h-8 w-52 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary"
+                    className="h-8 w-52 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                 </div>
                 <button
@@ -784,7 +784,7 @@ export default function AppCallsPage() {
                       <h4 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">Quick Follow-up SMS</h4>
                       <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
                         <textarea
-                          className="w-full resize-none border-none bg-transparent p-4 text-sm font-medium placeholder:text-slate-400 focus:ring-0"
+                          className="w-full resize-none border-none bg-transparent p-4 text-sm font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                           placeholder={`Send a follow-up to ${callerName(selectedCall).split(" ")[0]}...`}
                           rows={3}
                         />
