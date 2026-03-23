@@ -22,7 +22,7 @@ function formatDate(value: string | null | undefined) {
 
 function DetailBlock(input: { label: string; value: string; subtle?: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+    <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-4 shadow-[0_12px_22px_-20px_rgba(15,23,42,0.28)]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{input.label}</div>
       <div className={`mt-2 text-sm leading-6 ${input.subtle ? "text-slate-600" : "text-slate-950"}`}>{input.value}</div>
     </div>
@@ -58,8 +58,8 @@ export function OutreachPhoneEventDetailCard(input: {
       : "border-slate-200 bg-slate-100 text-slate-700";
 
   return (
-    <Card className="overflow-hidden border-slate-300 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
-      <CardHeader className="border-b border-slate-200 bg-slate-50/70">
+    <Card className="overflow-hidden border-slate-300/90 bg-white/95 shadow-[0_22px_42px_-28px_rgba(15,23,42,0.38)]">
+      <CardHeader className="border-b border-slate-200 bg-[linear-gradient(180deg,rgba(248,250,252,0.92)_0%,rgba(241,245,249,0.72)_100%)]">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Selected outreach call</div>
@@ -71,8 +71,8 @@ export function OutreachPhoneEventDetailCard(input: {
             </div>
             <div className="text-sm text-slate-600">
               {leadLabel}
-              {event.providerCallId ? ` · call ${event.providerCallId}` : ""}
-              {` · ${formatDate(event.createdAt)}`}
+              {event.providerCallId ? ` - call ${event.providerCallId}` : ""}
+              {` - ${formatDate(event.createdAt)}`}
             </div>
           </div>
           {onClose ? (
@@ -84,13 +84,13 @@ export function OutreachPhoneEventDetailCard(input: {
       </CardHeader>
       <CardContent className="space-y-5 p-5">
         <div className="grid gap-3 md:grid-cols-2">
-          <DetailBlock label="Status" value={`${event.eventType}${event.status ? ` · ${event.status}` : ""}`} />
+          <DetailBlock label="Status" value={`${event.eventType}${event.status ? ` - ${event.status}` : ""}`} />
           <DetailBlock label="Lead" value={`${event.lead?.contactName || event.lead?.companyName || "Unknown lead"}\n${formatOptional(event.toPhone)}`} subtle />
           <DetailBlock label="Caller profile" value={`${event.callerConfig?.name || "Unknown caller profile"}${event.callerConfig?.timezone ? `\n${event.callerConfig.timezone}` : ""}`} subtle />
           <DetailBlock label="Enrollment" value={`${event.enrollment?.status || "No enrollment"}${event.enrollment?.stopReason ? `\n${event.enrollment.stopReason}` : ""}`} subtle />
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200/90 bg-white p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Summary</div>
           <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-900">
             {event.summary || event.errorMessage || "No summary captured for this outreach call."}
@@ -98,7 +98,7 @@ export function OutreachPhoneEventDetailCard(input: {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200/90 bg-white p-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Transcript</div>
             <div className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap text-sm leading-6 text-slate-900">
               {transcript || "No transcript was captured for this outreach call."}
@@ -161,3 +161,4 @@ export function OutreachPhoneEventDetailCard(input: {
     </Card>
   );
 }
+
