@@ -83,7 +83,7 @@ export function ActionQueueTable({
             onFocusCapture={row.onRowFocus}
             onClick={row.onRowSelect}
             className={cn(
-              "flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50",
+              "flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-slate-300/60",
               row.isActive ? "bg-slate-50 ring-1 ring-slate-200 ring-inset" : "",
               row.onRowSelect ? "cursor-pointer" : ""
             )}

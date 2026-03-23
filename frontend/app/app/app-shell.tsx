@@ -323,7 +323,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-200",
+          "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
           active
             ? "bg-white text-slate-900 shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)]"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
