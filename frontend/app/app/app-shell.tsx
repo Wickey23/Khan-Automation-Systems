@@ -343,8 +343,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     children: (
       <AccessSummaryProvider value={accessSummary}>
         <div className="relative flex h-screen overflow-hidden bg-slate-100">
-          <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col justify-between border-r border-slate-200 bg-slate-100 xl:flex">
-            <div className="flex flex-col gap-6 p-6">
+          <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-100 xl:flex">
+            <div className="flex min-h-0 flex-1 flex-col gap-6 p-6">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700">
@@ -357,7 +357,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <nav className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">{navItems.map(renderNavItem)}</nav>
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">{navItems.map(renderNavItem)}</nav>
             </div>
 
             <div className="border-t border-slate-200 p-6">
@@ -367,13 +367,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <Calendar className="h-4 w-4" />
                 <span>New Booking</span>
-              </Link>
-              <Link
-                href="/auth/logout"
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-white"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
               </Link>
             </div>
           </aside>
@@ -410,6 +403,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <CircleHelp className="h-5 w-5" />
                   </button>
                   <div className="hidden h-8 w-px bg-slate-200 sm:block" />
+                  <div className="hidden items-center gap-2 sm:flex">
+                    <Link
+                      href="/app/settings"
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                      <span>Settings</span>
+                    </Link>
+                    <Link
+                      href="/auth/logout"
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Logout</span>
+                    </Link>
+                  </div>
                   <div className="hidden items-center gap-3 sm:flex">
                     <div className="text-right">
                       <p className="text-sm font-semibold leading-none text-slate-900">Workspace User</p>
