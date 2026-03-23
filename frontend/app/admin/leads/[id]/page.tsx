@@ -6,7 +6,11 @@ import { useParams } from "next/navigation";
 import { fetchLeadById } from "@/lib/api";
 import type { Lead } from "@/lib/types";
 import { LeadDetailForm } from "@/components/admin/lead-detail-form";
+import { AdminGuard } from "@/components/dashboard/admin-guard";
+import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 
 export default function AdminLeadDetailPage() {
   const params = useParams<{ id: string }>();
@@ -35,26 +39,36 @@ export default function AdminLeadDetailPage() {
     };
   }, [params.id]);
 
-  if (loading) return <div className="container py-12 text-sm text-muted-foreground">Loading lead...</div>;
-  if (error || !lead) {
-    return (
-      <div className="container py-12">
-        <p className="text-sm text-red-700">{error || "Lead not found."}</p>
-        <Button asChild variant="outline" className="mt-4">
-          <Link href="/admin/leads">Back to leads</Link>
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="container py-10">
-      <div className="mb-5">
-        <Button asChild variant="outline" size="sm">
-          <Link href="/admin/leads">Back to leads</Link>
-        </Button>
-      </div>
-      <LeadDetailForm lead={lead} />
-    </div>
+    <AdminGuard>
+      <PageShell className="space-y-6">
+        <AdminTopTabs />
+        <PageHeader
+          eyebrow="Lead detail"
+          title={lead?.name || "Lead workspace"}
+          description="Inspect and edit lead fields, outcomes, and assignment details."
+          actions={
+            <Button asChild variant="outline">
+              <Link href="/admin/leads">Back to leads</Link>
+            </Button>
+          }
+        />
+
+        {loading ? <StateCard variant="loading" title="Loading lead" /> : null}
+        {!loading && (error || !lead) ? (
+          <StateCard
+            variant="error"
+            title="Unable to load lead"
+            description={error || "Lead not found."}
+            action={
+              <Button asChild variant="outline">
+                <Link href="/admin/leads">Back to leads</Link>
+              </Button>
+            }
+          />
+        ) : null}
+        {!loading && lead ? <LeadDetailForm lead={lead} /> : null}
+      </PageShell>
+    </AdminGuard>
   );
 }
