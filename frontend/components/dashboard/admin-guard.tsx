@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getMe } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 export function AdminGuard({
   children,
@@ -65,22 +66,26 @@ export function AdminGuard({
 
   if (status !== "allowed") {
     return (
-      <div className="container py-12 text-sm text-muted-foreground">
-        <p>{errorMessage || "Checking access..."}</p>
-        {errorMessage ? (
-          <button
-            type="button"
-            className="mt-3 rounded border px-3 py-1 text-xs hover:bg-muted"
-            onClick={() => {
-              setErrorMessage(null);
-              setStatus("checking");
-              const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
-              router.replace(`/auth/login${next}`);
-            }}
-          >
-            Go to login
-          </button>
-        ) : null}
+      <div className="flex min-h-[50vh] items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Admin access</p>
+          <p className="mt-2 text-sm text-slate-700">{errorMessage || "Checking access..."}</p>
+          {errorMessage ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setErrorMessage(null);
+                setStatus("checking");
+                const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
+                router.replace(`/auth/login${next}`);
+              }}
+            >
+              Go to login
+            </Button>
+          ) : null}
+        </div>
       </div>
     );
   }

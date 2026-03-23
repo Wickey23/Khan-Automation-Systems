@@ -36,13 +36,16 @@ export default function StatusPage() {
   }, []);
 
   return (
-    <div className="container py-12">
-      <h1 className="text-3xl font-bold">System Status</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Live operational snapshot for voice, messaging, billing, and webhooks.
-      </p>
+    <div className="page-shell space-y-6">
+      <div className="rounded-[24px] border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Platform reliability</p>
+        <h1 className="mt-2 text-3xl font-black tracking-[-0.03em] text-slate-950">System status</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Live operational snapshot for voice, messaging, billing, and webhooks.
+        </p>
+      </div>
 
-      <div className="mt-6 rounded-lg border bg-white p-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Overall</p>
@@ -63,11 +66,11 @@ export default function StatusPage() {
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {(["voice", "sms", "billing", "webhooks"] as const).map((key) => {
           const componentStatus = data?.components?.[key] || "DEGRADED";
           return (
-            <div key={key} className="rounded-lg border bg-white p-4">
+            <div key={key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">{key}</p>
               <span className={`mt-2 inline-flex rounded border px-2 py-1 text-xs font-semibold ${statusClass(componentStatus)}`}>
                 {loading ? "Checking..." : componentStatus}
