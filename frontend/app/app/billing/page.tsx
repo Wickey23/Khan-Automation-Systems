@@ -321,6 +321,28 @@ export default function AppBillingPage() {
           : 20
     }
   ];
+  const billingHighlights = [
+    {
+      label: "Current plan",
+      value: currentPlanCopy.title,
+      detail: currentPlanCopy.price
+    },
+    {
+      label: "Subscription status",
+      value: subscription ? formatStatus(subscription.status) : "Not active",
+      detail: subscription?.currentPeriodEnd ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}` : "No billing cycle"
+    },
+    {
+      label: "Diagnostics",
+      value: diagnostics?.summary.overall || "UNKNOWN",
+      detail: diagnostics?.summary.overall === "HEALTHY" ? "Billing ops are ready." : "Review diagnostics before go-live."
+    },
+    {
+      label: showDemoCard ? "Demo usage" : "Portal access",
+      value: showDemoCard ? `${demo?.callsUsed ?? 0}/${demo?.callCap ?? 0}` : diagnostics?.summary.customerPortalReady ? "Ready" : "Review",
+      detail: showDemoCard ? "Guided demo consumption." : "Stripe customer self-service access."
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -351,6 +373,15 @@ export default function AppBillingPage() {
           }
         ]}
       />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {billingHighlights.map((item) => (
+          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{item.value}</p>
+            <p className="mt-1 text-xs text-slate-600">{item.detail}</p>
+          </div>
+        ))}
+      </div>
 
       <section className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_360px]">
         <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
@@ -449,7 +480,7 @@ export default function AppBillingPage() {
                   Default
                 </span>
               </div>
-              <p className="text-xl font-black tracking-[0.24em] text-slate-900">•••• •••• •••• {maskedCustomerDigits}</p>
+              <p className="text-xl font-black tracking-[0.24em] text-slate-900">**** **** **** {maskedCustomerDigits}</p>
               <div className="mt-5 flex items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
