@@ -97,9 +97,9 @@ export function LeadsTable({
   }
 
   return (
-    <Table>
+    <Table className="rounded-2xl border border-slate-200/90 bg-white/95">
       <TableHeader>
-        <TableRow>
+        <TableRow className="bg-slate-50/80">
           <TableHead>Created</TableHead>
           <TableHead>Name</TableHead>
           <TableHead>Business</TableHead>
@@ -126,7 +126,7 @@ export function LeadsTable({
               <div className="space-y-2">
                 <Badge variant={statusVariant[lead.status]}>{lead.status}</Badge>
                 <select
-                  className="h-9 w-full rounded-lg border border-input bg-background px-3 text-xs font-medium shadow-sm"
+                  className="h-9 w-full rounded-xl border border-input bg-white px-3 text-xs font-medium shadow-sm"
                   value={lead.status}
                   onChange={(event) =>
                     setStatusById((prev) => ({
@@ -176,6 +176,7 @@ export function LeadsTable({
                 <Button
                   variant="default"
                   size="sm"
+                  className="shadow-[0_10px_18px_-14px_rgba(37,99,235,0.75)]"
                   disabled={savingId === lead.id}
                   onClick={() => void saveLead(lead)}
                 >

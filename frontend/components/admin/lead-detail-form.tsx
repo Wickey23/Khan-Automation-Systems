@@ -57,26 +57,26 @@ export function LeadDetailForm({ lead }: { lead: Lead }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl">{lead.business}</CardTitle>
+    <Card className="border-slate-200/90 bg-white/95 shadow-[0_20px_36px_-28px_rgba(15,23,42,0.4)]">
+      <CardHeader className="border-b border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.92)_0%,rgba(241,245,249,0.72)_100%)]">
+        <CardTitle className="text-xl tracking-[-0.02em]">{lead.business}</CardTitle>
         <p className="text-sm text-muted-foreground">Captured on {formatDate(lead.createdAt)}</p>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3">
             <p className="text-xs text-muted-foreground">Name</p>
             <p className="font-medium">{lead.name}</p>
           </div>
-          <div>
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3">
             <p className="text-xs text-muted-foreground">Email</p>
             <p className="font-medium">{lead.email}</p>
           </div>
-          <div>
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3">
             <p className="text-xs text-muted-foreground">Phone</p>
             <p className="font-medium">{lead.phone}</p>
           </div>
-          <div>
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3">
             <p className="text-xs text-muted-foreground">Source</p>
             <p className="font-medium">{lead.sourcePage || "-"}</p>
           </div>
@@ -86,7 +86,7 @@ export function LeadDetailForm({ lead }: { lead: Lead }) {
           <Label htmlFor="status">Status</Label>
           <select
             id="status"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm shadow-sm"
             value={status}
             onChange={(event) => setStatus(event.target.value as LeadStatus)}
           >
