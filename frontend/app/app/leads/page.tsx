@@ -37,6 +37,7 @@ import {
   OperationalSignal,
   OperationalSignalChips
 } from "@/components/queue/operational-row";
+import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 
 type PipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -389,14 +390,7 @@ export default function AppLeadsPage() {
 
   return (
     <div className="space-y-5">
-      {returnTo ? (
-        <div className="app-banner app-banner-primary text-xs">
-          Opened from {returnLabel}.{" "}
-          <Link href={returnTo} className="font-semibold text-blue-700 underline">
-            Back to {returnLabel}
-          </Link>
-        </div>
-      ) : null}
+      <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
       <AskAiInline page="leads" entityType={selectedLead ? "lead" : undefined} entityId={selectedLead?.id} defaultAgentKey="lead_ops" />
       <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
