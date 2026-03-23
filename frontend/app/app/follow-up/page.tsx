@@ -14,7 +14,7 @@ import { FOLLOW_UP_FILTER_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type FollowUpFilter =
   | "all"
@@ -505,16 +505,13 @@ export default function FollowUpPage() {
         <div className="mb-3">
           <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
         </div>
-        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {followUpSummaryStrip.map((metric) => (
-            <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
-              <p className="text-xs text-slate-500">{metric.note}</p>
-            </div>
+            <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
           ))}
         </div>
-        <div className="mb-3 flex flex-wrap gap-2">
+        <SectionDisclosure title="Queue controls and shortcuts" storageKey="follow-up-controls-shortcuts" defaultCollapsed className="mb-3">
+        <div className="flex flex-wrap gap-2">
           {(
             [
               "all",
@@ -569,7 +566,6 @@ export default function FollowUpPage() {
           ) : null}
         </div>
         <QueueShortcutHint
-          className="mb-3"
           summary="Shortcuts apply to the focused queue item."
           items={[
             { keys: "J / K", label: "Move focus" },
@@ -579,6 +575,7 @@ export default function FollowUpPage() {
             { keys: "Alt+E", label: "Escalate overdue (eligible)" }
           ]}
         />
+        </SectionDisclosure>
         <SectionDisclosure title="Ownership Snapshot" storageKey="follow-up-ownership-snapshot" defaultCollapsed className="mb-3">
           <QueueSectionHeader
             title="Ownership Snapshot"
