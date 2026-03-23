@@ -13,7 +13,9 @@ export default function PricingPage() {
         description="Pricing is structured for disciplined rollout, cleaner onboarding, and measurable operational improvement rather than self-serve volume."
       />
 
-      <PricingCards />
+      <div className="rounded-[28px] border border-slate-200/90 bg-[linear-gradient(145deg,rgba(255,255,255,0.96)_0%,rgba(239,246,255,0.86)_100%)] p-4 shadow-[0_24px_46px_-34px_rgba(15,23,42,0.45)] sm:p-6">
+        <PricingCards />
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="surface-panel p-6 text-sm leading-6 text-muted-foreground">
@@ -42,7 +44,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <div className="surface-muted p-6 text-sm leading-6 text-muted-foreground">
+      <div className="surface-muted rounded-[22px] p-6 text-sm leading-6 text-muted-foreground">
         We are not optimizing for volume right now. We are optimizing for reliability and conversion performance with each client cohort.
       </div>
     </div>
