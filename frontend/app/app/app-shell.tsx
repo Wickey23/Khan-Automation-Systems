@@ -345,7 +345,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     children: (
       <AccessSummaryProvider value={accessSummary}>
         <div className="relative flex h-screen overflow-hidden bg-slate-100">
-          <aside className="sticky top-0 hidden h-screen w-[288px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-100 xl:flex">
+          <aside className="sticky top-0 hidden h-screen w-[288px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-100 lg:flex">
             <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-center gap-3">
@@ -471,7 +471,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="mt-2 grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1 xl:hidden">
+              <div className="mt-2 grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1 lg:hidden">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
