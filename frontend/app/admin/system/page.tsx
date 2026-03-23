@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { fetchAdminSystemDashboard, fetchAdminSystemReadiness, fetchAdminSystemScaleGate } from "@/lib/api";
 import type { AdminScaleGate, AdminSystemDashboard, AdminSystemReadiness } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -17,7 +19,7 @@ export default function AdminSystemPage() {
   const [scaleGate, setScaleGate] = useState<AdminScaleGate | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [dashboardData, readinessData, scaleGateData] = await Promise.all([
@@ -35,110 +37,96 @@ export default function AdminSystemPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
+
+  const topStats = useMemo(
+    () => [
+      { label: "Inbound 5m", value: dashboard?.inboundCalls.last5m ?? "-" },
+      { label: "Inbound 1h", value: dashboard?.inboundCalls.last1h ?? "-" },
+      { label: "Inbound 24h", value: dashboard?.inboundCalls.last24h ?? "-" },
+      { label: "Webhook success", value: dashboard ? pct(dashboard.webhookSuccessRate) : "-" }
+    ],
+    [dashboard]
+  );
+
+  const reliabilityStats = useMemo(
+    () => [
+      { label: "Twilio error rate", value: dashboard ? pct(dashboard.twilioErrorRate) : "-" },
+      { label: "Vapi error rate", value: dashboard ? pct(dashboard.vapiProcessingErrorRate) : "-" },
+      { label: "Auto-recovery (24h)", value: dashboard?.autoRecoveryVolumeLast24h ?? "-" },
+      { label: "Missing lead links", value: dashboard?.callsMissingLeadLinkage ?? "-" },
+      { label: "Org exposure", value: dashboard ? pct(dashboard.orgExposurePercent) : "-" },
+      { label: "Traffic exposure", value: dashboard ? pct(dashboard.trafficExposurePercent) : "-" }
+    ],
+    [dashboard]
+  );
 
   return (
     <AdminGuard>
-      <div className="container py-10">
-        <AdminTopTabs className="mb-3" />
+      <PageShell className="space-y-6">
+        <AdminTopTabs />
+
+        <PageHeader
+          eyebrow="System operations"
+          title="Reliability and scale readiness"
+          description="Internal telemetry for platform health, security posture, and launch safety gates."
+          actions={
+            <Button variant="outline" onClick={() => void load()}>
+              {loading ? "Refreshing..." : "Refresh"}
+            </Button>
+          }
+        />
+
         {scaleGate?.warnings?.lowIncidentVolumeWarning ? (
-          <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            Low incident sample warning: only {scaleGate.warnings.lowIncidentVolumeContext.p1IncidentCount14d} P1 incidents in
-            the last 14 days (recommended minimum: {scaleGate.warnings.lowIncidentVolumeContext.minRecommendedSampleSize}).
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            Low incident sample warning: only {scaleGate.warnings.lowIncidentVolumeContext.p1IncidentCount14d} P1 incidents in the
+            last 14 days (recommended minimum: {scaleGate.warnings.lowIncidentVolumeContext.minRecommendedSampleSize}).
           </div>
         ) : null}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold">System Operator Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Internal reliability and scale-readiness telemetry.</p>
-          </div>
-          <Button variant="outline" onClick={() => void load()}>
-            Refresh
-          </Button>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {topStats.map((stat) => (
+            <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{stat.value}</p>
+            </div>
+          ))}
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Inbound 5m</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard?.inboundCalls.last5m ?? "-"}</p>
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading title="Reliability metrics" description="Core transport and runtime signals for the current window." />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {reliabilityStats.map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{stat.value}</p>
+              </div>
+            ))}
           </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Inbound 1h</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard?.inboundCalls.last1h ?? "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Inbound 24h</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard?.inboundCalls.last24h ?? "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Webhook Success</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard ? pct(dashboard.webhookSuccessRate) : "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Twilio Error Rate</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard ? pct(dashboard.twilioErrorRate) : "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Vapi Error Rate</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard ? pct(dashboard.vapiProcessingErrorRate) : "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Auto-Recovery (24h)</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard?.autoRecoveryVolumeLast24h ?? "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Missing Lead Links</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard?.callsMissingLeadLinkage ?? "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Org Exposure</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard ? pct(dashboard.orgExposurePercent) : "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Traffic Exposure</p>
-            <p className="mt-1 text-2xl font-semibold">{dashboard ? pct(dashboard.trafficExposurePercent) : "-"}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-3 sm:col-span-2 lg:col-span-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Auth / 2FA Email Health (24h)</p>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Auth and 2FA email health (24h)</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <div className="rounded border px-2 py-1 text-sm">
-                Provider: <span className="font-medium">{dashboard?.emailProviderConfigured ? "Configured" : "Missing"}</span>
-              </div>
-              <div className="rounded border px-2 py-1 text-sm">
-                2FA Required: <span className="font-medium">{dashboard?.auth2fa?.required24h ?? 0}</span>
-              </div>
-              <div className="rounded border px-2 py-1 text-sm">
-                OTP Success: <span className="font-medium">{dashboard?.auth2fa?.otpSuccess24h ?? 0}</span>
-              </div>
-              <div className="rounded border px-2 py-1 text-sm">
-                Invalid OTP: <span className="font-medium">{dashboard?.auth2fa?.invalidOtp24h ?? 0}</span>
-              </div>
-              <div className="rounded border px-2 py-1 text-sm">
-                Email Failures: <span className="font-medium">{dashboard?.auth2fa?.emailFailure24h ?? 0}</span>
-              </div>
-              <div className="rounded border px-2 py-1 text-sm">
-                Test Sends: <span className="font-medium">{dashboard?.auth2fa?.testEmailsSent24h ?? 0}</span>
-              </div>
+              <div className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">Provider: {dashboard?.emailProviderConfigured ? "Configured" : "Missing"}</div>
+              <div className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">2FA Required: {dashboard?.auth2fa?.required24h ?? 0}</div>
+              <div className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">OTP Success: {dashboard?.auth2fa?.otpSuccess24h ?? 0}</div>
+              <div className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">Invalid OTP: {dashboard?.auth2fa?.invalidOtp24h ?? 0}</div>
+              <div className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">Email Failures: {dashboard?.auth2fa?.emailFailure24h ?? 0}</div>
+              <div className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">Test Sends: {dashboard?.auth2fa?.testEmailsSent24h ?? 0}</div>
             </div>
           </div>
-        </div>
+        </SectionShell>
 
-        <section className="mt-4 rounded-lg border bg-white p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold">Security Signals</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Step-up failures, cross-org tool rejects, webhook retries, and SMS suppression events from the last 24 hours.
-              </p>
-            </div>
-          </div>
-
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading
+            title="Security signals"
+            description="Step-up failures, context rejects, webhook security counters, and suppression events."
+          />
           {dashboard?.securityAlerts?.length ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {dashboard.securityAlerts.map((alert) => (
                 <div
                   key={alert.key}
@@ -149,184 +137,85 @@ export default function AdminSystemPage() {
                   }`}
                 >
                   <div className="font-medium">{alert.label}</div>
-                  <div className="text-xs opacity-80">
-                    {alert.key} · {alert.value} in the last 24h
-                  </div>
+                  <div className="text-xs opacity-80">{alert.key} - {alert.value} in the last 24h</div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-emerald-700">No elevated security counters right now.</p>
+            <StateCard variant={loading ? "loading" : "empty"} title={loading ? "Loading security alerts" : "No elevated security counters"} />
           )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Step-Up Forbidden</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.stepUpForbidden24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Tool Context Rejects</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.toolOrgContextRejected24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Signature Invalid</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.webhookSignatureInvalid24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Replay Blocked</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.webhookReplayBlocked24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Retry-Worthy Failures</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.webhookRetryWorthyFailure24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">SMS Suppressed</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.smsAutomationSuppressed24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Hourly SMS Cap</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.quotaOrgSmsHourly24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Daily SMS Cap</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.quotaOrgSmsDaily24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Offer Suppressed</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.requestOfferSuppressed24h ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Clarification Suppressed</p>
-              <p className="mt-1 text-2xl font-semibold">{dashboard?.securityCounters?.requestClarificationSuppressed24h ?? 0}</p>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Step-Up Forbidden: {dashboard?.securityCounters?.stepUpForbidden24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Tool Context Rejects: {dashboard?.securityCounters?.toolOrgContextRejected24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Signature Invalid: {dashboard?.securityCounters?.webhookSignatureInvalid24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Replay Blocked: {dashboard?.securityCounters?.webhookReplayBlocked24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Retry Failures: {dashboard?.securityCounters?.webhookRetryWorthyFailure24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">SMS Suppressed: {dashboard?.securityCounters?.smsAutomationSuppressed24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Hourly SMS Cap: {dashboard?.securityCounters?.quotaOrgSmsHourly24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Daily SMS Cap: {dashboard?.securityCounters?.quotaOrgSmsDaily24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Offer Suppressed: {dashboard?.securityCounters?.requestOfferSuppressed24h ?? 0}</div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">Clarification Suppressed: {dashboard?.securityCounters?.requestClarificationSuppressed24h ?? 0}</div>
           </div>
+        </SectionShell>
 
-          <div className="mt-4">
-            <h3 className="font-medium">Recent security events</h3>
-            <div className="mt-2 overflow-x-auto rounded-lg border">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="p-3">Time</th>
-                    <th className="p-3">Action</th>
-                    <th className="p-3">Source</th>
-                    <th className="p-3">Org</th>
-                    <th className="p-3">Provider</th>
-                    <th className="p-3">Route</th>
-                    <th className="p-3">Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard?.recentSecurityEvents?.length ? (
-                    dashboard.recentSecurityEvents.map((row) => (
-                      <tr key={row.id} className="border-t align-top">
-                        <td className="p-3">{new Date(row.createdAt).toLocaleString()}</td>
-                        <td className="p-3">{row.action}</td>
-                        <td className="p-3">{row.source}</td>
-                        <td className="p-3 font-mono text-xs">{row.orgId || "-"}</td>
-                        <td className="p-3">{row.provider || "-"}</td>
-                        <td className="p-3 font-mono text-xs">{row.route || "-"}</td>
-                        <td className="p-3">{row.reason || "-"}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="p-3 text-muted-foreground">
-                        {loading ? "Loading..." : "No recent security events."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <section className="rounded-lg border bg-white p-4">
-            <h2 className="mb-2 font-semibold">Routing Tier Distribution (24h)</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SectionShell className="surface-panel space-y-3">
+            <SectionHeading title="Routing tier distribution (24h)" description="Call volumes by routing tier." />
             {dashboard?.callsByRoutingTier?.length ? (
               <div className="space-y-1 text-sm">
                 {dashboard.callsByRoutingTier.map((row) => (
-                  <div key={row.tier} className="flex items-center justify-between rounded border px-2 py-1">
+                  <div key={row.tier} className="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1">
                     <span>Tier {row.tier}</span>
                     <span className="font-medium">{row.count}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">{loading ? "Loading..." : "No routed calls yet."}</p>
+              <StateCard variant={loading ? "loading" : "empty"} title={loading ? "Loading routing tiers" : "No routed calls yet"} />
             )}
-          </section>
-          <section className="rounded-lg border bg-white p-4">
-            <h2 className="mb-2 font-semibold">SLA Severity by Org</h2>
+          </SectionShell>
+
+          <SectionShell className="surface-panel space-y-3">
+            <SectionHeading title="SLA severity by org" description="Current SLA severity ranking for tenant environments." />
             {dashboard?.slaSeverityByOrg?.length ? (
               <div className="max-h-64 space-y-1 overflow-auto text-sm">
                 {dashboard.slaSeverityByOrg.map((row) => (
-                  <div key={row.orgId} className="flex items-center justify-between rounded border px-2 py-1">
+                  <div key={row.orgId} className="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1">
                     <span>{row.orgName}</span>
                     <span className="font-medium">{row.severity}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">{loading ? "Loading..." : "No organizations found."}</p>
+              <StateCard variant={loading ? "loading" : "empty"} title={loading ? "Loading organizations" : "No organizations found"} />
             )}
-          </section>
+          </SectionShell>
         </div>
 
-        <section className="mt-4 rounded-lg border bg-white p-4">
-          <h2 className="mb-2 font-semibold">Scale Readiness Snapshot</h2>
+        <SectionShell className="surface-panel space-y-4">
+          <SectionHeading title="Scale readiness snapshot" description="Aggregated reliability metrics used in go/no-go decisions." />
           {readiness ? (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded border p-2 text-sm">
-                <p className="text-xs text-muted-foreground">Webhook Success</p>
-                <p className="font-medium">{pct(readiness.webhookSuccessRate)}</p>
-              </div>
-              <div className="rounded border p-2 text-sm">
-                <p className="text-xs text-muted-foreground">Lead Linkage</p>
-                <p className="font-medium">{pct(readiness.leadLinkageRate)}</p>
-              </div>
-              <div className="rounded border p-2 text-sm">
-                <p className="text-xs text-muted-foreground">Avg Call Quality</p>
-                <p className="font-medium">{Math.round(readiness.avgCallQuality)}</p>
-              </div>
-              <div className="rounded border p-2 text-sm">
-                <p className="text-xs text-muted-foreground">P1 Incidents (30d)</p>
-                <p className="font-medium">{readiness.P1IncidentCountLast30d}</p>
-              </div>
-              <div className="rounded border p-2 text-sm">
-                <p className="text-xs text-muted-foreground">SLA WARN</p>
-                <p className="font-medium">{readiness.SLAStatusDistribution.WARN}</p>
-              </div>
-              <div className="rounded border p-2 text-sm">
-                <p className="text-xs text-muted-foreground">SLA CRITICAL</p>
-                <p className="font-medium">{readiness.SLAStatusDistribution.CRITICAL}</p>
-              </div>
+              <div className="rounded border border-slate-200 bg-white p-2 text-sm"><p className="text-xs text-slate-500">Webhook Success</p><p className="font-medium">{pct(readiness.webhookSuccessRate)}</p></div>
+              <div className="rounded border border-slate-200 bg-white p-2 text-sm"><p className="text-xs text-slate-500">Lead Linkage</p><p className="font-medium">{pct(readiness.leadLinkageRate)}</p></div>
+              <div className="rounded border border-slate-200 bg-white p-2 text-sm"><p className="text-xs text-slate-500">Avg Call Quality</p><p className="font-medium">{Math.round(readiness.avgCallQuality)}</p></div>
+              <div className="rounded border border-slate-200 bg-white p-2 text-sm"><p className="text-xs text-slate-500">P1 Incidents (30d)</p><p className="font-medium">{readiness.P1IncidentCountLast30d}</p></div>
+              <div className="rounded border border-slate-200 bg-white p-2 text-sm"><p className="text-xs text-slate-500">SLA WARN</p><p className="font-medium">{readiness.SLAStatusDistribution.WARN}</p></div>
+              <div className="rounded border border-slate-200 bg-white p-2 text-sm"><p className="text-xs text-slate-500">SLA CRITICAL</p><p className="font-medium">{readiness.SLAStatusDistribution.CRITICAL}</p></div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">{loading ? "Loading..." : "Readiness data unavailable."}</p>
+            <StateCard variant={loading ? "loading" : "empty"} title={loading ? "Loading readiness metrics" : "Readiness data unavailable"} />
           )}
-        </section>
-        <section className="mt-4 rounded-lg border bg-white p-4">
-          <h2 className="mb-2 font-semibold">Scale Gate</h2>
+        </SectionShell>
+
+        <SectionShell className="surface-panel space-y-3">
+          <SectionHeading title="Scale gate" description="Final gate result and failing criteria for expansion decisions." />
           {scaleGate ? (
             <div className="space-y-2 text-sm">
-              <p>
-                Result: <span className="font-semibold">{scaleGate.result}</span> | Evaluated:{" "}
-                {new Date(scaleGate.evaluationTimestamp).toLocaleString()}
-              </p>
-              <p>
-                Cooldown:{" "}
-                <span className="font-medium">
-                  {scaleGate.cooldown.required ? `${scaleGate.cooldown.status} (required)` : "Not required"}
-                </span>
-              </p>
-              <p>
-                Exposure thresholds: org {pct(scaleGate.exposure.thresholds.orgExposureThreshold)} / traffic{" "}
-                {pct(scaleGate.exposure.thresholds.trafficExposureThreshold)}
-              </p>
+              <p>Result: <span className="font-semibold">{scaleGate.result}</span> | Evaluated: {new Date(scaleGate.evaluationTimestamp).toLocaleString()}</p>
+              <p>Cooldown: <span className="font-medium">{scaleGate.cooldown.required ? `${scaleGate.cooldown.status} (required)` : "Not required"}</span></p>
+              <p>Exposure thresholds: org {pct(scaleGate.exposure.thresholds.orgExposureThreshold)} / traffic {pct(scaleGate.exposure.thresholds.trafficExposureThreshold)}</p>
               {scaleGate.failingCriteria.length ? (
                 <div>
                   <p className="font-medium">Failing criteria</p>
@@ -341,10 +230,10 @@ export default function AdminSystemPage() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">{loading ? "Loading..." : "Scale gate unavailable."}</p>
+            <StateCard variant={loading ? "loading" : "empty"} title={loading ? "Loading scale gate" : "Scale gate unavailable"} />
           )}
-        </section>
-      </div>
+        </SectionShell>
+      </PageShell>
     </AdminGuard>
   );
 }
