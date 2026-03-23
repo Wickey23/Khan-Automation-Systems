@@ -78,6 +78,13 @@ function itemAgeHours(createdAt: string) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 3_600_000);
 }
 
+function operationLabel(eventType?: string | null) {
+  if (!eventType) return "System event";
+  return eventType
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default function AppOverviewPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -185,6 +192,7 @@ export default function AppOverviewPage() {
     const overdueUnassigned = overdueFollowUps.filter((item) => !item.task?.assignedToUserId).length;
     return { mine, unassigned, overdueMine, overdueUnassigned };
   }, [overdueFollowUps, state.followUps, state.meId]);
+  const liveActivityItems = useMemo(() => state.operations.slice(0, 3), [state.operations]);
   const atRiskSnapshot = useMemo(() => {
     const overdueUnassigned = state.followUps.filter((item) => {
       const overdue = Boolean(item.task?.dueAt && new Date(item.task.dueAt).getTime() < Date.now());
@@ -404,6 +412,56 @@ export default function AppOverviewPage() {
               <Link
                 href={buildWorkflowHref("/app/insights", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
                 className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition-colors hover:bg-slate-100"
+              >
+                View full audit log
+              </Link>
+            </div>
+          </div>
+
+          <div className="mb-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="text-3xl font-semibold tracking-tight text-slate-900">Efficiency Analysis</h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  System performance is currently optimized for this shift. Queue pressure and active throughput are within target limits.
+                </p>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  System stable
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-900 bg-slate-950 p-5 text-white">
+                <h3 className="text-3xl font-semibold tracking-tight">Priority Shift</h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                  Focus operators on unresolved approvals and high-attention entities to reduce escalation carry-over.
+                </p>
+                <Link
+                  href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
+                  className="mt-4 inline-flex items-center border-b border-slate-600 pb-1 text-sm font-semibold text-white"
+                >
+                  Redirect Resources
+                </Link>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Live Activity</h3>
+              <div className="mt-3 space-y-3">
+                {liveActivityItems.length ? (
+                  liveActivityItems.map((event) => (
+                    <div key={event.id} className="flex gap-3">
+                      <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border border-emerald-500 bg-emerald-100" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{operationLabel(event.eventType)}</p>
+                        <p className="text-xs text-slate-500">{formatRelative(event.createdAt)}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500">No recent activity yet.</p>
+                )}
+              </div>
+              <Link
+                href={buildWorkflowHref("/app/insights", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
+                className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition-colors hover:bg-slate-100"
               >
                 View full audit log
               </Link>

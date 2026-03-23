@@ -9,6 +9,7 @@ import {
   Bell,
   BrainCircuit,
   Calendar,
+  CircleHelp,
   ClipboardCheck,
   ConciergeBell,
   CreditCard,
@@ -50,15 +51,15 @@ const navItems: Array<{
   comingSoon?: boolean;
 }> = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/app/activation", label: "Activation", icon: Shield, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
-  { href: "/app/calls", label: "Calls", icon: PhoneCall },
-  { href: "/app/leads", label: "Leads", icon: Users },
-  { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
-  { href: "/app/messages", label: "Messages", icon: MessageSquare },
   { href: "/app/attention", label: "Attention", icon: AlertTriangle, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/approvals", label: "Approvals", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/follow-up", label: "Follow-up", icon: ClipboardCheck, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/calls", label: "Calls", icon: PhoneCall },
+  { href: "/app/leads", label: "Leads", icon: Users },
+  { href: "/app/messages", label: "Messages", icon: MessageSquare },
   { href: "/app/insights", label: "Insights", icon: BrainCircuit, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
+  { href: "/app/appointments", label: "Appointments", icon: Calendar, requiredPlan: "STARTER", requiredFeature: "appointmentsEnabled" },
+  { href: "/app/activation", label: "Activation", icon: Shield, requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/outreach", label: "Outreach", icon: Rocket, comingSoon: true },
   { href: "/app/team", label: "Team", icon: Users, requiredPlan: "PRO", requiredRoles: ["CLIENT_ADMIN", "CLIENT_STAFF"] },
   { href: "/app/billing", label: "Billing", icon: CreditCard, requiredRoles: ["CLIENT_ADMIN"] },
@@ -397,7 +398,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
                   </button>
                   <button className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
-                    <MessageSquare className="h-5 w-5" />
+                    <CircleHelp className="h-5 w-5" />
                   </button>
                   <div className="hidden h-8 w-px bg-slate-200 sm:block" />
                   <div className="hidden items-center gap-3 sm:flex">
