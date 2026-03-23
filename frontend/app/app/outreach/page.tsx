@@ -21,7 +21,7 @@ const launchBlocks = [
   },
   {
     title: "Performance Analytics",
-    desc: "Track delivery, open, and call metrics during the monitored rollout before Opening this capability to every tenant.",
+    desc: "Track delivery, open, and call metrics during the monitored rollout before opening this capability to every tenant.",
     icon: BarChart3,
     color: "bg-blue-100 text-blue-600"
   }
@@ -32,6 +32,12 @@ const releaseChecks = [
   "Transcript and summary capture must survive voicemail, pickup, and transfer flows without loss.",
   "Delivery results must sync cleanly before elevated automation touches live customers."
 ];
+
+const rolloutPhases = [
+  { label: "Phase 1", title: "Internal shadow mode", detail: "Ops-only runs validate event capture, retries, and transcript consistency." },
+  { label: "Phase 2", title: "Limited tenant pilot", detail: "Approved orgs run monitored campaigns with strict send windows and review loops." },
+  { label: "Phase 3", title: "General availability", detail: "Feature unlocks broadly once reliability and analytics thresholds hold." }
+] as const;
 
 export default function AppOutreachPage() {
   return (
@@ -58,7 +64,7 @@ export default function AppOutreachPage() {
         <div className="text-center">
           <div className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
             <Rocket className="h-4 w-4" />
-            <span>Limited release · monitored rollout</span>
+            <span>Limited release - monitored rollout</span>
           </div>
           <h1 className="mt-6 text-5xl font-black leading-tight text-slate-900">
             Automate outbound follow-up
@@ -79,6 +85,16 @@ export default function AppOutreachPage() {
               </div>
               <h3 className="text-lg font-bold text-slate-900">{feature.title}</h3>
               <p className="mt-3 text-sm text-slate-500">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          {rolloutPhases.map((phase) => (
+            <div key={phase.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{phase.label}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{phase.title}</p>
+              <p className="mt-1 text-xs text-slate-600">{phase.detail}</p>
             </div>
           ))}
         </div>
