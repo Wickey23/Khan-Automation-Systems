@@ -131,6 +131,7 @@ export default function ApprovalsPage() {
     previousIds: string[];
   } | null>(null);
   const hasAppliedDeepLinkScroll = useRef(false);
+  const visibleApprovalIdsRef = useRef<string[]>([]);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -190,10 +191,10 @@ export default function ApprovalsPage() {
     return "";
   }
 
-  async function decide(approvalRequestId: string, mode: "approve" | "reject", approveMode?: "SEND_NOW" | "APPROVE_ONLY") {
+  const decide = useCallback(async (approvalRequestId: string, mode: "approve" | "reject", approveMode?: "SEND_NOW" | "APPROVE_ONLY") => {
     if (actionBusyId) return;
     setActionBusyId(approvalRequestId);
-    const previousIds = visibleApprovals.map((item) => item.id);
+    const previousIds = visibleApprovalIdsRef.current;
     try {
       if (mode === "approve") {
         const edit = draftEdits[approvalRequestId];
@@ -217,12 +218,12 @@ export default function ApprovalsPage() {
     } finally {
       setActionBusyId(null);
     }
-  }
+  }, [actionBusyId, draftEdits, load]);
 
-  async function retrySend(approvalRequestId: string) {
+  const retrySend = useCallback(async (approvalRequestId: string) => {
     if (actionBusyId) return;
     setActionBusyId(approvalRequestId);
-    const previousIds = visibleApprovals.map((item) => item.id);
+    const previousIds = visibleApprovalIdsRef.current;
     try {
       await retryAiApprovalSend(approvalRequestId);
       markDailyReviewDirty("retry_send");
@@ -237,7 +238,7 @@ export default function ApprovalsPage() {
     } finally {
       setActionBusyId(null);
     }
-  }
+  }, [actionBusyId, load]);
 
   const sortedApprovals = useMemo(
     () =>
@@ -260,6 +261,9 @@ export default function ApprovalsPage() {
       }),
     [focusFilter, sortedApprovals]
   );
+  useEffect(() => {
+    visibleApprovalIdsRef.current = visibleApprovals.map((item) => item.id);
+  }, [visibleApprovals]);
 
   useEffect(() => {
     if (!pendingFocusUpdate) return;

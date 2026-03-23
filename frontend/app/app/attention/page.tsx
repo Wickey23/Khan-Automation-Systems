@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RefreshCcw } from "lucide-react";
 import { fetchAttentionQueue, fetchFollowUpQueue, getMe, retryAiApprovalSend } from "@/lib/api";
@@ -92,6 +92,7 @@ export default function AttentionPage() {
     actedId: string;
     previousIds: string[];
   } | null>(null);
+  const visibleItemKeysRef = useRef<string[]>([]);
 
   const [levelFilter, setLevelFilter] = useState<AttentionLevel | "all">(parseFilterValue(searchParams.get("level"), ["all", "LOW", "MEDIUM", "HIGH", "CRITICAL"] as const, "all"));
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>(parseFilterValue(searchParams.get("entity"), ["all", "call", "lead", "message_thread"] as const, "all"));
@@ -138,7 +139,7 @@ export default function AttentionPage() {
     };
   }, [hasNarrowFilter, items.length, levelFilter, riskFilter]);
 
-  async function loadAttention() {
+  const loadAttention = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
@@ -152,7 +153,7 @@ export default function AttentionPage() {
     } finally {
       setBusy(false);
     }
-  }
+  }, [levelFilter]);
 
   async function loadOwnershipContext() {
     try {
@@ -254,6 +255,28 @@ export default function AttentionPage() {
     () => visibleItems.find((item) => `${item.entityType}:${item.entityId}` === previewKey) || null,
     [previewKey, visibleItems]
   );
+  const onRetrySend = useCallback(async (item: AttentionQueueItem) => {
+    if (!item.approvalContext.latestApprovalId || !item.approvalContext.retryable) return;
+    const previousIds = visibleItemKeysRef.current;
+    const actedId = `${item.entityType}:${item.entityId}`;
+    setActionBusyId(item.entityType + item.entityId);
+    setError(null);
+    try {
+      await retryAiApprovalSend(item.approvalContext.latestApprovalId);
+      markDailyReviewDirty("retry_send");
+      await loadAttention();
+      setPendingFocusUpdate({
+        actionLabel: "Attention item updated",
+        actedId,
+        previousIds
+      });
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "Failed to retry send.");
+    } finally {
+      setActionBusyId(null);
+    }
+  }, [loadAttention]);
+
   const attentionRows = useMemo(
     () =>
       visibleItems.map((item) => {
@@ -312,6 +335,9 @@ export default function AttentionPage() {
   );
   const triage = useQueueTriageEnrichment(previewItem?.entityType, previewItem?.entityId);
   const visibleItemKeys = useMemo(() => visibleItems.map((item) => `${item.entityType}:${item.entityId}`), [visibleItems]);
+  useEffect(() => {
+    visibleItemKeysRef.current = visibleItemKeys;
+  }, [visibleItemKeys]);
   const previewShortcutHints = useMemo(() => {
     if (!previewItem) return [] as Array<{ keys: string; label: string }>;
     const hints: Array<{ keys: string; label: string }> = [{ keys: "Enter", label: "Open entity" }];
@@ -347,28 +373,6 @@ export default function AttentionPage() {
       }
     ]
   });
-
-  async function onRetrySend(item: AttentionQueueItem) {
-    if (!item.approvalContext.latestApprovalId || !item.approvalContext.retryable) return;
-    const previousIds = visibleItems.map((entry) => `${entry.entityType}:${entry.entityId}`);
-    const actedId = `${item.entityType}:${item.entityId}`;
-    setActionBusyId(item.entityType + item.entityId);
-    setError(null);
-    try {
-      await retryAiApprovalSend(item.approvalContext.latestApprovalId);
-      markDailyReviewDirty("retry_send");
-      await loadAttention();
-      setPendingFocusUpdate({
-        actionLabel: "Attention item updated",
-        actedId,
-        previousIds
-      });
-    } catch (retryError) {
-      setError(retryError instanceof Error ? retryError.message : "Failed to retry send.");
-    } finally {
-      setActionBusyId(null);
-    }
-  }
 
   useEffect(() => {
     if (!pendingFocusUpdate) return;

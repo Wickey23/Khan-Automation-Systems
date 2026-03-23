@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { executeAiTool, fetchFollowUpQueue, getMe, updateAiTask, updateFollowUpQueueItem } from "@/lib/api";
 import type { FollowUpQueueItem } from "@/lib/types";
@@ -99,7 +99,7 @@ export default function FollowUpPage() {
   } | null>(null);
   const hasAppliedDeepLinkScroll = useRef(false);
 
-  async function loadQueue() {
+  const loadQueue = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
@@ -111,11 +111,11 @@ export default function FollowUpPage() {
     } finally {
       setBusy(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadQueue();
-  }, []);
+  }, [loadQueue]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -320,6 +320,55 @@ export default function FollowUpPage() {
     return { all, mine, unassigned, overdueMine, overdueUnassigned, atRisk };
   }, [meId, queue]);
 
+  const performQueueAction = useCallback(async (item: FollowUpQueueItem, action: "done" | "open" | "assignMe" | "escalate") => {
+    if (action === "done") {
+      await updateFollowUpQueueItem(item.id, "DONE");
+      if (item.task?.id) await updateAiTask(item.task.id, { status: "DONE" });
+      return;
+    }
+    if (action === "open") {
+      await updateFollowUpQueueItem(item.id, "OPEN");
+      if (item.task?.id && item.task.status === "DONE") {
+        await updateAiTask(item.task.id, { status: "OPEN" });
+      }
+      return;
+    }
+    if (action === "assignMe") {
+      if (!item.task?.id || !meId) return;
+      await updateAiTask(item.task.id, { assignedToUserId: meId, status: "IN_PROGRESS" });
+      return;
+    }
+    if (!item.task?.id || !isItemOverdue(item)) return;
+    await executeAiTool({
+      toolKey: "escalate_overdue_item",
+      agentKey: "task_followup",
+      entityType: "task",
+      entityId: item.task.id,
+      input: { taskId: item.task.id }
+    });
+  }, [meId]);
+
+  const runQueueAction = useCallback(async (item: FollowUpQueueItem, action: "done" | "open" | "assignMe" | "escalate") => {
+    if (actionBusyId) return;
+    setActionBusyId(item.id);
+    setError(null);
+    const previousIds = visibleQueue.map((entry) => entry.id);
+    try {
+      await performQueueAction(item, action);
+      markDailyReviewDirty("follow_up");
+      await loadQueue();
+      setPendingFocusUpdate({
+        actionLabel: "Follow-up updated",
+        actedId: item.id,
+        previousIds
+      });
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Failed to update queue item.");
+    } finally {
+      setActionBusyId(null);
+    }
+  }, [actionBusyId, loadQueue, performQueueAction, visibleQueue]);
+
   const followUpRows = useMemo(
     () =>
       visibleQueue.map((item) => {
@@ -374,7 +423,7 @@ export default function FollowUpPage() {
           rowAriaLabel: `${item.task?.title || item.reason}. ${ownerLabel}.`
         };
       }),
-    [actionBusyId, localReturnTo, meId, visibleQueue]
+    [actionBusyId, localReturnTo, meId, runQueueAction, visibleQueue]
   );
 
   const followUpRiskItems = useMemo(
@@ -395,55 +444,6 @@ export default function FollowUpPage() {
     ],
     [ownershipSnapshot.atRisk, ownershipSnapshot.overdueUnassigned]
   );
-
-  async function performQueueAction(item: FollowUpQueueItem, action: "done" | "open" | "assignMe" | "escalate") {
-    if (action === "done") {
-      await updateFollowUpQueueItem(item.id, "DONE");
-      if (item.task?.id) await updateAiTask(item.task.id, { status: "DONE" });
-      return;
-    }
-    if (action === "open") {
-      await updateFollowUpQueueItem(item.id, "OPEN");
-      if (item.task?.id && item.task.status === "DONE") {
-        await updateAiTask(item.task.id, { status: "OPEN" });
-      }
-      return;
-    }
-    if (action === "assignMe") {
-      if (!item.task?.id || !meId) return;
-      await updateAiTask(item.task.id, { assignedToUserId: meId, status: "IN_PROGRESS" });
-      return;
-    }
-    if (!item.task?.id || !isItemOverdue(item)) return;
-    await executeAiTool({
-      toolKey: "escalate_overdue_item",
-      agentKey: "task_followup",
-      entityType: "task",
-      entityId: item.task.id,
-      input: { taskId: item.task.id }
-    });
-  }
-
-  async function runQueueAction(item: FollowUpQueueItem, action: "done" | "open" | "assignMe" | "escalate") {
-    if (actionBusyId) return;
-    setActionBusyId(item.id);
-    setError(null);
-    const previousIds = visibleQueue.map((entry) => entry.id);
-    try {
-      await performQueueAction(item, action);
-      markDailyReviewDirty("follow_up");
-      await loadQueue();
-      setPendingFocusUpdate({
-        actionLabel: "Follow-up updated",
-        actedId: item.id,
-        previousIds
-      });
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Failed to update queue item.");
-    } finally {
-      setActionBusyId(null);
-    }
-  }
 
   async function runBulkAction(action: "done" | "open" | "assignMe" | "escalate") {
     if (!selectedItems.length || bulkBusy) return;
