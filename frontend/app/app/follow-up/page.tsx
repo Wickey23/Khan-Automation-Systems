@@ -7,7 +7,7 @@ import type { FollowUpQueueItem } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueBulkActionBar, QueueSectionHeader, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
+import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueBulkActionBar, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
 import { markDailyReviewDirty } from "@/lib/review-loop";
 import { FOLLOW_UP_FILTER_LABELS } from "@/lib/operational-language";
@@ -510,7 +510,6 @@ export default function FollowUpPage() {
             <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
           ))}
         </div>
-        <SectionDisclosure title="Queue controls and shortcuts" storageKey="follow-up-controls-shortcuts" defaultCollapsed className="mb-3">
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -518,12 +517,7 @@ export default function FollowUpPage() {
               "at_risk",
               "mine",
               "unassigned",
-              "overdue_mine",
-              "overdue_unassigned",
-              "overdue",
-              "today",
-              "soon",
-              "assigned"
+              "overdue"
             ] as const
           ).map((entry) => (
             <button
@@ -538,81 +532,101 @@ export default function FollowUpPage() {
           <button
             type="button"
             className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-            onClick={async () => {
-              await executeAiTool({ toolKey: "build_callback_queue", agentKey: "task_followup", entityType: "organization", input: { limit: 30 } });
-              await loadQueue();
-            }}
+            onClick={() => void loadQueue()}
           >
-            Build callback queue
+            Refresh
           </button>
-          {visibleQueue.length ? (
-            <>
-              <button
-                type="button"
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-                onClick={() => setSelectedIds(visibleQueue.map((item) => item.id))}
-              >
-                Select visible
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-                disabled={!selectedIds.length}
-                onClick={() => setSelectedIds([])}
-              >
-                Clear selection
-              </button>
-            </>
-          ) : null}
         </div>
-        <QueueShortcutHint
-          summary="Shortcuts apply to the focused queue item."
-          items={[
-            { keys: "J / K", label: "Move focus" },
-            { keys: "Enter", label: "Open linked entity" },
-            { keys: "Alt+D", label: "Mark done / reopen" },
-            { keys: "Alt+A", label: "Assign to me (eligible)" },
-            { keys: "Alt+E", label: "Escalate overdue (eligible)" }
-          ]}
-        />
-        </SectionDisclosure>
-        <SectionDisclosure title="Ownership Snapshot" storageKey="follow-up-ownership-snapshot" defaultCollapsed className="mb-3">
-          <QueueSectionHeader
-            title="Ownership Snapshot"
-            description="Quick workload split from current follow-up queue."
-            actions={
-              <div className="flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">All {ownershipSnapshot.all}</span>
-                <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">Mine {ownershipSnapshot.mine}</span>
-                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">Unassigned {ownershipSnapshot.unassigned}</span>
-                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Overdue mine {ownershipSnapshot.overdueMine}</span>
-                <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">Overdue unassigned {ownershipSnapshot.overdueUnassigned}</span>
-                <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">At risk {ownershipSnapshot.atRisk}</span>
-              </div>
-            }
+        <SectionDisclosure title="Advanced controls and bulk tools" storageKey="follow-up-controls-shortcuts" defaultCollapsed className="mb-3">
+          <div className="mb-3 flex flex-wrap gap-2">
+            {(
+              [
+                "overdue_mine",
+                "overdue_unassigned",
+                "today",
+                "soon",
+                "assigned"
+              ] as const
+            ).map((entry) => (
+              <button
+                key={entry}
+                type="button"
+                onClick={() => setFilter(entry)}
+                className={`rounded-lg border px-3 py-1 text-xs font-semibold ${filter === entry ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600"}`}
+              >
+                {followUpFilterLabels[entry]}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+              onClick={async () => {
+                await executeAiTool({ toolKey: "build_callback_queue", agentKey: "task_followup", entityType: "organization", input: { limit: 30 } });
+                await loadQueue();
+              }}
+            >
+              Build callback queue
+            </button>
+            {visibleQueue.length ? (
+              <>
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+                  onClick={() => setSelectedIds(visibleQueue.map((item) => item.id))}
+                >
+                  Select visible
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+                  disabled={!selectedIds.length}
+                  onClick={() => setSelectedIds([])}
+                >
+                  Clear selection
+                </button>
+              </>
+            ) : null}
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
+            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">All {ownershipSnapshot.all}</span>
+            <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">Mine {ownershipSnapshot.mine}</span>
+            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">Unassigned {ownershipSnapshot.unassigned}</span>
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Overdue mine {ownershipSnapshot.overdueMine}</span>
+            <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">Overdue unassigned {ownershipSnapshot.overdueUnassigned}</span>
+            <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">At risk {ownershipSnapshot.atRisk}</span>
+          </div>
+          <QueueBulkActionBar
+            selectedCount={selectedIds.length}
+            onClear={() => setSelectedIds([])}
+            actions={[
+              { key: "bulk-done", label: bulkBusy ? "Working..." : "Mark done", disabled: bulkBusy, onClick: () => void runBulkAction("done") },
+              { key: "bulk-open", label: bulkBusy ? "Working..." : "Reopen", disabled: bulkBusy, onClick: () => void runBulkAction("open") },
+              {
+                key: "bulk-assign",
+                label: bulkBusy ? "Working..." : "Assign to me",
+                disabled: bulkBusy || !meId || !selectedItems.some((item) => item.task?.id),
+                onClick: () => void runBulkAction("assignMe")
+              },
+              {
+                key: "bulk-escalate",
+                label: bulkBusy ? "Working..." : "Escalate overdue",
+                tone: "warning",
+                disabled: bulkBusy || !selectedItems.some((item) => item.task?.id && isItemOverdue(item)),
+                onClick: () => void runBulkAction("escalate")
+              }
+            ]}
+          />
+          <QueueShortcutHint
+            summary="Shortcuts apply to the focused queue item."
+            items={[
+              { keys: "J / K", label: "Move focus" },
+              { keys: "Enter", label: "Open linked entity" },
+              { keys: "Alt+D", label: "Mark done / reopen" },
+              { keys: "Alt+A", label: "Assign to me (eligible)" },
+              { keys: "Alt+E", label: "Escalate overdue (eligible)" }
+            ]}
           />
         </SectionDisclosure>
-        <QueueBulkActionBar
-          selectedCount={selectedIds.length}
-          onClear={() => setSelectedIds([])}
-          actions={[
-            { key: "bulk-done", label: bulkBusy ? "Working..." : "Mark done", disabled: bulkBusy, onClick: () => void runBulkAction("done") },
-            { key: "bulk-open", label: bulkBusy ? "Working..." : "Reopen", disabled: bulkBusy, onClick: () => void runBulkAction("open") },
-            {
-              key: "bulk-assign",
-              label: bulkBusy ? "Working..." : "Assign to me",
-              disabled: bulkBusy || !meId || !selectedItems.some((item) => item.task?.id),
-              onClick: () => void runBulkAction("assignMe")
-            },
-            {
-              key: "bulk-escalate",
-              label: bulkBusy ? "Working..." : "Escalate overdue",
-              tone: "warning",
-              disabled: bulkBusy || !selectedItems.some((item) => item.task?.id && isItemOverdue(item)),
-              onClick: () => void runBulkAction("escalate")
-            }
-          ]}
-        />
         {busy ? <QueueSurfaceStateCard kind="loading" message="Loading follow-up items..." /> : null}
 
         {!busy && error ? <QueueSurfaceStateCard kind="error" message={error} /> : null}
@@ -702,7 +716,7 @@ export default function FollowUpPage() {
                           : triage.recentEvents.length
                             ? triage.recentEvents
                                 .slice(0, 4)
-                                .map((event) => `${event.label} · ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
+                                .map((event) => `${event.label} - ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
                                 .join(" | ")
                             : "No recent events."}
                       </p>
@@ -828,3 +842,5 @@ export default function FollowUpPage() {
     </PageShell>
   );
 }
+
+
