@@ -532,24 +532,46 @@ export default function ApprovalsPage() {
             <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
           ))}
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="mb-2">
-            <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-          </div>
-          <SectionDisclosure title="Queue controls and shortcuts" storageKey="approvals-controls-shortcuts" defaultCollapsed className="mb-2">
-            <QueueShortcutHint
-              summary="Use row focus to review and act faster."
-              items={[
-                { keys: "J / K", label: "Move focus" },
-                { keys: "Enter", label: "Open related entity" },
-                { keys: "Alt+S", label: "Approve & send" },
-                { keys: "Alt+O", label: "Approve only" },
-                { keys: "Alt+X", label: "Reject" },
-                { keys: "Alt+R", label: "Retry send (eligible)" }
-              ]}
-            />
-          </SectionDisclosure>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-2">
+          <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(
+            [
+              { key: "all", label: APPROVAL_FOCUS_LABELS.all },
+              { key: "needs_review", label: APPROVAL_FOCUS_LABELS.needs_review },
+              { key: "needs_retry", label: APPROVAL_FOCUS_LABELS.needs_retry }
+            ] as Array<{ key: ApprovalFocusFilter; label: string }>
+          ).map((entry) => (
+            <Link
+              key={entry.key}
+              href={buildWorkflowHref(
+                entry.key === "all"
+                  ? statusFilter
+                    ? `/app/approvals?status=${encodeURIComponent(statusFilter)}`
+                    : "/app/approvals"
+                  : statusFilter
+                    ? `/app/approvals?status=${encodeURIComponent(statusFilter)}&focus=${entry.key}`
+                    : `/app/approvals?focus=${entry.key}`,
+                { source, returnTo, returnLabel }
+              )}
+              className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                focusFilter === entry.key ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"
+              }`}
+            >
+              {entry.label}
+            </Link>
+          ))}
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600"
+          >
+            Refresh
+          </button>
+        </div>
+        <SectionDisclosure title="Advanced filters and shortcuts" storageKey="approvals-controls-shortcuts" defaultCollapsed className="mb-2">
+          <div className="mb-3 flex flex-wrap gap-2">
             {(["", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
               <Link
                 key={status || "ALL"}
@@ -558,14 +580,11 @@ export default function ApprovalsPage() {
                   (status || "") === statusFilter ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"
                 }`}
               >
-                {status ? formatApprovalStatusLabel(status) : "All"}
+                {status ? formatApprovalStatusLabel(status) : "All statuses"}
               </Link>
             ))}
             {(
               [
-                { key: "all", label: APPROVAL_FOCUS_LABELS.all },
-                { key: "needs_review", label: APPROVAL_FOCUS_LABELS.needs_review },
-                { key: "needs_retry", label: APPROVAL_FOCUS_LABELS.needs_retry },
                 { key: "in_delivery", label: APPROVAL_FOCUS_LABELS.in_delivery },
                 { key: "completed", label: APPROVAL_FOCUS_LABELS.completed }
               ] as Array<{ key: ApprovalFocusFilter; label: string }>
@@ -573,13 +592,9 @@ export default function ApprovalsPage() {
               <Link
                 key={entry.key}
                 href={buildWorkflowHref(
-                  entry.key === "all"
-                    ? statusFilter
-                      ? `/app/approvals?status=${encodeURIComponent(statusFilter)}`
-                      : "/app/approvals"
-                    : statusFilter
-                      ? `/app/approvals?status=${encodeURIComponent(statusFilter)}&focus=${entry.key}`
-                      : `/app/approvals?focus=${entry.key}`,
+                  statusFilter
+                    ? `/app/approvals?status=${encodeURIComponent(statusFilter)}&focus=${entry.key}`
+                    : `/app/approvals?focus=${entry.key}`,
                   { source, returnTo, returnLabel }
                 )}
                 className={`rounded-md border px-2 py-1 text-xs font-semibold ${
@@ -590,7 +605,18 @@ export default function ApprovalsPage() {
               </Link>
             ))}
           </div>
-        </div>
+          <QueueShortcutHint
+            summary="Use row focus to review and act faster."
+            items={[
+              { keys: "J / K", label: "Move focus" },
+              { keys: "Enter", label: "Open related entity" },
+              { keys: "Alt+S", label: "Approve & send" },
+              { keys: "Alt+O", label: "Approve only" },
+              { keys: "Alt+X", label: "Reject" },
+              { keys: "Alt+R", label: "Retry send (eligible)" }
+            ]}
+          />
+        </SectionDisclosure>
       </SectionShell>
 
       <SectionShell>
