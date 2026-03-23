@@ -5,8 +5,10 @@ export const opsTone = {
   textPrimary: "text-slate-900",
   textSecondary: "text-slate-600",
   textTertiary: "text-slate-500",
-  actionPrimary: "border border-slate-900 bg-slate-900 text-white hover:bg-slate-800",
-  actionSecondary: "border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100"
+  actionPrimary:
+    "border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+  actionSecondary:
+    "border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
 } as const;
 
 export type OpsPriority = "critical" | "high" | "medium" | "low";

@@ -40,19 +40,19 @@ export function SectionDisclosure({
   const label = useMemo(() => (collapsed ? "Show details" : "Hide details"), [collapsed]);
 
   return (
-    <section className={cn("rounded-2xl border border-slate-200 bg-white", className)}>
+    <section className={cn("rounded-xl border border-slate-200 bg-white", className)}>
       <button
         type="button"
         onClick={() => setCollapsed((current) => !current)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
       >
-        <span className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-600">{title}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{title}</span>
         <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500">
           {label}
           <ChevronDown className={cn("h-4 w-4 transition-transform", collapsed ? "" : "rotate-180")} />
         </span>
       </button>
-      {!collapsed ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
+      {!collapsed ? <div className="border-t border-slate-200 p-3">{children}</div> : null}
     </section>
   );
 }

@@ -33,6 +33,7 @@ import { clientBadgeClass } from "@/lib/client-badges";
 import { RELEASE_TAG } from "@/lib/release-tag";
 import { cn } from "@/lib/utils";
 import type { AccessFeatureKey, AccessStatus, AuthUser, OrgAccessSummary } from "@/lib/types";
+import { SectionDisclosure } from "@/components/ops";
 
 type PlanTier = "STARTER" | "PRO" | null;
 type ClientRole = AuthUser["role"];
@@ -287,6 +288,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       remainingChecks
     };
   }, [accessSummary]);
+  const hasWorkspaceNotice = Boolean(modeBanner || activationBanner || accessWarning || (!modeBanner && workspaceLive));
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
@@ -343,9 +345,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     children: (
       <AccessSummaryProvider value={accessSummary}>
         <div className="relative flex h-screen overflow-hidden bg-slate-100">
-          <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-100 xl:flex">
+          <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 flex-col border-r border-slate-200 bg-slate-100 xl:flex">
             <div className="flex min-h-0 flex-1 flex-col gap-6 p-6">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-center gap-3">
                   <div className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700">
                     <ConciergeBell className="h-5 w-5" />
@@ -357,13 +359,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">{navItems.map(renderNavItem)}</nav>
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2">{navItems.map(renderNavItem)}</nav>
             </div>
 
-            <div className="border-t border-slate-200 p-6">
+            <div className="border-t border-slate-200 p-4">
               <Link
                 href="/app/appointments"
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
               >
                 <Calendar className="h-4 w-4" />
                 <span>New Booking</span>
@@ -372,7 +374,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <header className="sticky top-0 z-20 border-b border-slate-200 bg-slate-100 px-4 py-3 sm:px-6 lg:px-8">
+            <header className="sticky top-0 z-20 border-b border-slate-200 bg-slate-100 px-4 py-2.5 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-1 items-center gap-3">
                   <div className="relative w-full max-w-2xl">
@@ -433,7 +435,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 xl:hidden">
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:hidden">
                 {navItems.slice(0, 7).map((item) => {
                   const Icon = item.icon;
                   const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
@@ -457,26 +459,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </header>
 
             <main className="flex-1 overflow-y-auto">
-              <div className="px-4 py-6 sm:px-6 lg:px-8">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Operational Command</p>
-                    <h1 className="mt-1 text-xl font-bold text-slate-900">{pageLabel}</h1>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em]", liveBadge.classes)}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "animate-pulse bg-emerald-500" : "bg-amber-500")} />
+              <div className="px-4 py-4 sm:px-6 lg:px-8">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{pageLabel}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500" : "bg-amber-500")} />
                       {liveBadge.label}
                     </span>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-600">
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
                       {readinessSnapshot.totalFeatures > 0
-                        ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} features ready`
-                        : "Checking features"}
+                        ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} ready`
+                        : "checking"}
                     </span>
                   </div>
                 </div>
 
-                <div className="mb-4 space-y-3">
+                {hasWorkspaceNotice ? (
+                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="mb-3">
                   {modeBanner ? (
                     <div className="app-banner app-banner-primary">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -519,7 +519,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       </Link>
                     </div>
                   ) : null}
-                </div>
+                </SectionDisclosure>
+                ) : null}
                 {children}
               </div>
             </main>
