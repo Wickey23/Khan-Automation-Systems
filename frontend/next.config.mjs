@@ -1,5 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/app", permanent: false },
+      { source: "/dashboard/calls", destination: "/app/calls", permanent: false },
+      { source: "/dashboard/leads", destination: "/app/leads", permanent: false },
+      { source: "/dashboard/settings", destination: "/app/settings", permanent: false },
+      { source: "/dashboard/billing", destination: "/app/billing", permanent: false },
+      { source: "/dashboard/setup", destination: "/app/activation", permanent: false },
+      { source: "/dashboard/support", destination: "/app/insights", permanent: false },
+      { source: "/dashboard/:path*", destination: "/app", permanent: false }
+    ];
+  },
   async headers() {
     // Content-Security-Policy for production.
     // NOTE: 'unsafe-inline' on script-src is needed for Next.js inline scripts.
