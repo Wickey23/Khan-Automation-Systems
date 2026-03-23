@@ -70,10 +70,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#eef3fb]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-blue-200/25 via-transparent to-cyan-200/25" />
+    <div className="relative flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.14),transparent_58%),linear-gradient(180deg,#eef3fb_0%,#e7eef8_100%)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-r from-blue-200/25 via-transparent to-cyan-200/25" />
 
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col justify-between border-r border-white/65 bg-slate-950/95 p-6 text-slate-100 xl:flex">
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col justify-between border-r border-white/65 bg-[linear-gradient(180deg,rgba(2,6,23,0.98)_0%,rgba(15,23,42,0.98)_58%,rgba(2,6,23,0.98)_100%)] p-6 text-slate-100 xl:flex">
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
             <div className="flex items-center gap-3">
@@ -87,7 +87,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <nav className="space-y-1 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
+          <nav className="space-y-1 rounded-2xl border border-slate-800/80 bg-slate-900/72 p-3 shadow-[0_18px_36px_-26px_rgba(0,0,0,0.6)]">
             {navItems.map((item) => {
               const active = pathname === item.path || (item.path !== "/admin" && pathname.startsWith(`${item.path}/`));
               return (
@@ -97,7 +97,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   className={cn(
                     "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200",
                     active
-                      ? "border-sky-500/60 bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_14px_24px_-14px_rgba(14,116,214,0.85)]"
+                      ? "border-sky-500/60 bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_16px_26px_-14px_rgba(14,116,214,0.9)]"
                       : "border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/80 hover:text-white"
                   )}
                 >
@@ -128,7 +128,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-20 border-b border-white/60 bg-white/75 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-20 border-b border-white/60 bg-white/78 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
             <div className="relative w-full max-w-2xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -137,16 +137,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 readOnly
                 value=""
                 placeholder="Search orgs, calls, messages, or events..."
-                className="h-10 w-full rounded-xl border border-slate-200/80 bg-white/85 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500"
+                className="h-10 w-full rounded-xl border border-slate-200/80 bg-white/90 py-2 pl-10 pr-4 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none placeholder:text-slate-500"
               />
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <button className="relative rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700">
+              <button className="relative rounded-xl border border-slate-200/80 bg-white/90 p-2 text-slate-600 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.4)] transition-colors hover:bg-slate-100 hover:text-sky-700">
                 <Bell className="h-5 w-5" />
                 <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
               </button>
-              <button className="rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700">
+              <button className="rounded-xl border border-slate-200/80 bg-white/90 p-2 text-slate-600 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.4)] transition-colors hover:bg-slate-100 hover:text-sky-700">
                 <MessageSquare className="h-5 w-5" />
               </button>
               <div className="hidden h-8 w-px bg-slate-200 sm:block" />
@@ -157,7 +157,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     {user?.role === "SUPER_ADMIN" ? "Super Admin" : user?.role?.replaceAll("_", " ") || "Admin"}
                   </p>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-100 text-xs font-bold text-slate-700">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-100 text-xs font-bold text-slate-700 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.45)]">
                   {(user?.email?.[0] || "A").toUpperCase()}
                 </div>
               </div>
@@ -186,7 +186,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 overflow-y-auto">
           <div className="px-4 py-6 sm:px-6 lg:px-8">
-            <div className="mb-6 rounded-[28px] border border-slate-200/80 bg-gradient-to-r from-slate-950 to-slate-900 p-6 text-white shadow-[0_26px_50px_-30px_rgba(15,23,42,0.8)]">
+            <div className="mb-6 rounded-[28px] border border-slate-200/80 bg-[linear-gradient(135deg,#020617_0%,#0f172a_42%,#1e293b_100%)] p-6 text-white shadow-[0_28px_52px_-30px_rgba(15,23,42,0.82)]">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-sky-300">
