@@ -34,18 +34,9 @@ import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAccessSummary } from "@/context/access-summary";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import {
-  normalizeOperationalQuickActions,
-  normalizeOperationalSignals,
-  OperationalQuickActions,
-  OperationalRowSummary,
-  OperationalSummaryItem,
-  OperationalSignal,
-  OperationalSignalChips
-} from "@/components/queue/operational-row";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { CommandHeader } from "@/components/ops";
+import { ActionQueueTable, CommandHeader, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 const stateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type QueueState = (typeof stateFilters)[number];
@@ -93,32 +84,8 @@ function priorityLabel(priority: FrontDeskPriority | undefined) {
   return "Standard";
 }
 
-function formatDuration(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "00:00";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
-function formatDateLabel(value: string) {
-  const date = new Date(value);
-  const now = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === now.toDateString()) return date.toLocaleDateString([], { month: "short", day: "numeric" });
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
-}
-
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function nextAction(call: OrgCallRecord) {
-  if (call.frontDesk?.recommendedAction) return call.frontDesk.recommendedAction;
-  if (call.outcome === "APPOINTMENT_REQUEST") return "Review";
-  if (call.outcome === "MISSED" || call.outcome === "ABANDONED") return "Call Back";
-  return "Details";
 }
 
 function transcriptLines(call: OrgCallRecord) {
@@ -138,55 +105,6 @@ function quickActions(call: OrgCallRecord | null): Array<{ label: string; stage:
   return [
     { label: "Schedule appointment", stage: "NEEDS_SCHEDULING", tone: "default" },
     { label: "Mark resolved", stage: "COMPLETED", tone: "outline" }
-  ];
-}
-
-function hasFollowUpSignal(call: OrgCallRecord) {
-  return Boolean(call.frontDesk?.needsFollowUp || call.frontDesk?.followUpState === "needs_follow_up");
-}
-
-function callSignals(call: OrgCallRecord): OperationalSignal[] {
-  const signals: OperationalSignal[] = [];
-  if (call.frontDesk?.frontDeskPriority === "urgent" || call.outcome === "MISSED" || call.outcome === "ABANDONED") {
-    signals.push({ key: "needs_attention" });
-  }
-  if (hasFollowUpSignal(call)) {
-    signals.push({ key: "follow_up" });
-  }
-  if (call.recoverySmsThreadId) {
-    signals.push({ key: "inbox_linked" });
-  }
-  if (call.appointmentRequestId) {
-    signals.push({ key: "booking", label: "Booking context" });
-  }
-  return normalizeOperationalSignals(signals);
-}
-
-function callRowSummary(call: OrgCallRecord): OperationalSummaryItem[] {
-  const followUpValue =
-    call.frontDesk?.followUpState === "needs_follow_up"
-      ? "Open"
-      : call.frontDesk?.followUpState === "contacted"
-        ? "Contacted"
-        : call.frontDesk?.followUpState === "booked"
-          ? "Booked"
-          : "Closed";
-  const recoveryValue = call.recoverySmsSentAt ? (call.recoverySmsResponse ? "Replied" : "Sent") : "Not sent";
-  const bookingValue = call.appointmentRequestId || call.frontDesk?.appointmentRequested ? "Requested" : "None";
-  return [
-    {
-      key: "follow-up",
-      label: "Follow-up",
-      value: followUpValue,
-      tone: followUpValue === "Open" ? "warning" : followUpValue === "Booked" ? "success" : "default"
-    },
-    {
-      key: "recovery",
-      label: "Recovery",
-      value: recoveryValue,
-      tone: recoveryValue === "Sent" ? "warning" : recoveryValue === "Replied" ? "success" : "default"
-    },
-    { key: "booking", label: "Booking", value: bookingValue, tone: bookingValue === "Requested" ? "success" : "default" }
   ];
 }
 
@@ -287,6 +205,79 @@ export default function AppCallsPage() {
   const selectedCall = useMemo(
     () => visibleCalls.find((call) => call.id === selectedCallId) || calls.find((call) => call.id === selectedCallId) || visibleCalls[0] || calls[0] || null,
     [calls, selectedCallId, visibleCalls]
+  );
+  const callRows = useMemo(
+    () =>
+      visibleCalls.map((call) => {
+        const followUpState = call.frontDesk?.followUpState || "closed";
+        const queueStatus =
+          followUpState === "spam"
+            ? "blocked"
+            : followUpState === "needs_follow_up"
+              ? "pending"
+              : followUpState === "contacted"
+                ? "in_progress"
+                : "done";
+        return {
+          id: call.id,
+          item: `${callerName(call)} - ${formatTime(call.startedAt)}`,
+          owner: call.leadId ? "Linked lead" : "Auto queue",
+          due: followUpState === "needs_follow_up" ? "Now" : dueLabel(call.startedAt),
+          ageLabel: ageFromDate(call.startedAt),
+          severity: priorityToSeverity(call.frontDesk?.frontDeskPriority || call.outcome || "medium"),
+          status: statusToOperatorState(queueStatus),
+          primaryActionLabel: "Open",
+          onPrimaryAction: () => setSelectedCallId(call.id),
+          secondaryActions: [
+            {
+              label: "Open approvals",
+              href: buildWorkflowHref(`/app/approvals?status=PENDING&callId=${encodeURIComponent(call.id)}`, {
+                source: "calls",
+                returnTo: localReturnTo,
+                returnLabel: "Calls"
+              })
+            },
+            {
+              label: "Open follow-up",
+              href: buildWorkflowHref("/app/follow-up", { source: "calls", returnTo: localReturnTo, returnLabel: "Calls" })
+            },
+            ...(call.recoverySmsThreadId
+              ? [
+                  {
+                    label: "Open thread",
+                    href: buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId)}`, {
+                      source: "calls",
+                      returnTo: localReturnTo,
+                      returnLabel: "Calls"
+                    })
+                  }
+                ]
+              : [])
+          ],
+          detail: call.frontDesk?.summary || call.aiSummary || call.summary || dispositionLabel(call),
+          onRowSelect: () => setSelectedCallId(call.id),
+          onRowFocus: () => setSelectedCallId(call.id),
+          rowAriaLabel: `${callerName(call)}. ${dispositionLabel(call)}.`
+        };
+      }),
+    [localReturnTo, visibleCalls]
+  );
+  const callRiskItems = useMemo(
+    () => [
+      {
+        id: "needs-follow-up",
+        title: "Needs follow-up",
+        detail: `${visibleCalls.filter((call) => call.frontDesk?.followUpState === "needs_follow_up").length} calls require immediate follow-up.`,
+        level: "warning" as const
+      },
+      {
+        id: "missed-abandoned",
+        title: "Missed or abandoned",
+        detail: `${visibleCalls.filter((call) => call.outcome === "MISSED" || call.outcome === "ABANDONED").length} calls at callback risk.`,
+        level: "critical" as const
+      }
+    ],
+    [visibleCalls]
   );
   const { data: entityState, loading: entityStateBusy, error: entityStateError, refresh: refreshEntityState } = useEntityAiState(
     selectedCall ? "call" : undefined,
@@ -590,102 +581,20 @@ export default function AppCallsPage() {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <table className="w-full border-collapse text-left">
-                <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                  <tr>
-                    <th className="px-6 py-3">Time / Date</th>
-                    <th className="px-6 py-3">Duration</th>
-                    <th className="px-6 py-3">AI Summary</th>
-                    <th className="px-6 py-3">Intent</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {loading ? (
-                    <tr>
-                      <td className="px-6 py-10 text-sm text-slate-500" colSpan={5}>Loading reviewed calls...</td>
-                    </tr>
-                  ) : visibleCalls.length ? (
-                    visibleCalls.map((call) => (
-                      <tr
-                        key={call.id}
-                        onClick={() => setSelectedCallId(call.id)}
-                        className={cn(
-                          "cursor-pointer transition-colors hover:bg-slate-50",
-                          selectedCall?.id === call.id && "bg-primary/5"
-                        )}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="font-medium">{formatTime(call.startedAt)}</div>
-                          <div className="text-xs text-slate-400">{formatDateLabel(call.startedAt)}</div>
-                        </td>
-                        <td className="px-6 py-4 font-mono text-sm text-slate-600">{formatDuration(call.durationSec || 0)}</td>
-                        <td className="px-6 py-4">
-                          <p className="max-w-md line-clamp-2 text-sm">
-                            {call.frontDesk?.summary || call.aiSummary || call.summary || "No structured summary available yet."}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", dispositionTone(call))}>
-                              {dispositionLabel(call)}
-                            </span>
-                            <OperationalSignalChips signals={callSignals(call)} />
-                            <OperationalRowSummary items={callRowSummary(call)} />
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <OperationalQuickActions
-                            actions={normalizeOperationalQuickActions([
-                              {
-                                key: "open",
-                                onClick: () => setSelectedCallId(call.id)
-                              },
-                              {
-                                key: "approvals",
-                                href: buildWorkflowHref(`/app/approvals?status=PENDING&callId=${encodeURIComponent(call.id)}`, {
-                                  source: "calls",
-                                  returnTo: localReturnTo,
-                                  returnLabel: "Calls"
-                                })
-                              },
-                              {
-                                key: "follow_up",
-                                href: buildWorkflowHref("/app/follow-up", { source: "calls", returnTo: localReturnTo, returnLabel: "Calls" })
-                              },
-                              ...(call.recoverySmsThreadId
-                                ? [
-                                    {
-                                      key: "thread" as const,
-                                      href: buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId)}`, {
-                                        source: "calls",
-                                        returnTo: localReturnTo,
-                                        returnLabel: "Calls"
-                                      })
-                                    }
-                                  ]
-                                : [])
-                            ])}
-                          />
-                          <button className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-                            {nextAction(call)}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="px-6 py-6" colSpan={5}>
-                        <QueueEmptyState
-                          title="No calls match this filter"
-                          description="Try selecting All, or clear your search to load the full call queue."
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loading ? (
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading reviewed calls...</div>
+              ) : visibleCalls.length ? (
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                  <ActionQueueTable title="Reviewed Calls" rows={callRows} />
+                  <RiskRailCard title="Call Risk" items={callRiskItems} />
+                </div>
+              ) : (
+                <QueueEmptyState
+                  title="No calls match this filter"
+                  description="Try selecting All, or clear your search to load the full call queue."
+                />
+              )}
             </div>
           </section>
 
@@ -738,21 +647,20 @@ export default function AppCallsPage() {
                       refreshing={entityStateBusy}
                     />
 
-                    <div className="px-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secondary</p>
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      {relatedContext ? (
-                        <RelatedContextCard
-                          title="Related Context"
-                          description="Linked records and nearby operational state for this call."
-                          stats={relatedContext.stats}
-                          links={relatedContext.links}
-                          flags={relatedContext.flags}
-                        />
-                      ) : null}
-                      <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
-                    </div>
+                    <SectionDisclosure title="Secondary Operational Context" storageKey="calls-secondary-context" defaultCollapsed>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {relatedContext ? (
+                          <RelatedContextCard
+                            title="Related Context"
+                            description="Linked records and nearby operational state for this call."
+                            stats={relatedContext.stats}
+                            links={relatedContext.links}
+                            flags={relatedContext.flags}
+                          />
+                        ) : null}
+                        <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
+                      </div>
+                    </SectionDisclosure>
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
