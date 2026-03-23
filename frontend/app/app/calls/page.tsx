@@ -768,87 +768,89 @@ export default function AppCallsPage() {
                       </div>
                     </div>
 
-                    <div id="call-ai-workflow">
-                      <AiWorkflowActions
-                        title="Front Desk Workflow"
-                        description="Run call-specific AI actions with persisted results."
-                        agentKey="front_desk"
+                    <SectionDisclosure title="Deep Workflow Detail" storageKey="calls-deep-workflow-detail" defaultCollapsed>
+                      <div id="call-ai-workflow">
+                        <AiWorkflowActions
+                          title="Front Desk Workflow"
+                          description="Run call-specific AI actions with persisted results."
+                          agentKey="front_desk"
+                          entityType="call"
+                          entityId={selectedCall.id}
+                          actions={[
+                            { key: "summarize", label: "Summarize Call", toolKey: "summarize_call", buildInput: () => ({ callId: selectedCall.id }) },
+                            { key: "extract", label: "Extract Details", toolKey: "extract_call_details", buildInput: () => ({ callId: selectedCall.id }) },
+                            { key: "intent", label: "Classify Intent", toolKey: "classify_call_intent", buildInput: () => ({ callId: selectedCall.id }) },
+                            { key: "urgency", label: "Detect Urgency", toolKey: "detect_urgency", buildInput: () => ({ callId: selectedCall.id }) },
+                            { key: "action", label: "Suggest Action", toolKey: "suggest_front_desk_action", buildInput: () => ({ callId: selectedCall.id }) },
+                            { key: "callback", label: "Draft Callback", toolKey: "draft_callback", buildInput: () => ({ callId: selectedCall.id }) },
+                            {
+                              key: "task",
+                              label: "Create Follow-up Task",
+                              toolKey: "create_followup_task",
+                              buildInput: () => ({ title: `Follow up missed call ${selectedCall.fromNumber}`, description: "Generated from call workflow", priority: "HIGH" })
+                            },
+                            {
+                              key: "approval",
+                              label: "Queue Callback Approval",
+                              toolKey: "queue_sms",
+                              buildInput: () => ({ content: callAiState.callbackDraft || `Callback requested for ${selectedCall.fromNumber}` })
+                            }
+                          ]}
+                          onToolResult={(toolKey, payload) => {
+                            setCallAiState((current) => ({
+                              ...current,
+                              summary: toolKey === "summarize_call" ? String(payload?.summary || current.summary || "") : current.summary,
+                              intent: toolKey === "classify_call_intent" ? String(payload?.intent || current.intent || "") : current.intent,
+                              urgency: toolKey === "detect_urgency" ? String(payload?.urgency || current.urgency || "") : current.urgency,
+                              action: toolKey === "suggest_front_desk_action" ? String(payload?.action || current.action || "") : current.action,
+                              callbackDraft: toolKey === "draft_callback" ? String(payload?.draft || current.callbackDraft || "") : current.callbackDraft
+                            }));
+                            void refreshEntityState();
+                          }}
+                        />
+                      </div>
+                      {callAiState.callbackDraft ? (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                          <p className="mb-1 font-semibold text-slate-900">Callback draft</p>
+                          <p>{callAiState.callbackDraft}</p>
+                        </div>
+                      ) : null}
+                      <div className="px-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
+                      </div>
+                      <EntityTimelineCard
                         entityType="call"
                         entityId={selectedCall.id}
-                        actions={[
-                          { key: "summarize", label: "Summarize Call", toolKey: "summarize_call", buildInput: () => ({ callId: selectedCall.id }) },
-                          { key: "extract", label: "Extract Details", toolKey: "extract_call_details", buildInput: () => ({ callId: selectedCall.id }) },
-                          { key: "intent", label: "Classify Intent", toolKey: "classify_call_intent", buildInput: () => ({ callId: selectedCall.id }) },
-                          { key: "urgency", label: "Detect Urgency", toolKey: "detect_urgency", buildInput: () => ({ callId: selectedCall.id }) },
-                          { key: "action", label: "Suggest Action", toolKey: "suggest_front_desk_action", buildInput: () => ({ callId: selectedCall.id }) },
-                          { key: "callback", label: "Draft Callback", toolKey: "draft_callback", buildInput: () => ({ callId: selectedCall.id }) },
-                          {
-                            key: "task",
-                            label: "Create Follow-up Task",
-                            toolKey: "create_followup_task",
-                            buildInput: () => ({ title: `Follow up missed call ${selectedCall.fromNumber}`, description: "Generated from call workflow", priority: "HIGH" })
-                          },
-                          {
-                            key: "approval",
-                            label: "Queue Callback Approval",
-                            toolKey: "queue_sms",
-                            buildInput: () => ({ content: callAiState.callbackDraft || `Callback requested for ${selectedCall.fromNumber}` })
-                          }
-                        ]}
-                        onToolResult={(toolKey, payload) => {
-                          setCallAiState((current) => ({
-                            ...current,
-                            summary: toolKey === "summarize_call" ? String(payload?.summary || current.summary || "") : current.summary,
-                            intent: toolKey === "classify_call_intent" ? String(payload?.intent || current.intent || "") : current.intent,
-                            urgency: toolKey === "detect_urgency" ? String(payload?.urgency || current.urgency || "") : current.urgency,
-                            action: toolKey === "suggest_front_desk_action" ? String(payload?.action || current.action || "") : current.action,
-                            callbackDraft: toolKey === "draft_callback" ? String(payload?.draft || current.callbackDraft || "") : current.callbackDraft
-                          }));
-                          void refreshEntityState();
-                        }}
+                        timelineData={entityState}
+                        loading={entityStateBusy}
+                        error={entityStateError}
                       />
-                    </div>
-                    {callAiState.callbackDraft ? (
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
-                        <p className="mb-1 font-semibold text-slate-900">Callback draft</p>
-                        <p>{callAiState.callbackDraft}</p>
-                      </div>
-                    ) : null}
-                    <div className="px-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
-                    </div>
-                    <EntityTimelineCard
-                      entityType="call"
-                      entityId={selectedCall.id}
-                      timelineData={entityState}
-                      loading={entityStateBusy}
-                      error={entityStateError}
-                    />
 
-                    <div>
-                      <h4 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Call Transcript</h4>
-                      <div className="space-y-4 px-1">
-                        {transcriptLines(selectedCall).length ? (
-                          transcriptLines(selectedCall).map((line, index) => {
-                            const speaker = line.includes(":") ? line.split(":")[0]?.trim() : index % 2 === 0 ? callerName(selectedCall) : "AI";
-                            const text = line.includes(":") ? line.slice(line.indexOf(":") + 1).trim() : line;
-                            const ai = speaker.toUpperCase() === "AI";
-                            return (
-                              <div key={`${speaker}-${index}`} className="flex gap-3">
-                                <span className={cn("mt-1 w-16 shrink-0 text-[10px] font-bold uppercase", ai ? "text-primary" : "text-slate-400")}>
-                                  {speaker}:
-                                </span>
-                                <p className={cn("text-sm leading-relaxed", ai ? "text-slate-700" : "italic text-slate-600")}>
-                                  &ldquo;{text}&rdquo;
-                                </p>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-sm text-slate-500">No transcript available for this call.</p>
-                        )}
+                      <div>
+                        <h4 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Call Transcript</h4>
+                        <div className="space-y-4 px-1">
+                          {transcriptLines(selectedCall).length ? (
+                            transcriptLines(selectedCall).map((line, index) => {
+                              const speaker = line.includes(":") ? line.split(":")[0]?.trim() : index % 2 === 0 ? callerName(selectedCall) : "AI";
+                              const text = line.includes(":") ? line.slice(line.indexOf(":") + 1).trim() : line;
+                              const ai = speaker.toUpperCase() === "AI";
+                              return (
+                                <div key={`${speaker}-${index}`} className="flex gap-3">
+                                  <span className={cn("mt-1 w-16 shrink-0 text-[10px] font-bold uppercase", ai ? "text-primary" : "text-slate-400")}>
+                                    {speaker}:
+                                  </span>
+                                  <p className={cn("text-sm leading-relaxed", ai ? "text-slate-700" : "italic text-slate-600")}>
+                                    &ldquo;{text}&rdquo;
+                                  </p>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-sm text-slate-500">No transcript available for this call.</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </SectionDisclosure>
 
                     <div className="border-t border-slate-200 pt-8">
                       <h4 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">Quick Follow-up SMS</h4>
