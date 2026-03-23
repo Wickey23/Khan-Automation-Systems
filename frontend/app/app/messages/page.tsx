@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Archive,
@@ -21,17 +21,31 @@ import {
   Tag,
   Video
 } from "lucide-react";
-import { fetchOrgMessages, getMe, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
+import { fetchOrgMessages, getMe, retryAiApprovalSend, sendOrgMessage, updateLeadPipelineStage } from "@/lib/api";
 import type { OrgMessageThread } from "@/lib/types";
 import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { AiWorkflowActions } from "@/components/ai/workflow-actions";
 import { EntityTimelineCard } from "@/components/ai/entity-timeline-card";
+import { RecommendedNextActionPanel } from "@/components/ai/recommended-next-action-panel";
+import { RelatedContextCard } from "@/components/ai/related-context-card";
+import { RecentActivityCard } from "@/components/ai/recent-activity-card";
+import { useEntityAiState } from "@/lib/hooks/use-entity-ai-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAccessSummary } from "@/context/access-summary";
+import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
+import {
+  normalizeOperationalQuickActions,
+  normalizeOperationalSignals,
+  OperationalQuickActions,
+  OperationalRowSummary,
+  OperationalSummaryItem,
+  OperationalSignal,
+  OperationalSignalChips
+} from "@/components/queue/operational-row";
 
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -72,6 +86,14 @@ function threadStatus(thread: OrgMessageThread) {
   return "away";
 }
 
+function threadStatusLabel(thread: OrgMessageThread) {
+  const status = threadStatus(thread);
+  if (status === "online") return "Online";
+  if (status === "offline") return "Offline";
+  if (status === "active") return "Active";
+  return "Away";
+}
+
 function relativeTime(value: string) {
   const date = new Date(value);
   const diff = Date.now() - date.getTime();
@@ -90,20 +112,27 @@ function messageBadge(thread: OrgMessageThread) {
 }
 
 export default function AppMessagesPage() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const deepLinkedThreadId = searchParams.get("threadId") || "";
+  const source = searchParams.get("source") || "";
+  const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
+  const returnLabel = searchParams.get("returnLabel") || sourceToLabel(source);
+  const localReturnTo = useMemo(() => buildReturnTo(pathname, searchParams), [pathname, searchParams]);
   const accessSummary = useAccessSummary();
   const smsAccess = accessSummary?.features.sms;
   const shouldShowMessages = !smsAccess || smsAccess.status === "ready";
   const [threads, setThreads] = useState<OrgMessageThread[]>([]);
   const [selectedId, setSelectedId] = useState("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("q") || "");
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [savingStage, setSavingStage] = useState<PipelineStage | null>(null);
+  const [retryBusy, setRetryBusy] = useState(false);
   const [threadAiState, setThreadAiState] = useState<{
     summary?: string;
     classification?: string;
@@ -146,6 +175,16 @@ export default function AppMessagesPage() {
     };
   }, [load, shouldShowMessages]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedId) params.set("threadId", selectedId);
+    if (search.trim()) params.set("q", search.trim());
+    else params.delete("q");
+    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    const currentUrl = buildReturnTo(pathname, searchParams);
+    if (nextUrl !== currentUrl) router.replace(nextUrl, { scroll: false });
+  }, [pathname, router, search, searchParams, selectedId]);
+
   const filteredThreads = useMemo(() => {
     const term = search.trim().toLowerCase();
     return threads.filter((thread) => {
@@ -175,6 +214,11 @@ export default function AppMessagesPage() {
     }));
   }, [selectedThread]);
 
+  const { data: entityState, loading: entityStateBusy, error: entityStateError, refresh: refreshEntityState } = useEntityAiState(
+    selectedThread ? "message_thread" : undefined,
+    selectedThread?.id
+  );
+
   useEffect(() => {
     if (selectedThread) {
       setTo(selectedThread.contactPhone || "");
@@ -188,6 +232,7 @@ export default function AppMessagesPage() {
       await sendOrgMessage({ to: to.trim(), body: body.trim(), leadId: selectedThread.leadId || undefined });
       setBody("");
       await load();
+      await refreshEntityState();
     } finally {
       setSending(false);
     }
@@ -199,10 +244,168 @@ export default function AppMessagesPage() {
     try {
       await updateLeadPipelineStage(selectedThread.leadId, stage);
       await load();
+      await refreshEntityState();
     } finally {
       setSavingStage(null);
     }
   }
+
+  const latestApproval = useMemo(() => entityState?.approvals?.[0] || null, [entityState?.approvals]);
+  const pendingApproval = useMemo(() => entityState?.approvals?.find((item) => item.status === "PENDING") || null, [entityState?.approvals]);
+  const failedRetryableApproval = useMemo(
+    () => entityState?.approvals?.find((item) => item.deliveryStatus === "FAILED" && item.retryable) || null,
+    [entityState?.approvals]
+  );
+  const contextSnapshot = useMemo(() => entityState?.memory?.contextJson || {}, [entityState?.memory?.contextJson]);
+  const followUpHref = useMemo(() => {
+    const queueItemId = typeof contextSnapshot.latestFollowUpItemId === "string" ? contextSnapshot.latestFollowUpItemId : "";
+    const taskId = typeof contextSnapshot.latestTaskId === "string" ? contextSnapshot.latestTaskId : "";
+    if (queueItemId) return buildWorkflowHref(`/app/follow-up?queueItemId=${encodeURIComponent(queueItemId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" });
+    if (taskId) return buildWorkflowHref(`/app/follow-up?taskId=${encodeURIComponent(taskId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" });
+    return buildWorkflowHref("/app/follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" });
+  }, [contextSnapshot.latestFollowUpItemId, contextSnapshot.latestTaskId, localReturnTo]);
+  const approvalHref = useMemo(() => {
+    if (pendingApproval?.id) return buildWorkflowHref(`/app/approvals?approvalId=${encodeURIComponent(pendingApproval.id)}&status=PENDING`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" });
+    if (latestApproval?.id) return buildWorkflowHref(`/app/approvals?approvalId=${encodeURIComponent(latestApproval.id)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" });
+    return buildWorkflowHref("/app/approvals", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" });
+  }, [latestApproval?.id, localReturnTo, pendingApproval?.id]);
+
+  const onRetryFailedApproval = useCallback(async () => {
+    if (!failedRetryableApproval?.id || retryBusy) return;
+    setRetryBusy(true);
+    try {
+      await retryAiApprovalSend(failedRetryableApproval.id);
+      await refreshEntityState();
+    } finally {
+      setRetryBusy(false);
+    }
+  }, [failedRetryableApproval?.id, refreshEntityState, retryBusy]);
+
+  const recommendationActions = useMemo(() => {
+    const actions: Array<{
+      key: string;
+      label: string;
+      href?: string;
+      onClick?: () => void;
+      disabled?: boolean;
+      variant?: "default" | "outline";
+      tone?: "default" | "warning";
+    }> = [];
+    const blockedReasons = entityState?.recommendation?.blockedReasons || [];
+    const riskFlags = entityState?.operationalMemory?.riskFlags || [];
+    const outboundBlocked = entityState?.operationalMemory?.outboundBlocked || false;
+    const hasOpenFollowUp = (entityState?.operationalMemory?.taskSnapshot.openFollowUpCount || 0) > 0;
+    const noAiOutput = !entityState?.operationalMemory?.latestSummary && !entityState?.operationalMemory?.latestClassification;
+    const optOutDetected = outboundBlocked || blockedReasons.some((reason) => /dnc|opt[_\s-]?out/i.test(reason)) || riskFlags.some((flag) => /dnc|opt[_\s-]?out/i.test(flag));
+    const overdueFollowUp = riskFlags.some((flag) => /overdue/i.test(flag));
+
+    if (failedRetryableApproval?.id) {
+      actions.push({ key: "retry-send", label: retryBusy ? "Retrying send..." : "Retry failed send", onClick: () => void onRetryFailedApproval(), disabled: retryBusy, variant: "default", tone: "warning" });
+    }
+    if (pendingApproval?.id) {
+      actions.push({ key: "open-pending-approval", label: "Open pending approval", href: approvalHref, variant: "default" });
+    }
+    if (overdueFollowUp || hasOpenFollowUp) {
+      actions.push({ key: "open-follow-up", label: overdueFollowUp ? "Resolve overdue follow-up" : "Open follow-up", href: followUpHref, variant: "default" });
+    }
+    if (optOutDetected) {
+      actions.push({ key: "internal-review", label: "Review opt-out block", href: followUpHref, tone: "warning" });
+    } else if (!pendingApproval?.id) {
+      actions.push({ key: "queue-reply-approval", label: "Queue reply approval", href: "#message-ai-workflow", variant: "outline" });
+    }
+    if (selectedThread?.leadId) {
+      actions.push({ key: "open-lead", label: "Open linked lead", href: buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(selectedThread.leadId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" }) });
+    }
+    if (noAiOutput) {
+      actions.push({ key: "run-ai", label: "Run message AI workflow", href: "#message-ai-workflow", variant: "outline" });
+    }
+    if (!actions.length) {
+      actions.push({ key: "refresh-state", label: "Refresh recommendation state", onClick: () => void refreshEntityState() });
+    }
+    return actions;
+  }, [
+    approvalHref,
+    entityState?.operationalMemory?.latestClassification,
+    entityState?.operationalMemory?.latestSummary,
+    entityState?.operationalMemory?.outboundBlocked,
+    entityState?.operationalMemory?.riskFlags,
+    entityState?.operationalMemory?.taskSnapshot.openFollowUpCount,
+    entityState?.recommendation?.blockedReasons,
+    failedRetryableApproval?.id,
+    followUpHref,
+    refreshEntityState,
+    onRetryFailedApproval,
+    pendingApproval?.id,
+    retryBusy,
+    selectedThread?.leadId,
+    localReturnTo
+  ]);
+
+  const relatedContext = useMemo(() => {
+    if (!selectedThread) return null;
+    const stats = [
+      {
+        label: "Linked lead",
+        value: selectedThread.leadId ? "Linked" : "Not linked",
+        tone: selectedThread.leadId ? ("success" as const) : ("default" as const)
+      },
+      {
+        label: "Recent call",
+        value: selectedThread.latestCallId ? "Linked" : "None",
+        tone: selectedThread.latestCallId ? ("success" as const) : ("default" as const)
+      },
+      {
+        label: "Approval state",
+        value: pendingApproval ? "Pending review" : latestApproval?.deliveryStatus || latestApproval?.status || "None",
+        tone: pendingApproval ? ("warning" as const) : latestApproval?.deliveryStatus === "FAILED" ? ("critical" as const) : ("default" as const)
+      },
+      {
+        label: "Follow-up",
+        value: `${entityState?.operationalMemory?.taskSnapshot.openFollowUpCount || 0} open`,
+        tone: (entityState?.operationalMemory?.taskSnapshot.openFollowUpCount || 0) > 0 ? ("warning" as const) : ("default" as const)
+      }
+    ];
+    const links: Array<{ label: string; href: string }> = [];
+    if (selectedThread.leadId) {
+      links.push({
+        label: "Open linked lead",
+        href: buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(selectedThread.leadId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
+      });
+    }
+    if (selectedThread.latestCallId) {
+      links.push({
+        label: "Open recent call",
+        href: buildWorkflowHref(`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
+      });
+    }
+    if (selectedThread.latestAppointmentRequestId) {
+      links.push({
+        label: "Open booking request",
+        href: buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
+      });
+    }
+    links.push({ label: "Open approvals", href: approvalHref });
+    links.push({ label: "Open follow-up", href: followUpHref });
+    const dncLike = entityState?.operationalMemory?.outboundBlocked;
+    const flags = [
+      ...(dncLike ? [{ label: "Outbound blocked / DNC", tone: "critical" as const }] : []),
+      ...(threadAiState.optOut ? [{ label: "Opt-out detected", tone: "warning" as const }] : []),
+      ...(entityState?.attention?.attentionLevel ? [{ label: `Attention ${entityState.attention.attentionLevel}`, tone: entityState.attention.attentionLevel === "CRITICAL" ? ("critical" as const) : entityState.attention.attentionLevel === "HIGH" ? ("warning" as const) : ("default" as const) }] : [])
+    ];
+    return { stats, links, flags };
+  }, [
+    approvalHref,
+    entityState?.attention,
+    entityState?.operationalMemory?.outboundBlocked,
+    entityState?.operationalMemory?.taskSnapshot.openFollowUpCount,
+    followUpHref,
+    latestApproval?.deliveryStatus,
+    latestApproval?.status,
+    localReturnTo,
+    pendingApproval,
+    selectedThread,
+    threadAiState.optOut
+  ]);
 
   if (smsAccess && smsAccess.status !== "ready") {
     const cardVariant = smsAccess.status === "setup_required" ? "setup" : "locked";
@@ -235,17 +438,25 @@ export default function AppMessagesPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {returnTo ? (
+        <div className="app-banner app-banner-primary text-xs">
+          Opened from {returnLabel}.{" "}
+          <Link href={returnTo} className="font-semibold text-blue-700 underline">
+            Back to {returnLabel}
+          </Link>
+        </div>
+      ) : null}
       <AskAiInline
         page="messages"
         entityType={selectedThread ? "message_thread" : undefined}
         entityId={selectedThread?.id}
         defaultAgentKey="communications"
       />
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
+      <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
+      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
         <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/30">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Inbox className="h-[18px] w-[18px]" />
@@ -265,7 +476,7 @@ export default function AppMessagesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search conversations..."
-                className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-xs outline-none focus:border-primary"
+                className="h-9 w-full rounded-xl border border-slate-200 bg-white/95 pl-9 pr-4 text-xs outline-none focus:border-primary"
               />
             </div>
           </div>
@@ -297,11 +508,44 @@ export default function AppMessagesPage() {
                     <span className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest", messageBadge(thread))}>
                       {threadType(thread)}
                     </span>
+                    <OperationalSignalChips signals={threadSignals(thread)} />
+                  </div>
+                  <OperationalRowSummary items={threadRowSummary(thread)} />
+                  <div className="mt-2">
+                    <OperationalQuickActions
+                      actions={normalizeOperationalQuickActions([
+                        { key: "open", onClick: () => setSelectedId(thread.id) },
+                        {
+                          key: "approvals",
+                          href: buildWorkflowHref(`/app/approvals?status=PENDING&threadId=${encodeURIComponent(thread.id)}`, {
+                            source: "messages",
+                            returnTo: localReturnTo,
+                            returnLabel: "Messages"
+                          })
+                        },
+                        {
+                          key: "follow_up",
+                          href: buildWorkflowHref("/app/follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
+                        },
+                        ...(thread.leadId
+                          ? [
+                              {
+                                key: "lead" as const,
+                                href: buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(thread.leadId)}`, {
+                                  source: "messages",
+                                  returnTo: localReturnTo,
+                                  returnLabel: "Messages"
+                                })
+                              }
+                            ]
+                          : [])
+                      ])}
+                    />
                   </div>
                 </div>
               ))
             ) : (
-              <div className="px-6 py-8 text-sm text-slate-500">No threads match this search.</div>
+              <div className="px-6 py-8 text-sm text-slate-500">No threads match this search. Try another term or clear the query.</div>
             )}
           </div>
         </div>
@@ -328,44 +572,81 @@ export default function AppMessagesPage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-900">{displayName(selectedThread)}</h2>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{threadType(selectedThread)} - Active Now</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{threadType(selectedThread)} - {threadStatusLabel(selectedThread)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="rounded-xl border border-transparent p-2.5 text-slate-400 transition-all hover:border-slate-200 hover:bg-slate-100"><Phone className="h-4.5 w-4.5" /></button>
-                  <button className="rounded-xl border border-transparent p-2.5 text-slate-400 transition-all hover:border-slate-200 hover:bg-slate-100"><Video className="h-4.5 w-4.5" /></button>
+                  <button type="button" disabled title="Direct call not available in this release" className="cursor-not-allowed rounded-xl border border-transparent p-2.5 text-slate-300"><Phone className="h-4.5 w-4.5" /></button>
+                  <button type="button" disabled title="Video call not available in this release" className="cursor-not-allowed rounded-xl border border-transparent p-2.5 text-slate-300"><Video className="h-4.5 w-4.5" /></button>
                 </div>
               </header>
 
-              <div className="flex-1 overflow-y-auto bg-slate-50/20 p-8 space-y-6">
-                <AiWorkflowActions
-                  title="Communications Workflow"
-                  description="Classify thread, detect opt-outs, draft replies, and route follow-up."
-                  agentKey="communications"
-                  entityType="message_thread"
-                  entityId={selectedThread.id}
-                  actions={[
-                    { key: "summary", label: "Summarize Thread", toolKey: "summarize_thread", buildInput: () => ({ threadId: selectedThread.id }) },
-                    { key: "classify", label: "Classify Message", toolKey: "classify_message", buildInput: () => ({ threadId: selectedThread.id }) },
-                    { key: "optout", label: "Detect Opt-out", toolKey: "detect_opt_out", buildInput: () => ({ threadId: selectedThread.id }) },
-                    { key: "draft", label: "Draft Reply", toolKey: "draft_reply", buildInput: () => ({ threadId: selectedThread.id }) },
-                    { key: "route", label: "Route Thread", toolKey: "route_thread", buildInput: () => ({ threadId: selectedThread.id, routeTo: "unresolved-inbox" }) },
-                    { key: "status", label: "Mark Pending", toolKey: "mark_thread_status", buildInput: () => ({ threadId: selectedThread.id, status: "PENDING" }) },
-                    { key: "task", label: "Create Follow-up Task", toolKey: "create_message_followup_task", buildInput: () => ({ threadId: selectedThread.id }) },
-                    { key: "approval", label: "Queue Reply Approval", toolKey: "queue_sms", buildInput: () => ({ content: threadAiState.replyDraft || body }) }
-                  ]}
-                  onToolResult={(toolKey, payload) => {
-                    setThreadAiState((current) => ({
-                      ...current,
-                      summary: toolKey === "summarize_thread" ? String(payload?.summary || current.summary || "") : current.summary,
-                      classification:
-                        toolKey === "classify_message" ? String(payload?.classification || current.classification || "") : current.classification,
-                      nextAction: toolKey === "route_thread" ? `Routed to ${String(payload?.routeTo || "queue")}` : current.nextAction,
-                      replyDraft: toolKey === "draft_reply" ? String(payload?.draft || current.replyDraft || "") : current.replyDraft,
-                      optOut: toolKey === "detect_opt_out" ? Boolean(payload?.optedOut) : current.optOut
-                    }));
+              <div className="flex-1 space-y-6 overflow-y-auto bg-slate-50/20 p-8">
+                <div className="px-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary</p>
+                </div>
+                <RecommendedNextActionPanel
+                  title="Recommended Next Action"
+                  source={source}
+                  loading={entityStateBusy}
+                  error={entityStateError}
+                  recommendation={entityState?.recommendation || null}
+                  operationalMemory={entityState?.operationalMemory || null}
+                  attention={entityState?.attention || null}
+                  latestApproval={latestApproval}
+                  quickActions={recommendationActions}
+                  onRefresh={() => {
+                    if (!selectedThread?.id) return;
+                    void refreshEntityState();
                   }}
+                  refreshing={entityStateBusy}
                 />
+                <div id="message-ai-workflow">
+                  <AiWorkflowActions
+                    title="Communications Workflow"
+                    description="Classify thread, detect opt-outs, draft replies, and route follow-up."
+                    agentKey="communications"
+                    entityType="message_thread"
+                    entityId={selectedThread.id}
+                    actions={[
+                      { key: "summary", label: "Summarize Thread", toolKey: "summarize_thread", buildInput: () => ({ threadId: selectedThread.id }) },
+                      { key: "classify", label: "Classify Message", toolKey: "classify_message", buildInput: () => ({ threadId: selectedThread.id }) },
+                      { key: "optout", label: "Detect Opt-out", toolKey: "detect_opt_out", buildInput: () => ({ threadId: selectedThread.id }) },
+                      { key: "draft", label: "Draft Reply", toolKey: "draft_reply", buildInput: () => ({ threadId: selectedThread.id }) },
+                      { key: "route", label: "Route Thread", toolKey: "route_thread", buildInput: () => ({ threadId: selectedThread.id, routeTo: "unresolved-inbox" }) },
+                      { key: "status", label: "Mark Pending", toolKey: "mark_thread_status", buildInput: () => ({ threadId: selectedThread.id, status: "PENDING" }) },
+                      { key: "task", label: "Create Follow-up Task", toolKey: "create_message_followup_task", buildInput: () => ({ threadId: selectedThread.id }) },
+                      { key: "approval", label: "Queue Reply Approval", toolKey: "queue_sms", buildInput: () => ({ content: threadAiState.replyDraft || body }) }
+                    ]}
+                    onToolResult={(toolKey, payload) => {
+                      setThreadAiState((current) => ({
+                        ...current,
+                        summary: toolKey === "summarize_thread" ? String(payload?.summary || current.summary || "") : current.summary,
+                        classification:
+                          toolKey === "classify_message" ? String(payload?.classification || current.classification || "") : current.classification,
+                        nextAction: toolKey === "route_thread" ? `Routed to ${String(payload?.routeTo || "queue")}` : current.nextAction,
+                        replyDraft: toolKey === "draft_reply" ? String(payload?.draft || current.replyDraft || "") : current.replyDraft,
+                        optOut: toolKey === "detect_opt_out" ? Boolean(payload?.optedOut) : current.optOut
+                      }));
+                      void refreshEntityState();
+                    }}
+                  />
+                </div>
+                <div className="px-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secondary</p>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {relatedContext ? (
+                    <RelatedContextCard
+                      title="Related Context"
+                      description="Linked records and nearby operational state for this thread."
+                      stats={relatedContext.stats}
+                      links={relatedContext.links}
+                      flags={relatedContext.flags}
+                    />
+                  ) : null}
+                  <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
+                </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">Thread AI state</p>
                   <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
@@ -373,7 +654,16 @@ export default function AppMessagesPage() {
                   <p>Next action: {threadAiState.nextAction || "Run route/action tool"}</p>
                   {threadAiState.replyDraft ? <p className="mt-1">Draft: {threadAiState.replyDraft}</p> : null}
                 </div>
-                <EntityTimelineCard entityType="message_thread" entityId={selectedThread.id} />
+                <div className="px-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
+                </div>
+                <EntityTimelineCard
+                  entityType="message_thread"
+                  entityId={selectedThread.id}
+                  timelineData={entityState}
+                  loading={entityStateBusy}
+                  error={entityStateError}
+                />
 
                 {[...selectedThread.messages].map((message) => (
                   <div key={message.id} className={cn("flex", message.direction === "OUTBOUND" ? "justify-end" : "justify-start")}>
@@ -414,7 +704,8 @@ export default function AppMessagesPage() {
                       </div>
                       <button
                         onClick={() => void onSend()}
-                        disabled={sending}
+                        disabled={sending || !to.trim() || !body.trim()}
+                        title={!to.trim() ? "No recipient on this thread" : !body.trim() ? "Enter a message to send" : undefined}
                         className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:opacity-60"
                       >
                         <Send className="h-4 w-4" />
@@ -425,14 +716,14 @@ export default function AppMessagesPage() {
               </footer>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a thread to review the conversation.</div>
+            <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a thread to review messages, AI guidance, and follow-up options.</div>
           )}
         </div>
 
         <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/50 xl:flex">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Patient Context</h2>
-            <button className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100"><Info className="h-[18px] w-[18px]" /></button>
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Thread Context</h2>
+            <button type="button" disabled title="Context help not available in this release" className="cursor-not-allowed rounded-lg p-2 text-slate-300"><Info className="h-[18px] w-[18px]" /></button>
           </header>
 
           {selectedThread ? (
@@ -444,15 +735,15 @@ export default function AppMessagesPage() {
                 <h3 className="text-lg font-bold tracking-tight text-slate-900">{displayName(selectedThread)}</h3>
                 <p className="mt-1 text-xs font-medium text-slate-500">{selectedThread.contactPhone}</p>
                 <div className="mt-4 flex justify-center gap-2">
-                  <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50">View Profile</button>
-                  <button className="rounded-xl bg-slate-900 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition-all hover:bg-slate-800">Edit</button>
+                  <button type="button" disabled title="Profile view not available in this release" className="cursor-not-allowed rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">View Profile</button>
+                  <button type="button" disabled title="Profile edit not available in this release" className="cursor-not-allowed rounded-xl bg-slate-300 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white">Edit</button>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h4 className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Related Activity</h4>
                 {selectedThread.latestAppointmentRequestId ? (
-                  <Link href={`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`} className="group block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
+                  <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50 text-amber-600"><Calendar className="h-3 w-3" /></div>
@@ -464,7 +755,7 @@ export default function AppMessagesPage() {
                   </Link>
                 ) : null}
                 {selectedThread.latestCallId ? (
-                  <Link href={`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`} className="group block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
+                  <Link href={buildWorkflowHref(`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600"><PhoneCall className="h-3 w-3" /></div>
@@ -501,7 +792,7 @@ export default function AppMessagesPage() {
                 ) : null}
                 {selectedThread.leadId ? (
                   <Button asChild className="w-full justify-start" variant="outline">
-                    <Link href={`/app/leads?leadId=${encodeURIComponent(selectedThread.leadId)}`}>Open lead queue</Link>
+                    <Link href={buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(selectedThread.leadId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}>Open lead queue</Link>
                   </Button>
                 ) : null}
               </div>
@@ -513,3 +804,31 @@ export default function AppMessagesPage() {
     </div>
   );
 }
+
+function isThreadUrgent(thread: OrgMessageThread) {
+  return threadType(thread) === "Emergency" || thread.frontDesk?.frontDeskPriority === "urgent" || thread.lead?.frontDesk?.frontDeskPriority === "urgent";
+}
+
+function threadSignals(thread: OrgMessageThread): OperationalSignal[] {
+  const signals: OperationalSignal[] = [];
+  if (isThreadUrgent(thread)) signals.push({ key: "urgent" });
+  if (thread.frontDesk?.state === "needs_follow_up" || thread.lead?.frontDesk?.state === "needs_follow_up") {
+    signals.push({ key: "needs_action", label: "Needs reply" });
+  }
+  if (threadType(thread) === "Booking Request") signals.push({ key: "booking" });
+  if (thread.leadId) signals.push({ key: "lead_linked" });
+  return normalizeOperationalSignals(signals);
+}
+
+function threadRowSummary(thread: OrgMessageThread): OperationalSummaryItem[] {
+  const latest = latestMessage(thread);
+  const lastDirection = latest?.direction === "INBOUND" ? "Inbound" : latest?.direction === "OUTBOUND" ? "Outbound" : "None";
+  const lastStatus = latest?.status || "UNKNOWN";
+  const linked = thread.leadId ? (thread.latestAppointmentRequestId ? "Lead + booking" : "Lead linked") : "Unlinked";
+  return [
+    { key: "last-direction", label: "Last", value: lastDirection },
+    { key: "delivery", label: "Status", value: lastStatus, tone: lastStatus === "FAILED" ? "critical" : lastStatus === "DELIVERED" ? "success" : "default" },
+    { key: "linked", label: "Linked", value: linked, tone: linked === "Unlinked" ? "warning" : "success" }
+  ];
+}
+
