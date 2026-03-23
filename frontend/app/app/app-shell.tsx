@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { AccessSummaryProvider } from "@/context/access-summary";
 import { clientBadgeClass } from "@/lib/client-badges";
+import { RELEASE_TAG } from "@/lib/release-tag";
 import { cn } from "@/lib/utils";
 import type { AccessFeatureKey, AccessStatus, AuthUser, OrgAccessSummary } from "@/lib/types";
 
@@ -394,6 +395,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3">
+                  <span
+                    className="inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500"
+                    aria-label={`Frontend release ${RELEASE_TAG}`}
+                    title={`Frontend release ${RELEASE_TAG}`}
+                  >
+                    {RELEASE_TAG}
+                  </span>
                   <button className="relative rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300">
                     <Bell className="h-5 w-5" />
                     <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
