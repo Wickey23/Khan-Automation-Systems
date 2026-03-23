@@ -454,9 +454,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </div>
 
               <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:hidden">
-                {navItems.slice(0, 7).map((item) => {
+                {navItems.map((item) => {
                   const Icon = item.icon;
                   const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
+                  const featureKey = navFeatureAccess[item.href];
+                  const featureStatus = featureKey ? accessSummary?.features[featureKey] : undefined;
+                  const lockedByFeature = Boolean(featureStatus && featureStatus.status !== "ready");
+                  const locked =
+                    !hasRequiredPlan(currentPlan, item.requiredPlan) ||
+                    !hasRequiredRole(currentRole, item.requiredRoles) ||
+                    !hasRequiredFeature(features, item.requiredFeature) ||
+                    lockedByFeature;
+
+                  if (locked) {
+                    return (
+                      <span
+                        key={item.href}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-400"
+                        title={lockedByFeature && featureStatus ? formatAccessStatus(featureStatus.status) : "Locked"}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {item.label}
+                        <Lock className="h-3 w-3" />
+                      </span>
+                    );
+                  }
+
                   return (
                     <Link
                       key={item.href}
