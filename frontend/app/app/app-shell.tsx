@@ -363,13 +363,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="border-t border-slate-200 p-4">
-              <Link
-                href="/app/appointments"
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
-              >
-                <Calendar className="h-4 w-4" />
-                <span>New Booking</span>
-              </Link>
+              <div className="space-y-2">
+                <Link
+                  href="/app/appointments"
+                  className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span>New Booking</span>
+                </Link>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href="/app/settings"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    <span>Settings</span>
+                  </Link>
+                  <Link
+                    href="/auth/logout"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Logout</span>
+                  </Link>
+                </div>
+              </div>
             </div>
           </aside>
 
