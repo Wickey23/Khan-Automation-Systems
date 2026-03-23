@@ -193,6 +193,7 @@ export default function AppOverviewPage() {
     return { mine, unassigned, overdueMine, overdueUnassigned };
   }, [overdueFollowUps, state.followUps, state.meId]);
   const liveActivityItems = useMemo(() => state.operations.slice(0, 3), [state.operations]);
+  const showOperationsRail = loading || state.operations.length > 0;
   const atRiskSnapshot = useMemo(() => {
     const overdueUnassigned = state.followUps.filter((item) => {
       const overdue = Boolean(item.task?.dueAt && new Date(item.task.dueAt).getTime() < Date.now());
@@ -278,7 +279,7 @@ export default function AppOverviewPage() {
 
   return (
     <div className="flex-1 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100">
-      <div className="grid h-full xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className={cn("grid h-full", showOperationsRail ? "xl:grid-cols-[minmax(0,1fr)_360px]" : "xl:grid-cols-1")}>
         <div className="overflow-y-auto bg-slate-100 p-4 md:p-6 xl:p-8">
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -872,6 +873,7 @@ export default function AppOverviewPage() {
         </div>
       </div>
 
+      {showOperationsRail ? (
       <aside className="hidden border-l border-slate-200 bg-slate-50 xl:flex xl:flex-col">
         <div className="border-b border-slate-200 p-6">
           <h2 className="text-lg font-bold text-slate-900">Operations Feed</h2>
@@ -893,6 +895,7 @@ export default function AppOverviewPage() {
           </Link>
         </div>
       </aside>
+      ) : null}
       </div>
     </div>
   );
