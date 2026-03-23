@@ -5,15 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Clock,
-  History,
-  Info,
-  Mic,
   Paperclip,
   Phone,
   Search,
   Send,
   Smile,
-  User,
   X
 } from "lucide-react";
 import { fetchOrgCalls, getMe, repopulateOrgCalls, retryAiApprovalSend, updateLeadPipelineStage } from "@/lib/api";
@@ -588,30 +584,8 @@ export default function AppCallsPage() {
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-[28px] border border-white/75 bg-white/82 shadow-[0_24px_46px_-30px_rgba(15,23,42,0.48)] backdrop-blur">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white/55">
-        <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-slate-50 py-4 lg:flex">
-          <div className="flex flex-col gap-4">
-            <button className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
-              <History className="h-5 w-5" />
-            </button>
-            <button type="button" disabled title="Not available in this release" className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg text-slate-300">
-              <Phone className="h-5 w-5" />
-            </button>
-            <button type="button" disabled title="Not available in this release" className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg text-slate-300">
-              <User className="h-5 w-5" />
-            </button>
-            <button type="button" disabled title="Not available in this release" className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg text-slate-300">
-              <Mic className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="mt-auto">
-            <button type="button" disabled title="Not available in this release" className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg text-slate-300">
-              <Info className="h-5 w-5" />
-            </button>
-          </div>
-        </aside>
-
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 overflow-hidden">
           <section className="flex min-w-0 flex-[2] flex-col overflow-hidden border-r border-slate-200">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4">
