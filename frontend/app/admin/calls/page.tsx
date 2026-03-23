@@ -160,7 +160,7 @@ export default function AdminCallsPage() {
       entries.push({
         id: transition.id,
         label: "State transition",
-        detail: `${humanize(transition.fromState)} → ${humanize(transition.toState)}`,
+        detail: `${humanize(transition.fromState)} -> ${humanize(transition.toState)}`,
         time: transition.at,
         kind: "transition",
         state: transition.toState
@@ -1020,3 +1020,4 @@ function InfoRow({ label, value, span }: { label: string; value: string | null |
     </div>
   );
 }
+
