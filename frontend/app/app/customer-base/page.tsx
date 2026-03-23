@@ -5,8 +5,11 @@ import Link from "next/link";
 import { fetchCustomerBase, getBillingStatus, importCustomerBase } from "@/lib/api";
 import type { CustomerBaseRecord } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHeader, PageHelpFab, PageShell, SectionShell } from "@/components/ui/page";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 
@@ -139,11 +142,21 @@ export default function CustomerBasePage() {
   }, [customers, query]);
 
   return (
-    <div className="space-y-5">
+    <PageShell className="space-y-6">
       <PageHeader
         eyebrow="Customer memory"
         title="Customer Memory"
         description="Use this page to recognize repeat callers quickly. It shows known customer context, linked lead records, and recent history that should shape follow-up."
+        actions={
+          <div className="inline-flex rounded-2xl border bg-white p-1 shadow-sm">
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/app/leads">Lead Queue</Link>
+            </Button>
+            <Button asChild size="sm" variant="default">
+              <Link href="/app/billing">Plan & Access</Link>
+            </Button>
+          </div>
+        }
       />
 
       <PageHelpFab
@@ -183,124 +196,174 @@ export default function CustomerBasePage() {
 
       {canAccess === false ? null : (
         <>
+      <SectionShell className="surface-panel space-y-5">
+        <ClientStatusGrid
+          items={[
+            {
+              label: "Workspace access",
+              value: canAccess ? "Pro enabled" : "Checking",
+              detail: canAccess ? "Customer memory and bulk import are enabled." : "Confirming workspace plan and access."
+            },
+            {
+              label: "Profiles loaded",
+              value: summary?.total ?? 0,
+              detail: "Unique phone-based customer records currently in memory."
+            },
+            {
+              label: "Repeat callers",
+              value: summary?.repeatCallers ?? 0,
+              detail: "Customers with more than one call in caller profiles."
+            },
+            {
+              label: "Lead linkage",
+              value: summary?.withLead ?? 0,
+              detail: "Customer records already linked to CRM lead profiles."
+            }
+          ]}
+        />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Total People
-            <InfoHint text="Unique caller records detected for this organization by normalized phone number." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.total ?? "-"}</p>
-        </div>
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            Repeat Callers
-            <InfoHint text="Callers with more than one recorded call in caller profiles." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.repeatCallers ?? "-"}</p>
-        </div>
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            With Lead Profile
-            <InfoHint text="Caller records currently linked to a CRM lead profile." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.withLead ?? "-"}</p>
-        </div>
-        <div className={`${frontDeskMetricCardClass()} p-4`}>
-          <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
-            VIP Flagged
-            <InfoHint text="Caller profiles flagged as VIP for priority handling logic." />
-          </p>
-          <p className="mt-1 text-2xl font-semibold">{summary?.vip ?? "-"}</p>
-        </div>
-      </div>
-
-      <div className={`${frontDeskWorkspaceCardClass("subtle")} p-5`}>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="inline-flex items-center gap-1 font-semibold">
-              Import Customer Base
-              <InfoHint text="Bulk import creates or updates caller profiles and lead records from CSV/Excel rows." />
-            </h2>
-            <p className="text-xs text-muted-foreground">Upload Excel (.xlsx/.xls) or CSV with customer phone/name/details.</p>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className={`${frontDeskMetricCardClass()} p-4`}>
+            <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+              Total People
+              <InfoHint text="Unique caller records detected for this organization by normalized phone number." />
+            </p>
+            <p className="mt-1 text-2xl font-semibold">{summary?.total ?? "-"}</p>
           </div>
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            disabled={importing}
-            onChange={(event) => void onImportFile(event.target.files?.[0] || null)}
-            className="max-w-xs text-sm"
-          />
+          <div className={`${frontDeskMetricCardClass()} p-4`}>
+            <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+              Repeat Callers
+              <InfoHint text="Callers with more than one recorded call in caller profiles." />
+            </p>
+            <p className="mt-1 text-2xl font-semibold">{summary?.repeatCallers ?? "-"}</p>
+          </div>
+          <div className={`${frontDeskMetricCardClass()} p-4`}>
+            <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+              With Lead Profile
+              <InfoHint text="Caller records currently linked to a CRM lead profile." />
+            </p>
+            <p className="mt-1 text-2xl font-semibold">{summary?.withLead ?? "-"}</p>
+          </div>
+          <div className={`${frontDeskMetricCardClass()} p-4`}>
+            <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+              VIP Flagged
+              <InfoHint text="Caller profiles flagged as VIP for priority handling logic." />
+            </p>
+            <p className="mt-1 text-2xl font-semibold">{summary?.vip ?? "-"}</p>
+          </div>
         </div>
+      </SectionShell>
 
-        <label className="inline-flex items-center gap-1 text-sm font-medium">
-          Search
-          <InfoHint text="Search matches phone, name, business, email, outcome, and recent summary text." />
-        </label>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="mt-1 h-11 w-full rounded-xl border border-input bg-white px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-            placeholder="Phone, name, business, email, outcome..."
-          />
-      </div>
+      <SectionShell className="surface-panel space-y-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <Card className={frontDeskWorkspaceCardClass("subtle")}>
+            <CardHeader className="pb-2">
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Import Customer Base
+                <InfoHint text="Bulk import creates or updates caller profiles and lead records from CSV/Excel rows." />
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Upload Excel (.xlsx/.xls) or CSV with customer phone/name/details.</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                disabled={importing}
+                onChange={(event) => void onImportFile(event.target.files?.[0] || null)}
+                className="max-w-xs text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                {importing ? "Import in progress..." : "Import supports first-sheet data and CSV rows with matching header columns."}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className={frontDeskWorkspaceCardClass("default")}>
+            <CardHeader className="pb-2">
+              <CardTitle className="inline-flex items-center gap-1 text-base">
+                Search Memory
+                <InfoHint text="Search matches phone, name, business, email, outcome, and recent summary text." />
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Find repeat callers and context before replying or dispatching.</p>
+            </CardHeader>
+            <CardContent>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+                placeholder="Phone, name, business, email, outcome..."
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </SectionShell>
 
-      <div className={`${frontDeskWorkspaceCardClass("default")} p-4`}>
-        {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className={frontDeskLoadingCardClass()}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="space-y-2">
-                    <div className={frontDeskSkeletonLineClass("md")} />
+      <SectionShell className="surface-panel">
+        <div className={`${frontDeskWorkspaceCardClass("default")} p-4`}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="page-eyebrow">Customer records</p>
+              <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-900">Caller history and linked lead context</h2>
+            </div>
+            <p className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600">
+              {filtered.length} visible
+            </p>
+          </div>
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={frontDeskLoadingCardClass()}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className={frontDeskSkeletonLineClass("md")} />
+                      <div className={frontDeskSkeletonLineClass("sm")} />
+                    </div>
                     <div className={frontDeskSkeletonLineClass("sm")} />
                   </div>
-                  <div className={frontDeskSkeletonLineClass("sm")} />
+                  <div className="mt-3 space-y-2">
+                    <div className={frontDeskSkeletonLineClass("full")} />
+                    <div className={frontDeskSkeletonLineClass("lg")} />
+                  </div>
                 </div>
-                <div className="mt-3 space-y-2">
-                  <div className={frontDeskSkeletonLineClass("full")} />
-                  <div className={frontDeskSkeletonLineClass("lg")} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className={frontDeskEmptyStateClass()}>
-            No customer records yet. Returning callers, imported history, and lead-linked memory will appear here once the business starts building repeat-customer context.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((customer) => (
-              <div key={customer.phoneNumber} className={`${frontDeskWorkspaceCardClass("subtle")} p-4`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold">{customer.displayName || "Unknown contact"}</p>
-                  <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Calls: {customer.totalCalls} | Last outcome: {formatOutcome(customer.lastOutcome)} | Last call:{" "}
-                  {new Date(customer.lastCallAt).toLocaleString()}
-                </p>
-                <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  Name confidence: {customer.nameConfidence}
-                  <InfoHint text="HIGH = explicit name captured; MEDIUM = inferred from reliable context; LOW = weak/no confirmed name." />
-                </p>
-                {customer.lead ? (
-                  <p className="mt-1 text-sm">
-                    {customer.lead.business}
-                    {getDisplayEmail(customer.lead.email) ? ` | ${getDisplayEmail(customer.lead.email)}` : ""}
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className={frontDeskEmptyStateClass()}>
+              No customer records yet. Returning callers, imported history, and lead-linked memory will appear here once the business starts building repeat-customer context.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((customer) => (
+                <div key={customer.phoneNumber} className={`${frontDeskWorkspaceCardClass("subtle")} p-4`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold">{customer.displayName || "Unknown contact"}</p>
+                    <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Calls: {customer.totalCalls} | Last outcome: {formatOutcome(customer.lastOutcome)} | Last call:{" "}
+                    {new Date(customer.lastCallAt).toLocaleString()}
                   </p>
-                ) : null}
-                {customer.recentCalls[0]?.aiSummary ? (
-                  <p className="mt-2 text-sm text-muted-foreground">Recent summary: {customer.recentCalls[0].aiSummary}</p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    Name confidence: {customer.nameConfidence}
+                    <InfoHint text="HIGH = explicit name captured; MEDIUM = inferred from reliable context; LOW = weak/no confirmed name." />
+                  </p>
+                  {customer.lead ? (
+                    <p className="mt-1 text-sm">
+                      {customer.lead.business}
+                      {getDisplayEmail(customer.lead.email) ? ` | ${getDisplayEmail(customer.lead.email)}` : ""}
+                    </p>
+                  ) : null}
+                  {customer.recentCalls[0]?.aiSummary ? (
+                    <p className="mt-2 text-sm text-muted-foreground">Recent summary: {customer.recentCalls[0].aiSummary}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </SectionShell>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 
