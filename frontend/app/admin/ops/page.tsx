@@ -8,6 +8,7 @@ import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader, PageShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -336,21 +337,19 @@ export default function AdminOpsPage() {
 
   return (
     <AdminGuard>
-      <div className="container py-10">
-        <AdminTopTabs className="mb-3" />
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Operations Control Plane</h1>
-            <p className="text-sm text-muted-foreground">
-              Webhook, queue, and SMS health across the tenant. Every stuck job or failed message is surfaced here so
-              operators know what needs intervention.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => void loadData()} disabled={loading}>
-            <RotateCw className={cn("mr-2 h-4 w-4 transition-transform", loading ? "animate-spin" : "")} />
-            Refresh
-          </Button>
-        </div>
+      <PageShell className="space-y-6">
+        <AdminTopTabs />
+        <PageHeader
+          eyebrow="Ops reliability"
+          title="Operations control plane"
+          description="Webhook, queue, and SMS health across tenants. Stuck jobs and failed messages are surfaced for immediate intervention."
+          actions={
+            <Button variant="outline" onClick={() => void loadData()} disabled={loading}>
+              <RotateCw className={cn("mr-2 h-4 w-4 transition-transform", loading ? "animate-spin" : "")} />
+              Refresh
+            </Button>
+          }
+        />
 
         {error ? (
           <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 shadow-sm">
@@ -372,7 +371,7 @@ export default function AdminOpsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <p className="text-sm text-muted-foreground">Loading queue metrics…</p>
+                <p className="text-sm text-muted-foreground">Loading queue metrics...</p>
               ) : summaryEmpty ? (
                 <p className="text-sm text-muted-foreground">
                   No audit log entries found. Queue health will appear once webhook events run for this tenant.
@@ -402,7 +401,7 @@ export default function AdminOpsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <p className="text-sm text-muted-foreground">Loading job types…</p>
+                <p className="text-sm text-muted-foreground">Loading job types...</p>
               ) : typeSummaryEmpty ? (
                 <p className="text-sm text-muted-foreground">No job type data captured yet.</p>
               ) : (
@@ -432,7 +431,7 @@ export default function AdminOpsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <p className="text-sm text-muted-foreground">Checking stuck jobs…</p>
+                <p className="text-sm text-muted-foreground">Checking stuck jobs...</p>
               ) : stuckEmpty ? (
                 <p className="text-sm text-muted-foreground">No stuck jobs. Processing is keeping up.</p>
               ) : (
@@ -598,7 +597,7 @@ export default function AdminOpsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </PageShell>
     </AdminGuard>
   );
 }

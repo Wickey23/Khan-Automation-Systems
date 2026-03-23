@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageShell, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 
 const DEFAULT_FORM = {
@@ -148,7 +148,7 @@ export default function AdminOutreachCallerPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <div className="container py-10 space-y-6">
+      <PageShell className="space-y-6">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Internal growth"
@@ -363,7 +363,7 @@ export default function AdminOutreachCallerPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </PageShell>
     </AdminGuard>
   );
 }
