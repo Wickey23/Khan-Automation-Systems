@@ -267,6 +267,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       classes: "bg-amber-100 text-amber-700"
     };
   }, [firstSuccess, workspaceLive]);
+  const readinessSnapshot = useMemo(() => {
+    if (!accessSummary) {
+      return {
+        readyFeatures: 0,
+        totalFeatures: 0,
+        remainingChecks: 0
+      };
+    }
+    const featureList = Object.values(accessSummary.features);
+    const readyFeatures = featureList.filter((feature) => feature.status === "ready").length;
+    const remainingChecks = accessSummary.readinessChecklist.filter((check) => check.status !== "ready").length;
+    return {
+      readyFeatures,
+      totalFeatures: featureList.length,
+      remainingChecks
+    };
+  }, [accessSummary]);
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
@@ -282,9 +299,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (locked) {
       return (
-        <div key={item.href} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-bold text-slate-400">
+        <div key={item.href} className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-semibold text-slate-400">
           <span className="flex items-center gap-3">
-            <Icon className="h-5 w-5 text-slate-500" />
+            <Icon className="h-4 w-4 text-slate-500" />
             <span>{item.label}</span>
           </span>
           {lockedByFeature && featureStatus ? (
@@ -301,14 +318,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all",
-          active ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-600 hover:bg-primary/5 hover:text-primary"
+          "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200",
+          active
+            ? "border-sky-200/70 bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_14px_24px_-16px_rgba(14,116,214,0.85)]"
+            : "border-transparent text-slate-600 hover:border-sky-100 hover:bg-sky-50/70 hover:text-slate-900"
         )}
       >
-        <Icon className={cn("h-5 w-5", active ? "text-white" : "text-slate-400 group-hover:text-primary")} />
+        <Icon className={cn("h-4 w-4", active ? "text-white" : "text-slate-400 group-hover:text-sky-600")} />
         <span>{item.label}</span>
         {item.comingSoon ? (
-          <Badge className={cn("ml-auto", active ? "bg-white/20 text-white" : clientBadgeClass("pending"))}>
+          <Badge className={cn("ml-auto", active ? "border-white/30 bg-white/20 text-white" : clientBadgeClass("pending"))}>
             Soon
           </Badge>
         ) : null}
@@ -319,33 +338,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="flex h-screen overflow-hidden bg-background-light">
-          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-slate-200 bg-white xl:flex">
+        <div className="relative flex h-screen overflow-hidden bg-background-light">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-sky-200/25 via-transparent to-blue-200/20" />
+          <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col justify-between border-r border-white/70 bg-white/65 backdrop-blur-xl xl:flex">
             <div className="flex flex-col gap-6 p-6">
-              <div className="flex items-center gap-3 px-2">
-                <div className="rounded-xl bg-primary p-2 text-white shadow-lg shadow-primary/20">
-                  <ConciergeBell className="h-6 w-6" />
-                </div>
-                <div className="flex flex-col">
-                  <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-900">Front Desk OS</h1>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Reception Manager</p>
+              <div className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-[0_20px_34px_-28px_rgba(15,23,42,0.6)]">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 p-2 text-white shadow-lg shadow-sky-300/50">
+                    <ConciergeBell className="h-6 w-6" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-900">Front Desk OS</h1>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Reception Manager</p>
+                  </div>
                 </div>
               </div>
 
-              <nav className="flex flex-col gap-1">{navItems.map(renderNavItem)}</nav>
+              <nav className="space-y-1 rounded-2xl border border-white/70 bg-white/70 p-3 backdrop-blur-sm">{navItems.map(renderNavItem)}</nav>
             </div>
 
-            <div className="border-t border-slate-200 p-6">
+            <div className="border-t border-slate-200/70 p-6">
               <Link
                 href="/app/appointments"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_20px_26px_-18px_rgba(14,116,214,0.82)] transition-all duration-200 hover:brightness-105"
               >
                 <Calendar className="h-4 w-4" />
                 <span>New Booking</span>
               </Link>
               <Link
                 href="/auth/logout"
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
@@ -354,96 +376,148 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
-              <div className="flex max-w-xl flex-1 items-center gap-4">
-                <div className="relative w-full">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    readOnly
-                    value=""
-                    placeholder="Search leads, bookings, or calls..."
-                    className="h-10 w-full rounded-xl bg-slate-100 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500"
-                  />
+            <header className="sticky top-0 z-20 border-b border-white/70 bg-white/75 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-1 items-center gap-3">
+                  <div className="relative w-full max-w-2xl">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      readOnly
+                      value=""
+                      placeholder="Search leads, bookings, calls, or follow-up..."
+                      className="h-10 w-full rounded-xl border border-slate-200/80 bg-white/85 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <button className="relative rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700">
+                    <Bell className="h-5 w-5" />
+                    <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
+                  </button>
+                  <button className="rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700">
+                    <MessageSquare className="h-5 w-5" />
+                  </button>
+                  <div className="hidden h-8 w-px bg-slate-200 sm:block" />
+                  <div className="hidden items-center gap-3 sm:flex">
+                    <div className="text-right">
+                      <p className="text-sm font-semibold leading-none text-slate-900">Workspace User</p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                        {currentRole?.replaceAll("_", " ") || "Reception Manager"}
+                      </p>
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-100 text-xs font-bold text-slate-700">
+                      {currentRole?.slice(0, 1) || "A"}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button className="relative rounded-lg p-2 text-slate-600 transition-all hover:bg-slate-100 hover:text-primary">
-                  <Bell className="h-5 w-5" />
-                  <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
-                </button>
-                <button className="rounded-lg p-2 text-slate-600 transition-all hover:bg-slate-100 hover:text-primary">
-                  <MessageSquare className="h-5 w-5" />
-                </button>
-                <div className="mx-1 h-8 w-px bg-slate-200" />
-                <div className="hidden items-center gap-3 pl-2 sm:flex">
-                  <div className="text-right">
-                    <p className="text-sm font-bold leading-none text-slate-900">Workspace User</p>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      {currentRole?.replaceAll("_", " ") || "Reception Manager"}
-                    </p>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-xs font-bold text-slate-600">
-                    {currentRole?.slice(0, 1) || "A"}
-                  </div>
-                </div>
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 xl:hidden">
+                {navItems.slice(0, 7).map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition",
+                        active
+                          ? "border-sky-200 bg-sky-500 text-white"
+                          : "border-slate-200 bg-white/85 text-slate-600 hover:border-slate-300"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </div>
             </header>
 
             <main className="flex-1 overflow-y-auto">
               <div className="px-4 py-6 sm:px-6 lg:px-8">
-                <div className="mb-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-end justify-between gap-4 border-b border-slate-200 px-6 py-5">
+                <div className="mb-6 rounded-[28px] border border-white/75 bg-white/78 p-6 shadow-[0_24px_44px_-30px_rgba(15,23,42,0.45)] backdrop-blur animate-fade-slide-up">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Front Desk Workspace</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Front Desk Workspace</p>
                       <h1 className="mt-2 text-[30px] font-black tracking-[-0.04em] text-slate-900">{pageLabel}</h1>
                     </div>
-                    <span className={cn("hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] md:inline-flex", liveBadge.classes)}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+                    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em]", liveBadge.classes)}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "animate-pulse bg-emerald-500" : "bg-amber-500")} />
                       {liveBadge.label}
                     </span>
                   </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Plan</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{currentPlan || "No active plan"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Feature readiness</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {readinessSnapshot.totalFeatures > 0
+                          ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} ready`
+                          : "Checking"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Readiness checks</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {readinessSnapshot.remainingChecks > 0
+                          ? `${readinessSnapshot.remainingChecks} remaining`
+                          : "All clear"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {modeBanner ? (
-                  <div className="app-banner app-banner-primary">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span>{modeBanner.text}</span>
-                      <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
-                        {modeBanner.ctaLabel}
+
+                <div className="mb-4 space-y-3">
+                  {modeBanner ? (
+                    <div className="app-banner app-banner-primary">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{modeBanner.text}</span>
+                        <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                          {modeBanner.ctaLabel}
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                  {!modeBanner && activationBanner ? (
+                    <div className={activationBanner.stage === "not_started" ? "app-banner app-banner-warning" : "app-banner app-banner-primary"}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{activationBanner.text}</span>
+                        <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                          {activationBanner.ctaLabel}
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                  {!modeBanner && workspaceLive ? (
+                    <div className="app-banner app-banner-primary">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {firstSuccess
+                            ? `System proven live. First ${firstSuccess.type} interaction recorded on ${new Date(firstSuccess.at).toLocaleString()}.`
+                            : "System ready and listening. Inbound calls, SMS automation, and booking workflows are operational."}
+                        </span>
+                        <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                          View live calls
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                  {accessWarning ? (
+                    <div className="app-banner app-banner-warning">
+                      {accessWarning}{" "}
+                      <Link href="/app/activation" className="font-semibold underline decoration-1 underline-offset-2">
+                        Go to activation flow
                       </Link>
                     </div>
-                  </div>
-                ) : null}
-                {!modeBanner && activationBanner ? (
-                  <div className={activationBanner.stage === "not_started" ? "app-banner app-banner-warning" : "app-banner app-banner-primary"}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span>{activationBanner.text}</span>
-                      <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
-                        {activationBanner.ctaLabel}
-                      </Link>
-                    </div>
-                  </div>
-                ) : null}
-                {!modeBanner && workspaceLive ? (
-                  <div className="app-banner app-banner-primary">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span>
-                        {firstSuccess
-                          ? `System proven live. First ${firstSuccess.type} interaction recorded on ${new Date(firstSuccess.at).toLocaleString()}.`
-                          : "System ready and listening. Inbound calls, SMS automation, and booking workflows are operational."}
-                      </span>
-                      <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
-                        View live calls
-                      </Link>
-                    </div>
-                  </div>
-                ) : null}
-                {accessWarning ? (
-                  <div className="app-banner app-banner-warning">
-                    {accessWarning} <Link href="/app/activation" className="font-medium underline">Go to activation flow</Link>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
                 {children}
               </div>
             </main>
