@@ -37,18 +37,9 @@ import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAccessSummary } from "@/context/access-summary";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import {
-  normalizeOperationalQuickActions,
-  normalizeOperationalSignals,
-  OperationalQuickActions,
-  OperationalRowSummary,
-  OperationalSummaryItem,
-  OperationalSignal,
-  OperationalSignalChips
-} from "@/components/queue/operational-row";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { CommandHeader } from "@/components/ops";
+import { ActionQueueTable, CommandHeader, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -95,23 +86,6 @@ function threadStatusLabel(thread: OrgMessageThread) {
   if (status === "offline") return "Offline";
   if (status === "active") return "Active";
   return "Away";
-}
-
-function relativeTime(value: string) {
-  const date = new Date(value);
-  const diff = Date.now() - date.getTime();
-  const mins = Math.max(0, Math.round(diff / 60000));
-  if (mins < 60) return `${mins || 1}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return "Yesterday";
-}
-
-function messageBadge(thread: OrgMessageThread) {
-  const type = threadType(thread);
-  if (type === "Emergency") return "bg-red-50 text-red-600";
-  if (type === "Booking Request") return "bg-amber-50 text-amber-600";
-  return "bg-slate-100 text-slate-500";
 }
 
 export default function AppMessagesPage() {
@@ -205,6 +179,84 @@ export default function AppMessagesPage() {
     filteredThreads[0] ||
     threads[0] ||
     null;
+  const threadRows = useMemo(
+    () =>
+      filteredThreads.map((thread) => {
+        const threadState = thread.frontDesk?.state || thread.lead?.frontDesk?.state || "contacted";
+        const severity = priorityToSeverity(
+          thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority || (threadType(thread) === "Emergency" ? "critical" : "medium")
+        );
+        const status =
+          threadState === "needs_follow_up"
+            ? "pending"
+            : threadState === "contacted"
+              ? "in_progress"
+              : threadState === "closed"
+                ? "done"
+                : threadType(thread) === "Emergency"
+                  ? "blocked"
+                  : "in_progress";
+        return {
+          id: thread.id,
+          item: `${displayName(thread)} - ${threadType(thread)}`,
+          owner: thread.leadId ? "Linked lead" : "Unlinked",
+          due: dueLabel(thread.lastMessageAt),
+          ageLabel: ageFromDate(thread.lastMessageAt),
+          severity,
+          status: statusToOperatorState(status),
+          primaryActionLabel: "Open",
+          onPrimaryAction: () => setSelectedId(thread.id),
+          secondaryActions: [
+            {
+              label: "Open approvals",
+              href: buildWorkflowHref(`/app/approvals?status=PENDING&threadId=${encodeURIComponent(thread.id)}`, {
+                source: "messages",
+                returnTo: localReturnTo,
+                returnLabel: "Messages"
+              })
+            },
+            {
+              label: "Open follow-up",
+              href: buildWorkflowHref("/app/follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
+            },
+            ...(thread.leadId
+              ? [
+                  {
+                    label: "Open lead",
+                    href: buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(thread.leadId)}`, {
+                      source: "messages",
+                      returnTo: localReturnTo,
+                      returnLabel: "Messages"
+                    })
+                  }
+                ]
+              : [])
+          ],
+          detail: threadPreview(thread),
+          onRowSelect: () => setSelectedId(thread.id),
+          onRowFocus: () => setSelectedId(thread.id),
+          rowAriaLabel: `${displayName(thread)}. ${threadType(thread)}.`
+        };
+      }),
+    [filteredThreads, localReturnTo]
+  );
+  const threadRiskItems = useMemo(
+    () => [
+      {
+        id: "urgent-threads",
+        title: "Urgent threads",
+        detail: `${filteredThreads.filter((thread) => threadType(thread) === "Emergency").length} threads marked urgent.`,
+        level: "critical" as const
+      },
+      {
+        id: "needs-reply",
+        title: "Needs reply",
+        detail: `${filteredThreads.filter((thread) => (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up").length} threads need operator response.`,
+        level: "warning" as const
+      }
+    ],
+    [filteredThreads]
+  );
 
   useEffect(() => {
     if (!selectedThread) {
@@ -486,65 +538,10 @@ export default function AppMessagesPage() {
             {loading ? (
               <div className="px-6 py-8 text-sm text-slate-500">Loading conversations...</div>
             ) : filteredThreads.length ? (
-              filteredThreads.map((thread) => (
-                <div
-                  key={thread.id}
-                  onClick={() => setSelectedId(thread.id)}
-                  className={cn(
-                    "cursor-pointer border-l-2 px-6 py-4 transition-all",
-                    selectedThread?.id === thread.id ? "border-primary bg-white shadow-sm" : "border-transparent hover:bg-slate-100/50"
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{displayName(thread)}</span>
-                      {latestMessage(thread)?.direction === "INBOUND" ? (
-                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">1</span>
-                      ) : null}
-                    </div>
-                    <span className="text-[10px] font-medium text-slate-400">{relativeTime(thread.lastMessageAt)}</span>
-                  </div>
-                  <p className="mb-2 line-clamp-1 text-[11px] leading-relaxed text-slate-500">{threadPreview(thread)}</p>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest", messageBadge(thread))}>
-                      {threadType(thread)}
-                    </span>
-                    <OperationalSignalChips signals={threadSignals(thread)} />
-                  </div>
-                  <OperationalRowSummary items={threadRowSummary(thread)} />
-                  <div className="mt-2">
-                    <OperationalQuickActions
-                      actions={normalizeOperationalQuickActions([
-                        { key: "open", onClick: () => setSelectedId(thread.id) },
-                        {
-                          key: "approvals",
-                          href: buildWorkflowHref(`/app/approvals?status=PENDING&threadId=${encodeURIComponent(thread.id)}`, {
-                            source: "messages",
-                            returnTo: localReturnTo,
-                            returnLabel: "Messages"
-                          })
-                        },
-                        {
-                          key: "follow_up",
-                          href: buildWorkflowHref("/app/follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
-                        },
-                        ...(thread.leadId
-                          ? [
-                              {
-                                key: "lead" as const,
-                                href: buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(thread.leadId)}`, {
-                                  source: "messages",
-                                  returnTo: localReturnTo,
-                                  returnLabel: "Messages"
-                                })
-                              }
-                            ]
-                          : [])
-                      ])}
-                    />
-                  </div>
-                </div>
-              ))
+              <div className="space-y-4 p-3">
+                <ActionQueueTable title="Operator Inbox" rows={threadRows} />
+                <RiskRailCard title="Thread Risk" items={threadRiskItems} />
+              </div>
             ) : (
               <div className="px-6 py-6">
                 <QueueEmptyState
@@ -638,21 +635,20 @@ export default function AppMessagesPage() {
                     }}
                   />
                 </div>
-                <div className="px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secondary</p>
-                </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {relatedContext ? (
-                    <RelatedContextCard
-                      title="Related Context"
-                      description="Linked records and nearby operational state for this thread."
-                      stats={relatedContext.stats}
-                      links={relatedContext.links}
-                      flags={relatedContext.flags}
-                    />
-                  ) : null}
-                  <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
-                </div>
+                <SectionDisclosure title="Secondary Operational Context" storageKey="messages-secondary-context" defaultCollapsed>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {relatedContext ? (
+                      <RelatedContextCard
+                        title="Related Context"
+                        description="Linked records and nearby operational state for this thread."
+                        stats={relatedContext.stats}
+                        links={relatedContext.links}
+                        flags={relatedContext.flags}
+                      />
+                    ) : null}
+                    <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
+                  </div>
+                </SectionDisclosure>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">Thread AI state</p>
                   <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
@@ -816,30 +812,4 @@ export default function AppMessagesPage() {
   );
 }
 
-function isThreadUrgent(thread: OrgMessageThread) {
-  return threadType(thread) === "Emergency" || thread.frontDesk?.frontDeskPriority === "urgent" || thread.lead?.frontDesk?.frontDeskPriority === "urgent";
-}
-
-function threadSignals(thread: OrgMessageThread): OperationalSignal[] {
-  const signals: OperationalSignal[] = [];
-  if (isThreadUrgent(thread)) signals.push({ key: "urgent" });
-  if (thread.frontDesk?.state === "needs_follow_up" || thread.lead?.frontDesk?.state === "needs_follow_up") {
-    signals.push({ key: "needs_action", label: "Needs reply" });
-  }
-  if (threadType(thread) === "Booking Request") signals.push({ key: "booking" });
-  if (thread.leadId) signals.push({ key: "lead_linked" });
-  return normalizeOperationalSignals(signals);
-}
-
-function threadRowSummary(thread: OrgMessageThread): OperationalSummaryItem[] {
-  const latest = latestMessage(thread);
-  const lastDirection = latest?.direction === "INBOUND" ? "Inbound" : latest?.direction === "OUTBOUND" ? "Outbound" : "None";
-  const lastStatus = latest?.status || "UNKNOWN";
-  const linked = thread.leadId ? (thread.latestAppointmentRequestId ? "Lead + booking" : "Lead linked") : "Unlinked";
-  return [
-    { key: "last-direction", label: "Last", value: lastDirection },
-    { key: "delivery", label: "Status", value: lastStatus, tone: lastStatus === "FAILED" ? "critical" : lastStatus === "DELIVERED" ? "success" : "default" },
-    { key: "linked", label: "Linked", value: linked, tone: linked === "Unlinked" ? "warning" : "success" }
-  ];
-}
 
