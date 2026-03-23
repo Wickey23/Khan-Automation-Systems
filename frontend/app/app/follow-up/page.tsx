@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { executeAiTool, fetchFollowUpQueue, getMe, updateAiTask, updateFollowUpQueueItem } from "@/lib/api";
 import type { FollowUpQueueItem } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueBulkActionBar, QueueSectionHeader, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
@@ -16,6 +14,7 @@ import { FOLLOW_UP_FILTER_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
+import { ActionQueueTable, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type FollowUpFilter =
   | "all"
@@ -162,12 +161,18 @@ export default function FollowUpPage() {
     if (hasAppliedDeepLinkScroll.current) return;
     const timeout = setTimeout(() => {
       const element = document.getElementById(`followup-${targetId}`);
-      if (!element) return;
+      if (!element) {
+        if (selectedTaskId) {
+          const linked = visibleQueue.find((item) => item.task?.id === selectedTaskId);
+          if (linked) setPreviewQueueItemId(linked.id);
+        }
+        return;
+      }
       hasAppliedDeepLinkScroll.current = true;
       element.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 80);
     return () => clearTimeout(timeout);
-  }, [busy, selectedQueueItemId, selectedTaskId, visibleQueue.length]);
+  }, [busy, selectedQueueItemId, selectedTaskId, visibleQueue]);
 
   useEffect(() => {
     if (!visibleQueue.length) {
@@ -314,6 +319,82 @@ export default function FollowUpPage() {
     const atRisk = queue.filter((item) => riskFlags(item, meId).length > 0).length;
     return { all, mine, unassigned, overdueMine, overdueUnassigned, atRisk };
   }, [meId, queue]);
+
+  const followUpRows = useMemo(
+    () =>
+      visibleQueue.map((item) => {
+        const ownerState = ownershipState(item, meId);
+        const ownerLabel =
+          ownerState === "mine" ? "You" : ownerState === "assigned_elsewhere" ? item.task?.assignedToUser?.email || "Assigned" : "Unassigned";
+        const isOverdue = isItemOverdue(item);
+        const risks = riskFlags(item, meId);
+        const rowSeverity = isOverdue || risks.length ? "high" : item.task?.priority || "medium";
+        const relatedEntityHref = queueEntityHref(item);
+        const relatedApprovalsHref =
+          item.entityType && item.entityId
+            ? buildWorkflowHref(
+                "/app/approvals?status=PENDING",
+                { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" },
+                item.entityType === "message_thread"
+                  ? { threadId: item.entityId }
+                  : item.entityType === "call"
+                    ? { callId: item.entityId }
+                    : { leadId: item.entityId }
+              )
+            : "";
+
+        return {
+          id: item.id,
+          rowId: `followup-${item.id}`,
+          item: item.task?.title || item.reason,
+          owner: ownerLabel,
+          due: dueLabel(item.task?.dueAt),
+          ageLabel: ageFromDate(item.createdAt),
+          severity: priorityToSeverity(rowSeverity),
+          status: statusToOperatorState(item.status === "OPEN" ? (isOverdue ? "in_progress" : "pending") : "done"),
+          primaryActionLabel: item.status === "OPEN" ? "Mark done" : "Reopen",
+          onPrimaryAction: () => void runQueueAction(item, item.status === "OPEN" ? "done" : "open"),
+          primaryActionDisabled: actionBusyId === item.id,
+          secondaryActions: [
+            ...(relatedEntityHref
+              ? [
+                  {
+                    label: "Open entity",
+                    href: buildWorkflowHref(relatedEntityHref, { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })
+                  }
+                ]
+              : []),
+            ...(relatedApprovalsHref ? [{ label: "Open approvals", href: relatedApprovalsHref }] : []),
+            { label: "Assign to me", onClick: () => void runQueueAction(item, "assignMe") },
+            { label: "Escalate overdue", onClick: () => void runQueueAction(item, "escalate") }
+          ],
+          detail: item.reason,
+          onRowSelect: () => setPreviewQueueItemId(item.id),
+          onRowFocus: () => setPreviewQueueItemId(item.id),
+          rowAriaLabel: `${item.task?.title || item.reason}. ${ownerLabel}.`
+        };
+      }),
+    [actionBusyId, localReturnTo, meId, visibleQueue]
+  );
+
+  const followUpRiskItems = useMemo(
+    () => [
+      {
+        id: "overdue-unassigned",
+        title: "Overdue unassigned",
+        detail: `${ownershipSnapshot.overdueUnassigned} items are overdue with no owner.`,
+        level: ownershipSnapshot.overdueUnassigned > 0 ? ("critical" as const) : ("warning" as const)
+      },
+      {
+        id: "at-risk",
+        title: "At risk queue items",
+        detail: `${ownershipSnapshot.atRisk} items need escalation review.`,
+        level: "warning" as const,
+        meter: Math.min(100, ownershipSnapshot.atRisk * 10)
+      }
+    ],
+    [ownershipSnapshot.atRisk, ownershipSnapshot.overdueUnassigned]
+  );
 
   async function performQueueAction(item: FollowUpQueueItem, action: "done" | "open" | "assignMe" | "escalate") {
     if (action === "done") {
@@ -554,134 +635,17 @@ export default function FollowUpPage() {
         ) : null}
 
         {!busy && !error && visibleQueue.length > 0 ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-3">
-            {visibleQueue.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setPreviewQueueItemId(item.id)}
-                className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-sm ${
-                  previewQueueItemId === item.id ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-200"
-                }`}
-              >
-                <div id={`followup-${item.id}`} />
-                {item.task?.id ? <div id={`followup-${item.task.id}`} /> : null}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(item.id)}
-                      onChange={(event) =>
-                        setSelectedIds((current) =>
-                          event.target.checked ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id)
-                        )
-                      }
-                      onClick={(event) => event.stopPropagation()}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                    />
-                    <div>
-                    <p className="text-sm font-semibold text-slate-900">{item.task?.title || item.reason}</p>
-                    <p className="text-xs text-slate-500">{item.reason}</p>
-                    </div>
-                  </div>
-                  <StatusBadge kind="feature" state={item.status === "OPEN" ? "limited" : "ready"} label={item.status} size="xs" />
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                  {ownershipState(item, meId) === "mine" ? (
-                    <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">Assigned to me</span>
-                  ) : null}
-                  {ownershipState(item, meId) === "assigned_elsewhere" ? (
-                    <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-slate-700">Assigned to {item.task?.assignedToUser?.email || "teammate"}</span>
-                  ) : null}
-                  {ownershipState(item, meId) === "unassigned" ? (
-                    <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">Unassigned</span>
-                  ) : null}
-                  {isItemOverdue(item) && ownershipState(item, meId) === "unassigned" ? (
-                    <span className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 font-semibold text-red-700">Overdue and unassigned</span>
-                  ) : null}
-                  {riskFlags(item, meId).includes("overdue_assigned_stale") ? (
-                    <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">Overdue and stale</span>
-                  ) : null}
-                  {riskFlags(item, meId).includes("open_too_long") ? (
-                    <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">Open too long</span>
-                  ) : null}
-                  {riskFlags(item, meId).includes("escalated_overdue") ? (
-                    <span className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 font-semibold text-red-700">Escalated overdue</span>
-                  ) : null}
-                </div>
-                {selectedQueueItemId === item.id || (selectedTaskId && item.task?.id === selectedTaskId) ? (
-                  <p className="mt-2 text-xs font-semibold text-blue-700">Focused follow-up item from linked workflow</p>
-                ) : null}
-
-                {item.task?.description ? <p className="mt-2 text-sm text-slate-600">{item.task.description}</p> : null}
-
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-600">
-                  <span>Priority: {item.task?.priority || "n/a"}</span>
-                  <span>Created: {new Date(item.createdAt).toLocaleString()}</span>
-                  <span>Assigned: {item.task?.assignedToUser?.email || "unassigned"}</span>
-                  <span>Due: {item.task?.dueAt ? new Date(item.task.dueAt).toLocaleString() : "not set"}</span>
-                  {item.entityType && item.entityId ? (
-                    <Link
-                      href={buildWorkflowHref(
-                        item.entityType === "message_thread"
-                          ? `/app/messages?threadId=${encodeURIComponent(item.entityId)}`
-                          : item.entityType === "call"
-                            ? `/app/calls?callId=${encodeURIComponent(item.entityId)}`
-                            : `/app/leads?leadId=${encodeURIComponent(item.entityId)}`,
-                        { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }
-                      )}
-                      className="font-semibold text-blue-700 underline"
-                    >
-                      Open related {item.entityType}
-                    </Link>
-                  ) : null}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {item.entityType && item.entityId ? (
-                    <QueueActionLink
-                      href={buildWorkflowHref(
-                        item.entityType === "message_thread"
-                          ? `/app/messages?threadId=${encodeURIComponent(item.entityId)}`
-                          : item.entityType === "call"
-                            ? `/app/calls?callId=${encodeURIComponent(item.entityId)}`
-                            : `/app/leads?leadId=${encodeURIComponent(item.entityId)}`,
-                        { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }
-                      )}
-                    >
-                      Open entity
-                    </QueueActionLink>
-                  ) : null}
-                  {item.entityType && item.entityId ? (
-                    <QueueActionLink
-                      href={buildWorkflowHref("/app/approvals?status=PENDING", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }, item.entityType === "message_thread" ? { threadId: item.entityId } : item.entityType === "call" ? { callId: item.entityId } : { leadId: item.entityId })}
-                    >
-                      Open approvals
-                    </QueueActionLink>
-                  ) : null}
-                  <QueueActionButton
-                    disabled={actionBusyId === item.id}
-                    onClick={() => void runQueueAction(item, item.status === "OPEN" ? "done" : "open")}
-                  >
-                    {item.status === "OPEN" ? "Mark done" : "Reopen"}
-                  </QueueActionButton>
-                  <QueueActionButton
-                    disabled={actionBusyId === item.id || !item.task?.id}
-                    onClick={() => void runQueueAction(item, "assignMe")}
-                  >
-                    Assign to me
-                  </QueueActionButton>
-                  <QueueActionButton
-                    tone="critical"
-                    disabled={actionBusyId === item.id || !item.task?.id || !isItemOverdue(item)}
-                    onClick={() => void runQueueAction(item, "escalate")}
-                  >
-                    Escalate overdue
-                  </QueueActionButton>
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <ActionQueueTable
+                title="Follow-Up Queue"
+                rows={followUpRows}
+                viewAllHref={buildWorkflowHref("/app/follow-up", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
+              />
+              <RiskRailCard title="Follow-Up Risk" items={followUpRiskItems} />
+            </div>
           {previewItem ? (
+            <SectionDisclosure title="Focused Follow-Up Diagnostics" storageKey="follow-up-focused-diagnostics" className="mt-4">
             <QueueTriagePanel
               title={previewItem.task?.title || previewItem.reason}
               subtitle={previewItem.reason}
@@ -787,8 +751,9 @@ export default function FollowUpPage() {
                 </>
               }
             />
+            </SectionDisclosure>
           ) : null}
-          </div>
+          </>
         ) : null}
       </SectionShell>
     </PageShell>

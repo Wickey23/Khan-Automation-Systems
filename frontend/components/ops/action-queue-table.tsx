@@ -19,6 +19,7 @@ export type ActionQueueRow = {
   rowAriaLabel?: string;
   onRowFocus?: () => void;
   onRowSelect?: () => void;
+  rowId?: string;
 };
 
 function statusTone(status: ActionQueueRow["status"]) {
@@ -67,6 +68,7 @@ export function ActionQueueTable({
         {rows.map((row) => (
           <div
             key={row.id}
+            id={row.rowId}
             tabIndex={0}
             aria-label={row.rowAriaLabel || row.item}
             onFocus={row.onRowFocus}
