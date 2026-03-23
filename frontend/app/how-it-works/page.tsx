@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 
 export default function HowItWorksPage() {
   return (
-    <div className="min-h-screen bg-[#f5f7f8] font-sans text-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_55%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] font-sans text-slate-900">
       <PublicNav />
-      <main className="px-6 pb-24 pt-32">
+      <main className="px-6 pb-24 pt-28 sm:pt-32">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-32 text-center">
+          <div className="mb-20 rounded-[32px] border border-slate-200/90 bg-white/92 px-6 py-10 text-center shadow-[0_30px_56px_-36px_rgba(15,23,42,0.45)] sm:px-10">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
               <Zap size={12} />
               The Process
@@ -30,7 +30,7 @@ export default function HowItWorksPage() {
             </p>
           </div>
 
-          <div className="mb-32 space-y-32">
+          <div className="mb-24 space-y-24">
             <div className="grid items-center gap-24 lg:grid-cols-2">
               <div className="space-y-6">
                 <div className="text-6xl font-black italic leading-none text-slate-100">01</div>
@@ -43,7 +43,7 @@ export default function HowItWorksPage() {
                   <li className="flex items-center gap-3 font-bold text-slate-700"><div className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-[#3caff6]"><Smartphone size={14} /></div>5-10 minute technical setup</li>
                 </ul>
               </div>
-              <div className="rounded-[3rem] border border-slate-100 bg-white p-10 shadow-2xl">
+              <div className="rounded-[3rem] border border-slate-200/80 bg-white/95 p-10 shadow-[0_26px_52px_-36px_rgba(15,23,42,0.45)]">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3caff6] text-white"><Phone size={20} /></div>
@@ -61,7 +61,7 @@ export default function HowItWorksPage() {
             </div>
 
             <div className="grid items-center gap-24 lg:grid-cols-2">
-              <div className="order-2 space-y-6 rounded-[3rem] bg-slate-900 p-10 shadow-2xl lg:order-1">
+              <div className="order-2 space-y-6 rounded-[3rem] bg-slate-900 p-10 shadow-[0_30px_58px_-36px_rgba(15,23,42,0.55)] lg:order-1">
                 <div className="flex items-center gap-3"><div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Training in Progress</span></div>
                 <div className="space-y-4">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="mb-1 text-xs italic text-white/50">Prompt Instruction</p><p className="text-sm font-medium text-white">Always prioritize high-urgency customer issues and capture the exact location or service need immediately.</p></div>
@@ -90,7 +90,7 @@ export default function HowItWorksPage() {
                 </p>
                 <div className="rounded-2xl border border-l-4 border-l-[#3caff6] border-slate-200 bg-white p-6"><p className="text-sm italic text-slate-600">&quot;Hi, this is Front Desk OS. Sorry we missed your call. How can we help you today?&quot;</p></div>
               </div>
-              <div className="rounded-[3rem] border border-slate-100 bg-white p-10 shadow-2xl">
+              <div className="rounded-[3rem] border border-slate-200/80 bg-white/95 p-10 shadow-[0_26px_52px_-36px_rgba(15,23,42,0.45)]">
                 <div className="space-y-8">
                   <div className="flex justify-end"><div className="max-w-[80%] rounded-2xl rounded-tr-none bg-slate-100 p-4"><p className="text-sm font-medium text-slate-600">I need to book a cleaning for next Tuesday.</p></div></div>
                   <div className="flex justify-start"><div className="max-w-[80%] rounded-2xl rounded-tl-none bg-[#3caff6] p-4 text-white shadow-lg shadow-sky-200"><p className="text-sm font-medium">Got it. I see an opening at 2:00 PM. Should I reserve that for you?</p></div></div>
@@ -99,7 +99,7 @@ export default function HowItWorksPage() {
             </div>
 
             <div className="grid items-center gap-24 lg:grid-cols-2">
-              <div className="order-2 space-y-6 rounded-[3rem] border border-slate-100 bg-white p-6 shadow-2xl lg:order-1">
+              <div className="order-2 space-y-6 rounded-[3rem] border border-slate-200/80 bg-white/95 p-6 shadow-[0_26px_52px_-36px_rgba(15,23,42,0.45)] lg:order-1">
                 <div className="rounded-[2.5rem] border border-slate-200 bg-slate-50 p-6">
                   <div className="mb-4 flex items-center justify-between">
                     <div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Workspace Preview</p><p className="text-lg font-bold text-slate-900">Operator Dashboard</p></div>
@@ -134,7 +134,7 @@ export default function HowItWorksPage() {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[4rem] bg-slate-900 p-16 text-center md:p-24">
+          <div className="relative overflow-hidden rounded-[4rem] bg-[linear-gradient(135deg,#0f172a_0%,#111827_45%,#1e293b_100%)] p-16 text-center shadow-[0_32px_64px_-38px_rgba(15,23,42,0.65)] md:p-24">
             <div className="relative z-10 mx-auto max-w-3xl space-y-10">
               <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-white md:text-6xl">Ready for a disciplined <br /><span className="font-serif italic text-[#3caff6]">operational rollout?</span></h2>
               <div className="flex flex-col items-center justify-center gap-6 sm:flex-row">
