@@ -11,26 +11,26 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#f5f7f8] font-sans text-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_55%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] font-sans text-slate-900">
       <PublicNav />
-      <main className="px-6 pb-24 pt-32">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-16">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
+      <main className="px-6 pb-24 pt-28 sm:pt-32">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 rounded-[28px] border border-slate-200/90 bg-white/92 p-7 shadow-[0_26px_50px_-34px_rgba(15,23,42,0.45)] sm:p-8">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
               <Shield size={12} />
               Privacy Policy
             </div>
-            <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
+            <h1 className="mb-5 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
               Your privacy is our <span className="font-serif italic text-[#3caff6]">operational priority.</span>
             </h1>
-            <p className="text-xl leading-relaxed text-slate-500">
+            <p className="text-lg leading-relaxed text-slate-500 sm:text-xl">
               Front Desk OS by Khan Systems handles call data, transcripts, messages, and customer records as part of front-desk operations.
               This policy explains what we collect, how it is used, and how we protect it.
             </p>
           </div>
 
-          <div className="space-y-12">
-            <section>
+          <div className="space-y-4">
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <FileText className="text-[#3caff6]" size={24} />
                 1. Information We Collect
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
               </div>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <Eye className="text-[#3caff6]" size={24} />
                 2. How We Use Data
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
               </div>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <Lock className="text-[#3caff6]" size={24} />
                 3. Data Security &amp; Retention
@@ -79,7 +79,7 @@ export default function PrivacyPage() {
               </div>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-2xl font-bold text-slate-900">4. Third-Party Providers</h2>
               <p className="leading-relaxed text-slate-600">
                 We rely on trusted providers such as AWS, Twilio, Stripe, and model providers to deliver infrastructure, billing, and AI capabilities.
@@ -87,7 +87,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-2xl font-bold text-slate-900">5. Your Rights</h2>
               <p className="leading-relaxed text-slate-600">
                 You may request access, correction, or deletion of certain personal and business information. Some data can be managed through your workspace,
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-8">
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-8 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-xl font-bold text-slate-900">Contact Privacy Team</h2>
               <p className="mb-4 text-slate-600">Questions about privacy or data handling can be sent to our privacy contact.</p>
               <p className="font-bold text-[#3caff6]">{siteContact.privacyEmail}</p>

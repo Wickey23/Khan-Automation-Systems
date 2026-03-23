@@ -11,26 +11,26 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#f5f7f8] font-sans text-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_55%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] font-sans text-slate-900">
       <PublicNav />
-      <main className="px-6 pb-24 pt-32">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-16">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
+      <main className="px-6 pb-24 pt-28 sm:pt-32">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 rounded-[28px] border border-slate-200/90 bg-white/92 p-7 shadow-[0_26px_50px_-34px_rgba(15,23,42,0.45)] sm:p-8">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
               <FileText size={12} />
               Terms of Service
             </div>
-            <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
+            <h1 className="mb-5 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
               Clear terms for <span className="font-serif italic text-[#3caff6]">reliable operations.</span>
             </h1>
-            <p className="text-xl leading-relaxed text-slate-500">
+            <p className="text-lg leading-relaxed text-slate-500 sm:text-xl">
               These terms govern use of Front Desk OS by Khan Systems. They are designed to reflect how the product is actually deployed:
               with structured onboarding, setup fees, and operational safeguards.
             </p>
           </div>
 
-          <div className="space-y-12">
-            <section>
+          <div className="space-y-4">
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <CheckCircle2 className="text-[#3caff6]" size={24} />
                 1. Service Overview
@@ -41,7 +41,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <Clock className="text-[#3caff6]" size={24} />
                 2. Implementation &amp; Onboarding
@@ -56,7 +56,7 @@ export default function TermsPage() {
               </div>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900">
                 <AlertCircle className="text-[#3caff6]" size={24} />
                 3. Billing &amp; Subscriptions
@@ -72,7 +72,7 @@ export default function TermsPage() {
               </div>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-2xl font-bold text-slate-900">4. Acceptable Use</h2>
               <p className="leading-relaxed text-slate-600">
                 The service may only be used for lawful business communications. Telemarketing spam, abusive messaging, fraudulent use,
@@ -80,7 +80,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-2xl font-bold text-slate-900">5. Limitation of Liability</h2>
               <p className="leading-relaxed text-slate-600">
                 Front Desk OS includes AI-generated transcripts, summaries, and routing logic that may occasionally contain errors.
@@ -89,7 +89,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <section>
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-6 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-2xl font-bold text-slate-900">6. Termination</h2>
               <p className="leading-relaxed text-slate-600">
                 Subscriptions may be cancelled according to plan-specific commitment terms. After termination, you will have a limited export window
@@ -97,7 +97,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-8">
+            <section className="rounded-[24px] border border-slate-200/90 bg-white/95 p-8 shadow-[0_22px_44px_-32px_rgba(15,23,42,0.4)]">
               <h2 className="mb-4 text-xl font-bold text-slate-900">Legal Inquiries</h2>
               <p className="mb-4 text-slate-600">Formal legal questions about these terms may be sent to our legal contact.</p>
               <p className="font-bold text-[#3caff6]">{siteContact.legalEmail}</p>
