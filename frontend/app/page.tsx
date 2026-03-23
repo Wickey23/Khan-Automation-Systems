@@ -99,34 +99,35 @@ const faqItems = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#f5f7f8] font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-700">
+    <div className="min-h-screen bg-transparent font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-700">
       <PublicNav />
       <main>
-        <section className="px-6 pb-24 pt-32">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-12">
+        <section className="relative px-6 pb-24 pt-32">
+          <div className="absolute inset-x-0 top-24 mx-auto h-64 max-w-6xl rounded-full bg-gradient-to-r from-sky-200/40 via-blue-200/35 to-cyan-200/35 blur-3xl" />
+          <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-12">
             <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/70 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-700">
                 <Sparkles size={12} />
                 AI Receptionist for Real Front Desk Operations
               </div>
               <div className="space-y-6">
                 <h1 className="max-w-4xl text-5xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-6xl">
-                  The AI receptionist that actually <span className="text-[#3caff6] italic">runs your front desk.</span>
+                  The AI receptionist that actually <span className="bg-gradient-to-r from-sky-600 to-blue-700 bg-clip-text italic text-transparent">runs your front desk.</span>
                 </h1>
-                <p className="max-w-2xl text-xl leading-relaxed text-slate-500">
+                <p className="max-w-2xl text-xl leading-relaxed text-slate-600">
                   Front Desk OS answers calls, captures customer intent, routes urgent issues, recovers missed calls with SMS,
                   and gives your team a clean operator workspace instead of another generic dashboard.
                 </p>
-                <p className="text-sm font-bold uppercase tracking-widest text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
                   Keep your number. Structured onboarding. Reliability-first rollout.
                 </p>
               </div>
               <div className="flex flex-wrap gap-4">
-                <Link href="/contact" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#3caff6] px-8 py-4 text-sm font-bold text-white shadow-xl shadow-sky-200 transition-all hover:bg-sky-500">
+                <Link href="/contact" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-8 py-4 text-sm font-semibold text-white shadow-[0_24px_30px_-20px_rgba(14,116,214,0.95)] transition-all hover:brightness-105">
                   Book a Demo
                   <ArrowRight size={18} />
                 </Link>
-                <Link href="/how-it-works" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-4 text-sm font-bold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50">
+                <Link href="/how-it-works" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-8 py-4 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-white">
                   See How It Works
                 </Link>
               </div>
@@ -136,9 +137,9 @@ export default function HomePage() {
                   ["5-10 min", "Typical forwarding setup"],
                   ["Human-ready", "Escalate calls to staff when needed"]
                 ].map((item) => (
-                  <div key={item[0]} className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                  <div key={item[0]} className="rounded-[1.75rem] border border-white/75 bg-white/75 p-5 shadow-[0_20px_36px_-30px_rgba(15,23,42,0.7)] backdrop-blur">
                     <p className="text-3xl font-black text-slate-900">{item[0]}</p>
-                    <p className="mt-1 text-sm text-slate-500">{item[1]}</p>
+                    <p className="mt-1 text-sm text-slate-600">{item[1]}</p>
                   </div>
                 ))}
               </div>
@@ -149,10 +150,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="border-y border-slate-200 bg-white px-6 py-8">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+        <section className="border-y border-slate-200/80 bg-white/65 px-6 py-8 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
             {trustItems.map((item) => (
-              <span key={item} className="rounded-full border border-slate-200 px-4 py-2">{item}</span>
+              <span key={item} className="rounded-full border border-slate-200/80 bg-white px-4 py-2">{item}</span>
             ))}
           </div>
         </section>
@@ -160,17 +161,17 @@ export default function HomePage() {
         <section className="px-6 py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mb-16 max-w-3xl">
-              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">The Problem</p>
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">The Problem</p>
               <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Missed calls turn into lost jobs faster than most teams realize.</h2>
-              <p className="mt-6 text-lg leading-relaxed text-slate-500">
+              <p className="mt-6 text-lg leading-relaxed text-slate-600">
                 Busy offices miss calls, delay callbacks, lose booking opportunities, and force staff to manage fragmented workflows across voicemail,
                 text threads, calendars, and notes. Front Desk OS closes that operational gap.
               </p>
             </div>
             <div className="grid gap-8 lg:grid-cols-2">
-              <div className="rounded-[2.5rem] border border-red-100 bg-red-50 p-10">
+              <div className="rounded-[2.5rem] border border-red-100 bg-red-50/80 p-10">
                 <h3 className="mb-6 text-2xl font-bold text-slate-900">What breaks today</h3>
-                <ul className="space-y-4 text-sm font-medium text-slate-600">
+                <ul className="space-y-4 text-sm font-medium text-slate-700">
                   {[
                     "Missed calls during busy periods or after hours",
                     "Slow callback loops that kill lead intent",
@@ -181,16 +182,16 @@ export default function HomePage() {
                   ))}
                 </ul>
               </div>
-              <div className="rounded-[2.5rem] border border-sky-100 bg-white p-10 shadow-sm">
+              <div className="rounded-[2.5rem] border border-sky-100 bg-white/90 p-10 shadow-[0_20px_42px_-30px_rgba(15,23,42,0.45)]">
                 <h3 className="mb-6 text-2xl font-bold text-slate-900">How Front Desk OS fixes it</h3>
-                <ul className="space-y-4 text-sm font-medium text-slate-600">
+                <ul className="space-y-4 text-sm font-medium text-slate-700">
                   {[
                     "AI answers instantly and captures customer intent",
                     "Urgent issues route correctly instead of getting buried",
                     "Missed-call recovery SMS keeps leads warm",
                     "Operators review everything in one workspace"
                   ].map((item) => (
-                    <li key={item} className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-[#3caff6]" size={18} />{item}</li>
+                    <li key={item} className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-sky-600" size={18} />{item}</li>
                   ))}
                 </ul>
               </div>
@@ -198,18 +199,18 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="features" className="bg-white px-6 py-24">
+        <section id="features" className="bg-white/70 px-6 py-24 backdrop-blur">
           <div className="mx-auto max-w-7xl">
             <div className="mb-16 max-w-3xl">
-              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">Feature Grid</p>
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">Feature Grid</p>
               <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Built for the actual front desk operating loop.</h2>
             </div>
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {featureCards.map((card) => (
-                <div key={card.title} className="rounded-[2rem] border border-slate-200 bg-slate-50 p-8">
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-[#3caff6]"><Zap size={22} /></div>
+                <div key={card.title} className="rounded-[2rem] border border-slate-200/85 bg-white/80 p-8 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.4)]">
+                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600"><Zap size={22} /></div>
                   <h3 className="text-xl font-bold text-slate-900">{card.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-slate-500">{card.copy}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{card.copy}</p>
                 </div>
               ))}
             </div>
@@ -222,42 +223,42 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="pricing" className="bg-white px-6 py-24">
+        <section id="pricing" className="bg-white/70 px-6 py-24 backdrop-blur">
           <div className="mx-auto max-w-7xl">
             <div className="mb-20 text-center">
               <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Pilot-first pricing built for disciplined rollout.</h2>
-              <p className="mx-auto mt-6 max-w-2xl text-xl leading-relaxed text-slate-500">
+              <p className="mx-auto mt-6 max-w-2xl text-xl leading-relaxed text-slate-600">
                 We prioritize onboarding quality and operational reliability over raw client volume. The pricing model reflects that.
               </p>
             </div>
             <div className="mb-16 grid gap-8 md:grid-cols-3">
               {pricingPlans.map((plan) => (
-                <div key={plan.name} className={`relative flex flex-col rounded-[2.5rem] border p-10 transition-all ${plan.popular ? "z-10 scale-105 border-[#3caff6] bg-white shadow-2xl" : "border-slate-200 bg-white shadow-sm"}`}>
-                  {plan.popular ? <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3caff6] px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white">Default Production</div> : null}
+                <div key={plan.name} className={`relative flex flex-col rounded-[2.5rem] border p-10 transition-all ${plan.popular ? "z-10 scale-[1.02] border-sky-300 bg-white shadow-[0_28px_46px_-28px_rgba(14,116,214,0.7)]" : "border-slate-200 bg-white/90 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.55)]"}`}>
+                  {plan.popular ? <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-600 px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white">Default Production</div> : null}
                   {!plan.popular && plan.badge ? <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-900 px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white">{plan.badge}</div> : null}
                   <div className="mb-8">
                     <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
-                    <p className="mt-2 min-h-[44px] text-sm leading-relaxed text-slate-500">{plan.description}</p>
+                    <p className="mt-2 min-h-[44px] text-sm leading-relaxed text-slate-600">{plan.description}</p>
                   </div>
                   <div className="mb-8">
                     <div className="flex items-baseline gap-1">
                       <span className="text-5xl font-black text-slate-900">{plan.price}</span>
-                      <span className="font-bold text-slate-400">/mo</span>
+                      <span className="font-bold text-slate-500">/mo</span>
                     </div>
                     <div className="mt-3 space-y-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-[#3caff6]">{plan.setup}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{plan.commitment}</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-sky-700">{plan.setup}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{plan.commitment}</p>
                     </div>
                   </div>
                   <ul className="mb-10 flex-1 space-y-4">
                     {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-3 text-sm font-medium text-slate-600">
-                        <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[#3caff6]" />
+                      <li key={feature} className="flex items-start gap-3 text-sm font-medium text-slate-700">
+                        <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-sky-600" />
                         {feature}
                       </li>
                     ))}
                   </ul>
-                  <Link href={plan.href} className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-center font-bold transition-all ${plan.popular ? "bg-[#3caff6] text-white shadow-lg shadow-sky-200 hover:bg-sky-500" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}>
+                  <Link href={plan.href} className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-center font-semibold transition-all ${plan.popular ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_16px_24px_-16px_rgba(14,116,214,0.9)] hover:brightness-105" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}>
                     {plan.cta}
                     <ArrowRight size={18} />
                   </Link>
@@ -265,23 +266,23 @@ export default function HomePage() {
               ))}
             </div>
             <div className="mx-auto max-w-4xl space-y-12">
-              <div className="grid gap-12 rounded-[2rem] border border-slate-100 bg-slate-50 p-10 md:grid-cols-2">
+              <div className="grid gap-12 rounded-[2rem] border border-slate-200/80 bg-white/75 p-10 md:grid-cols-2">
                 <div className="space-y-4">
-                  <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-900"><Zap size={16} className="text-[#3caff6]" />Implementation Model</h4>
-                  <ul className="space-y-2 text-sm text-slate-500">
+                  <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-900"><Zap size={16} className="text-sky-600" />Implementation Model</h4>
+                  <ul className="space-y-2 text-sm text-slate-600">
                     {[
                       "Keep your existing business number",
                       "Forwarding setup takes 5-10 minutes",
                       "Structured onboarding is included",
                       "Controlled go-live for production readiness"
                     ].map((item) => (
-                      <li key={item} className="flex items-center gap-2"><div className="h-1 w-1 rounded-full bg-[#3caff6]" />{item}</li>
+                      <li key={item} className="flex items-center gap-2"><div className="h-1 w-1 rounded-full bg-sky-600" />{item}</li>
                     ))}
                   </ul>
                 </div>
                 <div className="space-y-4">
-                  <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-900"><Shield size={16} className="text-[#3caff6]" />Operational Integrity</h4>
-                  <p className="text-sm leading-relaxed text-slate-500">
+                  <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-900"><Shield size={16} className="text-sky-600" />Operational Integrity</h4>
+                  <p className="text-sm leading-relaxed text-slate-600">
                     Setup quality and rollout discipline are core to the model. We verify workflows before live production traffic is routed through the system.
                   </p>
                 </div>
@@ -293,14 +294,14 @@ export default function HomePage() {
         <section className="px-6 py-24">
           <div className="mx-auto max-w-5xl">
             <div className="mb-16 text-center">
-              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3caff6]">FAQ</p>
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">FAQ</p>
               <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Questions teams usually ask before rollout.</h2>
             </div>
             <div className="space-y-4">
               {faqItems.map((item) => (
-                <div key={item[0]} className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                <div key={item[0]} className="rounded-[2rem] border border-slate-200/85 bg-white/80 p-8 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.55)]">
                   <h3 className="text-xl font-bold text-slate-900">{item[0]}</h3>
-                  <p className="mt-3 text-sm leading-7 text-slate-500">{item[1]}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{item[1]}</p>
                 </div>
               ))}
             </div>
@@ -308,20 +309,20 @@ export default function HomePage() {
         </section>
 
         <section className="px-6 pb-24">
-          <div className="mx-auto max-w-7xl overflow-hidden rounded-[3rem] bg-slate-900 px-10 py-16 text-center text-white md:px-16 md:py-24">
+          <div className="mx-auto max-w-7xl overflow-hidden rounded-[3rem] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-10 py-16 text-center text-white md:px-16 md:py-24">
             <div className="mx-auto max-w-3xl">
               <h2 className="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl">
-                Ready for a disciplined <span className="text-[#3caff6] italic">operational rollout?</span>
+                Ready for a disciplined <span className="text-sky-400 italic">operational rollout?</span>
               </h2>
               <p className="mt-6 text-lg leading-relaxed text-slate-300">
                 Book a demo, review your current front-desk flow, and see how Front Desk OS fits into your existing number, routing, and booking process.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-6 sm:flex-row">
-                <Link href="/contact" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#3caff6] px-10 py-5 text-lg font-bold text-white shadow-2xl shadow-sky-500/30 transition-all hover:bg-sky-500 sm:w-auto">
+                <Link href="/contact" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-10 py-5 text-lg font-semibold text-white shadow-[0_20px_30px_-18px_rgba(14,116,214,0.95)] transition-all hover:brightness-105 sm:w-auto">
                   Book a Demo
                   <ArrowRight size={20} />
                 </Link>
-                <Link href="/contact" className="inline-flex w-full items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-10 py-5 text-lg font-bold text-white transition-all hover:bg-white/20 sm:w-auto">
+                <Link href="/contact" className="inline-flex w-full items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-10 py-5 text-lg font-semibold text-white transition-all hover:bg-white/20 sm:w-auto">
                   Talk to Sales
                 </Link>
               </div>
