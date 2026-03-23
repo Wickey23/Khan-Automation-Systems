@@ -453,7 +453,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:hidden">
+              <div className="mt-2 grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1 xl:hidden">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
@@ -470,7 +470,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     return (
                       <span
                         key={item.href}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-400"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-400"
                         title={lockedByFeature && featureStatus ? formatAccessStatus(featureStatus.status) : "Locked"}
                       >
                         <Icon className="h-3.5 w-3.5" />
@@ -485,7 +485,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition",
+                        "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
                         active
                           ? "border-slate-300 bg-slate-900 text-white"
                           : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
