@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, WorkflowHint } from "@/components/ui/page";
+import { PageHeader, PageShell, WorkflowHint } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import {
   confirmAdminOutreachLeadsImport,
@@ -578,7 +578,7 @@ export default function AdminOutreachLeadsPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <div className="container space-y-6 py-10">
+      <PageShell className="space-y-6">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Internal growth"
@@ -614,7 +614,7 @@ export default function AdminOutreachLeadsPage() {
         />
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <Card>
+          <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
             <CardHeader>
               <CardTitle>Add lead</CardTitle>
             </CardHeader>
@@ -636,7 +636,7 @@ export default function AdminOutreachLeadsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
             <CardHeader>
               <CardTitle>CSV import</CardTitle>
             </CardHeader>
@@ -728,7 +728,7 @@ export default function AdminOutreachLeadsPage() {
         </div>
 
         <div className={`grid gap-4 ${selectedPhoneEvent ? "xl:grid-cols-[minmax(0,1.05fr)_minmax(460px,0.95fr)]" : ""}`}>
-          <Card>
+          <Card className="border-slate-200/90 bg-white/95 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.4)]">
             <CardHeader>
               <CardTitle>Leads</CardTitle>
             </CardHeader>
@@ -740,7 +740,7 @@ export default function AdminOutreachLeadsPage() {
                 const nextStep = getLeadNextStep(lead);
                 const laneConflict = hasActiveEmailLane(lead) && hasActivePhoneLane(lead);
                 return (
-                  <div key={lead.id} className="rounded-lg border p-4">
+                  <div key={lead.id} className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.38)]">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{formatLeadHeadline(lead)}</div>
@@ -750,11 +750,11 @@ export default function AdminOutreachLeadsPage() {
                   </div>
 
                   <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)]">
-                    <div className={`rounded-lg border p-3 text-sm ${laneConflict ? "border-amber-200 bg-amber-50" : "bg-muted/20"}`}>
+                    <div className={`rounded-2xl border p-3 text-sm ${laneConflict ? "border-amber-200 bg-amber-50" : "border-slate-200/90 bg-slate-50/70"}`}>
                       <div className="font-medium">Current lane status</div>
                       <div className="mt-2 text-muted-foreground">{laneSummary}</div>
                     </div>
-                    <div className="rounded-lg border bg-white p-3 text-sm">
+                    <div className="rounded-2xl border border-slate-200/90 bg-white p-3 text-sm">
                       <div className="font-medium">Recommended next step</div>
                       <div className="mt-2 text-muted-foreground">{nextStep}</div>
                     </div>
@@ -774,7 +774,7 @@ export default function AdminOutreachLeadsPage() {
                       {lead.notes ? <div className="mt-2 text-muted-foreground">{lead.notes}</div> : null}
                     </div>
 
-                    <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3">
                       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Assign sequence to start</div>
                       <select
                         value={selectedSequenceByLead[lead.id] || ""}
@@ -790,7 +790,7 @@ export default function AdminOutreachLeadsPage() {
                       {!hasRealOutreachEmail(lead.email) ? <p className="mt-2 text-xs text-muted-foreground">Add a real email to use the email sequence lane. Phone-only leads can still use Caller AI.</p> : null}
                     </div>
 
-                    <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3">
                       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Assign call to start</div>
                       <select
                         value={selectedCallerConfigByLead[lead.id] || ""}
@@ -868,7 +868,7 @@ export default function AdminOutreachLeadsPage() {
                   ) : null}
 
                   {activity.length ? (
-                    <div className="mt-3 rounded-lg border bg-muted/10 p-3">
+                    <div className="mt-3 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-3">
                       <div className="text-sm font-medium">Recent outreach activity</div>
                       <div className="mt-2 space-y-2 text-sm text-muted-foreground">
                         {activity.map((item) => (
@@ -898,7 +898,7 @@ export default function AdminOutreachLeadsPage() {
                   ) : null}
                   </div>
                 );
-              }) : <div className="text-sm text-muted-foreground">No outreach leads found.</div>}
+              }) : <div className="rounded-2xl border border-dashed border-slate-300/80 bg-slate-50/65 p-4 text-sm text-muted-foreground">No outreach leads found.</div>}
             </CardContent>
           </Card>
 
@@ -911,7 +911,7 @@ export default function AdminOutreachLeadsPage() {
             </div>
           ) : null}
         </div>
-      </div>
+      </PageShell>
     </AdminGuard>
   );
 }
