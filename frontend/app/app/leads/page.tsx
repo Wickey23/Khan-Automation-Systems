@@ -37,6 +37,7 @@ import {
   OperationalSignal,
   OperationalSignalChips
 } from "@/components/queue/operational-row";
+import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 
 type PipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -553,7 +554,14 @@ export default function AppLeadsPage() {
                     );
                   })
                 ) : (
-                  <tr><td className="px-6 py-10 text-sm text-slate-500" colSpan={5}>No leads match this search. Try a broader term or clear filters.</td></tr>
+                  <tr>
+                    <td className="px-6 py-6" colSpan={5}>
+                      <QueueEmptyState
+                        title="No Leads Match This Search"
+                        description="Try a broader term or clear the query to view the full lead queue."
+                      />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -793,7 +801,12 @@ export default function AppLeadsPage() {
               </div>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a lead to review context, AI recommendations, and follow-up actions.</div>
+            <div className="p-8">
+              <QueueEmptyState
+                title="No Lead Selected"
+                description="Select a lead to review context, AI recommendations, and follow-up actions."
+              />
+            </div>
           )}
         </aside>
       </div>

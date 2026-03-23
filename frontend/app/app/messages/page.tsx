@@ -46,6 +46,7 @@ import {
   OperationalSignal,
   OperationalSignalChips
 } from "@/components/queue/operational-row";
+import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
@@ -539,7 +540,12 @@ export default function AppMessagesPage() {
                 </div>
               ))
             ) : (
-              <div className="px-6 py-8 text-sm text-slate-500">No threads match this search. Try another term or clear the query.</div>
+              <div className="px-6 py-6">
+                <QueueEmptyState
+                  title="No Threads Match This Search"
+                  description="Try another term or clear the query to show all conversation threads."
+                />
+              </div>
             )}
           </div>
         </div>
@@ -710,7 +716,12 @@ export default function AppMessagesPage() {
               </footer>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center p-10 text-sm text-slate-500">Select a thread to review messages, AI guidance, and follow-up options.</div>
+            <div className="p-8">
+              <QueueEmptyState
+                title="No Thread Selected"
+                description="Select a thread to review messages, AI guidance, and follow-up options."
+              />
+            </div>
           )}
         </div>
 

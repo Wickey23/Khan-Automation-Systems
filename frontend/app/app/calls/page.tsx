@@ -43,6 +43,7 @@ import {
   OperationalSignal,
   OperationalSignalChips
 } from "@/components/queue/operational-row";
+import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 
 const stateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
@@ -669,7 +670,12 @@ export default function AppCallsPage() {
                     ))
                   ) : (
                     <tr>
-                      <td className="px-6 py-10 text-sm text-slate-500" colSpan={5}>No calls match this filter yet. Try All, or clear the search field.</td>
+                      <td className="px-6 py-6" colSpan={5}>
+                        <QueueEmptyState
+                          title="No calls match this filter"
+                          description="Try selecting All, or clear your search to load the full call queue."
+                        />
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -923,8 +929,11 @@ export default function AppCallsPage() {
                 </div>
               </>
             ) : (
-              <div className="flex h-full items-center justify-center p-10 text-center text-sm text-slate-500">
-                Select a call from the queue to review summary, transcript, AI recommendations, and next actions.
+              <div className="p-8">
+                <QueueEmptyState
+                  title="No Call Selected"
+                  description="Select a call from the queue to review summary, transcript, AI recommendations, and next actions."
+                />
               </div>
             )}
           </section>
