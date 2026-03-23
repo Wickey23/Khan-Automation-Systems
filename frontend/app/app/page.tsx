@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { buildReturnTo, buildWorkflowHref } from "@/lib/workflow-nav";
 import { consumeDailyReviewDirtyReasons } from "@/lib/review-loop";
 import { OPERATIONAL_LABELS } from "@/lib/operational-language";
+import { SectionDisclosure } from "@/components/ops";
 
 type DashboardState = {
   calls: OrgCallRecord[];
@@ -415,6 +416,11 @@ export default function AppOverviewPage() {
               </Link>
             </div>
           </div>
+          <SectionDisclosure
+            title="Operational Detail"
+            storageKey="dashboard-operational-detail"
+            defaultCollapsed
+          >
           <div className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900">AI Assistant</h3>
@@ -875,7 +881,8 @@ export default function AppOverviewPage() {
           </div>
         </div>
         </div>
-      </div>
+        </SectionDisclosure>
+        </div>
 
       {showOperationsRail ? (
       <aside className="hidden border-l border-slate-200 bg-slate-50 xl:flex xl:flex-col">
