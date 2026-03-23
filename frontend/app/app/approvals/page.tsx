@@ -360,7 +360,10 @@ export default function ApprovalsPage() {
               })
             }
           ],
-          detail: approvalDecisionHint(approval)
+          detail: approvalDecisionHint(approval),
+          onRowSelect: () => setPreviewApprovalId(approval.id),
+          onRowFocus: () => setPreviewApprovalId(approval.id),
+          rowAriaLabel: `${approval.toolKey}. ${approval.status}.`
         };
       }),
     [actionBusyId, decide, localReturnTo, returnTo, retrySend, visibleApprovals]

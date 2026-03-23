@@ -282,10 +282,15 @@ export default function AttentionPage() {
             label: action.label,
             href: action.href || buildWorkflowHref(item.entityHref, { source: "attention", returnTo, returnLabel: "Needs Attention" })
           })),
-          detail: item.recommendedOwnerAction || item.topReasons[0] || "Review context and decide next step."
+          detail: item.recommendedOwnerAction || item.topReasons[0] || "Review context and decide next step.",
+          onRowSelect: () => setPreviewKey(`${item.entityType}:${item.entityId}`),
+          onRowFocus: () => setPreviewKey(`${item.entityType}:${item.entityId}`),
+          rowAriaLabel: `${item.label}. Owner ${
+            owner?.state === "mine" ? "you" : owner?.state === "assigned_elsewhere" ? owner.ownerEmail || "assigned" : "unassigned"
+          }.`
         };
       }),
-    [actionBusyId, buildWorkflowHref, onRetrySend, ownershipByEntity, returnTo, visibleItems]
+    [actionBusyId, onRetrySend, ownershipByEntity, returnTo, visibleItems]
   );
   const attentionRiskItems = useMemo(
     () => [
