@@ -14,12 +14,13 @@ import {
 } from "@/lib/api";
 import type { TeamMember } from "@/lib/types";
 import { useToast } from "@/components/site/toast-provider";
+import { CommandHeader } from "@/components/ops";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHelpFab } from "@/components/ui/page";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function toRoleInput(role: TeamMember["role"]): "admin" | "manager" | "viewer" {
@@ -244,7 +245,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
+      <CommandHeader
         eyebrow="People and permissions"
         title="Team & Routing"
         description="Control who receives escalations, who can manage the workspace, and how your available seats are being used."

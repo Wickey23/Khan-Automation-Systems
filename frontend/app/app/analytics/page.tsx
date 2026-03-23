@@ -5,11 +5,12 @@ import { BarChart3 } from "lucide-react";
 import { fetchOrgAnalytics, getBillingStatus, getMe } from "@/lib/api";
 import { resolvePlanFeatures } from "@/lib/plan-features";
 import type { OrgAnalytics } from "@/lib/types";
+import { CommandHeader } from "@/components/ops";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
-import { PageHeader, PageHelpFab, PageShell, SectionShell } from "@/components/ui/page";
+import { PageHelpFab, PageShell, SectionShell } from "@/components/ui/page";
 import { subscriptionStatusLabel } from "@/lib/client-status-language";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
@@ -100,10 +101,10 @@ export default function AppAnalyticsPage() {
 
   return (
     <PageShell className="space-y-6">
-      <PageHeader
-        eyebrow="Business performance"
+      <CommandHeader
+        eyebrow="Operational Intelligence"
         title="Performance"
-        description="Use this page to measure how front-desk work is converting into leads, follow-up, and booked jobs without digging through raw operational history."
+        description="Measure whether front-desk operations are converting into leads, follow-up outcomes, and booked work."
         actions={
           <div className="inline-flex rounded-2xl border bg-white p-1 shadow-sm">
             {(["7d", "30d"] as const).map((option) => (

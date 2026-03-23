@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientStatusGrid } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, SectionHeading, PageHelpFab } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
+import { SectionHeading, PageHelpFab } from "@/components/ui/page";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { clientBadgeClass } from "@/lib/client-badges";
@@ -309,7 +310,7 @@ export default function AppOnboardingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <CommandHeader
         eyebrow="Workspace setup"
         title="Setup Wizard"
         description={`Status: ${status}. Teach the receptionist how your office operates before live calls, texts, and booking requests start flowing into the front desk.`}

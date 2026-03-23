@@ -24,8 +24,9 @@ import {
 import { AskAiInline } from "@/components/ai/ask-ai-inline";
 import { useAccessSummary } from "@/context/access-summary";
 import type { AppointmentRequest, TeamMember } from "@/lib/types";
+import { CommandHeader } from "@/components/ops";
 import { Button } from "@/components/ui/button";
-import { PageHeader, PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
+import { PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
@@ -229,7 +230,7 @@ export default function AppAppointmentsPage() {
         defaultAgentKey="scheduling"
       />
       <SectionShell className="surface-panel space-y-3">
-        <PageHeader
+        <CommandHeader
           eyebrow="Booking operations"
           title="Booking triage"
           description="Handle appointment requests, expose failure states, and escalate reviews without leaving one calm workspace."

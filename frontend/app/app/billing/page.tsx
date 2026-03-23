@@ -11,10 +11,11 @@ import {
   getBillingStatus
 } from "@/lib/api";
 import type { BillingDiagnosticCheck, BillingDiagnosticsPayload, OrgDemoStatus, OrgSubscription } from "@/lib/types";
+import { CommandHeader } from "@/components/ops";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader, PageHelpFab } from "@/components/ui/page";
+import { PageHelpFab } from "@/components/ui/page";
 import { useToast } from "@/components/site/toast-provider";
 import { frontDeskEmptyStateClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
@@ -346,7 +347,7 @@ export default function AppBillingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <CommandHeader
         eyebrow="Billing"
         title="Billing"
         description="Manage your subscription, payment method, invoices, and billing diagnostics."

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock3, PhoneCall, MessageSquare, Calendar, Activity, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader, PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
+import { CommandHeader } from "@/components/ops";
+import { PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -613,7 +614,7 @@ export default function AppActivationPage() {
 
   return (
     <PageShell className="space-y-6">
-      <PageHeader
+      <CommandHeader
         eyebrow="Guided activation"
         title={organization?.name ? `${organization.name} activation` : "Activation control center"}
         description="Readiness-first control board for moving from setup into safe live operations."
