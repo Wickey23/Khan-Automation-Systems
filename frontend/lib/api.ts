@@ -63,6 +63,7 @@ import type {
   EntityAiTimelineResponse,
   AttentionQueueItem,
   ManagerInsightSummary,
+  OperationsFeedEvent,
   OutreachBulkImportRowResult,
   OutreachCallerConfig,
   OutreachActivityEvent,
@@ -1651,6 +1652,14 @@ export async function fetchAttentionQueue(payload?: { limit?: number; levels?: A
 
 export async function fetchManagerInsights() {
   return request<ManagerInsightSummary>("/api/org/ai/insights/manager-summary");
+}
+
+export async function fetchOperationsFeed(payload?: { limit?: number; filter?: string }) {
+  const search = new URLSearchParams();
+  if (payload?.limit) search.set("limit", String(payload.limit));
+  if (payload?.filter) search.set("filter", payload.filter);
+  const query = search.toString();
+  return request<{ events: OperationsFeedEvent[] }>(`/api/org/ai/insights/operations-feed${query ? `?${query}` : ""}`);
 }
 
 export async function executeAiTool(payload: {

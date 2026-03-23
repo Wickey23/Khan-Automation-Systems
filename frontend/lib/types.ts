@@ -1799,3 +1799,16 @@ export type ManagerInsightSummary = {
   openFollowUps: number;
   pendingApprovals: number;
 };
+
+export type OperationsFeedEvent = {
+  id: string;
+  eventType: string;
+  title: string;
+  summary: string;
+  status: "info" | "success" | "warning" | "critical";
+  createdAt: string;
+  entityType: string | null;
+  entityId: string | null;
+  href: string | null;
+  metadata: Record<string, unknown>;
+};
