@@ -16,8 +16,6 @@ import {
   fetchOrgLeads,
   fetchOrgOnboarding
 } from "@/lib/api";
-import { AskAiInline } from "@/components/ai/ask-ai-inline";
-import { OperationsFeedList } from "@/components/ai/operations-feed-list";
 import type {
   AppointmentRequest,
   ApprovalRequest,
@@ -31,8 +29,6 @@ import type {
 } from "@/lib/types";
 import { buildReturnTo, buildWorkflowHref } from "@/lib/workflow-nav";
 import { consumeDailyReviewDirtyReasons } from "@/lib/review-loop";
-import { OPERATIONAL_LABELS } from "@/lib/operational-language";
-import { CommandHeader, KpiCard, RiskRailCard, SectionDisclosure } from "@/components/ops";
 
 type DashboardState = {
   calls: OrgCallRecord[];
@@ -70,7 +66,7 @@ export default function AppOverviewPage() {
     accessSummary: null
   });
   const [loading, setLoading] = useState(true);
-  const [reviewRefreshNote, setReviewRefreshNote] = useState<string | null>(null);
+  const [, setReviewRefreshNote] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     const [calls, leads, requests, onboarding, attention, approvals, followUps, insights, operations, me, profile] = await Promise.all([
@@ -187,55 +183,14 @@ export default function AppOverviewPage() {
       needsReviewTodayCount
     };
   }, [atRiskSnapshot.criticalUnownedAttention, atRiskSnapshot.overdueUnassigned, atRiskSnapshot.pendingApprovalsAging, state.operations]);
-  const isReviewQuiet = reviewTodaySnapshot.needsReviewTodayCount === 0;
+
+  const activeThroughput = state.calls.length + state.leads.length + state.requests.length;
+  const meanTriageTime = `${Math.max(2.1, Number(((state.followUps.length + state.approvals.length) / 5).toFixed(1)))}m`;
+  const blockedItems = atRiskSnapshot.overdueUnassigned + atRiskSnapshot.criticalUnownedAttention;
   const isLowActivityWorkspace = useMemo(() => {
     const primaryActivity = state.calls.length + state.leads.length + state.requests.length + state.operations.length;
     return primaryActivity < 6 && state.attention.length === 0 && state.approvals.length === 0 && state.followUps.length === 0;
   }, [state.approvals.length, state.attention.length, state.calls.length, state.followUps.length, state.leads.length, state.operations.length, state.requests.length]);
-  const readinessStatus = useMemo(() => {
-    const access = state.accessSummary;
-    if (!access) {
-      return {
-        mode: "unknown" as const,
-        missingCount: 0
-      };
-    }
-    const featureNeedsSetup = Object.values(access.features).filter(
-      (feature) => feature.status === "setup_required" || feature.status === "gated" || feature.status === "blocked"
-    ).length;
-    const checklistNeedsSetup = access.readinessChecklist.filter((check) => check.status !== "ready").length;
-    const missingCount = featureNeedsSetup + checklistNeedsSetup;
-    if (missingCount > 0) {
-      return {
-        mode: "setup_required" as const,
-        missingCount
-      };
-    }
-    return {
-      mode: "configured" as const,
-      missingCount: 0
-    };
-  }, [state.accessSummary]);
-
-  const onboardingReady = state.onboardingStatus && ["SUBMITTED", "REVIEWED", "APPROVED"].includes(state.onboardingStatus);
-  const activeThroughput = state.calls.length + state.leads.length + state.requests.length;
-  const meanTriageTime = `${Math.max(2.1, Number(((state.followUps.length + state.approvals.length) / 5).toFixed(1)))}m`;
-  const blockedItems = atRiskSnapshot.overdueUnassigned + atRiskSnapshot.criticalUnownedAttention;
-  const riskItems = [
-    {
-      id: "critical-unassigned",
-      title: "Critical/high unassigned",
-      detail: "Needs ownership assignment now.",
-      level: "critical" as const,
-      meter: Math.min(100, atRiskSnapshot.criticalUnownedAttention * 20)
-    },
-    {
-      id: "stale-assigned",
-      title: "Stale assigned follow-up",
-      detail: "Response times are beyond target window.",
-      level: "warning" as const
-    }
-  ];
 
   return (
     <div className="space-y-12 pb-12">

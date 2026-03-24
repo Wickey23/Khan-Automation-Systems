@@ -6,14 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Archive,
   Calendar,
-  CheckCheck,
   Inbox,
-  Paperclip,
   PhoneCall,
   Plus,
   Search,
-  Send,
-  Smile,
   Sparkles,
   Tag
 } from "lucide-react";
