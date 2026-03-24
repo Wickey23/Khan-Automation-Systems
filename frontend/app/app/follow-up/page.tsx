@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -660,7 +660,7 @@ export default function FollowUpPage() {
                 rows={followUpRows}
                 viewAllHref={buildWorkflowHref("/app/follow-up", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
               />
-              <aside className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <aside className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
                 {previewItem ? (
                   <>
                     <section className="space-y-1 border-b border-slate-200 pb-3">

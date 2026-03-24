@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 type BulkAction = {
   key: string;
@@ -17,7 +17,7 @@ type QueueBulkActionBarProps = {
 export function QueueBulkActionBar({ selectedCount, actions, onClear }: QueueBulkActionBarProps) {
   if (!selectedCount) return null;
   return (
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
       <p className="text-xs font-semibold text-slate-700">{selectedCount} selected for action</p>
       <div className="flex flex-wrap items-center gap-2">
         {actions.map((action) => (

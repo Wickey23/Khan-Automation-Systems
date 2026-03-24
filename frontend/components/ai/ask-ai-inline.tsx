@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
@@ -52,7 +52,7 @@ export function AskAiInline({
   }
 
   return (
-    <div className={cn("rounded-2xl border border-slate-200 bg-white p-4 shadow-sm", className)}>
+    <div className={cn("rounded-lg border border-slate-200 bg-white p-4 shadow-sm", className)}>
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
         <Sparkles className="h-4 w-4 text-blue-600" />
         Ask Copilot
@@ -62,13 +62,13 @@ export function AskAiInline({
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder={placeholder}
-          className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm text-slate-900 outline-none ring-blue-500 transition focus:ring-2"
+          className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm text-slate-900 outline-none ring-blue-500 transition focus:ring-2"
         />
         <button
           type="button"
           onClick={onSubmit}
           disabled={busy || !prompt.trim()}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           Run

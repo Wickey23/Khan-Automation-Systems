@@ -673,7 +673,7 @@ export default function ApprovalsPage() {
                 rows={approvalRows}
                 viewAllHref={buildWorkflowHref("/app/approvals", { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })}
               />
-              <aside className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <aside className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
                 {previewApproval ? (
                   <>
                     <section className="space-y-1 border-b border-slate-200 pb-3">

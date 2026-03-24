@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
@@ -66,7 +66,7 @@ export function AiWorkflowActions({
   }
 
   return (
-    <div className={cn("rounded-2xl border border-slate-200 bg-white p-4 shadow-sm", className)}>
+    <div className={cn("rounded-lg border border-slate-200 bg-white p-4 shadow-sm", className)}>
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
         <Sparkles className="h-4 w-4 text-blue-600" />
         {title}

@@ -16,16 +16,16 @@ export function KpiCard({
   return (
     <article
       className={cn(
-        "rounded-lg border px-3 py-2.5",
+        "rounded-md border px-3 py-2",
         emphasis === "risk"
-          ? "border-rose-200 bg-rose-50/60"
+          ? "border-rose-200 bg-rose-50"
           : "border-slate-200 bg-white",
         className
       )}
     >
-      <p className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]", emphasis === "risk" ? "text-rose-700" : "text-slate-500")}>{label}</p>
-      <p className={cn("mt-1 text-2xl font-semibold tracking-tight", emphasis === "risk" ? "text-rose-800" : "text-slate-900")}>{value}</p>
-      {detail ? <p className={cn("text-xs", emphasis === "risk" ? "text-rose-700" : "text-slate-600")}>{detail}</p> : null}
+      <p className={cn("text-[10px] font-semibold uppercase tracking-[0.12em]", emphasis === "risk" ? "text-rose-700" : "text-slate-500")}>{label}</p>
+      <p className={cn("mt-0.5 text-xl font-semibold tabular-nums tracking-tight", emphasis === "risk" ? "text-rose-800" : "text-slate-900")}>{value}</p>
+      {detail ? <p className={cn("text-[11px]", emphasis === "risk" ? "text-rose-700" : "text-slate-500")}>{detail}</p> : null}
     </article>
   );
 }

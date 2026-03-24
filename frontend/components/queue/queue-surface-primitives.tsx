@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -19,7 +19,7 @@ export function QueueSurfaceStateCard({ kind, message, title, actionLabel, actio
   // Shared state card for queue/list surfaces to avoid loading/empty/error drift.
   if (kind === "loading") {
     return (
-      <div className={cn("flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 p-6 text-sm text-slate-600 shadow-sm", className)}>
+      <div className={cn("flex items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-6 text-sm text-slate-600 shadow-sm", className)}>
         <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
         <span className="font-medium">{message}</span>
       </div>
@@ -29,7 +29,7 @@ export function QueueSurfaceStateCard({ kind, message, title, actionLabel, actio
   const toneClassName = kind === "error" ? "border-red-200 bg-red-50/80 text-red-700" : "border-slate-200 bg-white text-slate-600";
 
   return (
-    <div className={cn("rounded-2xl border p-4 text-sm shadow-sm", toneClassName, className)}>
+    <div className={cn("rounded-lg border p-4 text-sm shadow-sm", toneClassName, className)}>
       {title ? <p className="font-semibold leading-5 text-slate-900">{title}</p> : null}
       <p className={cn(title ? "mt-1" : "", kind === "error" ? "text-red-700" : "text-slate-600")}>{message}</p>
       {actionLabel ? (
@@ -65,7 +65,7 @@ type QueueSectionHeaderProps = {
 
 export function QueueSectionHeader({ title, description, className, actions }: QueueSectionHeaderProps) {
   return (
-    <div className={cn("rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2.5", className)}>
+    <div className={cn("rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2.5", className)}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{title}</p>

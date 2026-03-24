@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { EntityAiTimelineResponse } from "@/lib/types";
 
@@ -130,7 +130,7 @@ export function RecentActivityCard({
   const items = toActivityItems(timelineData).slice(0, maxItems);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{title}</h4>
       {loading ? <p className="mt-2 text-xs text-slate-500">Loading recent activity...</p> : null}
       {error ? <p className="mt-2 text-xs text-red-700">{error}</p> : null}

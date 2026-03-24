@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -40,7 +40,7 @@ export function SectionDisclosure({
   const label = useMemo(() => (collapsed ? "Show details" : "Hide details"), [collapsed]);
 
   return (
-    <section className={cn("rounded-xl border border-slate-200 bg-white", className)}>
+    <section className={cn("rounded-lg border border-slate-200 bg-white", className)}>
       <button
         type="button"
         onClick={() => setCollapsed((current) => !current)}

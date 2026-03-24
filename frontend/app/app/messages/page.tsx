@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -571,7 +571,7 @@ export default function AppMessagesPage() {
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/30">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
@@ -624,7 +624,7 @@ export default function AppMessagesPage() {
               <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xs font-bold text-slate-500 shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 shadow-sm">
                       {avatar(selectedThread)}
                     </div>
                     <div
@@ -712,7 +712,7 @@ export default function AppMessagesPage() {
                     <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
                   </div>
                 </SectionDisclosure>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">Thread AI state</p>
                   <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
                   <p>Opt-out: {threadAiState.optOut ? "Detected" : "Not detected"}</p>
@@ -735,7 +735,7 @@ export default function AppMessagesPage() {
                   <div key={message.id} className={cn("flex", message.direction === "OUTBOUND" ? "justify-end" : "justify-start")}>
                     <div className="max-w-[70%] space-y-1">
                       <div className={cn(
-                        "rounded-2xl px-5 py-3.5 text-sm shadow-sm",
+                        "rounded-lg px-5 py-3.5 text-sm shadow-sm",
                         message.direction === "OUTBOUND"
                           ? "rounded-tr-none bg-slate-900 text-white"
                           : "rounded-tl-none border border-slate-200 bg-white text-slate-700"
@@ -755,7 +755,7 @@ export default function AppMessagesPage() {
 
               <footer className="border-t border-slate-200 bg-white p-6">
                 <div className="mx-auto flex max-w-4xl items-end gap-3">
-                  <div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+                  <div className="flex-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <textarea
                       value={body}
                       onChange={(event) => setBody(event.target.value)}
@@ -810,7 +810,7 @@ export default function AppMessagesPage() {
               <div className="space-y-5">
                 <h4 className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Related Activity</h4>
                 {selectedThread.latestAppointmentRequestId ? (
-                  <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
+                  <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50 text-amber-600"><Calendar className="h-3 w-3" /></div>
@@ -822,7 +822,7 @@ export default function AppMessagesPage() {
                   </Link>
                 ) : null}
                 {selectedThread.latestCallId ? (
-                  <Link href={buildWorkflowHref(`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
+                  <Link href={buildWorkflowHref(`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600"><PhoneCall className="h-3 w-3" /></div>
@@ -835,7 +835,7 @@ export default function AppMessagesPage() {
                 ) : null}
               </div>
 
-              <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/5 p-5">
+              <div className="relative overflow-hidden rounded-lg border border-primary/10 bg-primary/5 p-5">
                 <div className="mb-3 flex items-center gap-2">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">AI Sentiment</h4>

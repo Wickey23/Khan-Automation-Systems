@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -583,7 +583,7 @@ export default function AppCallsPage() {
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 overflow-hidden">
           <section className="flex min-w-0 flex-[2] flex-col overflow-hidden border-r border-slate-200">
@@ -705,7 +705,7 @@ export default function AppCallsPage() {
                       </div>
                     </SectionDisclosure>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
                         <Phone className="h-4 w-4 text-primary" />
                         <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">AI Summary</h4>
@@ -783,7 +783,7 @@ export default function AppCallsPage() {
                         />
                       </div>
                       {callAiState.callbackDraft ? (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
                           <p className="mb-1 font-semibold text-slate-900">Callback draft</p>
                           <p>{callAiState.callbackDraft}</p>
                         </div>
@@ -827,7 +827,7 @@ export default function AppCallsPage() {
 
                     <div className="border-t border-slate-200 pt-8">
                       <h4 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">Quick Follow-up SMS</h4>
-                      <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                      <div className="rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
                         <textarea
                           className="w-full resize-none border-none bg-transparent p-4 text-sm font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                           placeholder={`Send a follow-up to ${callerName(selectedCall).split(" ")[0]}...`}

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 type RiskItem = {
@@ -23,7 +23,7 @@ export function RiskRailCard({
   className?: string;
 }) {
   return (
-    <aside className={cn("rounded-xl border border-slate-200 bg-white p-3", className)}>
+    <aside className={cn("rounded-lg border border-slate-200 bg-white p-3", className)}>
       <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{title}</h3>
       <div className="mt-3 space-y-3">
         {items.map((item) => (

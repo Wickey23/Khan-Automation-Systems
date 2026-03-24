@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -304,15 +304,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (locked) {
       return (
-        <div key={item.href} className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2 text-sm font-medium text-slate-400">
-          <span className="flex items-center gap-3">
-            <Icon className="h-4 w-4 text-slate-500" />
+        <div key={item.href} className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400">
+          <span className="flex items-center gap-2">
+            <Icon className="h-3.5 w-3.5" />
             <span>{item.label}</span>
           </span>
           {lockedByFeature && featureStatus ? (
             <StatusBadge kind="feature" state={featureStatus.status} label={formatAccessStatus(featureStatus.status)} size="xs" />
           ) : (
-            <Lock className="h-4 w-4" />
+            <Lock className="h-3 w-3" />
           )}
         </div>
       );
@@ -323,17 +323,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "group flex items-center gap-2 rounded-xl border border-transparent px-3 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+          "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
           active
-            ? "bg-white text-slate-900 shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)]"
+            ? "bg-slate-900 text-white"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         )}
       >
-        <span className={cn("h-6 w-0.5 rounded-full", active ? "bg-slate-900" : "bg-transparent")} />
-        <Icon className={cn("h-4 w-4", active ? "text-slate-900" : "text-slate-400 group-hover:text-slate-700")} />
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-white" : "text-slate-400 group-hover:text-slate-700")} />
         <span>{item.label}</span>
         {item.comingSoon ? (
-          <Badge className={cn("ml-auto", active ? "border-slate-300 bg-slate-100 text-slate-700" : clientBadgeClass("pending"))}>
+          <Badge className={cn("ml-auto text-[10px]", active ? "bg-white/20 text-white border-white/20" : clientBadgeClass("pending"))}>
             Soon
           </Badge>
         ) : null}
@@ -345,175 +344,103 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     children: (
       <AccessSummaryProvider value={accessSummary}>
         <div className="relative flex h-screen overflow-hidden bg-slate-100">
-          <aside className="sticky top-0 hidden h-screen w-[288px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-100 lg:flex">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700">
-                    <ConciergeBell className="h-5 w-5" />
-                  </div>
-                  <div className="flex flex-col">
-                    <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-900">Front Desk OS</h1>
-                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Operational Console</p>
-                  </div>
+          {/* Sidebar */}
+          <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white lg:flex">
+            <div className="flex min-h-0 flex-1 flex-col">
+              {/* Brand */}
+              <div className="flex items-center gap-2.5 border-b border-slate-200 px-4 py-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white">
+                  <ConciergeBell className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold leading-none tracking-tight text-slate-900">Front Desk OS</p>
+                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Operational Console</p>
                 </div>
               </div>
 
-              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2 pr-1">{navItems.map(renderNavItem)}</nav>
+              {/* Nav */}
+              <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">{navItems.map(renderNavItem)}</nav>
             </div>
 
-            <div className="border-t border-slate-200 p-4">
-              <div className="space-y-2">
+            {/* Sidebar Footer */}
+            <div className="border-t border-slate-200 px-2 py-2 space-y-1">
+              <Link
+                href="/app/appointments"
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                <span>New Booking</span>
+              </Link>
+              <div className="grid grid-cols-2 gap-1">
                 <Link
-                  href="/app/appointments"
-                  className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+                  href="/app/settings"
+                  className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-100"
                 >
-                  <Calendar className="h-4 w-4" />
-                  <span>New Booking</span>
+                  <Settings className="h-3.5 w-3.5" />
+                  <span>Settings</span>
                 </Link>
-                <div className="grid grid-cols-2 gap-2">
-                  <Link
-                    href="/app/settings"
-                    className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                    <span>Settings</span>
-                  </Link>
-                  <Link
-                    href="/auth/logout"
-                    className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Logout</span>
-                  </Link>
-                </div>
+                <Link
+                  href="/auth/logout"
+                  className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Logout</span>
+                </Link>
               </div>
             </div>
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <header className="sticky top-0 z-20 border-b border-slate-200 bg-slate-100 px-4 py-2.5 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex flex-1 items-center gap-3">
-                  <div className="relative w-full max-w-2xl">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      readOnly
-                      value=""
-                      placeholder="Quick search operations..."
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-slate-300"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <span
-                    className="inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500"
-                    aria-label={`Frontend release ${RELEASE_TAG}`}
-                    title={`Frontend release ${RELEASE_TAG}`}
-                  >
-                    {RELEASE_TAG}
-                  </span>
-                  <button className="relative rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300">
-                    <Bell className="h-5 w-5" />
-                    <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
-                  </button>
-                  <button className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300">
-                    <CircleHelp className="h-5 w-5" />
-                  </button>
-                  <div className="hidden h-8 w-px bg-slate-200 sm:block" />
-                  <div className="flex items-center gap-1 sm:hidden">
-                    <Link
-                      href="/app/settings"
-                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                      aria-label="Open settings"
-                      title="Settings"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href="/auth/logout"
-                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                      aria-label="Logout"
-                      title="Logout"
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Link>
-                  </div>
-                  <div className="hidden items-center gap-2 sm:flex">
-                    <Link
-                      href="/app/settings"
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                    >
-                      <Settings className="h-3.5 w-3.5" />
-                      <span>Settings</span>
-                    </Link>
-                    <Link
-                      href="/auth/logout"
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      <span>Logout</span>
-                    </Link>
-                  </div>
-                  <div className="hidden items-center gap-3 sm:flex">
-                    <div className="text-right">
-                      <p className="text-sm font-semibold leading-none text-slate-900">Workspace User</p>
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                        {currentRole?.replaceAll("_", " ") || "Reception Manager"}
-                      </p>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-100 text-xs font-bold text-slate-700">
-                      {currentRole?.slice(0, 1) || "A"}
-                    </div>
-                  </div>
+            {/* Top bar */}
+            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6">
+              <div className="flex flex-1 items-center gap-3">
+                <div className="relative w-full max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    readOnly
+                    value=""
+                    placeholder="Quick search..."
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-slate-300"
+                  />
                 </div>
               </div>
 
-              <div className="mt-2 grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1 lg:hidden">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
-                  const featureKey = navFeatureAccess[item.href];
-                  const featureStatus = featureKey ? accessSummary?.features[featureKey] : undefined;
-                  const lockedByFeature = Boolean(featureStatus && featureStatus.status !== "ready");
-                  const locked =
-                    !hasRequiredPlan(currentPlan, item.requiredPlan) ||
-                    !hasRequiredRole(currentRole, item.requiredRoles) ||
-                    !hasRequiredFeature(features, item.requiredFeature) ||
-                    lockedByFeature;
-
-                  if (locked) {
-                    return (
-                      <span
-                        key={item.href}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-400"
-                        title={lockedByFeature && featureStatus ? formatAccessStatus(featureStatus.status) : "Locked"}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {item.label}
-                        <Lock className="h-3 w-3" />
-                      </span>
-                    );
-                  }
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
-                        active
-                          ? "border-slate-300 bg-slate-900 text-white"
-                          : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
-                      )}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
+              <div className="flex items-center gap-2">
+                <span
+                  className="hidden rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:inline-flex"
+                  title={`Frontend release ${RELEASE_TAG}`}
+                >
+                  {RELEASE_TAG}
+                </span>
+                <button className="relative rounded-md border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
+                  <Bell className="h-4 w-4" />
+                  <div className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+                </button>
+                <button className="rounded-md border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
+                  <CircleHelp className="h-4 w-4" />
+                </button>
+                {/* Mobile nav shortcuts */}
+                <div className="flex items-center gap-1.5 lg:hidden">
+                  <Link href="/app/settings" className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" aria-label="Settings">
+                    <Settings className="h-4 w-4" />
+                  </Link>
+                  <Link href="/auth/logout" className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" aria-label="Logout">
+                    <LogOut className="h-4 w-4" />
+                  </Link>
+                </div>
+                <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+                <div className="hidden items-center gap-2 sm:flex">
+                  <div className="text-right">
+                    <p className="text-xs font-semibold leading-none text-slate-900">Workspace</p>
+                    <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                      {currentRole?.replaceAll("_", " ") || "Manager"}
+                    </p>
+                  </div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-xs font-bold text-slate-700">
+                    {currentRole?.slice(0, 1) || "A"}
+                  </div>
+                </div>
               </div>
             </header>
 

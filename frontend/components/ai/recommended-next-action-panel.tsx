@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
@@ -76,7 +76,7 @@ export function RecommendedNextActionPanel({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-lg border border-slate-200 bg-white p-4 shadow-sm",
         sourceTag ? "ring-1 ring-blue-100" : ""
       )}
     >
@@ -96,7 +96,7 @@ export function RecommendedNextActionPanel({
 
       {!loading && !error ? (
         <div className="mt-3 space-y-3">
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
             <p className="text-xs font-semibold text-slate-900">{recommendation?.action || "No recommendation yet"}</p>
             <p className="mt-1 text-xs text-slate-600">
               {recommendation?.why || "Run the relevant AI workflow tools to generate a recommendation for this record."}
@@ -124,7 +124,7 @@ export function RecommendedNextActionPanel({
           </div>
 
           {recommendation?.blockedReasons?.length ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-3 text-xs text-amber-800">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/90 p-3 text-xs text-amber-800">
               <p className="flex items-center gap-1 font-semibold">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Blocked reasons
@@ -133,7 +133,7 @@ export function RecommendedNextActionPanel({
             </div>
           ) : null}
 
-          <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 sm:grid-cols-2">
+          <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 sm:grid-cols-2">
             <p>Last recommendation refresh: {recommendation ? new Date(recommendation.refreshedAt).toLocaleString() : "-"}</p>
             <p>Attention: {attention?.attentionLevel || "-"}{typeof attention?.attentionScore === "number" ? ` (${attention.attentionScore})` : ""}</p>
             <p>

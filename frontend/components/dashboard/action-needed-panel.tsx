@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Siren } from "lucide-react";
@@ -80,7 +80,7 @@ export function ActionNeededPanel({
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`flex flex-col gap-3 px-4 py-3 transition-colors duration-150 sm:flex-row sm:items-start sm:justify-between ${dark ? `rounded-2xl ${itemSurfaceDark(item.severity)}` : `${frontDeskCardClass("muted")} ${itemSurface(item.severity)}`}`}
+                  className={`flex flex-col gap-3 px-4 py-3 transition-colors duration-150 sm:flex-row sm:items-start sm:justify-between ${dark ? `rounded-lg ${itemSurfaceDark(item.severity)}` : `${frontDeskCardClass("muted")} ${itemSurface(item.severity)}`}`}
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <div className={`mt-0.5 rounded-lg p-2 shadow-sm ${dark ? "bg-white/10 text-slate-200" : "bg-white/80 text-muted-foreground"}`}>
@@ -108,7 +108,7 @@ export function ActionNeededPanel({
             })()
           ))
         ) : (
-          <div className={`py-8 text-sm ${dark ? "rounded-xl border border-white/10 bg-white/5 text-slate-300" : frontDeskEmptyStateClass()}`}>
+          <div className={`py-8 text-sm ${dark ? "rounded-lg border border-white/10 bg-white/5 text-slate-300" : frontDeskEmptyStateClass()}`}>
             Nothing needs attention right now. New call work, customer replies, and booking issues will show up here when the office needs to act next.
           </div>
         )}

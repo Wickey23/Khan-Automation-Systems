@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -238,11 +238,8 @@ export default function AppOverviewPage() {
   ];
 
   return (
-    <div className="flex-1 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100">
-      <div className="grid h-full xl:grid-cols-1">
-        <div className="overflow-y-auto bg-slate-100 p-4 md:p-6 xl:p-8">
+    <div className="space-y-4">
           <CommandHeader
-            className="mb-6"
             title="Daily Triage"
             description={
               onboardingReady
@@ -259,17 +256,17 @@ export default function AppOverviewPage() {
             }
           />
 
-          <div className="mb-8 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard label="Active Throughput" value={loading ? "-" : String(activeThroughput)} detail={activeThroughput > 0 ? "Live workflow volume" : "No live volume yet"} />
             <KpiCard label="Mean Triage Time" value={loading ? "-" : meanTriageTime} detail={overdueFollowUps.length > 0 ? `${overdueFollowUps.length} overdue tasks` : "Within expected range"} />
             <KpiCard label="Open Approvals" value={loading ? "-" : String(state.approvals.length)} detail={topPendingApproval?.toolKey || "Steady"} />
             <KpiCard label="Blocked Items" value={loading ? "-" : String(blockedItems)} detail="Escalation required" emphasis="risk" />
           </div>
 
-          <div className="mb-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Action Now</h2>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <h2 className="text-base font-semibold text-slate-900">Action Now</h2>
                 <Link href="/app/attention" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
                   View all tasks
                 </Link>
@@ -277,7 +274,7 @@ export default function AppOverviewPage() {
               <div className="divide-y divide-slate-200">
                 <Link
                   href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-slate-50"
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
                 >
                   <div>
                     <p className="text-base font-semibold text-slate-900">Needs Attention Queue</p>
@@ -290,7 +287,7 @@ export default function AppOverviewPage() {
                 </Link>
                 <Link
                   href={buildWorkflowHref("/app/approvals?focus=needs_review", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-slate-50"
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
                 >
                   <div>
                     <p className="text-base font-semibold text-slate-900">Approval Required</p>
@@ -303,7 +300,7 @@ export default function AppOverviewPage() {
                 </Link>
                 <Link
                   href={buildWorkflowHref("/app/follow-up?status=at_risk", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-slate-50"
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
                 >
                   <div>
                     <p className="text-base font-semibold text-slate-900">Follow-up At Risk</p>
@@ -430,8 +427,6 @@ export default function AppOverviewPage() {
               <AskAiInline page="dashboard" defaultAgentKey="manager_analytics" placeholder="Ask for a manager summary, risks, or recommended next actions..." />
             </div>
           </SectionDisclosure>
-        </div>
-      </div>
     </div>
   );
 }

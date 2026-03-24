@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -86,7 +86,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
   const effectiveAttention = controlled ? timelineData?.attention || null : attention;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Timeline</p>
       <p className="mt-1 text-sm font-semibold text-slate-900">{title}</p>
       {effectiveBusy ? (
@@ -101,7 +101,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
         <p className="mt-3 text-xs text-slate-500">No AI activity recorded yet.</p>
       ) : null}
       {effectiveRecommendation ? (
-        <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
           {effectiveRecommendation.action ? <p className="font-medium">Next action: {effectiveRecommendation.action}</p> : null}
           {effectiveRecommendation.why ? <p className="mt-1">{effectiveRecommendation.why}</p> : null}
           <div className="mt-1 grid gap-1 text-[11px] text-blue-900 sm:grid-cols-2">
@@ -114,7 +114,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
         </div>
       ) : null}
       {effectiveOperationalMemory ? (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
           <p className="font-medium text-slate-900">Operational memory</p>
           {effectiveOperationalMemory.latestSummary ? <p className="mt-1">Summary: {effectiveOperationalMemory.latestSummary}</p> : null}
           {effectiveOperationalMemory.latestClassification ? <p className="mt-1">Classification: {effectiveOperationalMemory.latestClassification}</p> : null}
@@ -130,7 +130,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
         </div>
       ) : null}
       {effectiveAttention ? (
-        <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+        <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-900">
           <div className="flex items-center gap-2">
             <p className="font-medium">Attention</p>
             <StatusBadge
@@ -156,12 +156,12 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
       {!effectiveBusy && !effectiveError && (effectiveRuns.length > 0 || effectiveApprovals.length > 0 || effectiveAudit.length > 0 || effectiveHandoffs.length > 0) ? (
         <div className="mt-3 space-y-2">
           {effectiveRuns.slice(0, 3).map((run) => (
-            <div key={`run-${run.id}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <div key={`run-${run.id}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
               Run {run.routeReason} - {run.status}
             </div>
           ))}
           {effectiveApprovals.slice(0, 3).map((approval) => (
-            <div key={`approval-${approval.id}`} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div key={`approval-${approval.id}`} className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <p>
                 Approval {approval.toolKey} - {approval.status}
                 {approval.deliveryStatus ? ` - ${approval.deliveryStatus}` : ""}
@@ -171,7 +171,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
             </div>
           ))}
           {effectiveHandoffs.slice(0, 3).map((handoff) => (
-            <div key={`handoff-${handoff.id}`} className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
+            <div key={`handoff-${handoff.id}`} className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
               <p className="font-medium">
                 Handoff {handoff.sourceAgent || "agent"}
                 {" -> "}
@@ -187,7 +187,7 @@ export function EntityTimelineCard({ entityType, entityId, title = "AI Activity 
             </div>
           ))}
           {effectiveAudit.slice(0, 3).map((entry) => (
-            <div key={`audit-${entry.id}`} className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+            <div key={`audit-${entry.id}`} className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
               {entry.action}
             </div>
           ))}

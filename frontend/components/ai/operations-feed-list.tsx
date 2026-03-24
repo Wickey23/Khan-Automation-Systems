@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -102,7 +102,7 @@ export function OperationsFeedList({
       {!loading && events.length === 0 ? <p className="text-sm text-slate-500">{emptyMessage}</p> : null}
       {!loading
         ? events.map((event, index) => (
-            <div key={event.id} className={cn("relative flex items-start gap-3 rounded-xl px-1 py-1", index < events.length - 1 ? "pb-5" : "")}>
+            <div key={event.id} className={cn("relative flex items-start gap-3 rounded-lg px-1 py-1", index < events.length - 1 ? "pb-5" : "")}>
               <span
                 className={cn(
                   "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",

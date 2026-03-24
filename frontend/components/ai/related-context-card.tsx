@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -40,7 +40,7 @@ export function RelatedContextCard({
   flags?: RelatedContextFlag[];
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3">
         <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{title}</h4>
         {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}

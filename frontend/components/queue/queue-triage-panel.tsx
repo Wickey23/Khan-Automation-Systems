@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { X } from "lucide-react";
@@ -64,7 +64,7 @@ export function QueueTriagePanel({ title, subtitle, badges = [], sections = [], 
           <button
             type="button"
             onClick={() => setMobileExpanded((current) => !current)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
           >
             {mobileExpanded ? "Hide triage details" : "Show triage details"}
           </button>
@@ -75,7 +75,7 @@ export function QueueTriagePanel({ title, subtitle, badges = [], sections = [], 
         {sections.length ? (
           <div className="mt-4 space-y-3">
             {sections.map((section) => (
-              <div key={section.title} className="rounded-2xl border border-slate-200/90 bg-white/80 p-3.5 shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
+              <div key={section.title} className="rounded-lg border border-slate-200/90 bg-white/80 p-3.5 shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{section.title}</p>
                 <div className="mt-2 text-xs leading-relaxed text-slate-700">{section.content}</div>
               </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -67,7 +67,7 @@ export function AdminGuard({
   if (status !== "allowed") {
     return (
       <div className="flex min-h-[50vh] items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Admin access</p>
           <p className="mt-2 text-sm text-slate-700">{errorMessage || "Checking access..."}</p>
           {errorMessage ? (
