@@ -52,7 +52,7 @@ export function PublicNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/app" className="hidden text-sm font-semibold text-slate-600 transition-colors hover:text-sky-700 sm:inline-flex">
+          <Link href="/auth/login" className="hidden text-sm font-semibold text-slate-600 transition-colors hover:text-sky-700 sm:inline-flex">
             Log In
           </Link>
           <Link

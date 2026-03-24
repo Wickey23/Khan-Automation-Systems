@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -550,39 +550,45 @@ export default function AppMessagesPage() {
         actions={
           <Link
             href={buildWorkflowHref("/app/messages?q=follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}
-            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+            className="rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95"
           >
             Open unresolved threads
           </Link>
         }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Active threads", value: filteredThreads.length, note: "Current inbox scope" },
-          { label: "Needs reply", value: filteredThreads.filter((thread) => (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up").length, note: "Action required" },
-          { label: "Urgent threads", value: filteredThreads.filter((thread) => threadType(thread) === "Emergency").length, note: "Priority risk" },
-          { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate" }
+          { label: "Active threads", value: filteredThreads.length, note: "Current inbox scope", icon: "forum" },
+          { label: "Needs reply", value: filteredThreads.filter((thread) => (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up").length, note: "Action required", icon: "reply" },
+          { label: "Urgent threads", value: filteredThreads.filter((thread) => threadType(thread) === "Emergency").length, note: "Priority risk", icon: "emergency" },
+          { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate", icon: "verified" }
         ].map((metric) => (
-          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
-            <p className="text-xs text-slate-500">{metric.note}</p>
+          <div key={metric.label} className="rounded-[2rem] border glass-card p-6 inner-glow hover-lift transition-all duration-300">
+            <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-3">{metric.label}</p>
+            <div className="flex items-baseline justify-between mb-1">
+              <p className="text-3xl font-black font-headline tracking-tighter text-on-surface">{metric.value}</p>
+              <span className="material-symbols-outlined text-[18px] opacity-20">{metric.icon}</span>
+            </div>
+            <p className="text-[10px] font-medium text-on-surface-variant/60">{metric.note}</p>
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
-        <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/30">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Inbox className="h-[18px] w-[18px]" />
+      <div className="overflow-hidden rounded-[2rem] border glass-card shadow-sm inner-glow">
+      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden">
+        <div className="flex w-80 shrink-0 flex-col border-r border-outline-variant/10 bg-surface-container-low/30">
+          <header className="flex h-20 shrink-0 items-center justify-between border-b border-outline-variant/10 bg-white/40 backdrop-blur-md px-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary inner-glow">
+                <Inbox className="h-5 w-5" />
               </div>
-              <h1 className="text-sm font-bold uppercase tracking-widest text-slate-900">Operator Inbox</h1>
+              <div>
+                <h1 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Messaging</h1>
+                <p className="text-sm font-black text-on-surface tracking-tighter">Operator Inbox</p>
+              </div>
             </div>
-            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-              {filteredThreads.length} active
+            <span className="rounded-lg bg-on-surface text-white px-2 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm">
+              {filteredThreads.length}
             </span>
           </header>
 
@@ -594,7 +600,7 @@ export default function AppMessagesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search conversations..."
-                className="h-9 w-full rounded-xl border border-slate-200 bg-white/95 pl-9 pr-4 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="h-11 w-full rounded-2xl border border-outline-variant/20 bg-white/60 pl-11 pr-4 text-xs font-medium outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/30 transition-all placeholder:text-on-surface-variant/30"
               />
             </div>
           </div>
@@ -639,14 +645,14 @@ export default function AppMessagesPage() {
                     />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900">{displayName(selectedThread)}</h2>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{threadType(selectedThread)} - {threadStatusLabel(selectedThread)}</p>
+                    <h2 className="text-lg font-black font-headline tracking-tighter text-on-surface">{displayName(selectedThread)}</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">{threadType(selectedThread)} • {threadStatusLabel(selectedThread)}</p>
                   </div>
                 </div>
                 <div />
               </header>
 
-              <div className="flex-1 space-y-6 overflow-y-auto bg-slate-50/20 p-8">
+              <div className="flex-1 space-y-10 overflow-y-auto bg-slate-50/5 p-10">
                 <div className="px-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary</p>
                 </div>
@@ -732,49 +738,51 @@ export default function AppMessagesPage() {
                 </SectionDisclosure>
 
                 {[...selectedThread.messages].map((message) => (
-                  <div key={message.id} className={cn("flex", message.direction === "OUTBOUND" ? "justify-end" : "justify-start")}>
-                    <div className="max-w-[70%] space-y-1">
-                      <div className={cn(
-                        "rounded-lg px-5 py-3.5 text-sm shadow-sm",
+                  <div key={message.id} className={cn("flex flex-col", message.direction === "OUTBOUND" ? "items-end" : "items-start")}>
+                    <div className="max-w-[70%] space-y-2">
+                       <div className={cn(
+                        "rounded-[2rem] px-8 py-5 text-sm font-medium leading-relaxed shadow-sm",
                         message.direction === "OUTBOUND"
-                          ? "rounded-tr-none bg-slate-900 text-white"
-                          : "rounded-tl-none border border-slate-200 bg-white text-slate-700"
+                          ? "rounded-tr-none bg-on-surface text-white inner-glow"
+                          : "rounded-tl-none border border-outline-variant/20 bg-white text-on-surface"
                       )}>
                         {message.body}
                       </div>
-                      <div className="flex items-center gap-1.5 px-1">
-                        <span className="text-[10px] font-medium text-slate-400">
+                      <div className={cn(
+                        "flex items-center gap-2 px-4",
+                        message.direction === "OUTBOUND" ? "justify-end" : "justify-start"
+                      )}>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">
                           {new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                         </span>
-                        {message.direction === "OUTBOUND" ? <CheckCheck className="h-3 w-3 text-primary" /> : null}
+                        {message.direction === "OUTBOUND" ? <span className="material-symbols-outlined text-[14px] text-primary">done_all</span> : null}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <footer className="border-t border-slate-200 bg-white p-6">
+              <footer className="border-t border-outline-variant/10 bg-white p-6">
                 <div className="mx-auto flex max-w-4xl items-end gap-3">
-                  <div className="flex-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  <div className="flex-1 rounded-[2rem] border border-outline-variant/20 bg-surface-container-low/50 p-2 inner-glow">
                     <textarea
                       value={body}
                       onChange={(event) => setBody(event.target.value)}
                       placeholder="Type a message..."
-                      className="min-h-[44px] w-full resize-none border-none bg-transparent p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                      className="min-h-[44px] w-full resize-none border-none bg-transparent p-4 text-sm font-medium outline-none placeholder:text-on-surface-variant/30"
                       rows={1}
                     />
-                    <div className="flex items-center justify-between px-2 pb-1">
-                      <div className="flex items-center gap-1">
-                        <button className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-200"><Smile className="h-4.5 w-4.5" /></button>
-                        <button className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-200"><Paperclip className="h-4.5 w-4.5" /></button>
+                    <div className="flex items-center justify-between px-4 pb-3">
+                      <div className="flex items-center gap-2 text-on-surface-variant/40">
+                        <button className="material-symbols-outlined text-[20px] hover:text-primary transition-colors">sentiment_satisfied</button>
+                        <button className="material-symbols-outlined text-[20px] hover:text-primary transition-colors">attach_file</button>
                       </div>
                       <button
                         onClick={() => void onSend()}
                         disabled={sending || !to.trim() || !body.trim()}
-                        title={!to.trim() ? "No recipient on this thread" : !body.trim() ? "Enter a message to send" : undefined}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:opacity-60"
+                        className="flex h-10 w-10 items-center justify-center rounded-2xl bg-on-surface text-white shadow-lg transition-all hover:bg-primary disabled:opacity-30 active:scale-95 inner-glow"
                       >
-                        <Send className="h-4 w-4" />
+                        <span className="material-symbols-outlined text-[18px]">send</span>
                       </button>
                     </div>
                   </div>

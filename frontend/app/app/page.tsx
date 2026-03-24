@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -238,195 +238,272 @@ export default function AppOverviewPage() {
   ];
 
   return (
-    <div className="space-y-4">
-          <CommandHeader
-            title="Daily Triage"
-            description={
-              onboardingReady
-                ? "Queues are live. Monitor risk and clear work items during this shift."
-                : "Finish setup so calls, messages, and bookings route correctly before full rollout."
-            }
-            actions={
-              <Link
-                href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-slate-800 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
-              >
-                Run Priority Triage
-              </Link>
-            }
-          />
+    <div className="space-y-12 pb-12">
+      {/* Header Section: Architectural Rhythm */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 animate-fade-slide-up">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-primary/70 font-label font-bold mb-1 ml-0.5">Operational Command</p>
+          <h2 className="text-5xl font-extrabold font-headline text-on-surface tracking-tighter leading-none bg-gradient-to-br from-on-surface via-on-surface to-primary/50 bg-clip-text text-transparent">
+            Daily Triage
+          </h2>
+        </div>
+        <div className="flex items-center space-x-3 w-full md:w-auto">
+          <button className="flex-1 md:flex-none px-6 py-2.5 bg-white/50 backdrop-blur-sm border border-outline-variant/20 text-on-surface font-bold text-sm rounded-xl transition-all hover:bg-white/80 hover:shadow-sm active:scale-95">
+            Export Manifest
+          </button>
+          <button className="flex-1 md:flex-none px-8 py-2.5 bg-primary text-on-primary font-bold text-sm rounded-xl inner-glow shadow-lg transition-all hover:shadow-primary/20 hover:-translate-y-0.5 active:scale-95">
+            Start New Operation
+          </button>
+        </div>
+      </header>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="Active Throughput" value={loading ? "-" : String(activeThroughput)} detail={activeThroughput > 0 ? "Live workflow volume" : "No live volume yet"} />
-            <KpiCard label="Mean Triage Time" value={loading ? "-" : meanTriageTime} detail={overdueFollowUps.length > 0 ? `${overdueFollowUps.length} overdue tasks` : "Within expected range"} />
-            <KpiCard label="Open Approvals" value={loading ? "-" : String(state.approvals.length)} detail={topPendingApproval?.toolKey || "Steady"} />
-            <KpiCard label="Blocked Items" value={loading ? "-" : String(blockedItems)} detail="Escalation required" emphasis="risk" />
+      {/* Metric Summary: Subordinate Scale */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-6 px-1">
+        <div className="glass-card inner-glow p-6 rounded-2xl hover-lift group relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 duration-700"></div>
+          <p className="text-[10px] font-label font-black text-primary/60 uppercase mb-4 tracking-widest relative z-10">Active Throughput</p>
+          <div className="flex items-center justify-between relative z-10">
+            <span className="text-4xl font-headline font-black tracking-tighter text-on-surface">{loading ? "-" : activeThroughput}</span>
+            <span className="text-[10px] font-bold text-tertiary flex items-center bg-tertiary-container/40 px-2 py-1 rounded-full border border-tertiary/10">
+              <span className="material-symbols-outlined text-[14px] mr-1">trending_up</span> LIVE
+            </span>
           </div>
+        </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <h2 className="text-base font-semibold text-slate-900">Action Now</h2>
-                <Link href="/app/attention" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
-                  View all tasks
-                </Link>
-              </div>
-              <div className="divide-y divide-slate-200">
-                <Link
-                  href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
-                >
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">Needs Attention Queue</p>
-                    <p className="mt-1 text-sm text-slate-500">{attentionItems[0]?.topReasons?.[0] || "No critical items right now"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Due</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{loading ? "-" : attentionItems.length}</p>
-                  </div>
-                </Link>
-                <Link
-                  href={buildWorkflowHref("/app/approvals?focus=needs_review", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
-                >
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">Approval Required</p>
-                    <p className="mt-1 text-sm text-slate-500">{topPendingApproval?.toolKey || "No pending approvals"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Due</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{loading ? "-" : state.approvals.length}</p>
-                  </div>
-                </Link>
-                <Link
-                  href={buildWorkflowHref("/app/follow-up?status=at_risk", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
-                >
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">Follow-up At Risk</p>
-                    <p className="mt-1 text-sm text-slate-500">{topOverdueFollowUp?.task?.title || "No overdue follow-up tasks"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Due</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{loading ? "-" : overdueFollowUps.length + atRiskSnapshot.staleAssigned}</p>
-                  </div>
-                </Link>
-              </div>
+        <div className="glass-card inner-glow p-6 rounded-2xl hover-lift group relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-error/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 duration-700"></div>
+          <p className="text-[10px] font-label font-black text-on-surface-variant uppercase mb-4 tracking-widest relative z-10">Mean Triage Time</p>
+          <div className="flex items-center justify-between relative z-10">
+            <span className="text-4xl font-headline font-black tracking-tighter text-on-surface">{loading ? "-" : meanTriageTime}</span>
+            <span className="text-[10px] font-bold text-error flex items-center bg-error-container/20 px-2 py-1 rounded-full border border-error/10">
+              <span className="material-symbols-outlined text-[14px] mr-1">speed</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="glass-card inner-glow p-6 rounded-2xl hover-lift group relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-on-surface-variant/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 duration-700"></div>
+          <p className="text-[10px] font-label font-black text-on-surface-variant uppercase mb-4 tracking-widest relative z-10">Open Approvals</p>
+          <div className="flex items-center justify-between relative z-10">
+            <span className="text-4xl font-headline font-black tracking-tighter text-on-surface">{loading ? "-" : state.approvals.length}</span>
+            <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container px-2 py-1 rounded-full border border-outline-variant/10">STEADY</span>
+          </div>
+        </div>
+
+        <div className={`glass-card inner-glow p-6 rounded-2xl hover-lift group relative overflow-hidden ${blockedItems > 0 ? 'ring-2 ring-error/20' : ''}`}>
+          <div className={`absolute top-0 right-0 w-24 h-24 ${blockedItems > 0 ? 'bg-error/10' : 'bg-on-surface-variant/5'} rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 duration-700`}></div>
+          <p className={`text-[10px] font-label font-black uppercase mb-4 tracking-widest relative z-10 ${blockedItems > 0 ? 'text-error' : 'text-on-surface-variant'}`}>Blocked Items</p>
+          <div className="flex items-center justify-between relative z-10">
+            <span className={`text-4xl font-headline font-black tracking-tighter ${blockedItems > 0 ? 'text-error' : 'text-on-surface'}`}>{loading ? "-" : blockedItems}</span>
+            {blockedItems > 0 ? (
+              <span className="w-8 h-8 rounded-full bg-error text-on-error flex items-center justify-center animate-pulse">
+                <span className="material-symbols-outlined text-[18px]">emergency</span>
+              </span>
+            ) : (
+              <span className="material-symbols-outlined text-outline-variant/40">check_circle</span>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Primary Column: Action Now Area */}
+        <div className="lg:col-span-8 space-y-8 animate-fade-slide-up [animation-delay:100ms] fill-mode-both">
+          {/* Action Now Module */}
+          <section>
+            <div className="flex items-center justify-between mb-5 px-1">
+              <h3 className="text-xl font-headline font-black text-on-surface tracking-tight">Action Now</h3>
+              <Link href="/app/attention" className="text-[11px] font-black text-primary uppercase tracking-widest hover:text-primary-dim transition-colors">View all tasks</Link>
             </div>
-
-            <RiskRailCard
-              title="At Risk Items"
-              items={riskItems}
-              ctaHref={buildWorkflowHref("/app/insights", { source: "dashboard", returnTo, returnLabel: "Dashboard" })}
-              ctaLabel="View full audit log"
-            />
-          </div>
-          <SectionDisclosure
-            title="Operational Detail"
-            storageKey="dashboard-operational-detail"
-            defaultCollapsed
-          >
-            {reviewRefreshNote ? (
-              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                {reviewRefreshNote}
-              </div>
-            ) : null}
-            {isLowActivityWorkspace ? (
-              <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm font-semibold text-blue-800">Getting Started</p>
-                <p className="mt-1 text-xs text-blue-700">
-                  {readinessStatus.mode === "setup_required"
-                    ? `Setup is not complete (${readinessStatus.missingCount} readiness item${readinessStatus.missingCount === 1 ? "" : "s"}). Finish setup first, then run a live workflow.`
-                    : readinessStatus.mode === "configured"
-                      ? "Setup looks ready. Activity is low because workflows have not run recently."
-                      : "Activity is still low. Start with one live workflow so attention, approvals, follow-up, and operations views populate."}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {readinessStatus.mode === "setup_required" ? (
-                    <Link href={buildWorkflowHref("/app/settings", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 text-xs font-semibold text-blue-700">
-                      Open Settings readiness
-                    </Link>
-                  ) : (
-                    <>
-                      <Link href={buildWorkflowHref("/app/calls", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 text-xs font-semibold text-blue-700">
-                        Open Calls
-                      </Link>
-                      <Link href={buildWorkflowHref("/app/leads", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 text-xs font-semibold text-blue-700">
-                        Open Leads
-                      </Link>
-                      <Link href={buildWorkflowHref("/app/messages", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 text-xs font-semibold text-blue-700">
-                        Open Messages
-                      </Link>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 md:p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Daily Review</h3>
-                  <p className="text-xs text-slate-500">Critical and aging queues that need operator attention today.</p>
-                </div>
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                  Needs review: {reviewTodaySnapshot.needsReviewTodayCount}
-                </span>
-              </div>
-              {isReviewQuiet ? (
-                <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                  {isLowActivityWorkspace
-                    ? readinessStatus.mode === "setup_required"
-                      ? `Daily review is ${OPERATIONAL_LABELS.quiet.toLowerCase()} because setup is still incomplete. Finish readiness setup first.`
-                      : `Daily review is ${OPERATIONAL_LABELS.quiet.toLowerCase()} because activity is still ${OPERATIONAL_LABELS.lowActivity.toLowerCase()}. Start a first workflow to populate review queues.`
-                    : "Nothing urgent right now. Daily review queues are clear."}
-                </div>
+            
+            <div className="glass-card inner-glow rounded-3xl overflow-hidden">
+              {attentionItems.length > 0 ? (
+                <Link href={buildWorkflowHref("/app/attention", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="group px-8 py-6 flex items-center justify-between hover:bg-white/50 transition-all duration-300 border-b border-outline-variant/5">
+                  <div className="flex items-center space-x-5">
+                    <div className="w-12 h-12 rounded-2xl bg-error/10 text-error flex items-center justify-center ring-1 ring-error/20 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined font-bold">priority_high</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-on-surface tracking-tight">Needs Attention Queue</p>
+                      <p className="text-xs font-medium text-on-surface-variant/80">{attentionItems[0]?.topReasons?.[0] || "Critical exceptions pending"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-10">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">VOLUME</p>
+                      <p className="text-sm font-black text-error">{attentionItems.length} items</p>
+                    </div>
+                    <button className="px-5 py-2.5 bg-on-surface text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md group-hover:shadow-primary/20">
+                      Resolve
+                    </button>
+                  </div>
+                </Link>
               ) : null}
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <Link href={buildWorkflowHref("/app/attention?risk=critical_unowned", { source: "dashboard", returnTo, returnLabel: "Daily Review" })} className="rounded-lg border border-rose-200 bg-rose-50 p-3 transition-colors hover:bg-rose-100/60">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Unassigned critical work</p>
-                  <p className="mt-1 text-2xl font-bold text-rose-800">{atRiskSnapshot.criticalUnownedAttention}</p>
-                </Link>
-                <Link href={buildWorkflowHref("/app/follow-up?status=overdue_unassigned", { source: "dashboard", returnTo, returnLabel: "Daily Review" })} className="rounded-lg border border-red-200 bg-red-50 p-3 transition-colors hover:bg-red-100/60">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">Overdue unassigned follow-up</p>
-                  <p className="mt-1 text-2xl font-bold text-red-800">{atRiskSnapshot.overdueUnassigned}</p>
-                </Link>
-                <Link href={buildWorkflowHref("/app/follow-up?status=at_risk", { source: "dashboard", returnTo, returnLabel: "Daily Review" })} className="rounded-lg border border-amber-200 bg-amber-50 p-3 transition-colors hover:bg-amber-100/60">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Stale assigned follow-up</p>
-                  <p className="mt-1 text-2xl font-bold text-amber-800">{atRiskSnapshot.staleAssigned}</p>
-                </Link>
-                <Link href={buildWorkflowHref("/app/approvals?focus=needs_review", { source: "dashboard", returnTo, returnLabel: "Daily Review" })} className="rounded-lg border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-slate-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Pending approvals aging 2h+</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-900">{atRiskSnapshot.pendingApprovalsAging}</p>
-                </Link>
-              </div>
-            </div>
 
-            <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 md:p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900">Recent Operations</h3>
-                <Link href="/app/insights" className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50">
-                  Open insights
+              <Link href={buildWorkflowHref("/app/approvals", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="group px-8 py-6 flex items-center justify-between hover:bg-white/50 transition-all duration-300 border-b border-outline-variant/5">
+                <div className="flex items-center space-x-5">
+                  <div className="w-12 h-12 rounded-2xl bg-tertiary/10 text-tertiary flex items-center justify-center ring-1 ring-tertiary/20 group-hover:scale-110 transition-transform">
+                    <span className="material-symbols-outlined font-bold">approval</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-on-surface tracking-tight">Approval Required</p>
+                    <p className="text-xs font-medium text-on-surface-variant/80">{topPendingApproval?.toolKey || "No pending approvals"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-10">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">VOLUME</p>
+                    <p className="text-sm font-black text-on-surface">{state.approvals.length} items</p>
+                  </div>
+                  <button className="px-5 py-2.5 bg-surface-container-high text-on-surface text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-primary hover:text-white transition-all">
+                    Review
+                  </button>
+                </div>
+              </Link>
+
+              <Link href={buildWorkflowHref("/app/follow-up", { source: "dashboard", returnTo, returnLabel: "Dashboard" })} className="group px-8 py-6 flex items-center justify-between hover:bg-white/50 transition-all duration-300">
+                <div className="flex items-center space-x-5">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center ring-1 ring-primary/20 group-hover:scale-110 transition-transform">
+                    <span className="material-symbols-outlined font-bold">event_repeat</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-on-surface tracking-tight">Follow-up At Risk</p>
+                    <p className="text-xs font-medium text-on-surface-variant/80">{topOverdueFollowUp?.task?.title || "No overdue follow-up tasks"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-10">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">VOLUME</p>
+                    <p className="text-sm font-black text-amber-600">{overdueFollowUps.length + atRiskSnapshot.staleAssigned} items</p>
+                  </div>
+                  <button className="px-5 py-2.5 bg-surface-container-high text-on-surface text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-primary hover:text-white transition-all">
+                    Execute
+                  </button>
+                </div>
+              </Link>
+            </div>
+          </section>
+
+          {/* Operations Visualizer (Asymmetric Bento Component) */}
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="glass-surface p-8 rounded-[2.5rem] relative overflow-hidden group hover:bg-white/60 transition-all duration-500 border border-white/40 shadow-sm">
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 group-hover:rotate-12 transition-all duration-700">
+                <span className="material-symbols-outlined text-[120px]">monitoring</span>
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest mb-2">Operational Pulse</p>
+              <h4 className="text-lg font-black font-headline mb-3 text-on-surface tracking-tight">Efficiency Analysis</h4>
+              <p className="text-sm text-on-surface-variant mb-8 leading-relaxed font-medium">
+                {isLowActivityWorkspace ? "System is ready. Awaiting initial inbound/outbound workflow events." : "System performance is currently optimized at 94%. No scaling required for the next 4 hours based on predicted load."}
+              </p>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse shadow-[0_0_8px_rgba(0,109,74,0.5)]"></div>
+                <span className="text-[10px] font-black text-tertiary uppercase tracking-widest">SYSTEM STABLE</span>
+              </div>
+            </div>
+            
+            <div className="bg-on-surface p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Strategic Shift</p>
+              <h4 className="text-lg font-black font-headline mb-3 tracking-tight">Priority Shift</h4>
+              <p className="text-sm text-white/70 mb-8 leading-relaxed font-medium">
+                {reviewTodaySnapshot.needsReviewTodayCount > 0 
+                  ? `Focus required on ${reviewTodaySnapshot.needsReviewTodayCount} items blocking daily clearance. Resolve before shift end.` 
+                  : "Shift focus to pending lead conversions. Processing flow is steady."}
+              </p>
+              <button className="text-[10px] font-black uppercase tracking-widest border-b-2 border-primary/40 pb-1 hover:border-primary transition-all">
+                Redirect Resources
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* Secondary Column: Triage & Risk */}
+        {/* Secondary Column: Triage & Risk */}
+        <div className="lg:col-span-4 space-y-8 animate-fade-slide-up [animation-delay:200ms] fill-mode-both">
+          {/* At Risk / Blocked Panel */}
+          {blockedItems > 0 || reviewTodaySnapshot.needsReviewTodayCount > 0 ? (
+            <section className={`glass-card p-6 rounded-[2rem] shadow-xl border-t-8 ${atRiskSnapshot.criticalUnownedAttention > 0 ? 'border-error' : 'border-amber-500'}`}>
+              <div className={`flex items-center space-x-3 mb-6 ${atRiskSnapshot.criticalUnownedAttention > 0 ? 'text-error' : 'text-amber-600'}`}>
+                <span className="material-symbols-outlined font-black">warning</span>
+                <h3 className="text-[11px] font-black font-headline uppercase tracking-[0.2em]">At Risk Items</h3>
+              </div>
+              
+              <div className="space-y-4">
+                {atRiskSnapshot.criticalUnownedAttention > 0 && (
+                  <div className="p-5 bg-error/5 rounded-2xl border border-error/10">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-black text-on-surface">Unassigned Critical Work</p>
+                      <span className="text-[9px] font-black bg-error text-white px-1.5 py-0.5 rounded-sm">CRITICAL</span>
+                    </div>
+                    <p className="text-xs font-medium text-on-surface-variant/70 mb-4">Sync failure affecting {atRiskSnapshot.criticalUnownedAttention} active rows.</p>
+                    <div className="w-full bg-error/10 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-error w-4/5 h-full animate-pulse"></div>
+                    </div>
+                  </div>
+                )}
+                
+                {atRiskSnapshot.overdueUnassigned > 0 && (
+                  <div className="p-5 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-black text-on-surface">Overdue Follow-up</p>
+                      <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-sm">WARNING</span>
+                    </div>
+                    <p className="text-xs font-medium text-on-surface-variant/70">{atRiskSnapshot.overdueUnassigned} tasks unassigned and stale.</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {/* Recent Operations Feed */}
+          <section className="px-1">
+            <h3 className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-6">Live Activity Audit</h3>
+            
+            {state.operations.length > 0 ? (
+              <div className="space-y-8 relative before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-surface-container-high/50">
+                {state.operations.slice(0, 4).map((event, i) => {
+                  const colors = ["border-primary ring-primary/20", "border-outline-variant ring-transparent", "border-tertiary ring-tertiary/20", "border-primary ring-primary/20"];
+                  const colorClass = colors[i % colors.length];
+                  return (
+                    <div key={event.id} className="relative pl-10 group cursor-default">
+                      <div className={`absolute left-0 top-1 w-[24px] h-[24px] bg-white rounded-full border-2 ${colorClass.split(' ')[0]} ${colorClass.split(' ')[1]} flex items-center justify-center transition-all group-hover:scale-110 shadow-sm`}>
+                        <div className={`w-2 h-2 rounded-full ${colorClass.split(' ')[0].replace('border-', 'bg-')}`}></div>
+                      </div>
+                      <div className="transition-all group-hover:translate-x-1">
+                        <p className="text-[11px] font-black text-on-surface truncate pr-2 uppercase tracking-tight">{event.eventType.replace(/_/g, " ")}</p>
+                        <p className="text-[10px] font-bold text-on-surface-variant/60">
+                          {new Date(event.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • SYSTEM NODE
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <Link href="/app/insights" className="mt-8 block w-full py-3.5 text-center text-[10px] font-black text-primary hover:bg-primary/5 transition-all uppercase tracking-[0.16em] border-2 border-primary/10 rounded-[1.25rem]">
+                  Full Audit Stream
                 </Link>
               </div>
-              <OperationsFeedList
-                events={state.operations.slice(0, 8)}
-                loading={loading}
-                emptyMessage={`No recent operations yet. The workspace is currently ${OPERATIONAL_LABELS.quiet.toLowerCase()}.`}
-                source="dashboard"
-                returnLabel="Dashboard"
-                onActionComplete={loadDashboard}
-              />
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">AI Assistant</h3>
-                <span className="text-xs text-slate-500">Supportive, not primary</span>
+            ) : (
+              <div className="py-12 text-center border-2 border-dashed border-outline-variant/10 rounded-[2rem] glass-surface">
+                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">No Recent Operations</p>
               </div>
-              <AskAiInline page="dashboard" defaultAgentKey="manager_analytics" placeholder="Ask for a manager summary, risks, or recommended next actions..." />
-            </div>
-          </SectionDisclosure>
+            )}
+          </section>
+        </div>
+      </div>
+      
+      {state.operations.length === 0 && (
+        <section className="mt-16 p-16 glass-surface rounded-[3rem] flex flex-col items-center justify-center text-center shadow-inner relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-50"></div>
+          <div className="w-20 h-20 rounded-3xl bg-white flex items-center justify-center mb-8 shadow-xl inner-glow relative z-10 transition-transform hover:rotate-6">
+            <span className="material-symbols-outlined text-primary text-4xl">analytics</span>
+          </div>
+          <h4 className="text-2xl font-headline font-black text-on-surface mb-3 tracking-tighter relative z-10">Operational Insight Queue</h4>
+          <p className="text-on-surface-variant max-w-sm mb-10 leading-relaxed font-medium relative z-10">There are currently no high-trust predictions. As your operational data grows, deep insights will appear here.</p>
+          <button className="px-8 py-3 bg-white/80 backdrop-blur-sm border border-primary/20 text-primary font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl hover:bg-primary hover:text-white transition-all shadow-md relative z-10">
+            System Configuration
+          </button>
+        </section>
+      )}
     </div>
   );
 }

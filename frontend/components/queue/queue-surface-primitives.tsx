@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -16,28 +16,34 @@ type QueueSurfaceStateCardProps = {
 };
 
 export function QueueSurfaceStateCard({ kind, message, title, actionLabel, actionHref, onAction, className }: QueueSurfaceStateCardProps) {
-  // Shared state card for queue/list surfaces to avoid loading/empty/error drift.
   if (kind === "loading") {
     return (
-      <div className={cn("flex items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-6 text-sm text-slate-600 shadow-sm", className)}>
-        <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-        <span className="font-medium">{message}</span>
+      <div className={cn("flex flex-col items-center justify-center p-12 rounded-[2rem] glass-card inner-glow animate-pulse", className)}>
+        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">{message}</span>
       </div>
     );
   }
 
-  const toneClassName = kind === "error" ? "border-red-200 bg-red-50/80 text-red-700" : "border-slate-200 bg-white text-slate-600";
+  const toneClassName = kind === "error" ? "border-error/20 bg-error/5 text-error" : "glass-card";
 
   return (
-    <div className={cn("rounded-lg border p-4 text-sm shadow-sm", toneClassName, className)}>
-      {title ? <p className="font-semibold leading-5 text-slate-900">{title}</p> : null}
-      <p className={cn(title ? "mt-1" : "", kind === "error" ? "text-red-700" : "text-slate-600")}>{message}</p>
+    <div className={cn("rounded-[2rem] border p-12 text-center flex flex-col items-center justify-center inner-glow shadow-sm", toneClassName, className)}>
+      <div className={cn("w-16 h-16 rounded-3xl mb-8 flex items-center justify-center shadow-md", kind === "error" ? "bg-error/10" : "bg-primary/5")}>
+        <span className="material-symbols-outlined text-3xl">
+          {kind === "error" ? "report" : "inbox"}
+        </span>
+      </div>
+      {title ? <p className="text-xl font-black font-headline tracking-tighter text-on-surface mb-2">{title}</p> : null}
+      <p className={cn("max-w-sm text-sm font-medium leading-relaxed", kind === "error" ? "text-error/80" : "text-on-surface-variant/70")}>{message}</p>
       {actionLabel ? (
-        <div className="mt-3">
+        <div className="mt-8">
           {actionHref ? (
             <Link
               href={actionHref}
-              className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex items-center rounded-xl bg-on-surface text-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95"
             >
               {actionLabel}
             </Link>
@@ -45,7 +51,7 @@ export function QueueSurfaceStateCard({ kind, message, title, actionLabel, actio
             <button
               type="button"
               onClick={onAction}
-              className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex items-center rounded-xl bg-on-surface text-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95"
             >
               {actionLabel}
             </button>
@@ -65,11 +71,11 @@ type QueueSectionHeaderProps = {
 
 export function QueueSectionHeader({ title, description, className, actions }: QueueSectionHeaderProps) {
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2.5", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className={cn("rounded-2xl border border-outline-variant/10 bg-on-surface/5 px-6 py-4", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{title}</p>
-          {description ? <p className="mt-0.5 text-xs text-slate-500">{description}</p> : null}
+          <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-on-surface">{title}</p>
+          {description ? <p className="mt-1 text-xs font-medium text-on-surface-variant/60">{description}</p> : null}
         </div>
         {actions}
       </div>
@@ -87,21 +93,21 @@ type QueueActionClassName = {
 function queueActionToneClassName(tone: QueueActionTone): QueueActionClassName {
   if (tone === "primary") {
     return {
-      wrapper: "border-blue-200 bg-blue-50 text-blue-700"
+      wrapper: "border-primary/20 bg-primary/5 text-primary hover:bg-primary hover:text-white"
     };
   }
   if (tone === "warning") {
     return {
-      wrapper: "border-amber-200 bg-amber-50 text-amber-700"
+      wrapper: "border-amber-500/20 bg-amber-500/5 text-amber-700 hover:bg-amber-500 hover:text-white"
     };
   }
   if (tone === "critical") {
     return {
-      wrapper: "border-red-200 bg-red-50 text-red-700"
+      wrapper: "border-error/20 bg-error/5 text-error hover:bg-error hover:text-white"
     };
   }
   return {
-    wrapper: "border-slate-200 bg-white text-slate-700"
+    wrapper: "border-outline-variant/20 bg-white text-on-surface hover:bg-on-surface hover:text-white"
   };
 }
 
@@ -119,8 +125,8 @@ export function QueueActionLink({ href, children, className, tone = "default", s
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center rounded-md border font-semibold transition-colors hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
-        size === "xs" ? "max-w-full px-2 py-1 text-xs leading-4" : "max-w-full px-3 py-1.5 text-sm",
+        "inline-flex items-center rounded-xl border font-black uppercase tracking-widest transition-all shadow-sm inner-glow active:scale-95",
+        size === "xs" ? "px-3 py-1.5 text-[10px]" : "px-4 py-2 text-[11px]",
         toneClasses.wrapper,
         className
       )}
@@ -156,8 +162,8 @@ export function QueueActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center rounded-md border font-semibold transition-colors hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60",
-        size === "xs" ? "max-w-full px-2 py-1 text-xs leading-4" : "max-w-full px-3 py-1.5 text-sm",
+        "inline-flex items-center rounded-xl border font-black uppercase tracking-widest transition-all shadow-sm inner-glow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40",
+        size === "xs" ? "px-3 py-1.5 text-[10px]" : "px-4 py-2 text-[11px]",
         toneClasses.wrapper,
         className
       )}

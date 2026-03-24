@@ -23,9 +23,12 @@ function parseInsightsFeedFilter(value: string | null): InsightsFeedFilter {
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-black tracking-[-0.03em] text-slate-900">{value}</p>
+    <div className="rounded-[2rem] border glass-card p-8 inner-glow hover-lift transition-all duration-300">
+      <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-4">{label}</p>
+      <div className="flex items-baseline justify-between">
+        <p className="text-4xl font-black font-headline tracking-tighter text-on-surface">{value}</p>
+        <span className="material-symbols-outlined text-[20px] opacity-20">analytics</span>
+      </div>
     </div>
   );
 }
@@ -44,12 +47,12 @@ function ActionMetricCard({
   cta: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-black text-slate-900">{value}</p>
-      <p className="mt-1 text-xs text-slate-600">{detail}</p>
-      <div className="mt-2">
-        <Link href={href} className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+    <div className="rounded-[2rem] border glass-card p-8 inner-glow hover-lift transition-all duration-300 group">
+      <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-4">{label}</p>
+      <p className="text-3xl font-black font-headline tracking-tighter text-on-surface group-hover:text-primary transition-colors">{value}</p>
+      <p className="mt-2 text-xs font-medium text-on-surface-variant/70 leading-relaxed">{detail}</p>
+      <div className="mt-6">
+        <Link href={href} className="inline-flex items-center rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-md active:scale-95">
           {cta}
         </Link>
       </div>
@@ -204,7 +207,7 @@ export default function InsightsPage() {
         actions={
           <Link
             href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })}
-            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+            className="rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95"
           >
             Return to action queues
           </Link>
@@ -213,18 +216,27 @@ export default function InsightsPage() {
 
       <SectionShell className="surface-panel">
         {busySummary ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading manager insights...
+          <div className="flex flex-col items-center justify-center p-12 rounded-[2rem] glass-card inner-glow animate-pulse">
+            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Loading manager insights...</span>
           </div>
         ) : null}
 
-        {!busySummary && summaryError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{summaryError}</div> : null}
+        {!busySummary && summaryError ? (
+          <div className="rounded-[2rem] border border-error/20 bg-error/5 p-12 text-center flex flex-col items-center justify-center inner-glow">
+            <span className="material-symbols-outlined text-3xl text-error mb-4">error</span>
+            <p className="text-sm font-black text-error uppercase tracking-widest">{summaryError}</p>
+          </div>
+        ) : null}
 
         {!busySummary && !summaryError && summary ? (
           <>
-            <p className="mb-4 text-sm text-slate-500">Window start: {new Date(summary.since).toLocaleString()}</p>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="flex items-center justify-between mb-8">
+              <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1">Window start: {new Date(summary.since).toLocaleString()}</p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
               <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
               <MetricCard label="Open follow-up" value={summary.openFollowUps} />
             </div>
@@ -245,33 +257,40 @@ export default function InsightsPage() {
       <SectionShell className="surface-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">AI Workflow Usage & Trust Signals</h2>
-            <p className="text-sm text-slate-500">Use these signals to route work into approvals, attention, and follow-up queues.</p>
+            <h2 className="text-2xl font-black font-headline tracking-tighter text-on-surface">AI Workflow Usage & Trust Signals</h2>
+            <p className="mt-1 text-sm font-medium text-on-surface-variant/70">Use these signals to route work into approvals, attention, and follow-up queues.</p>
           </div>
           <button
             type="button"
             onClick={() => void loadUsageSignals()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all active:scale-95"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh signals
           </button>
         </div>
         <SectionDisclosure title="Workflow usage and friction breakdown" storageKey="insights-usage-breakdown" defaultCollapsed>
           {busyUsage ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading AI usage signals...
+            <div className="flex flex-col items-center justify-center p-12 rounded-[2rem] glass-card inner-glow animate-pulse">
+              <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Loading AI usage signals...</span>
             </div>
           ) : null}
 
-          {!busyUsage && usageError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{usageError}</div> : null}
+          {!busyUsage && usageError ? (
+            <div className="rounded-[2rem] border border-error/20 bg-error/5 p-12 text-center flex flex-col items-center justify-center inner-glow">
+              <span className="material-symbols-outlined text-3xl text-error mb-4">error</span>
+              <p className="text-sm font-black text-error uppercase tracking-widest">{usageError}</p>
+            </div>
+          ) : null}
 
           {!busyUsage && !usageError ? (
-            <div className="space-y-4">
+            <div className="space-y-12">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Needs action</p>
-                <div className="mt-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-6 ml-1">Needs action</p>
+                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                   <ActionMetricCard
                     label="Retryable send failures"
                     value={usageMetrics.failedRetryableSends}
@@ -297,8 +316,8 @@ export default function InsightsPage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Friction</p>
-                <div className="mt-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-6 ml-1">Friction</p>
+                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                   <ActionMetricCard
                     label="Approvals rejected"
                     value={usageMetrics.approvalsRejected}
@@ -324,8 +343,8 @@ export default function InsightsPage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Usage</p>
-                <div className="mt-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-6 ml-1">Usage</p>
+                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                   <ActionMetricCard
                     label="Approvals approved"
                     value={usageMetrics.approvalsApproved}
@@ -375,14 +394,14 @@ export default function InsightsPage() {
         </div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Recent Operations</h2>
-            <p className="text-sm text-slate-500">Shared operational activity feed used by dashboard and insights.</p>
+            <h2 className="text-2xl font-black font-headline tracking-tighter text-on-surface">Recent Operations</h2>
+            <p className="mt-1 text-sm font-medium text-on-surface-variant/70">Shared operational activity feed used by dashboard and insights.</p>
           </div>
           <div className="flex items-center gap-2">
             <select
               value={feedFilter}
               onChange={(event) => setFeedFilter(parseInsightsFeedFilter(event.target.value))}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              className="rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">All events</option>
               <option value="failures">Failures</option>
@@ -393,17 +412,17 @@ export default function InsightsPage() {
             <button
               type="button"
               onClick={() => void loadFeed(feedFilter)}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all active:scale-95"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </button>
           </div>
         </div>
 
-        {feedError ? <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{feedError}</div> : null}
+        {feedError ? <div className="mb-6 rounded-[2rem] border border-error/20 bg-error/5 p-8 text-sm font-black text-error uppercase tracking-widest text-center">{feedError}</div> : null}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-[2rem] border glass-card p-8 inner-glow shadow-sm">
           <OperationsFeedList
             events={events}
             loading={busyFeed}
@@ -422,27 +441,28 @@ export default function InsightsPage() {
           />
         </div>
         {!busyFeed && !feedError && events.length === 0 && feedFilter === "all" ? (
-          <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
-            <p className="font-semibold">Not enough activity yet</p>
-            <p className="mt-1">Start from Calls, Leads, or Messages to generate operational events and daily review history.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Link href={buildWorkflowHref("/app/calls", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 font-semibold text-blue-700">
+          <div className="mt-6 rounded-[2rem] border border-primary/20 bg-primary/5 p-8 text-center flex flex-col items-center justify-center inner-glow animate-fade-slide-up">
+            <span className="material-symbols-outlined text-3xl text-primary mb-4">info</span>
+            <p className="text-xl font-black font-headline tracking-tighter text-on-surface">Not enough activity yet</p>
+            <p className="mt-2 text-sm font-medium text-on-surface-variant/70 max-w-sm">Start from Calls, Leads, or Messages to generate operational events and daily review history.</p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link href={buildWorkflowHref("/app/calls", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-xl border border-outline-variant/20 bg-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all">
                 Open Calls
               </Link>
-              <Link href={buildWorkflowHref("/app/leads", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 font-semibold text-blue-700">
+              <Link href={buildWorkflowHref("/app/leads", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-xl border border-outline-variant/20 bg-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all">
                 Open Leads
               </Link>
-              <Link href={buildWorkflowHref("/app/messages", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-md border border-blue-200 bg-white px-2 py-1 font-semibold text-blue-700">
+              <Link href={buildWorkflowHref("/app/messages", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-xl border border-outline-variant/20 bg-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all">
                 Open Messages
               </Link>
             </div>
           </div>
         ) : null}
 
-        <div className="mt-3 flex items-center justify-end">
+        <div className="mt-8 flex items-center justify-end">
           <Link
             href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })}
-            className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:text-primary-dim transition-colors"
           >
             Open Needs Attention
           </Link>

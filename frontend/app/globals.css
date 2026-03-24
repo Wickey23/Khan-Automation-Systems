@@ -3,36 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary-hex: #f4f7fb;
-  --text-primary-hex: #0a1324;
-  --text-secondary-hex: #5f6f86;
-  --accent-hex: #0f7aea;
-  --background: 216 20% 96%;
-  --foreground: 224 48% 10%;
+  --background: 210 25% 98%;
+  --foreground: 200 16% 19%;
   --card: 0 0% 100%;
-  --card-foreground: 224 48% 10%;
-  --surface: 216 20% 96%;
-  --surface-strong: 0 0% 100%;
-  --surface-muted: 214 18% 93%;
-  --surface-contrast: 210 100% 99%;
-  --primary: 211 89% 48%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 216 14% 91%;
-  --secondary-foreground: 224 48% 10%;
-  --muted: 214 18% 93%;
-  --muted-foreground: 220 20% 39%;
-  --border: 215 18% 84%;
-  --input: 215 18% 82%;
-  --accent: 211 89% 48%;
-  --accent-foreground: 0 0% 100%;
-  --ring: 211 89% 48%;
+  --card-foreground: 200 16% 19%;
+  --surface: 210 25% 98%;
+  --primary: 218 15% 39%;
+  --primary-foreground: 210 100% 99%;
+  --secondary: 216 17% 39%;
+  --secondary-foreground: 210 100% 99%;
+  --muted: 210 10% 92%;
+  --muted-foreground: 210 10% 40%;
+  --border: 210 10% 88%;
+  --input: 210 10% 88%;
+  --accent: 218 15% 39%;
+  --accent-foreground: 210 100% 99%;
   --success: 152 69% 32%;
   --success-foreground: 0 0% 100%;
   --warning: 38 93% 45%;
   --warning-foreground: 24 92% 11%;
-  --destructive: 0 73% 47%;
+  --destructive: 1 44% 43%;
   --destructive-foreground: 0 0% 100%;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 }
 
 html[data-theme="core-dark"] {
@@ -336,3 +328,21 @@ body {
     animation: fade-slide-up 280ms ease-out both;
   }
 }
+
+  /* Glassmorphism & Premium Utilities */
+  .glass-card {
+    @apply border border-white/60 bg-white/70 backdrop-blur-md shadow-[0_12px_32px_-4px_rgba(42,52,57,0.12)];
+  }
+
+  .glass-surface {
+    @apply border border-white/30 bg-white/40 backdrop-blur-lg;
+  }
+
+  .inner-glow {
+    box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.7), 0 12px 32px -4px rgba(42, 52, 57, 0.08);
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-12px_rgba(15,23,42,0.15)];
+  }
+

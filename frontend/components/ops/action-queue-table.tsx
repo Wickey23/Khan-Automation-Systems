@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { RowActionMenu } from "@/components/ops/row-action-menu";
 
@@ -56,16 +56,16 @@ export function ActionQueueTable({
   className?: string;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-lg border border-slate-200 bg-white", className)}>
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <h2 className="text-base font-semibold tracking-tight text-slate-900">{title}</h2>
+    <section className={cn("overflow-hidden rounded-[2rem] border glass-card inner-glow animate-fade-slide-up [animation-delay:150ms] fill-mode-both", className)}>
+      <div className="flex items-center justify-between border-b border-outline-variant/5 px-8 py-6">
+        <h2 className="text-xl font-black font-headline tracking-tighter text-on-surface">{title}</h2>
         {viewAllHref ? (
-          <Link href={viewAllHref} className="text-xs font-semibold text-slate-600 hover:text-slate-900">
+          <Link href={viewAllHref} className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:text-primary-dim transition-colors">
             View all tasks
           </Link>
         ) : null}
       </div>
-      <div className="hidden grid-cols-[minmax(0,1fr)_110px_90px_100px_100px_150px] gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 lg:grid">
+      <div className="hidden grid-cols-[minmax(0,1fr)_110px_90px_100px_100px_150px] gap-2 border-b border-outline-variant/5 bg-on-surface/5 px-8 py-3 text-[10px] font-black font-label uppercase tracking-[0.2em] text-on-surface-variant/60 lg:grid">
         <span>Subject / item</span>
         <span>Owner</span>
         <span>Due / age</span>
@@ -73,7 +73,7 @@ export function ActionQueueTable({
         <span>Status</span>
         <span className="text-right">Action</span>
       </div>
-      <div className="divide-y divide-slate-200">
+      <div className="divide-y divide-outline-variant/5">
         {rows.map((row) => (
           <div
             key={row.id}
@@ -83,29 +83,29 @@ export function ActionQueueTable({
             onFocusCapture={row.onRowFocus}
             onClick={row.onRowSelect}
             className={cn(
-              "flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-slate-300/60",
-              row.isActive ? "bg-slate-50 ring-1 ring-slate-200 ring-inset" : "",
+              "flex items-center justify-between gap-6 px-8 py-5 transition-all duration-300 hover:bg-white/50 focus-within:ring-2 focus-within:ring-primary/20",
+              row.isActive ? "bg-white/60 shadow-inner" : "",
               row.onRowSelect ? "cursor-pointer" : ""
             )}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-900">{row.item}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-600">Owner: {row.owner}</span>
-                <span className="text-slate-300">|</span>
-                <span className="text-xs text-slate-500">Due: {row.due}</span>
+              <p className="truncate text-sm font-black text-on-surface tracking-tight group-hover:text-primary transition-colors">{row.item}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">Owner: {row.owner}</span>
+                <span className="w-1 h-1 rounded-full bg-outline-variant/20"></span>
+                <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">Due: {row.due}</span>
                 {row.ageLabel ? (
                   <>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-xs text-slate-500">Age: {row.ageLabel}</span>
+                    <span className="w-1 h-1 rounded-full bg-outline-variant/20"></span>
+                    <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">Age: {row.ageLabel}</span>
                   </>
                 ) : null}
               </div>
-              <p className="mt-1 truncate text-xs text-slate-500">{row.detail || "No additional detail."}</p>
+              <p className="mt-2 truncate text-xs font-medium text-on-surface-variant/70 leading-relaxed">{row.detail || "No additional detail."}</p>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", severityTone(row.severity))}>{row.severity}</span>
-              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", statusTone(row.status))}>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+              <span className={cn("rounded-lg border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] shadow-sm", severityTone(row.severity))}>{row.severity}</span>
+              <span className={cn("rounded-lg border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] shadow-sm", statusTone(row.status))}>
                 {statusLabel(row.status)}
               </span>
               {row.href && row.primaryActionLabel ? (
@@ -113,7 +113,7 @@ export function ActionQueueTable({
                   href={row.href}
                   aria-label={`${row.primaryActionLabel} for ${row.item}`}
                   onClick={(event) => event.stopPropagation()}
-                  className="rounded-md border border-slate-900 bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  className="rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-md active:scale-95"
                 >
                   {row.primaryActionLabel}
                 </Link>
@@ -127,7 +127,7 @@ export function ActionQueueTable({
                   }}
                   aria-label={`${row.primaryActionLabel} for ${row.item}`}
                   disabled={row.primaryActionDisabled}
-                  className="rounded-md border border-slate-900 bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {row.primaryActionLabel}
                 </button>
