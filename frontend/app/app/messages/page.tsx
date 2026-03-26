@@ -31,7 +31,7 @@ import { useAccessSummary } from "@/context/access-summary";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, CommandHeader, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { CommandHeader, SectionDisclosure } from "@/components/ops";
 
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
@@ -78,6 +78,16 @@ function threadStatusLabel(thread: OrgMessageThread) {
   if (status === "offline") return "Offline";
   if (status === "active") return "Active";
   return "Away";
+}
+
+function formatActivityTime(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 export default function AppMessagesPage() {
@@ -174,6 +184,10 @@ export default function AppMessagesPage() {
     filteredThreads[0] ||
     threads[0] ||
     null;
+  const selectedNeedsReply = Boolean(
+    selectedThread && (selectedThread.frontDesk?.state || selectedThread.lead?.frontDesk?.state) === "needs_follow_up"
+  );
+  const selectedUrgent = Boolean(selectedThread && threadType(selectedThread) === "Emergency");
 
   useEffect(() => {
     if (!filteredThreads.length) {
@@ -184,86 +198,6 @@ export default function AppMessagesPage() {
       setSelectedId(filteredThreads[0].id);
     }
   }, [filteredThreads, selectedId]);
-
-  const threadRows = useMemo(
-    () =>
-      filteredThreads.map((thread) => {
-        const threadState = thread.frontDesk?.state || thread.lead?.frontDesk?.state || "contacted";
-        const severity = priorityToSeverity(
-          thread.frontDesk?.frontDeskPriority || thread.lead?.frontDesk?.frontDeskPriority || (threadType(thread) === "Emergency" ? "critical" : "medium")
-        );
-        const status =
-          threadState === "needs_follow_up"
-            ? "pending"
-            : threadState === "contacted"
-              ? "in_progress"
-              : threadState === "closed"
-                ? "done"
-                : threadType(thread) === "Emergency"
-                  ? "blocked"
-                  : "in_progress";
-        return {
-          id: thread.id,
-          item: `${displayName(thread)} - ${threadType(thread)}`,
-          owner: thread.leadId ? "Linked lead" : "Unlinked",
-          due: dueLabel(thread.lastMessageAt),
-          ageLabel: ageFromDate(thread.lastMessageAt),
-          severity,
-          status: statusToOperatorState(status),
-          primaryActionLabel: "Open",
-          onPrimaryAction: () => setSelectedId(thread.id),
-          secondaryActions: [
-            {
-              label: "Open approvals",
-              href: buildWorkflowHref(`/app/approvals?status=PENDING&threadId=${encodeURIComponent(thread.id)}`, {
-                source: "messages",
-                returnTo: localReturnTo,
-                returnLabel: "Messages"
-              })
-            },
-            {
-              label: "Open follow-up",
-              href: buildWorkflowHref("/app/follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })
-            },
-            ...(thread.leadId
-              ? [
-                  {
-                    label: "Open lead",
-                    href: buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(thread.leadId)}`, {
-                      source: "messages",
-                      returnTo: localReturnTo,
-                      returnLabel: "Messages"
-                    })
-                  }
-                ]
-              : [])
-          ],
-          detail: threadPreview(thread),
-          isActive: selectedId === thread.id,
-          onRowSelect: () => setSelectedId(thread.id),
-          onRowFocus: () => setSelectedId(thread.id),
-          rowAriaLabel: `${displayName(thread)}. ${threadType(thread)}.`
-        };
-      }),
-    [filteredThreads, localReturnTo, selectedId]
-  );
-  const threadRiskItems = useMemo(
-    () => [
-      {
-        id: "urgent-threads",
-        title: "Urgent threads",
-        detail: `${filteredThreads.filter((thread) => threadType(thread) === "Emergency").length} threads marked urgent.`,
-        level: "critical" as const
-      },
-      {
-        id: "needs-reply",
-        title: "Needs reply",
-        detail: `${filteredThreads.filter((thread) => (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up").length} threads need operator response.`,
-        level: "warning" as const
-      }
-    ],
-    [filteredThreads]
-  );
 
   useEffect(() => {
     if (!selectedThread) {
@@ -560,35 +494,35 @@ export default function AppMessagesPage() {
           { label: "Urgent threads", value: filteredThreads.filter((thread) => threadType(thread) === "Emergency").length, note: "Priority risk", icon: "emergency" },
           { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate", icon: "verified" }
         ].map((metric) => (
-          <div key={metric.label} className="rounded-[2rem] border glass-card p-6 inner-glow hover-lift transition-all duration-300">
-            <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-3">{metric.label}</p>
-            <div className="flex items-baseline justify-between mb-1">
-              <p className="text-3xl font-black font-headline tracking-tighter text-on-surface">{metric.value}</p>
-              <span className="material-symbols-outlined text-[18px] opacity-20">{metric.icon}</span>
+          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+              <span className="material-symbols-outlined text-[16px] text-slate-300">{metric.icon}</span>
             </div>
-            <p className="text-[10px] font-medium text-on-surface-variant/60">{metric.note}</p>
+            <p className="text-xs text-slate-500">{metric.note}</p>
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-[2rem] border glass-card shadow-sm inner-glow">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden">
-        <div className="flex w-80 shrink-0 flex-col border-r border-outline-variant/10 bg-surface-container-low/30">
-          <header className="flex h-20 shrink-0 items-center justify-between border-b border-outline-variant/10 bg-white/40 backdrop-blur-md px-6">
+        <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40">
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary inner-glow">
-                <Inbox className="h-5 w-5" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Inbox className="h-4 w-4" />
               </div>
               <div>
-                <h1 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Messaging</h1>
-                <p className="text-sm font-black text-on-surface tracking-tighter">Operator Inbox</p>
+                <h1 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Messaging</h1>
+                <p className="text-sm font-semibold text-slate-900">Inbox</p>
               </div>
             </div>
-            <span className="rounded-lg bg-on-surface text-white px-2 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm">
+            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
               {filteredThreads.length}
             </span>
           </header>
 
-          <div className="p-4">
+          <div className="p-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
@@ -596,7 +530,7 @@ export default function AppMessagesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search conversations..."
-                className="h-11 w-full rounded-2xl border border-outline-variant/20 bg-white/60 pl-11 pr-4 text-xs font-medium outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/30 transition-all placeholder:text-on-surface-variant/30"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
               />
             </div>
           </div>
@@ -605,9 +539,60 @@ export default function AppMessagesPage() {
             {loading ? (
               <div className="px-6 py-8 text-sm text-slate-500">Loading conversations...</div>
             ) : filteredThreads.length ? (
-              <div className="space-y-4 p-3">
-                <ActionQueueTable title="Operator Inbox" rows={threadRows} />
-                <RiskRailCard title="Thread Risk" items={threadRiskItems} />
+              <div className="divide-y divide-slate-100 bg-white">
+                {filteredThreads.map((thread) => {
+                  const needsReply = (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up";
+                  const urgent = threadType(thread) === "Emergency";
+                  const priorityClass = urgent
+                    ? "border-l-2 border-l-rose-400 bg-rose-50/30"
+                    : needsReply
+                      ? "border-l-2 border-l-amber-400 bg-amber-50/30"
+                      : "";
+                  return (
+                    <button
+                      key={thread.id}
+                      type="button"
+                      onClick={() => setSelectedId(thread.id)}
+                      className={cn(
+                        "w-full px-4 py-3 text-left transition-colors hover:bg-slate-50",
+                        selectedId === thread.id ? "bg-primary/5" : ""
+                        ,
+                        priorityClass
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-slate-900">{displayName(thread)}</p>
+                            {needsReply ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" /> : null}
+                            {urgent ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" /> : null}
+                          </div>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-600">{threadPreview(thread)}</p>
+                        </div>
+                        <span className="shrink-0 text-[10px] font-semibold text-slate-500">
+                          {formatActivityTime(thread.lastMessageAt)}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        {needsReply ? (
+                          <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                            Reply needed
+                          </span>
+                        ) : null}
+                        {urgent ? (
+                          <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+                            Urgent
+                          </span>
+                        ) : null}
+                        {!needsReply && !urgent ? (
+                          <span className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+                            {threadType(thread)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="px-6 py-6">
@@ -648,27 +633,135 @@ export default function AppMessagesPage() {
                 <div />
               </header>
 
-              <div className="flex-1 space-y-10 overflow-y-auto bg-slate-50/5 p-10">
-                <div className="px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary</p>
-                </div>
-                <RecommendedNextActionPanel
-                  title="Recommended Next Action"
-                  source={source}
-                  loading={entityStateBusy}
-                  error={entityStateError}
-                  recommendation={entityState?.recommendation || null}
-                  operationalMemory={entityState?.operationalMemory || null}
-                  attention={entityState?.attention || null}
-                  latestApproval={latestApproval}
-                  quickActions={recommendationActions}
-                  onRefresh={() => {
-                    if (!selectedThread?.id) return;
-                    void refreshEntityState();
-                  }}
-                  refreshing={entityStateBusy}
-                />
-                <SectionDisclosure title="Deep Workflow Detail" storageKey="messages-deep-workflow-detail" defaultCollapsed>
+              <div className="flex-1 space-y-6 overflow-y-auto bg-white p-6">
+                <section className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Next communication action</p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {selectedUrgent
+                          ? "Urgent thread. Respond quickly and route follow-up if needed."
+                          : selectedNeedsReply
+                            ? "This conversation needs a response."
+                            : "Conversation is active. Choose the next communication step."}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("messages-composer")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                        className={cn(
+                          "rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
+                          selectedNeedsReply
+                            ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                        )}
+                      >
+                        Reply now
+                      </button>
+                      <a
+                        href="#message-ai-workflow"
+                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-100"
+                      >
+                        Queue approval
+                      </a>
+                      <Link
+                        href={followUpHref}
+                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-100"
+                      >
+                        Create follow-up
+                      </Link>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Message timeline</p>
+                    <p className="text-[10px] text-slate-500">{selectedThread.messages.length} messages</p>
+                  </div>
+                  {[...selectedThread.messages].map((message, index, allMessages) => {
+                    const currentDate = new Date(message.createdAt).toLocaleDateString();
+                    const previousDate = index > 0 ? new Date(allMessages[index - 1].createdAt).toLocaleDateString() : "";
+                    const showDateDivider = index === 0 || currentDate !== previousDate;
+                    const previousDirection = index > 0 ? allMessages[index - 1].direction : "";
+                    const showSenderLabel = index === 0 || previousDirection !== message.direction || showDateDivider;
+                    return (
+                      <div key={message.id} className="space-y-2.5">
+                        {showDateDivider ? (
+                          <div className="flex items-center gap-2 py-1">
+                            <div className="h-px flex-1 bg-slate-200" />
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                              {new Date(message.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+                            </span>
+                            <div className="h-px flex-1 bg-slate-200" />
+                          </div>
+                        ) : null}
+                        <div className={cn("flex flex-col", message.direction === "OUTBOUND" ? "items-end" : "items-start")}>
+                          <div className="max-w-[74%] space-y-1.5">
+                            {showSenderLabel ? (
+                              <div
+                                className={cn(
+                                  "px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500",
+                                  message.direction === "OUTBOUND" ? "text-right" : "text-left"
+                                )}
+                              >
+                                {message.direction === "OUTBOUND" ? "You" : displayName(selectedThread)}
+                              </div>
+                            ) : null}
+                            <div
+                              className={cn(
+                                "rounded-2xl px-4 py-3.5 text-sm leading-relaxed shadow-sm",
+                                message.direction === "OUTBOUND"
+                                  ? "rounded-tr-md bg-slate-900 text-white"
+                                  : "rounded-tl-md border border-slate-200 bg-white text-slate-900"
+                              )}
+                            >
+                              {message.body}
+                            </div>
+                            <div
+                              className={cn(
+                                "flex items-center gap-1.5 px-1.5",
+                                message.direction === "OUTBOUND" ? "justify-end" : "justify-start"
+                              )}
+                            >
+                              <span className="text-[11px] text-slate-500">
+                                {new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                              </span>
+                              {message.direction === "OUTBOUND" ? (
+                                <span className="material-symbols-outlined text-[14px] text-slate-400">done_all</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </section>
+
+                <section className="rounded-lg border border-slate-200 bg-white p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Reply guidance</p>
+                  <div className="mt-3">
+                    <RecommendedNextActionPanel
+                      title="Recommended Next Action"
+                      source={source}
+                      loading={entityStateBusy}
+                      error={entityStateError}
+                      recommendation={entityState?.recommendation || null}
+                      operationalMemory={entityState?.operationalMemory || null}
+                      attention={entityState?.attention || null}
+                      latestApproval={latestApproval}
+                      quickActions={recommendationActions}
+                      onRefresh={() => {
+                        if (!selectedThread?.id) return;
+                        void refreshEntityState();
+                      }}
+                      refreshing={entityStateBusy}
+                    />
+                  </div>
+                </section>
+
+                <SectionDisclosure title="Conversation workflow detail" storageKey="messages-deep-workflow-detail" defaultCollapsed>
                   <div id="message-ai-workflow">
                     <AiWorkflowActions
                       title="Communications Workflow"
@@ -700,83 +793,67 @@ export default function AppMessagesPage() {
                       }}
                     />
                   </div>
-                <SectionDisclosure title="Secondary Operational Context" storageKey="messages-secondary-context" defaultCollapsed>
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    {relatedContext ? (
-                      <RelatedContextCard
-                        title="Related Context"
-                        description="Linked records and nearby operational state for this thread."
-                        stats={relatedContext.stats}
-                        links={relatedContext.links}
-                        flags={relatedContext.flags}
-                      />
-                    ) : null}
-                    <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
-                  </div>
-                </SectionDisclosure>
-                <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
-                  <p className="font-semibold text-slate-900">Thread AI state</p>
-                  <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
-                  <p>Opt-out: {threadAiState.optOut ? "Detected" : "Not detected"}</p>
-                  <p>Next action: {threadAiState.nextAction || "Run route/action tool"}</p>
-                  {threadAiState.replyDraft ? <p className="mt-1">Draft: {threadAiState.replyDraft}</p> : null}
-                </div>
-                <div className="px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
-                </div>
-                <EntityTimelineCard
-                  entityType="message_thread"
-                  entityId={selectedThread.id}
-                  timelineData={entityState}
-                  loading={entityStateBusy}
-                  error={entityStateError}
-                />
-                </SectionDisclosure>
-
-                {[...selectedThread.messages].map((message) => (
-                  <div key={message.id} className={cn("flex flex-col", message.direction === "OUTBOUND" ? "items-end" : "items-start")}>
-                    <div className="max-w-[70%] space-y-2">
-                       <div className={cn(
-                        "rounded-[2rem] px-8 py-5 text-sm font-medium leading-relaxed shadow-sm",
-                        message.direction === "OUTBOUND"
-                          ? "rounded-tr-none bg-on-surface text-white inner-glow"
-                          : "rounded-tl-none border border-outline-variant/20 bg-white text-on-surface"
-                      )}>
-                        {message.body}
-                      </div>
-                      <div className={cn(
-                        "flex items-center gap-2 px-4",
-                        message.direction === "OUTBOUND" ? "justify-end" : "justify-start"
-                      )}>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">
-                          {new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                        </span>
-                        {message.direction === "OUTBOUND" ? <span className="material-symbols-outlined text-[14px] text-primary">done_all</span> : null}
-                      </div>
+                  <SectionDisclosure title="Secondary thread context" storageKey="messages-secondary-context" defaultCollapsed>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      {relatedContext ? (
+                        <RelatedContextCard
+                          title="Related Context"
+                          description="Linked records and nearby operational state for this thread."
+                          stats={relatedContext.stats}
+                          links={relatedContext.links}
+                          flags={relatedContext.flags}
+                        />
+                      ) : null}
+                      <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
                     </div>
+                  </SectionDisclosure>
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
+                    <p className="font-semibold text-slate-900">Thread AI state</p>
+                    <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
+                    <p>Opt-out: {threadAiState.optOut ? "Detected" : "Not detected"}</p>
+                    <p>Next action: {threadAiState.nextAction || "Run route/action tool"}</p>
+                    {threadAiState.replyDraft ? <p className="mt-1">Draft: {threadAiState.replyDraft}</p> : null}
                   </div>
-                ))}
+                  <EntityTimelineCard
+                    entityType="message_thread"
+                    entityId={selectedThread.id}
+                    timelineData={entityState}
+                    loading={entityStateBusy}
+                    error={entityStateError}
+                  />
+                </SectionDisclosure>
               </div>
 
-              <footer className="border-t border-outline-variant/10 bg-white p-6">
+              <footer id="messages-composer" className={cn(
+                "border-t border-slate-200 bg-white p-4",
+                selectedNeedsReply ? "bg-amber-50/25" : ""
+              )}>
                 <div className="mx-auto flex max-w-4xl items-end gap-3">
-                  <div className="flex-1 rounded-[2rem] border border-outline-variant/20 bg-surface-container-low/50 p-2 inner-glow">
+                  <div className={cn(
+                    "flex-1 rounded-xl border p-2",
+                    selectedNeedsReply ? "border-amber-300 bg-white" : "border-slate-200 bg-slate-50"
+                  )}>
+                    <div className="px-3 pt-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        {selectedNeedsReply ? "Reply needed" : "Reply"}
+                      </p>
+                    </div>
                     <textarea
                       value={body}
                       onChange={(event) => setBody(event.target.value)}
                       placeholder="Type a message..."
-                      className="min-h-[44px] w-full resize-none border-none bg-transparent p-4 text-sm font-medium outline-none placeholder:text-on-surface-variant/30"
+                      className="min-h-[44px] w-full resize-none border-none bg-transparent p-3 text-sm outline-none placeholder:text-slate-400"
                       rows={1}
                     />
-                    <div className="flex items-center justify-between px-4 pb-3">
-                      <div className="flex items-center gap-2 text-on-surface-variant/40">
+                    <div className="flex items-center justify-between px-3 pb-2">
+                      <div className="flex items-center gap-2 text-slate-400">
                         <button className="material-symbols-outlined text-[20px] hover:text-primary transition-colors">sentiment_satisfied</button>
                         <button className="material-symbols-outlined text-[20px] hover:text-primary transition-colors">attach_file</button>
                       </div>
                       <button
                         onClick={() => void onSend()}
                         disabled={sending || !to.trim() || !body.trim()}
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl bg-on-surface text-white shadow-lg transition-all hover:bg-primary disabled:opacity-30 active:scale-95 inner-glow"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition-all hover:bg-slate-800 disabled:opacity-30 active:scale-95"
                       >
                         <span className="material-symbols-outlined text-[18px]">send</span>
                       </button>
@@ -795,10 +872,10 @@ export default function AppMessagesPage() {
           )}
         </div>
 
-        <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/50 xl:flex">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Thread Context</h2>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Support</span>
+        <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/40 xl:flex">
+          <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Conversation Context</h2>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Secondary</span>
           </header>
 
           {selectedThread ? (
@@ -839,12 +916,12 @@ export default function AppMessagesPage() {
                 ) : null}
               </div>
 
-              <div className="relative overflow-hidden rounded-lg border border-primary/10 bg-primary/5 p-5">
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">AI Sentiment</h4>
+                  <h4 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Summary</h4>
                 </div>
-                <p className="text-xs font-medium italic leading-relaxed text-slate-700">
+                <p className="text-xs leading-relaxed text-slate-700">
                   &ldquo;{selectedThread.frontDesk?.summary || selectedThread.lead?.frontDesk?.summary || "Customer context is available here for operator review."}&rdquo;
                 </p>
               </div>
@@ -863,7 +940,7 @@ export default function AppMessagesPage() {
                 ) : null}
                 {selectedThread.leadId ? (
                   <Button asChild className="w-full justify-start" variant="outline">
-                    <Link href={buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(selectedThread.leadId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}>Open lead queue</Link>
+                    <Link href={buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(selectedThread.leadId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}>Open lead pipeline</Link>
                   </Button>
                 ) : null}
               </div>

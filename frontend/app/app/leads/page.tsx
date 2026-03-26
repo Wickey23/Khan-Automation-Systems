@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  ArrowRight,
   Mail,
   Phone,
   Search,
@@ -26,9 +27,62 @@ import { cn } from "@/lib/utils";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, CommandHeader, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { CommandHeader, RiskRailCard, SectionDisclosure } from "@/components/ops";
 
 type PipelineStage = "NEW_LEAD" | "QUOTED" | "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
+
+const PIPELINE_STAGE_ORDER: PipelineStage[] = ["NEW_LEAD", "QUOTED", "NEEDS_SCHEDULING", "SCHEDULED", "COMPLETED"];
+
+function stageLabel(stage?: PipelineStage | null) {
+  if (!stage) return "New lead";
+  if (stage === "NEW_LEAD") return "New lead";
+  if (stage === "QUOTED") return "Quoted";
+  if (stage === "NEEDS_SCHEDULING") return "Needs scheduling";
+  if (stage === "SCHEDULED") return "Scheduled";
+  return "Completed";
+}
+
+function stageTone(stage?: PipelineStage | null) {
+  if (stage === "COMPLETED") return "border-emerald-300 bg-emerald-50 text-emerald-700";
+  if (stage === "SCHEDULED") return "border-sky-300 bg-sky-50 text-sky-700";
+  if (stage === "NEEDS_SCHEDULING") return "border-amber-300 bg-amber-50 text-amber-700";
+  if (stage === "QUOTED") return "border-indigo-300 bg-indigo-50 text-indigo-700";
+  return "border-slate-300 bg-slate-100 text-slate-700";
+}
+
+function stageFromLead(lead: Lead): PipelineStage {
+  const stage = lead.pipelineStage as PipelineStage | undefined;
+  if (stage && PIPELINE_STAGE_ORDER.includes(stage)) return stage;
+  if (lead.frontDesk?.state === "booked") return "SCHEDULED";
+  if (lead.frontDesk?.state === "contacted") return "QUOTED";
+  if (lead.frontDesk?.state === "closed") return "COMPLETED";
+  return "NEW_LEAD";
+}
+
+function pipelineSignal(lead: Lead) {
+  const stage = stageFromLead(lead);
+  const urgent = lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high";
+  if (stage === "NEEDS_SCHEDULING") return { label: "Ready to book", tone: "text-amber-700" };
+  if (stage === "SCHEDULED") return { label: "Ready to close", tone: "text-sky-700" };
+  if (stage === "COMPLETED") return { label: "Closed won", tone: "text-emerald-700" };
+  if (urgent) return { label: "High-value follow-up", tone: "text-rose-700" };
+  if (lead.frontDesk?.state === "needs_follow_up") return { label: "Needs first touch", tone: "text-amber-700" };
+  return { label: "Qualification in progress", tone: "text-slate-700" };
+}
+
+function leadPriorityScore(lead: Lead) {
+  const stage = stageFromLead(lead);
+  const urgent = lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high";
+  let score = 0;
+  if (urgent) score += 80;
+  if (lead.frontDesk?.state === "needs_follow_up") score += 45;
+  if (stage === "NEEDS_SCHEDULING") score += 70;
+  if (stage === "QUOTED") score += 40;
+  if (stage === "NEW_LEAD") score += 25;
+  if (stage === "SCHEDULED") score += 20;
+  if (stage === "COMPLETED") score -= 60;
+  return score;
+}
 
 function initials(value: string) {
   return value
@@ -67,7 +121,7 @@ function leadSource(lead: Lead) {
   if (lead.source === "PHONE_CALL") return "Direct Dial";
   if (lead.source === "SMS") return "SMS";
   if (lead.source === "WEB_FORM") return "Web Form";
-  return lead.source || lead.sourcePage || "Lead Queue";
+  return lead.source || lead.sourcePage || "Lead pipeline";
 }
 
 function leadRecommendedAction(lead: Lead) {
@@ -187,64 +241,62 @@ export default function AppLeadsPage() {
     }
   }, [filteredLeads, selectedLeadId]);
 
-  const leadRows = useMemo(
+  const pipelineRows = useMemo(
     () =>
       filteredLeads.map((lead) => {
-        const status = leadStatus(lead).toLowerCase();
-        const severity = priorityToSeverity(lead.frontDesk?.frontDeskPriority || "medium");
+        const stage = stageFromLead(lead);
+        const stageIndex = PIPELINE_STAGE_ORDER.indexOf(stage);
+        const urgency = leadUrgency(lead.frontDesk?.frontDeskPriority);
+        const signal = pipelineSignal(lead);
         const selectedForBatch = selectedLeadIds.includes(lead.id);
+        const highPriority = lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high";
+        const highlight =
+          highPriority || stage === "NEEDS_SCHEDULING" || (stage === "SCHEDULED" && lead.frontDesk?.state !== "closed");
         return {
-          id: lead.id,
-          item: `${leadName(lead)} - ${lead.phone || lead.email || "No contact"}`,
-          owner: lead.latestMessageThreadId ? "Linked thread" : "Unassigned",
-          due: dueLabel(lead.updatedAt),
-          ageLabel: ageFromDate(lead.frontDesk?.lastActivityAt || lead.updatedAt || lead.createdAt),
-          severity,
-          status: statusToOperatorState(status),
-          primaryActionLabel: leadRecommendedAction(lead),
-          onPrimaryAction: () => setSelectedLeadId(lead.id),
-          secondaryActions: [
-            {
-              label: selectedForBatch ? "Remove from batch" : "Select for batch",
-              onClick: () =>
-                setSelectedLeadIds((current) =>
-                  selectedForBatch ? current.filter((id) => id !== lead.id) : [...new Set([...current, lead.id])]
-                )
-            },
-            {
-              label: "Open approvals",
-              href: buildWorkflowHref(`/app/approvals?status=PENDING&leadId=${encodeURIComponent(lead.id)}`, {
-                source: "leads",
-                returnTo: localReturnTo,
-                returnLabel: "Leads"
-              })
-            },
-            {
-              label: "Open follow-up",
-              href: buildWorkflowHref("/app/follow-up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })
-            },
-            ...(lead.latestMessageThreadId
-              ? [
-                  {
-                    label: "Open thread",
-                    href: buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`, {
-                      source: "leads",
-                      returnTo: localReturnTo,
-                      returnLabel: "Leads"
-                    })
-                  }
-                ]
-              : [])
-          ],
-          detail: `${leadStatus(lead)} | ${leadSource(lead)}${selectedForBatch ? " | Selected for batch" : ""}`,
-          isActive: selectedLeadId === lead.id,
-          onRowSelect: () => setSelectedLeadId(lead.id),
-          onRowFocus: () => setSelectedLeadId(lead.id),
-          rowAriaLabel: `${leadName(lead)}. ${leadStatus(lead)}.`
+          lead,
+          stage,
+          stageIndex,
+          urgency,
+          signal,
+          selectedForBatch,
+          highlight
         };
       }),
-    [filteredLeads, localReturnTo, selectedLeadId, selectedLeadIds]
+    [filteredLeads, selectedLeadIds]
   );
+  const topLead = useMemo(() => {
+    if (!filteredLeads.length) return null;
+    const ranked = [...filteredLeads].sort((a, b) => leadPriorityScore(b) - leadPriorityScore(a));
+    const lead = ranked[0];
+    if (!lead) return null;
+    const stage = stageFromLead(lead);
+    const signal = pipelineSignal(lead);
+    const href =
+      stage === "NEEDS_SCHEDULING" && lead.latestAppointmentRequestId
+        ? buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(lead.latestAppointmentRequestId)}`, {
+            source: "leads",
+            returnTo: localReturnTo,
+            returnLabel: "Leads"
+          })
+        : lead.latestMessageThreadId
+          ? buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(lead.latestMessageThreadId)}`, {
+              source: "leads",
+              returnTo: localReturnTo,
+              returnLabel: "Leads"
+            })
+          : buildWorkflowHref(`/app/leads?leadId=${encodeURIComponent(lead.id)}`, {
+              source: "leads",
+              returnTo: localReturnTo,
+              returnLabel: "Leads"
+            });
+    const ctaLabel =
+      stage === "NEEDS_SCHEDULING" && lead.latestAppointmentRequestId
+        ? "Open booking"
+        : lead.latestMessageThreadId
+          ? "Open thread"
+          : "Open lead";
+    return { lead, stage, signal, href, ctaLabel };
+  }, [filteredLeads, localReturnTo]);
   const leadRiskItems = useMemo(
     () => [
       {
@@ -468,7 +520,7 @@ export default function AppLeadsPage() {
       <CommandHeader
         eyebrow="AI Operations"
         title="Leads"
-        description="Prioritize lead outreach, ownership, and next actions from one triage queue."
+        description="Move leads through qualification stages, prioritize conversion-ready work, and keep ownership clear."
         actions={
           <Link
             href={buildWorkflowHref("/app/leads?q=needs+follow+up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })}
@@ -481,10 +533,32 @@ export default function AppLeadsPage() {
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Needs follow-up", value: filteredLeads.filter((lead) => lead.frontDesk?.state === "needs_follow_up").length, note: "Action required" },
-          { label: "High urgency", value: filteredLeads.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high").length, note: "Priority leads" },
-          { label: "Pending approvals", value: (entityState?.approvals || []).filter((item) => item.status === "PENDING").length, note: "Decision gate" },
-          { label: "Open follow-up", value: entityState?.operationalMemory?.taskSnapshot.openFollowUpCount || 0, note: "Linked workload" }
+          {
+            label: "Needs qualification",
+            value: filteredLeads.filter((lead) => {
+              const stage = stageFromLead(lead);
+              return stage === "NEW_LEAD" || stage === "QUOTED";
+            }).length,
+            note: "Early pipeline"
+          },
+          {
+            label: "Ready to schedule",
+            value: filteredLeads.filter((lead) => stageFromLead(lead) === "NEEDS_SCHEDULING").length,
+            note: "Conversion moment"
+          },
+          {
+            label: "High priority",
+            value: filteredLeads.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high").length,
+            note: "Move first"
+          },
+          {
+            label: "Scheduled/closed",
+            value: filteredLeads.filter((lead) => {
+              const stage = stageFromLead(lead);
+              return stage === "SCHEDULED" || stage === "COMPLETED";
+            }).length,
+            note: "Late pipeline"
+          }
         ].map((metric) => (
           <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
@@ -498,7 +572,7 @@ export default function AppLeadsPage() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-bold text-slate-900">Lead Queue</h1>
+              <h1 className="text-lg font-bold text-slate-900">Lead Pipeline</h1>
               <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
                 Active leads {filteredLeads.length}
               </span>
@@ -535,13 +609,105 @@ export default function AppLeadsPage() {
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading leads...</div>
             ) : filteredLeads.length ? (
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-                <ActionQueueTable title="Lead Queue" rows={leadRows} />
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  {topLead ? (
+                    <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Top lead</p>
+                      <div className="mt-1 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-slate-900">{leadName(topLead.lead)}</p>
+                            <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", stageTone(topLead.stage))}>
+                              {stageLabel(topLead.stage)}
+                            </span>
+                          </div>
+                          <p className="truncate text-[11px] text-slate-600">{topLead.signal.label}</p>
+                        </div>
+                        <Link
+                          href={topLead.href}
+                          onClick={() => setSelectedLeadId(topLead.lead.id)}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-100"
+                        >
+                          {topLead.ctaLabel}
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                    <h2 className="text-sm font-bold text-slate-900">Lead pipeline</h2>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      Name · Stage · Signal · Next action
+                    </span>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {pipelineRows.map(({ lead, stage, stageIndex, urgency, signal, selectedForBatch, highlight }) => (
+                      <div
+                        key={lead.id}
+                        onClick={() => setSelectedLeadId(lead.id)}
+                        className={cn(
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1.4fr)_170px_220px_170px]",
+                          selectedLeadId === lead.id ? "bg-primary/5" : "",
+                          highlight ? "border-l-2 border-l-amber-300 bg-amber-50/20" : ""
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{leadName(lead)}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{lead.phone || lead.email || "No contact provided"}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em]", stageTone(stage))}>
+                            {stageLabel(stage)}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-400">S{stageIndex + 1}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className={cn("truncate text-[11px] font-semibold", signal.tone)}>{signal.label}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                            {urgency.label} urgency · {leadSource(lead)}
+                            {selectedForBatch ? " · Batch selected" : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 md:justify-end">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedLeadId(lead.id);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50"
+                          >
+                            {leadRecommendedAction(lead)}
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedLeadIds((current) =>
+                                selectedForBatch ? current.filter((id) => id !== lead.id) : [...new Set([...current, lead.id])]
+                              );
+                            }}
+                            className={cn(
+                              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                              selectedForBatch
+                                ? "border-slate-900 bg-slate-900 text-white"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            {selectedForBatch ? "Selected" : "Batch"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
                 <RiskRailCard title="Lead Risk" items={leadRiskItems} />
               </div>
             ) : (
               <QueueEmptyState
                 title="No Leads Match This Search"
-                description="Try a broader term or clear the query to view the full lead queue."
+                description="Try a broader term or clear the query to view the full lead pipeline."
               />
             )}
           </div>
@@ -574,7 +740,7 @@ export default function AppLeadsPage() {
 
               <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 <div className="px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Qualification</p>
                 </div>
                 <RecommendedNextActionPanel
                   title="Recommended Next Action"
@@ -592,7 +758,7 @@ export default function AppLeadsPage() {
                   }}
                   refreshing={entityStateBusy}
                 />
-                <SectionDisclosure title="Secondary Operational Context" storageKey="leads-secondary-context" defaultCollapsed>
+                <SectionDisclosure title="Pipeline Progress" storageKey="leads-secondary-context" defaultCollapsed>
                   <div className="grid gap-4 lg:grid-cols-2">
                     {relatedContext ? (
                       <RelatedContextCard
@@ -609,7 +775,7 @@ export default function AppLeadsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Operator Context</h4>
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Conversion Context</h4>
                   </div>
                   <p className="text-sm font-medium italic leading-relaxed text-slate-700">&ldquo;{leadSummary(selectedLead)}&rdquo;</p>
                 </div>

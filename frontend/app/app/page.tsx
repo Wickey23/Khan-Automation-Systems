@@ -54,6 +54,11 @@ function itemAgeHours(createdAt: string) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 3_600_000);
 }
 
+function truncateCopy(value: string, max = 72) {
+  if (!value) return "";
+  return value.length > max ? `${value.slice(0, max - 1)}...` : value;
+}
+
 function QueueRow({
   title,
   description,
@@ -290,34 +295,59 @@ export default function AppOverviewPage() {
   const followUpPriority: "critical" | "high" | "normal" =
     atRiskSnapshot.overdueUnassigned > 0 ? "critical" : atRiskSnapshot.staleAssigned > 0 ? "high" : "normal";
   const followUpQueueTotal = overdueFollowUps.length + atRiskSnapshot.staleAssigned;
+  const attentionPreview = useMemo(() => {
+    const item = attentionItems[0];
+    if (!item) return "";
+    const reason = item.topReasons[0] || item.recommendedOwnerAction || "Needs owner action.";
+    return truncateCopy(`${item.title}: ${reason}`);
+  }, [attentionItems]);
+  const approvalsPreview = useMemo(() => {
+    if (!topPendingApproval) return "";
+    const summary = topPendingApproval.inputSummary || topPendingApproval.reason || `${topPendingApproval.actionType} via ${topPendingApproval.toolKey}`;
+    return truncateCopy(summary);
+  }, [topPendingApproval]);
+  const followUpPreview = useMemo(() => {
+    const task = topOverdueFollowUp?.task;
+    if (!task) return "";
+    const owner = task.assignedToUser?.email?.split("@")[0] || (task.assignedToUserId ? "assigned" : "unassigned");
+    return truncateCopy(`${task.title} (${owner})`);
+  }, [topOverdueFollowUp]);
   const clearedBuckets =
     Number(attentionItems.length === 0) +
     Number(state.approvals.length === 0) +
     Number(followUpQueueTotal === 0);
-  const queueProgressPercent = Math.round((clearedBuckets / 3) * 100);
   const topTask = useMemo(() => {
     if (atRiskSnapshot.criticalUnownedAttention > 0) {
+      const item = attentionItems[0];
       return {
-        title: "Assign critical attention items",
-        detail: `${atRiskSnapshot.criticalUnownedAttention} unowned critical item(s) need an owner now.`,
+        title: item ? `Own ${truncateCopy(item.title, 46)}` : "Own critical attention item",
+        detail: item
+          ? truncateCopy(item.topReasons[0] || item.recommendedOwnerAction || `${atRiskSnapshot.criticalUnownedAttention} critical item(s) need assignment.`)
+          : `${atRiskSnapshot.criticalUnownedAttention} critical item(s) need assignment.`,
         href: attentionHref,
         cta: "Open attention",
         priority: "critical" as const
       };
     }
     if (atRiskSnapshot.overdueUnassigned > 0) {
+      const task = topOverdueFollowUp?.task;
       return {
-        title: "Assign overdue follow-up",
-        detail: `${atRiskSnapshot.overdueUnassigned} overdue task(s) are unassigned.`,
+        title: task ? `Assign ${truncateCopy(task.title, 46)}` : "Assign overdue follow-up",
+        detail: task
+          ? `Overdue task is unassigned${task.dueAt ? ` since ${new Date(task.dueAt).toLocaleDateString()}` : ""}.`
+          : `${atRiskSnapshot.overdueUnassigned} overdue task(s) are unassigned.`,
         href: followUpHref,
         cta: "Open follow-up",
         priority: "critical" as const
       };
     }
     if (atRiskSnapshot.pendingApprovalsAging > 0) {
+      const approval = topPendingApproval;
       return {
-        title: "Clear aging approvals",
-        detail: `${atRiskSnapshot.pendingApprovalsAging} approval(s) have been pending for 2h+.`,
+        title: approval ? `Review ${truncateCopy(approval.actionType.toLowerCase().replaceAll("_", " "), 46)}` : "Clear aging approvals",
+        detail: approval
+          ? truncateCopy(approval.inputSummary || approval.reason || `${atRiskSnapshot.pendingApprovalsAging} approval(s) pending for 2h+.`)
+          : `${atRiskSnapshot.pendingApprovalsAging} approval(s) pending for 2h+.`,
         href: approvalsHref,
         cta: "Review approvals",
         priority: "high" as const
@@ -355,11 +385,13 @@ export default function AppOverviewPage() {
     atRiskSnapshot.criticalUnownedAttention,
     atRiskSnapshot.overdueUnassigned,
     atRiskSnapshot.pendingApprovalsAging,
-    attentionItems.length,
+    attentionItems,
     attentionHref,
     followUpHref,
+    topOverdueFollowUp,
     followUpQueueTotal,
     approvalsHref,
+    topPendingApproval,
     state.approvals.length
   ]);
 
@@ -419,7 +451,7 @@ export default function AppOverviewPage() {
             </div>
             <div className="text-right">
               <StatusBadge kind="generic" state={blockedItems > 0 ? "warning" : "success"} label={blockedItems > 0 ? "Needs review" : "Stable"} size="xs" />
-              <p className="mt-1 text-[10px] text-slate-500">{clearedBuckets}/3 queues clear</p>
+              <p className="mt-1 text-[10px] text-slate-500">{clearedBuckets} of 3 queues clear</p>
             </div>
           </div>
 
@@ -460,13 +492,13 @@ export default function AppOverviewPage() {
               />
             )}
 
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-slate-700 transition-all" style={{ width: `${queueProgressPercent}%` }} />
-            </div>
+            <p className="px-1 text-[11px] text-slate-500">
+              {clearedBuckets} of 3 queues clear · {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
+            </p>
 
             <QueueRow
               title="Needs attention"
-              description={attentionItems[0]?.topReasons?.[0] || "Critical and high-priority exceptions."}
+              description={attentionPreview || "Critical and high-priority exceptions."}
               href={attentionHref}
               volume={attentionItems.length}
               priority={attentionPriority}
@@ -478,7 +510,7 @@ export default function AppOverviewPage() {
 
             <QueueRow
               title="Approval requests"
-              description={topPendingApproval?.toolKey || "Pending decisions."}
+              description={approvalsPreview || "Pending decisions."}
               href={approvalsHref}
               volume={state.approvals.length}
               priority={approvalsPriority}
@@ -489,7 +521,7 @@ export default function AppOverviewPage() {
 
             <QueueRow
               title="Follow-up at risk"
-              description={topOverdueFollowUp?.task?.title || "Overdue and stale follow-up tasks."}
+              description={followUpPreview || "Overdue and stale follow-up tasks."}
               href={followUpHref}
               volume={followUpQueueTotal}
               priority={followUpPriority}
@@ -516,19 +548,19 @@ export default function AppOverviewPage() {
             </div>
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Critical unowned</span>
+                <span className="text-[11px] text-slate-600">Critical unowned · assign</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalUnownedAttention}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Overdue unassigned</span>
+                <span className="text-[11px] text-slate-600">Overdue unassigned · assign</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.overdueUnassigned}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Stale assigned</span>
+                <span className="text-[11px] text-slate-600">Stale assigned · follow up</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.staleAssigned}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Aging approvals</span>
+                <span className="text-[11px] text-slate-600">Aging approvals · review soon</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.pendingApprovalsAging}</span>
               </div>
             </div>
@@ -538,19 +570,19 @@ export default function AppOverviewPage() {
             <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Needs review</span>
+                <span className="text-[11px] text-slate-600">Needs review · triage</span>
                 <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Retry failures</span>
+                <span className="text-[11px] text-slate-600">Retry failures · recover</span>
                 <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Critical/high</span>
+                <span className="text-[11px] text-slate-600">Critical/high · monitor</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Throughput</span>
+                <span className="text-[11px] text-slate-600">Throughput · today</span>
                 <span className="text-base font-semibold text-slate-900">{activeThroughput}</span>
               </div>
             </div>
