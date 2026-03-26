@@ -6,7 +6,6 @@ import Link from "next/link";
 import { RefreshCcw } from "lucide-react";
 import { approveAiAction, fetchAiApprovals, rejectAiAction, retryAiApprovalSend } from "@/lib/api";
 import type { ApprovalRequest } from "@/lib/types";
-import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard } from "@/components/queue";
@@ -15,7 +14,6 @@ import { markDailyReviewDirty } from "@/lib/review-loop";
 import { APPROVAL_FOCUS_LABELS, OPERATIONAL_LABELS, formatApprovalStatusLabel } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
-import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 import { cn } from "@/lib/utils";
 
@@ -504,20 +502,6 @@ export default function ApprovalsPage() {
       </QueueActionLink>
     );
   }, [actionBusyId, approvals, decide, localReturnTo, previewApproval, visibleApprovals]);
-
-  const previewRiskFlags = useMemo(() => {
-    if (!previewApproval) return [] as string[];
-    const flags: string[] = [];
-    if (previewApproval.status === "PENDING") flags.push("Pending operator decision");
-    if (isNeedsRetry(previewApproval)) flags.push("Delivery failed and retryable");
-    if (previewApproval.status === "APPROVED" && previewApproval.deliveryStatus === "FAILED" && !previewApproval.retryable) {
-      flags.push("Delivery failed and not retryable");
-    }
-    if (previewApproval.status === "EXPIRED") flags.push("Approval expired");
-    if (previewApproval.status === "REJECTED") flags.push("Approval rejected");
-    if (previewApproval.failureReason) flags.push(previewApproval.failureReason);
-    return flags;
-  }, [previewApproval]);
 
   return (
     <div className="space-y-10 pb-12">

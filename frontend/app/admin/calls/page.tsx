@@ -2,7 +2,7 @@
 
 import { AudioLines, Phone, Radio, Search, Shield, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,7 @@ export default function AdminCallsPage() {
     };
   }, [query, showToast]);
 
-  async function loadCallDetail(callId: string) {
+  const loadCallDetail = useCallback(async (callId: string) => {
     setDetailLoadingId(callId);
     try {
       const data = await fetchAdminCallDetail(callId);
@@ -107,7 +107,7 @@ export default function AdminCallsPage() {
     } finally {
       setDetailLoadingId(null);
     }
-  }
+  }, [showToast]);
 
   async function reloadCalls() {
     try {
@@ -130,7 +130,7 @@ export default function AdminCallsPage() {
     const alreadySelected = selectedCall?.id === selectedCallIdFromQuery || selectedCall?.providerCallId === selectedCallIdFromQuery;
     if (alreadySelected || detailLoadingId === selectedCallIdFromQuery) return;
     void loadCallDetail(selectedCallIdFromQuery);
-  }, [detailLoadingId, selectedCall?.id, selectedCall?.providerCallId, selectedCallIdFromQuery]);
+  }, [detailLoadingId, loadCallDetail, selectedCall?.id, selectedCall?.providerCallId, selectedCallIdFromQuery]);
 
   async function onDelete(call: AdminCallRecord) {
     if (!deletePassword.trim()) {

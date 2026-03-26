@@ -6,16 +6,13 @@ import { RefreshCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchAttentionQueue, fetchFollowUpQueue, getMe, retryAiApprovalSend } from "@/lib/api";
 import type { AttentionQueueItem } from "@/lib/types";
-import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
-import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
+import { buildReturnTo, buildWorkflowHref } from "@/lib/workflow-nav";
 import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueShortcutHint, QueueSurfaceStateCard } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
 import { markDailyReviewDirty } from "@/lib/review-loop";
-import { ATTENTION_RISK_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
-import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type AttentionLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -77,9 +74,6 @@ export default function AttentionPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const source = searchParams.get("source") || "";
-  const returnToQuery = normalizeReturnTo(searchParams.get("returnTo"));
-  const returnLabel = searchParams.get("returnLabel") || sourceToLabel(source);
   const returnTo = useMemo(() => buildReturnTo(pathname, searchParams), [pathname, searchParams]);
   const [items, setItems] = useState<AttentionQueueItem[]>([]);
   const [busy, setBusy] = useState(true);
@@ -600,7 +594,7 @@ export default function AttentionPage() {
                     {triage.data?.recommendation?.action || previewItem.recommendedOwnerAction || "Review context and decide next action."}
                   </p>
                   <p className="text-xs font-medium text-on-surface-variant/70 italic leading-relaxed">
-                    "{triage.data?.recommendation?.why || previewItem.recommendationSummary?.why || "Use linked workflow context before executing."}"
+                    &ldquo;{triage.data?.recommendation?.why || previewItem.recommendationSummary?.why || "Use linked workflow context before executing."}&rdquo;
                   </p>
                 </div>
 

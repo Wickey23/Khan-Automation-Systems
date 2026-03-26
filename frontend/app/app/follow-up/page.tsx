@@ -6,16 +6,14 @@ import { executeAiTool, fetchFollowUpQueue, getMe, updateAiTask, updateFollowUpQ
 import { RefreshCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FollowUpQueueItem } from "@/lib/types";
-import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
-import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueBulkActionBar, QueueShortcutHint, QueueSurfaceStateCard, QueueTriagePanel } from "@/components/queue";
+import { buildReturnTo, buildWorkflowHref, normalizeReturnTo } from "@/lib/workflow-nav";
+import { ContextualShortcutHints, QueueActionButton, QueueActionLink, QueueBulkActionBar, QueueSurfaceStateCard } from "@/components/queue";
 import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichment";
 import { markDailyReviewDirty } from "@/lib/review-loop";
 import { FOLLOW_UP_FILTER_LABELS } from "@/lib/operational-language";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
-import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type FollowUpFilter =
@@ -81,9 +79,7 @@ export default function FollowUpPage() {
   const searchParams = useSearchParams();
   const selectedQueueItemId = searchParams.get("queueItemId") || "";
   const selectedTaskId = searchParams.get("taskId") || "";
-  const source = searchParams.get("source") || "";
   const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
-  const returnLabel = searchParams.get("returnLabel") || sourceToLabel(source);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queue, setQueue] = useState<FollowUpQueueItem[]>([]);
