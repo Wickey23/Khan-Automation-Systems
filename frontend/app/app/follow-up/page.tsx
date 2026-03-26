@@ -378,7 +378,7 @@ export default function FollowUpPage() {
         const rowSeverity = isOverdue || risks.length ? "high" : item.task?.priority || "medium";
         const relatedEntityHref = queueEntityHref(item);
         const relatedApprovalsHref =
-          item.entityType && item.entityLength
+          item.entityType && item.entityId
             ? buildWorkflowHref(
                 "/app/approvals?status=PENDING",
                 { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" },
