@@ -96,14 +96,14 @@ function QueueRow({
     <Link
       href={href}
       className={cn(
-        "group relative flex items-start justify-between gap-4 rounded-xl border px-4 py-3 transition-colors hover:bg-slate-50",
+        "group relative flex items-start justify-between gap-3 rounded-xl border px-3.5 py-2.5 transition-colors hover:bg-slate-50",
         priorityClasses,
         spotlight ? "ring-2 ring-rose-200 shadow-[0_8px_18px_-10px_rgba(225,29,72,0.45)]" : "",
         order === "primary" ? "shadow-[0_8px_16px_-14px_rgba(15,23,42,0.35)]" : "opacity-95"
       )}
     >
       {priority === "critical" ? <span className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-rose-500" /> : null}
-      <div className="min-w-0 space-y-1">
+      <div className="min-w-0 space-y-0.5">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-slate-900">{title}</p>
           <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", priorityPillClasses)}>
@@ -111,12 +111,12 @@ function QueueRow({
           </span>
           <StatusBadge kind="generic" state={badgeState} label={statusLabel} size="xs" />
         </div>
-        <p className="text-xs text-slate-600">{description}</p>
-        {spotlight ? <p className="text-[11px] font-semibold text-rose-700">Handle first</p> : null}
+        {description ? <p className="text-[11px] text-slate-600">{description}</p> : null}
+        {spotlight ? <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">Do first</p> : null}
       </div>
       <div className="shrink-0 text-right">
-        <p className={cn("text-lg font-bold leading-none", priority === "critical" ? "text-rose-700" : "text-slate-900")}>{volume}</p>
-        <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 group-hover:text-slate-900">
+        <p className={cn("text-base font-bold leading-none", priority === "critical" ? "text-rose-700" : "text-slate-900")}>{volume}</p>
+        <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 group-hover:text-slate-900">
           {ctaLabel}
           <ArrowRight className="h-3.5 w-3.5" />
         </p>
@@ -368,9 +368,9 @@ export default function AppOverviewPage() {
       <header className="rounded-lg border border-slate-200 bg-white px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Operational command center</p>
-            <h1 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-950 sm:text-2xl">Operator action queue</h1>
-            <p className="mt-1 text-sm text-slate-600">Prioritize urgent work, clear blockers, and monitor shift risk.</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Operator workspace</p>
+            <h1 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-950 sm:text-2xl">Action queue control</h1>
+            <p className="mt-1 text-sm text-slate-600">What needs action now, what is blocked, and what to open next.</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={loading}>
@@ -389,24 +389,24 @@ export default function AppOverviewPage() {
 
       <section className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Needs action now</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Action now</p>
           <p className="mt-0.5 text-xl font-black text-slate-950">{loading ? "-" : actionQueueTotal}</p>
-          <p className="mt-1 text-xs text-slate-500">Attention, approvals, and overdue follow-up items.</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Open queue items</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Blocked items</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Blocked</p>
           <p className={cn("mt-0.5 text-xl font-black", blockedItems > 0 ? "text-rose-700" : "text-slate-950")}>{loading ? "-" : blockedItems}</p>
-          <p className="mt-1 text-xs text-slate-500">Unowned critical work and unassigned overdue tasks.</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Needs owner now</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Open approvals</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Approvals</p>
           <p className="mt-0.5 text-xl font-black text-slate-950">{loading ? "-" : state.approvals.length}</p>
-          <p className="mt-1 text-xs text-slate-500">Pending decisions waiting for manual confirmation.</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Pending review</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Mean triage time</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Triage ETA</p>
           <p className="mt-0.5 text-xl font-black text-slate-950">{loading ? "-" : meanTriageTime}</p>
-          <p className="mt-1 text-xs text-slate-500">Estimated time to clear queue work.</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Estimated clear time</p>
         </div>
       </section>
 
@@ -428,14 +428,14 @@ export default function AppOverviewPage() {
               <Link
                 href={topTask.href}
                 className={cn(
-                  "group block rounded-xl border px-4 py-3.5",
+                  "group block rounded-xl border px-4 py-3",
                   topTask.priority === "critical"
                     ? "border-rose-300 bg-rose-50/90 ring-2 ring-rose-200 shadow-[0_10px_18px_-12px_rgba(225,29,72,0.5)]"
                     : "border-amber-300 bg-amber-50/75"
                 )}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Next up</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Top task</p>
                   <span className={cn(
                     "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
                     topTask.priority === "critical"
@@ -446,8 +446,8 @@ export default function AppOverviewPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{topTask.title}</p>
-                <p className="mt-1 text-xs text-slate-600">{topTask.detail}</p>
-                <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 group-hover:text-slate-900">
+                <p className="mt-1 text-[11px] text-slate-600">{topTask.detail}</p>
+                <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 group-hover:text-slate-900">
                   {topTask.cta}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </p>
@@ -466,7 +466,7 @@ export default function AppOverviewPage() {
 
             <QueueRow
               title="Needs attention"
-              description={attentionItems[0]?.topReasons?.[0] || "Critical and high-priority exceptions requiring ownership."}
+              description={attentionItems[0]?.topReasons?.[0] || "Critical and high-priority exceptions."}
               href={attentionHref}
               volume={attentionItems.length}
               priority={attentionPriority}
@@ -478,7 +478,7 @@ export default function AppOverviewPage() {
 
             <QueueRow
               title="Approval requests"
-              description={topPendingApproval?.toolKey || "Pending operational approvals and policy checks."}
+              description={topPendingApproval?.toolKey || "Pending decisions."}
               href={approvalsHref}
               volume={state.approvals.length}
               priority={approvalsPriority}
@@ -489,7 +489,7 @@ export default function AppOverviewPage() {
 
             <QueueRow
               title="Follow-up at risk"
-              description={topOverdueFollowUp?.task?.title || "Overdue and stale follow-up tasks needing reassignment."}
+              description={topOverdueFollowUp?.task?.title || "Overdue and stale follow-up tasks."}
               href={followUpHref}
               volume={followUpQueueTotal}
               priority={followUpPriority}
@@ -514,44 +514,44 @@ export default function AppOverviewPage() {
                 size="xs"
               />
             </div>
-            <div className="mt-2 space-y-1.5 text-sm">
+            <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Critical unowned</span>
-                <span className="font-semibold text-slate-900">{atRiskSnapshot.criticalUnownedAttention}</span>
+                <span className="text-[11px] text-slate-600">Critical unowned</span>
+                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalUnownedAttention}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Overdue unassigned</span>
-                <span className="font-semibold text-slate-900">{atRiskSnapshot.overdueUnassigned}</span>
+                <span className="text-[11px] text-slate-600">Overdue unassigned</span>
+                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.overdueUnassigned}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Stale assigned</span>
-                <span className="font-semibold text-slate-900">{atRiskSnapshot.staleAssigned}</span>
+                <span className="text-[11px] text-slate-600">Stale assigned</span>
+                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.staleAssigned}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Aging approvals</span>
-                <span className="font-semibold text-slate-900">{atRiskSnapshot.pendingApprovalsAging}</span>
+                <span className="text-[11px] text-slate-600">Aging approvals</span>
+                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.pendingApprovalsAging}</span>
               </div>
             </div>
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <h3 className="text-sm font-semibold text-slate-950">Today watchlist</h3>
-            <div className="mt-2 space-y-1.5 text-sm">
+            <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Needs review</span>
-                <span className="font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
+                <span className="text-[11px] text-slate-600">Needs review</span>
+                <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Retryable failures</span>
-                <span className="font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
+                <span className="text-[11px] text-slate-600">Retry failures</span>
+                <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Critical/high</span>
-                <span className="font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
+                <span className="text-[11px] text-slate-600">Critical/high</span>
+                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-xs text-slate-600">Throughput</span>
-                <span className="font-semibold text-slate-900">{activeThroughput}</span>
+                <span className="text-[11px] text-slate-600">Throughput</span>
+                <span className="text-base font-semibold text-slate-900">{activeThroughput}</span>
               </div>
             </div>
           </section>
