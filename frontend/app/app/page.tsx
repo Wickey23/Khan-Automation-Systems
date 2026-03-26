@@ -35,6 +35,7 @@ import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { OperationsFeedList } from "@/components/ai/operations-feed-list";
 import { cn } from "@/lib/utils";
+import { CommandHeader } from "@/components/ops";
 
 type DashboardState = {
   calls: OrgCallRecord[];
@@ -397,13 +398,11 @@ export default function AppOverviewPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <header className="rounded-lg border border-slate-200 bg-white px-4 py-3 sm:px-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Operator workspace</p>
-            <h1 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-950 sm:text-2xl">Action queue control</h1>
-            <p className="mt-1 text-sm text-slate-600">What needs action now, what is blocked, and what to open next.</p>
-          </div>
+      <CommandHeader
+        eyebrow="Operator workspace"
+        title="Action queue control"
+        description="What needs action now, what is blocked, and what to open next."
+        actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={loading}>
               <RefreshCw className={cn("mr-2 h-4 w-4", loading ? "animate-spin" : "")} />
@@ -413,31 +412,31 @@ export default function AppOverviewPage() {
               <Link href="/app/insights">Open insights</Link>
             </Button>
           </div>
-        </div>
-        {reviewRefreshNote ? <p className="mt-2 text-xs text-sky-700">{reviewRefreshNote}</p> : null}
-      </header>
+        }
+      />
+      {reviewRefreshNote ? <p className="text-xs text-sky-700">{reviewRefreshNote}</p> : null}
 
       {error ? <StateCard variant="error" title="Dashboard data unavailable" description={error} /> : null}
 
       <section className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Action now</p>
-          <p className="mt-0.5 text-xl font-black text-slate-950">{loading ? "-" : actionQueueTotal}</p>
+          <p className="mt-0.5 text-xl font-semibold text-slate-950">{loading ? "-" : actionQueueTotal}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">Open queue items</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Blocked</p>
-          <p className={cn("mt-0.5 text-xl font-black", blockedItems > 0 ? "text-rose-700" : "text-slate-950")}>{loading ? "-" : blockedItems}</p>
+          <p className={cn("mt-0.5 text-xl font-semibold", blockedItems > 0 ? "text-rose-700" : "text-slate-950")}>{loading ? "-" : blockedItems}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">Needs owner now</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Approvals</p>
-          <p className="mt-0.5 text-xl font-black text-slate-950">{loading ? "-" : state.approvals.length}</p>
+          <p className="mt-0.5 text-xl font-semibold text-slate-950">{loading ? "-" : state.approvals.length}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">Pending review</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Triage ETA</p>
-          <p className="mt-0.5 text-xl font-black text-slate-950">{loading ? "-" : meanTriageTime}</p>
+          <p className="mt-0.5 text-xl font-semibold text-slate-950">{loading ? "-" : meanTriageTime}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">Estimated clear time</p>
         </div>
       </section>

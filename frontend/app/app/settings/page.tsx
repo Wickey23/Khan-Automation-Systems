@@ -29,7 +29,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHelpFab, SectionHeading, SectionShell } from "@/components/ui/page";
+import { SectionHeading, SectionShell } from "@/components/ui/page";
 import { CommandHeader, SectionDisclosure } from "@/components/ops";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -49,6 +49,7 @@ import { frontDeskContextPanelClass, frontDeskWorkspaceCardClass } from "@/lib/f
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type HoursRow = { open: string; close: string; closed: boolean };
 type SettingsSectionId = "Profile" | "AI Identity" | "Operations" | "Handoff" | "Telephony" | "Calendar" | "Notifications" | "Security";
+type SaveStatus = "saved" | "unsaved" | "saving";
 
 type FormState = {
   timezone: string;
@@ -375,6 +376,8 @@ export default function AppSettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("AI Identity");
   const [state, setState] = useState<FormState>(defaults);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [savedStateFingerprint, setSavedStateFingerprint] = useState("");
   const [knowledgeFiles, setKnowledgeFiles] = useState<OrgKnowledgeFile[]>([]);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
   const [security, setSecurity] = useState<AuthSecurityStatus | null>(null);
@@ -403,6 +406,18 @@ export default function AppSettingsPage() {
     () => getVoiceForwardingLocalNumber(state.voiceForwardingNumber, voiceForwardingDialCode),
     [state.voiceForwardingNumber, voiceForwardingDialCode]
   );
+  const stateFingerprint = useMemo(() => JSON.stringify(state), [state]);
+
+  useEffect(() => {
+    if (saving) {
+      setSaveStatus("saving");
+      return;
+    }
+    if (!savedStateFingerprint) {
+      return;
+    }
+    setSaveStatus(stateFingerprint === savedStateFingerprint ? "saved" : "unsaved");
+  }, [saving, savedStateFingerprint, stateFingerprint]);
 
   useEffect(() => {
     void Promise.all([
@@ -446,7 +461,7 @@ export default function AppSettingsPage() {
 
         const policies = fromJsonObject(settings.policiesJson);
         const notificationToggles = fromJsonObject(settings.notificationTogglesJson);
-        setState({
+        const loadedState: FormState = {
           timezone: settings.timezone || "America/New_York",
           afterHoursMode: settings.afterHoursMode,
           voiceRoutingMode: settings.voiceRoutingMode || "AI_FIRST",
@@ -487,7 +502,10 @@ export default function AppSettingsPage() {
           notifyMissedRecoveryEmail: notificationToggles.MISSED_CALL_RECOVERY_NEEDED_EMAIL_ENABLED !== false,
           notifyEmergencyEmail: notificationToggles.EMERGENCY_CALL_FLAGGED_EMAIL_ENABLED !== false,
           hours: parsedHours
-        });
+        };
+        setState(loadedState);
+        setSavedStateFingerprint(JSON.stringify(loadedState));
+        setSaveStatus("saved");
         setKnowledgeFiles(files || []);
         setFeatureFlags({
           calendarOauthEnabled: profileFeatures.calendarOauthEnabled === true,
@@ -695,37 +713,38 @@ export default function AppSettingsPage() {
     return {
       status: "ready" as const,
       label: "Configured and ready",
-      summary: "Workspace setup is complete. If queues are quiet, run live workflows from Calls, Leads, or Messages.",
+      summary: "Workspace configuration is complete and all required setup checks are passing.",
       topActions: [] as Array<{ label: string; section: SettingsSectionId }>
     };
   }, [accessSummary, activeCalendarProviders, selectedPrimaryConnectionId, knowledgeFiles.length, readinessHints.emails.length, readinessHints.hasHours, readinessHints.phones.length, readinessHints.transfer.length]);
   const transferNumberCount = readinessHints.transfer.length;
   const openDaysCount = DAYS.filter((day) => !state.hours[day.key].closed).length;
+  const missingRequiredCount = readinessOverview.topActions.length;
   const primaryCalendarConnection =
     activeCalendarProviders.find((provider) => provider.id === selectedPrimaryConnectionId) ||
     activeCalendarProviders.find((provider) => provider.isPrimary) ||
     activeCalendarProviders[0] ||
     null;
   const menuItems: Array<{ id: SettingsSectionId; icon: typeof User; label: string }> = [
-    { id: "Profile", icon: User, label: "Operator Profile" },
-    { id: "AI Identity", icon: Bot, label: "AI Identity & Voice" },
-    { id: "Operations", icon: Clock3, label: "Operational Hours" },
-    { id: "Handoff", icon: Zap, label: "Human Handoff Rules" },
-    { id: "Telephony", icon: Phone, label: "Telephony Setup" },
-    { id: "Calendar", icon: Calendar, label: "Calendar Integration" },
-    { id: "Notifications", icon: Bell, label: "Notifications" },
+    { id: "Profile", icon: User, label: "Knowledge" },
+    { id: "AI Identity", icon: Bot, label: "Identity" },
+    { id: "Operations", icon: Clock3, label: "Hours" },
+    { id: "Handoff", icon: Zap, label: "Routing" },
+    { id: "Telephony", icon: Phone, label: "Routing Contacts" },
+    { id: "Calendar", icon: Calendar, label: "Calendar" },
+    { id: "Notifications", icon: Bell, label: "Alerts" },
     { id: "Security", icon: Shield, label: "Security" }
   ];
   const activeMenuItem = menuItems.find((item) => item.id === activeSection) ?? menuItems[1];
   const activeSectionDescriptions: Record<SettingsSectionId, string> = {
-    Profile: "Manage the core operator-facing profile, business knowledge, and receptionist context used day to day.",
-    "AI Identity": "Configure how your AI receptionist sounds, what it says, and the policy guidance it uses live.",
-    Operations: "Define office hours, timezone coverage, and the operating window your front desk should follow.",
-    Handoff: "Control escalation behavior, human-first routing, and the rules that decide when staff should step in.",
-    Telephony: "Keep transfer numbers, services, and contact routing lists current for the live receptionist workflow.",
-    Calendar: "Connect provider calendars, assign the primary booking target, and test scheduling reliability.",
-    Notifications: "Configure booking alerts, email recipients, and the operational inbox for follow-up issues.",
-    Security: "Review verification status, delivery health, and the account safeguards that protect this workspace."
+    Profile: "Upload and manage knowledge used by the assistant.",
+    "AI Identity": "Configure tone, policy guidance, and SMS templates.",
+    Operations: "Set office hours and timezone coverage.",
+    Handoff: "Define call routing behavior and escalation rules.",
+    Telephony: "Maintain transfer numbers, services, and contact lists.",
+    Calendar: "Connect calendars and set booking defaults.",
+    Notifications: "Control alert delivery and notification inbox settings.",
+    Security: "Review verification status and account safeguards."
   };
 
   function focusSection(section: SettingsSectionId) {
@@ -819,6 +838,8 @@ export default function AppSettingsPage() {
         classificationShadowMode: state.classificationShadowMode,
         classificationLlmDailyCap: state.classificationLlmDailyCap
       });
+      setSavedStateFingerprint(JSON.stringify(state));
+      setSaveStatus("saved");
       showToast({ title: "Assistant settings saved", description: "Your receptionist rules and readiness settings have been updated." });
     } catch (error) {
       showToast({ title: "Save failed", description: error instanceof Error ? error.message : "Try again.", variant: "error" });
@@ -830,46 +851,14 @@ export default function AppSettingsPage() {
   return (
     <div className="space-y-6">
       <CommandHeader
-        eyebrow="Assistant configuration"
-        title="Receptionist Setup"
-        description="Use this page to decide how your receptionist behaves: call routing, booking rules, alerts, business hours, and the knowledge your team wants the assistant to use."
-        actions={
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? "Saving..." : "Save assistant settings"}
-          </Button>
-        }
+        eyebrow="Administration"
+        title="Settings"
+        description="Configure identity, routing, hours, calendar, alerts, security, and knowledge."
       />
 
-      <PageHelpFab
-        items={[
-          {
-            label: "Use this page",
-            text: "Come here when you need to change how the receptionist behaves: routing, alerts, booking rules, hours, and business knowledge."
-          },
-          {
-            label: "Start here",
-            text: "Update the section that controls the live issue you are seeing, then save settings so the front-desk queues reflect the new rules."
-          },
-          {
-            label: "Go next",
-            text: "Return to Front Desk, Call Queue, Inbox, or Booking Queue to confirm the live workflow now matches how the office wants calls and texts handled."
-          }
-        ]}
-      />
-
-      <SectionDisclosure title="Readiness Summary" storageKey="settings-readiness-summary" defaultCollapsed>
-      <SectionShell className="surface-panel space-y-4">
-        <SectionHeading
-          title="Activation readiness summary"
-          description="See whether setup is complete, partially configured, or still blocked by missing access/setup."
-          actions={
-            <Link href="/app">
-              <Button size="sm" variant="outline">Open dashboard</Button>
-            </Link>
-          }
-        />
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge
                 kind="feature"
@@ -886,51 +875,30 @@ export default function AppSettingsPage() {
                 size="xs"
               />
               {accessSummary ? (
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
                   Plan {accessSummary.plan.name}
                 </span>
               ) : null}
             </div>
-            <p className="mt-2 text-sm text-slate-600">{readinessOverview.summary}</p>
-            {accessSummary ? (
-              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
-                  Ready {Object.values(accessSummary.features).filter((feature) => feature.status === "ready").length}
-                </span>
-                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
-                  Setup required {Object.values(accessSummary.features).filter((feature) => feature.status === "setup_required").length}
-                </span>
-                <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">
-                  Gated/blocked {Object.values(accessSummary.features).filter((feature) => feature.status === "gated" || feature.status === "blocked").length}
-                </span>
-              </div>
-            ) : null}
+            <p className="text-sm text-slate-600">{readinessOverview.summary}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Top next steps</p>
-            {readinessOverview.topActions.length ? (
-              <div className="mt-2 space-y-2">
-                {readinessOverview.topActions.map((step) => (
-                  <button
-                    type="button"
-                    key={step.label}
-                    onClick={() => focusSection(step.section)}
-                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700"
-                  >
-                    <span>{step.label}</span>
-                    <span className="text-slate-400">{step.section}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-xs text-slate-600">
-                No required setup actions detected. If queues are quiet, run workflows from Calls, Leads, or Messages.
-              </p>
-            )}
-          </div>
+          {readinessOverview.topActions.length ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {readinessOverview.topActions.map((step) => (
+                <button
+                  type="button"
+                  key={step.label}
+                  onClick={() => focusSection(step.section)}
+                  className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  {step.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-      </SectionShell>
-      </SectionDisclosure>
+      </div>
+
       <SectionDisclosure title="Detailed Access and Readiness" storageKey="settings-detailed-access" defaultCollapsed>
         <WorkspaceAccessSection access={accessSummary} focusSection={focusSection} />
       </SectionDisclosure>
@@ -939,9 +907,9 @@ export default function AppSettingsPage() {
         <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="border-b border-slate-200 bg-slate-50/60 p-5 lg:border-b-0 lg:border-r">
             <div className="space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Control Center</p>
-              <h2 className="text-lg font-black tracking-tight text-slate-900">Receptionist settings</h2>
-              <p className="text-sm text-slate-500">Move through the main configuration areas the same way the export-5 control center was organized.</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Modules</p>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900">Workspace settings</h2>
+              <p className="text-sm text-slate-500">Each module controls one configuration area.</p>
             </div>
             <div className="mt-5 space-y-2">
               {menuItems.map((item) => {
@@ -965,15 +933,48 @@ export default function AppSettingsPage() {
           </aside>
 
           <div id="settings-content-root" className="space-y-6 p-6">
+            <div className="sticky top-3 z-10 flex items-center justify-between rounded-md border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-slate-700">Status:</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-[0.12em] ${
+                    saveStatus === "saving"
+                      ? "bg-amber-100 text-amber-700"
+                      : saveStatus === "unsaved"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  {saveStatus === "saving" ? "Saving..." : saveStatus === "unsaved" ? "Unsaved changes" : "Saved"}
+                </span>
+              </div>
+              <Button onClick={onSave} disabled={saving || saveStatus === "saved"} size="sm">
+                {saving ? "Saving..." : "Save settings"}
+              </Button>
+            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
                   <activeMenuItem.icon className="h-7 w-7" />
                 </div>
                 <div className="max-w-2xl">
-                  <p className="page-eyebrow">Front Desk Control Center</p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{activeMenuItem.label}</h2>
-                  <p className="mt-3 text-base leading-7 text-slate-500">{activeSectionDescriptions[activeSection]}</p>
+                  <p className="page-eyebrow">Admin module</p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{activeMenuItem.label}</h2>
+                  <p className="mt-2 text-sm text-slate-500">{activeSectionDescriptions[activeSection]}</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">Readiness</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{readinessOverview.label}</p>
+                </div>
+                <div className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">Calendar</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{primaryCalendarConnection ? "Connected" : "Not connected"}</p>
+                </div>
+                <div className={frontDeskContextPanelClass()}>
+                  <p className="page-eyebrow">Required items</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{missingRequiredCount} missing</p>
                 </div>
               </div>
               <SectionDisclosure title="Current configuration snapshot" storageKey="settings-configuration-snapshot" defaultCollapsed>
@@ -1054,13 +1055,16 @@ export default function AppSettingsPage() {
           </div>
         </AccordionContent>
       </AccordionItem> : null}
-      {activeSection === "Handoff" ? <section id="settings-handoff" className={`grid gap-4 ${frontDeskWorkspaceCardClass("subtle")} p-5 sm:grid-cols-2`}>
+      {activeSection === "Handoff" ? <AccordionItem id="settings-handoff" value="handoff" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
+        <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
+          Routing behavior
+        </AccordionTrigger>
+        <AccordionContent className="pb-5">
+      <section className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Call handling</p>
-          <h2 className="text-lg font-semibold">Business Info & Call Routing</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Set your timezone and choose what the receptionist should do after hours.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Routing</p>
+          <h2 className="text-lg font-semibold">Call Routing Rules</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Define call handling behavior, forwarding, and escalation.</p>
         </div>
         <div className="sm:col-span-2 grid gap-3 sm:grid-cols-4">
           <div className={frontDeskContextPanelClass()}>
@@ -1084,7 +1088,7 @@ export default function AppSettingsPage() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {state.voiceForwardingEnabled && state.voiceForwardingNumber.trim()
-                ? `${state.voiceForwardingNumber.trim()} • ${state.voiceRingTimeoutSeconds}s ring`
+                ? `${state.voiceForwardingNumber.trim()} - ${state.voiceRingTimeoutSeconds}s ring`
                 : "Uses existing AI-first flow"}
             </p>
           </div>
@@ -1271,7 +1275,9 @@ export default function AppSettingsPage() {
             </span>
           </span>
         </label>
-      </section> : null}
+      </section>
+        </AccordionContent>
+      </AccordionItem> : null}
 
       {activeSection === "Calendar" ? <AccordionItem id="settings-calendar" value="calendar" className={frontDeskWorkspaceCardClass("default") + " px-5"}>
         <AccordionTrigger className="py-5 text-base no-underline hover:no-underline">
@@ -1627,7 +1633,7 @@ export default function AppSettingsPage() {
                   <p className="font-medium">{item.title}</p>
                   <p className="text-xs text-muted-foreground">{getNotificationBody(item)}</p>
                   <p className="text-[11px] text-muted-foreground">
-                    {item.severity} · {new Date(item.createdAt).toLocaleString()} · {item.readAt ? "Read" : "Unread"}
+                    {item.severity} - {new Date(item.createdAt).toLocaleString()} - {item.readAt ? "Read" : "Unread"}
                   </p>
                 </div>
                 {!item.readAt ? (
@@ -1683,7 +1689,7 @@ export default function AppSettingsPage() {
                 <div>
                   <p className="font-medium">{file.fileName}</p>
                   <p className="text-xs text-muted-foreground">
-                    {file.mimeType} • {(file.sizeBytes / 1024).toFixed(1)} KB • {new Date(file.createdAt).toLocaleString()}
+                    {file.mimeType} - {(file.sizeBytes / 1024).toFixed(1)} KB - {new Date(file.createdAt).toLocaleString()}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => void onDeleteKnowledgeFile(file.id)}>
@@ -1861,7 +1867,7 @@ export default function AppSettingsPage() {
           <div>
             <Label>New lead acknowledgement template</Label>
             <Textarea
-              placeholder="Thanks {{customerName}} — {{businessName}} received your service request. A technician will follow up shortly."
+              placeholder="Thanks {{customerName}} - {{businessName}} received your service request. A technician will follow up shortly."
               value={state.smsNewLeadAcknowledgementTemplate}
               onChange={(e) => setState((p) => ({ ...p, smsNewLeadAcknowledgementTemplate: e.target.value }))}
             />
@@ -1869,7 +1875,7 @@ export default function AppSettingsPage() {
           <div>
             <Label>Appointment confirmation template</Label>
             <Textarea
-              placeholder="Hi {{customerName}} — your service appointment is scheduled for {{appointmentTime}} with {{businessName}}."
+              placeholder="Hi {{customerName}} - your service appointment is scheduled for {{appointmentTime}} with {{businessName}}."
               value={state.smsAppointmentConfirmationTemplate}
               onChange={(e) => setState((p) => ({ ...p, smsAppointmentConfirmationTemplate: e.target.value }))}
             />
@@ -1907,11 +1913,6 @@ export default function AppSettingsPage() {
       </AccordionItem> : null}
       </Accordion>
 
-      <div className="flex justify-end">
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? "Saving..." : "Save assistant settings"}
-        </Button>
-      </div>
           </div>
         </div>
       </section>

@@ -24,6 +24,7 @@ import { RecentActivityCard } from "@/components/ai/recent-activity-card";
 import { useEntityAiState } from "@/lib/hooks/use-entity-ai-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { StateCard } from "@/components/ui/state-card";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
@@ -148,6 +149,7 @@ export default function AppLeadsPage() {
   const localReturnTo = useMemo(() => buildReturnTo(pathname, searchParams), [pathname, searchParams]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [selectedLeadId, setSelectedLeadId] = useState<string>("");
   const [canEdit, setCanEdit] = useState(false);
@@ -175,15 +177,16 @@ export default function AppLeadsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError(null);
     void fetchOrgLeads()
       .then((data) => {
         if (!active) return;
         setLeads(data.leads || []);
         setSelectedLeadId((current) => highlightedLeadId || current || data.leads?.[0]?.id || "");
       })
-      .catch(() => {
+      .catch((loadError) => {
         if (!active) return;
-        setLeads([]);
+        setError(loadError instanceof Error ? loadError.message : "Failed to load leads.");
       })
       .finally(() => {
         if (!active) return;
@@ -522,12 +525,11 @@ export default function AppLeadsPage() {
         title="Leads"
         description="Move leads through qualification stages, prioritize conversion-ready work, and keep ownership clear."
         actions={
-          <Link
-            href={buildWorkflowHref("/app/leads?q=needs+follow+up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })}
-            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            Work hot leads
-          </Link>
+          <Button asChild size="sm">
+            <Link href={buildWorkflowHref("/app/leads?q=needs+follow+up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })}>
+              Work hot leads
+            </Link>
+          </Button>
         }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
@@ -593,20 +595,21 @@ export default function AppLeadsPage() {
           {selectedLeadIds.length ? (
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-2">
               <p className="text-xs text-slate-600">{selectedLeadIds.length} selected for outreach drafting.</p>
-              <button
-                type="button"
-                disabled={batchBusy}
-                onClick={() => void runBatchSmsDraft()}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-60"
-              >
+              <Button type="button" size="sm" variant="outline" disabled={batchBusy} onClick={() => void runBatchSmsDraft()}>
                 {batchBusy ? "Generating..." : "Generate batch SMS drafts"}
-              </button>
+              </Button>
             </div>
           ) : null}
 
           <div className="flex-1 overflow-y-auto p-4">
             {loading ? (
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading leads...</div>
+            ) : error ? (
+              <StateCard
+                variant="error"
+                title="Lead pipeline unavailable"
+                description={error}
+              />
             ) : filteredLeads.length ? (
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -623,14 +626,12 @@ export default function AppLeadsPage() {
                           </div>
                           <p className="truncate text-[11px] text-slate-600">{topLead.signal.label}</p>
                         </div>
-                        <Link
-                          href={topLead.href}
-                          onClick={() => setSelectedLeadId(topLead.lead.id)}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-100"
-                        >
-                          {topLead.ctaLabel}
-                          <ArrowRight className="h-3 w-3" />
-                        </Link>
+                        <Button asChild size="sm" variant="outline" className="shrink-0">
+                          <Link href={topLead.href} onClick={() => setSelectedLeadId(topLead.lead.id)}>
+                            {topLead.ctaLabel}
+                            <ArrowRight className="h-3 w-3" />
+                          </Link>
+                        </Button>
                       </div>
                     </div>
                   ) : null}
@@ -644,9 +645,19 @@ export default function AppLeadsPage() {
                     {pipelineRows.map(({ lead, stage, stageIndex, urgency, signal, selectedForBatch, highlight }) => (
                       <div
                         key={lead.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={selectedLeadId === lead.id}
                         onClick={() => setSelectedLeadId(lead.id)}
+                        onKeyDown={(event) => {
+                          if (event.currentTarget !== event.target) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedLeadId(lead.id);
+                          }
+                        }}
                         className={cn(
-                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1.4fr)_170px_220px_170px]",
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:grid-cols-[minmax(0,1.4fr)_170px_220px_170px]",
                           selectedLeadId === lead.id ? "bg-primary/5" : "",
                           highlight ? "border-l-2 border-l-amber-300 bg-amber-50/20" : ""
                         )}
@@ -669,34 +680,33 @@ export default function AppLeadsPage() {
                           </p>
                         </div>
                         <div className="flex items-center justify-between gap-2 md:justify-end">
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7"
                             onClick={(event) => {
                               event.stopPropagation();
                               setSelectedLeadId(lead.id);
                             }}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50"
                           >
                             {leadRecommendedAction(lead)}
                             <ArrowRight className="h-3 w-3" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            size="sm"
+                            variant={selectedForBatch ? "default" : "outline"}
+                            className="h-7 px-2.5"
                             onClick={(event) => {
                               event.stopPropagation();
                               setSelectedLeadIds((current) =>
                                 selectedForBatch ? current.filter((id) => id !== lead.id) : [...new Set([...current, lead.id])]
                               );
                             }}
-                            className={cn(
-                              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
-                              selectedForBatch
-                                ? "border-slate-900 bg-slate-900 text-white"
-                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                            )}
                           >
                             {selectedForBatch ? "Selected" : "Batch"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -834,40 +844,43 @@ export default function AppLeadsPage() {
                     error={entityStateError}
                   />
 
-                  <div className="rounded-lg border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-semibold text-slate-900">CSV Import Preview</p>
-                    <textarea
-                      value={csvInput}
-                      onChange={(event) => setCsvInput(event.target.value)}
-                      placeholder="name,email,phone,business"
-                      className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                    />
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold"
-                        onClick={async () => {
-                          const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
-                          setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
-                        }}
-                      >
-                        Preview
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white"
-                        onClick={async () => {
-                          await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
-                          const data = await fetchOrgLeads();
-                          setLeads(data.leads || []);
-                          await refreshEntityState();
-                        }}
-                      >
-                        Import
-                      </button>
+                  <SectionDisclosure title="Bulk import utilities" storageKey="leads-bulk-import-utils" defaultCollapsed>
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-semibold text-slate-900">CSV import preview</p>
+                      <textarea
+                        value={csvInput}
+                        onChange={(event) => setCsvInput(event.target.value)}
+                        placeholder="name,email,phone,business"
+                        className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                            setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
+                          }}
+                        >
+                          Preview
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={async () => {
+                            await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                            const data = await fetchOrgLeads();
+                            setLeads(data.leads || []);
+                            await refreshEntityState();
+                          }}
+                        >
+                          Import
+                        </Button>
+                      </div>
+                      {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
                     </div>
-                    {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
-                  </div>
+                  </SectionDisclosure>
 
                   <div>
                     <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Lead Details</h3>

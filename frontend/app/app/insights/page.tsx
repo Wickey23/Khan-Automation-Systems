@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -8,9 +8,9 @@ import { fetchManagerInsights, fetchOperationsFeed } from "@/lib/api";
 import { OperationsFeedList } from "@/components/ai/operations-feed-list";
 import type { ManagerInsightSummary, OperationsFeedEvent } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
+import { Button } from "@/components/ui/button";
 import { CommandHeader, SectionDisclosure } from "@/components/ops";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
-import { OPERATIONAL_LABELS } from "@/lib/operational-language";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 
 type InsightsFeedFilter = "all" | "failures" | "approvals" | "handoffs" | "attention";
@@ -23,39 +23,38 @@ function parseInsightsFeedFilter(value: string | null): InsightsFeedFilter {
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-[2rem] border glass-card p-8 inner-glow hover-lift transition-all duration-300">
-      <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-4">{label}</p>
-      <div className="flex items-baseline justify-between">
-        <p className="text-4xl font-black font-headline tracking-tighter text-on-surface">{value}</p>
-        <span className="material-symbols-outlined text-[20px] opacity-20">analytics</span>
-      </div>
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
     </div>
   );
 }
 
-function ActionMetricCard({
+function InsightMetricCard({
   label,
   value,
   detail,
   href,
-  cta
+  linkLabel
 }: {
   label: string;
   value: string | number;
   detail: string;
-  href: string;
-  cta: string;
+  href?: string;
+  linkLabel?: string;
 }) {
   return (
-    <div className="rounded-[2rem] border glass-card p-8 inner-glow hover-lift transition-all duration-300 group">
-      <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-4">{label}</p>
-      <p className="text-3xl font-black font-headline tracking-tighter text-on-surface group-hover:text-primary transition-colors">{value}</p>
-      <p className="mt-2 text-xs font-medium text-on-surface-variant/70 leading-relaxed">{detail}</p>
-      <div className="mt-6">
-        <Link href={href} className="inline-flex items-center rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-md active:scale-95">
-          {cta}
-        </Link>
-      </div>
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-xs leading-relaxed text-slate-600">{detail}</p>
+      {href && linkLabel ? (
+        <div className="mt-3">
+          <Link href={href} className="text-xs font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900">
+            {linkLabel}
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -197,57 +196,81 @@ export default function InsightsPage() {
       reviewFrictionCount
     };
   })();
+  const summaryWindowLabel = summary ? new Date(summary.since).toLocaleString() : "Loading window";
+  const interpretationSummary = useMemo(
+    () => ({
+      whatChanged: `${summary?.callsTotal ?? 0} calls and ${summary?.messagesTotal ?? 0} messages in this window.`,
+      whatMatters: `${summary?.pendingApprovals ?? 0} pending approvals and ${summary?.openFollowUps ?? 0} open follow-ups currently shape workload.`,
+      watchArea: `${usageMetrics.reviewFrictionCount} friction signals and ${usageMetrics.highAttentionSignals} high-attention signals need monitoring.`
+    }),
+    [
+      summary?.callsTotal,
+      summary?.messagesTotal,
+      summary?.openFollowUps,
+      summary?.pendingApprovals,
+      usageMetrics.highAttentionSignals,
+      usageMetrics.reviewFrictionCount
+    ]
+  );
 
   return (
     <PageShell className="space-y-6">
       <CommandHeader
-        eyebrow="AI Operations"
-        title="Operational Insights"
-        description="Action-oriented review of workflow usage, friction, and recent operations."
-        actions={
-          <Link
-            href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })}
-            className="rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95"
-          >
-            Return to action queues
-          </Link>
-        }
+        eyebrow="Insights"
+        title="Analytical Overview"
+        description="Understand trend signals, workflow changes, and emerging watch areas across the workspace."
       />
 
       <SectionShell className="surface-panel">
         {busySummary ? (
-          <div className="flex flex-col items-center justify-center p-12 rounded-[2rem] glass-card inner-glow animate-pulse">
-            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-8">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Loading manager insights...</span>
+            <span className="text-xs font-semibold text-slate-600">Loading insight summary...</span>
           </div>
         ) : null}
 
         {!busySummary && summaryError ? (
-          <div className="rounded-[2rem] border border-error/20 bg-error/5 p-12 text-center flex flex-col items-center justify-center inner-glow">
-            <span className="material-symbols-outlined text-3xl text-error mb-4">error</span>
-            <p className="text-sm font-black text-error uppercase tracking-widest">{summaryError}</p>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+            {summaryError}
           </div>
         ) : null}
 
         {!busySummary && !summaryError && summary ? (
           <>
-            <div className="flex items-center justify-between mb-8">
-              <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1">Window start: {new Date(summary.since).toLocaleString()}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Summary window</p>
+              <p className="mt-1 text-xs text-slate-600">{summaryWindowLabel}</p>
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">What changed</p>
+                  <p className="mt-1 text-sm text-slate-700">{interpretationSummary.whatChanged}</p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">What matters</p>
+                  <p className="mt-1 text-sm text-slate-700">{interpretationSummary.whatMatters}</p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Watch area</p>
+                  <p className="mt-1 text-sm text-slate-700">{interpretationSummary.watchArea}</p>
+                </div>
+              </div>
             </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
-              <MetricCard label="Open follow-up" value={summary.openFollowUps} />
-            </div>
-            <SectionDisclosure title="Full Operational Snapshot" storageKey="insights-full-summary" className="mt-3" defaultCollapsed>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Total calls" value={summary.callsTotal} />
-              <MetricCard label="Missed calls" value={summary.callsMissed} />
               <MetricCard label="Messages" value={summary.messagesTotal} />
-              <MetricCard label="Booking requests" value={summary.bookingRequests} />
-              <MetricCard label="Open follow-up" value={summary.openFollowUps} />
               <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
+              <MetricCard label="Open follow-up" value={summary.openFollowUps} />
+            </div>
+            <SectionDisclosure title="Expanded trend snapshot" storageKey="insights-full-summary" className="mt-1" defaultCollapsed>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <MetricCard label="Total calls" value={summary.callsTotal} />
+                <MetricCard label="Missed calls" value={summary.callsMissed} />
+                <MetricCard label="Messages" value={summary.messagesTotal} />
+                <MetricCard label="Booking requests" value={summary.bookingRequests} />
+                <MetricCard label="Open follow-up" value={summary.openFollowUps} />
+                <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
               </div>
             </SectionDisclosure>
           </>
@@ -257,135 +280,71 @@ export default function InsightsPage() {
       <SectionShell className="surface-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-black font-headline tracking-tighter text-on-surface">AI Workflow Usage & Trust Signals</h2>
-            <p className="mt-1 text-sm font-medium text-on-surface-variant/70">Use these signals to route work into approvals, attention, and follow-up queues.</p>
+            <h2 className="text-lg font-semibold text-slate-900">Trend signals</h2>
+            <p className="mt-1 text-sm text-slate-600">Grouped changes across approvals, delivery reliability, and handoff behavior.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void loadUsageSignals()}
-            className="flex items-center gap-2 rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all active:scale-95"
-          >
+          <Button type="button" size="sm" variant="outline" onClick={() => void loadUsageSignals()}>
             <RefreshCw className="h-3.5 w-3.5" />
-            Refresh signals
-          </button>
+            Refresh
+          </Button>
         </div>
-        <SectionDisclosure title="Workflow usage and friction breakdown" storageKey="insights-usage-breakdown" defaultCollapsed>
-          {busyUsage ? (
-            <div className="flex flex-col items-center justify-center p-12 rounded-[2rem] glass-card inner-glow animate-pulse">
-              <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        {busyUsage ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-8">
+            <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+            <span className="mt-2 text-xs text-slate-600">Loading trend signals...</span>
+          </div>
+        ) : null}
+
+        {!busyUsage && usageError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">{usageError}</div>
+        ) : null}
+
+        {!busyUsage && !usageError ? (
+          <div className="space-y-5">
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Change signals</p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <InsightMetricCard label="Approvals pending" value={usageMetrics.approvalsPending} detail="Actions currently waiting for review." />
+                <InsightMetricCard
+                  label="Retryable send failures"
+                  value={usageMetrics.failedRetryableSends}
+                  detail="Outbound sends that failed and can be retried."
+                />
+                <InsightMetricCard
+                  label="High-attention signals"
+                  value={usageMetrics.highAttentionSignals}
+                  detail="Entities entering high-attention status."
+                  href={buildWorkflowHref("/app/attention?risk=at_risk", { source: "insights", returnTo, returnLabel: "Insights" })}
+                  linkLabel="View related attention items"
+                />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Loading AI usage signals...</span>
             </div>
-          ) : null}
 
-          {!busyUsage && usageError ? (
-            <div className="rounded-[2rem] border border-error/20 bg-error/5 p-12 text-center flex flex-col items-center justify-center inner-glow">
-              <span className="material-symbols-outlined text-3xl text-error mb-4">error</span>
-              <p className="text-sm font-black text-error uppercase tracking-widest">{usageError}</p>
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Watch areas</p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <InsightMetricCard label="Approvals rejected" value={usageMetrics.approvalsRejected} detail="Rejections recorded during this period." />
+                <InsightMetricCard label="Retry failed" value={usageMetrics.retryFailed} detail="Retry attempts that still failed delivery." />
+                <InsightMetricCard
+                  label="Friction signals"
+                  value={usageMetrics.reviewFrictionCount}
+                  detail="Combined friction from rejects, retry failures, and suppressed handoffs."
+                  href={buildWorkflowHref("/app/insights?feedFilter=failures", { source: "insights", returnTo, returnLabel: "Insights" })}
+                  linkLabel="View failure-focused signals"
+                />
+              </div>
             </div>
-          ) : null}
 
-          {!busyUsage && !usageError ? (
-            <div className="space-y-12">
-              <div>
-                <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-6 ml-1">Needs action</p>
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  <ActionMetricCard
-                    label="Retryable send failures"
-                    value={usageMetrics.failedRetryableSends}
-                    detail="Failed outbound sends currently marked retryable."
-                    href={buildWorkflowHref("/app/approvals?focus=needs_retry", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Open retryable failures"
-                  />
-                  <ActionMetricCard
-                    label="Pending approvals"
-                    value={usageMetrics.approvalsPending}
-                    detail="Approval actions waiting for operator review."
-                    href={buildWorkflowHref("/app/approvals?focus=needs_review", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta={`Open ${OPERATIONAL_LABELS.needsReview.toLowerCase()} queue`}
-                  />
-                  <ActionMetricCard
-                    label="High attention signals"
-                    value={usageMetrics.highAttentionSignals}
-                    detail="Critical/high attention entities from recent workflow state."
-                    href={buildWorkflowHref("/app/attention?risk=at_risk", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Open high-attention items"
-                  />
-                </div>
+            <SectionDisclosure title="Usage details" storageKey="insights-usage-breakdown" defaultCollapsed>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <InsightMetricCard label="Approvals approved" value={usageMetrics.approvalsApproved} detail="Approved actions in this period." />
+                <InsightMetricCard label="Follow-up generated" value={usageMetrics.followUpWorkflowItems} detail="Follow-up items created from workflows." />
+                <InsightMetricCard label="Handoffs executed" value={usageMetrics.handoffExecuted} detail="Cross-workflow handoffs completed." />
+                <InsightMetricCard label="Retry attempts" value={usageMetrics.retryAttempts} detail="Total retry executions observed." />
               </div>
-
-              <div>
-                <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-6 ml-1">Friction</p>
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  <ActionMetricCard
-                    label="Approvals rejected"
-                    value={usageMetrics.approvalsRejected}
-                    detail="Operator-rejected approval actions."
-                    href={buildWorkflowHref("/app/approvals?status=REJECTED", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Review rejected approvals"
-                  />
-                  <ActionMetricCard
-                    label="Retry failed"
-                    value={usageMetrics.retryFailed}
-                    detail="Retries that still failed delivery."
-                    href={buildWorkflowHref("/app/approvals?focus=needs_retry", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Review retry failures"
-                  />
-                  <ActionMetricCard
-                    label="Handoffs suppressed"
-                    value={usageMetrics.handoffSuppressed}
-                    detail="Handoffs prevented due to duplicate/recent suppression."
-                    href={buildWorkflowHref("/app/attention?risk=at_risk", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Review affected work"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 mb-6 ml-1">Usage</p>
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  <ActionMetricCard
-                    label="Approvals approved"
-                    value={usageMetrics.approvalsApproved}
-                    detail="Approved actions from recent workflow events."
-                    href={buildWorkflowHref("/app/approvals?status=APPROVED", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Open approved approvals"
-                  />
-                  <ActionMetricCard
-                    label="Follow-up from workflows"
-                    value={usageMetrics.followUpWorkflowItems}
-                    detail="Follow-up queue items generated by current workflows."
-                    href={buildWorkflowHref("/app/follow-up", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Open follow-up queue"
-                  />
-                  <ActionMetricCard
-                    label="Handoffs executed"
-                    value={usageMetrics.handoffExecuted}
-                    detail="Cross-agent handoffs completed in recent events."
-                    href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Review attention queue"
-                  />
-                  <ActionMetricCard
-                    label="Retry attempts"
-                    value={usageMetrics.retryAttempts}
-                    detail="Recent delivery retry executions."
-                    href={buildWorkflowHref("/app/approvals?focus=needs_retry", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta={`Open ${OPERATIONAL_LABELS.needsRetry.toLowerCase()} queue`}
-                  />
-                  <ActionMetricCard
-                    label="Friction signals"
-                    value={usageMetrics.reviewFrictionCount}
-                    detail="Rejected approvals + retry failures + suppressed handoffs."
-                    href={buildWorkflowHref("/app/insights?feedFilter=failures", { source: "insights", returnTo, returnLabel: "Insights" })}
-                    cta="Open failure-focused feed"
-                  />
-                </div>
-              </div>
-
-            </div>
-          ) : null}
-        </SectionDisclosure>
+            </SectionDisclosure>
+          </div>
+        ) : null}
       </SectionShell>
 
       <SectionShell className="surface-panel">
@@ -394,14 +353,14 @@ export default function InsightsPage() {
         </div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-black font-headline tracking-tighter text-on-surface">Recent Operations</h2>
-            <p className="mt-1 text-sm font-medium text-on-surface-variant/70">Shared operational activity feed used by dashboard and insights.</p>
+            <h2 className="text-lg font-semibold text-slate-900">Recent signals</h2>
+            <p className="mt-1 text-sm text-slate-600">Latest workflow events supporting trend interpretation.</p>
           </div>
           <div className="flex items-center gap-2">
             <select
               value={feedFilter}
               onChange={(event) => setFeedFilter(parseInsightsFeedFilter(event.target.value))}
-              className="rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">All events</option>
               <option value="failures">Failures</option>
@@ -409,29 +368,25 @@ export default function InsightsPage() {
               <option value="handoffs">Handoffs</option>
               <option value="attention">Attention</option>
             </select>
-            <button
-              type="button"
-              onClick={() => void loadFeed(feedFilter)}
-              className="flex items-center gap-2 rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all active:scale-95"
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => void loadFeed(feedFilter)}>
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
-            </button>
+            </Button>
           </div>
         </div>
 
-        {feedError ? <div className="mb-6 rounded-[2rem] border border-error/20 bg-error/5 p-8 text-sm font-black text-error uppercase tracking-widest text-center">{feedError}</div> : null}
+        {feedError ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{feedError}</div> : null}
 
-        <div className="rounded-[2rem] border glass-card p-8 inner-glow shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
           <OperationsFeedList
             events={events}
             loading={busyFeed}
             emptyMessage={
               feedFilter === "failures"
-                ? `No failure events right now. Delivery and retries appear ${OPERATIONAL_LABELS.healthy.toLowerCase()}.`
+                ? "No failure signals in this window. Delivery reliability appears stable."
                 : feedFilter === "all"
-                  ? `No operational events yet. This is expected on ${OPERATIONAL_LABELS.lowActivity.toLowerCase()} or newly configured workspaces.`
-                  : "No operational events match this filter."
+                  ? "No recent signals yet. This is common in low-activity or newly configured workspaces."
+                  : "No recent signals match this filter."
             }
             source="insights"
             returnLabel="Insights"
@@ -441,30 +396,15 @@ export default function InsightsPage() {
           />
         </div>
         {!busyFeed && !feedError && events.length === 0 && feedFilter === "all" ? (
-          <div className="mt-6 rounded-[2rem] border border-primary/20 bg-primary/5 p-8 text-center flex flex-col items-center justify-center inner-glow animate-fade-slide-up">
-            <span className="material-symbols-outlined text-3xl text-primary mb-4">info</span>
-            <p className="text-xl font-black font-headline tracking-tighter text-on-surface">Not enough activity yet</p>
-            <p className="mt-2 text-sm font-medium text-on-surface-variant/70 max-w-sm">Start from Calls, Leads, or Messages to generate operational events and daily review history.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href={buildWorkflowHref("/app/calls", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-xl border border-outline-variant/20 bg-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all">
-                Open Calls
-              </Link>
-              <Link href={buildWorkflowHref("/app/leads", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-xl border border-outline-variant/20 bg-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all">
-                Open Leads
-              </Link>
-              <Link href={buildWorkflowHref("/app/messages", { source: "insights", returnTo, returnLabel: "Insights" })} className="rounded-xl border border-outline-variant/20 bg-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-on-surface hover:text-white transition-all">
-                Open Messages
-              </Link>
-            </div>
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-900">Not enough recent activity</p>
+            <p className="mt-1 text-sm text-slate-600">Signals will appear here as calls, leads, and messages generate workflow events.</p>
           </div>
         ) : null}
 
-        <div className="mt-8 flex items-center justify-end">
-          <Link
-            href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })}
-            className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:text-primary-dim transition-colors"
-          >
-            Open Needs Attention
+        <div className="mt-4 flex items-center justify-end">
+          <Link href={buildWorkflowHref("/app/attention", { source: "insights", returnTo, returnLabel: "Insights" })} className="text-xs font-semibold text-slate-700 underline underline-offset-2">
+            View related attention items
           </Link>
         </div>
       </SectionShell>

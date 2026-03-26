@@ -31,7 +31,7 @@ import { useAccessSummary } from "@/context/access-summary";
 import { buildReturnTo, buildWorkflowHref, normalizeReturnTo, sourceToLabel } from "@/lib/workflow-nav";
 import { QueueEmptyState } from "@/components/queue/queue-empty-state";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
-import { ActionQueueTable, CommandHeader, RiskRailCard, SectionDisclosure, ageFromDate, dueLabel, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { CommandHeader, SectionDisclosure } from "@/components/ops";
 
 const stateFilters = ["ALL", "needs_follow_up", "contacted", "booked", "closed", "spam"] as const;
 type QueueState = (typeof stateFilters)[number];
@@ -83,6 +83,28 @@ function formatTime(value: string) {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function formatCallDateTime(value: string) {
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function followUpLabel(call: OrgCallRecord) {
+  const state = call.frontDesk?.followUpState || "closed";
+  if (state === "needs_follow_up") return "Follow-up needed";
+  if (state === "contacted") return "Contacted";
+  if (state === "booked") return "Booked";
+  if (state === "spam") return "Spam";
+  return "Closed";
+}
+
+function callSummarySnippet(call: OrgCallRecord) {
+  return call.frontDesk?.summary || call.aiSummary || call.summary || "No summary captured yet.";
+}
+
 function transcriptLines(call: OrgCallRecord) {
   const transcript = String(call.transcript || "").trim();
   if (!transcript) return [];
@@ -121,6 +143,7 @@ export default function AppCallsPage() {
   );
   const [calls, setCalls] = useState<OrgCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [query, setQuery] = useState(searchParams.get("q") || "");
@@ -162,15 +185,17 @@ export default function AppCallsPage() {
   useEffect(() => {
     if (!shouldShowCallQueue) {
       setCalls([]);
+      setError(null);
       setLoading(false);
       return;
     }
     let active = true;
     setLoading(true);
+    setError(null);
     void loadCalls(query)
-      .catch(() => {
+      .catch((loadError) => {
         if (!active) return;
-        setCalls([]);
+        setError(loadError instanceof Error ? loadError.message : "Failed to load call log.");
       })
       .finally(() => {
         if (!active) return;
@@ -214,79 +239,12 @@ export default function AppCallsPage() {
     () => visibleCalls.find((call) => call.id === selectedCallId) || calls.find((call) => call.id === selectedCallId) || visibleCalls[0] || calls[0] || null,
     [calls, selectedCallId, visibleCalls]
   );
-  const callRows = useMemo(
-    () =>
-      visibleCalls.map((call) => {
-        const followUpState = call.frontDesk?.followUpState || "closed";
-        const queueStatus =
-          followUpState === "spam"
-            ? "blocked"
-            : followUpState === "needs_follow_up"
-              ? "pending"
-              : followUpState === "contacted"
-                ? "in_progress"
-                : "done";
-        return {
-          id: call.id,
-          item: `${callerName(call)} - ${formatTime(call.startedAt)}`,
-          owner: call.leadId ? "Linked lead" : "Auto queue",
-          due: followUpState === "needs_follow_up" ? "Now" : dueLabel(call.startedAt),
-          ageLabel: ageFromDate(call.startedAt),
-          severity: priorityToSeverity(call.frontDesk?.frontDeskPriority || call.outcome || "medium"),
-          status: statusToOperatorState(queueStatus),
-          primaryActionLabel: "Open",
-          onPrimaryAction: () => setSelectedCallId(call.id),
-          secondaryActions: [
-            {
-              label: "Open approvals",
-              href: buildWorkflowHref(`/app/approvals?status=PENDING&callId=${encodeURIComponent(call.id)}`, {
-                source: "calls",
-                returnTo: localReturnTo,
-                returnLabel: "Calls"
-              })
-            },
-            {
-              label: "Open follow-up",
-              href: buildWorkflowHref("/app/follow-up", { source: "calls", returnTo: localReturnTo, returnLabel: "Calls" })
-            },
-            ...(call.recoverySmsThreadId
-              ? [
-                  {
-                    label: "Open thread",
-                    href: buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(call.recoverySmsThreadId)}`, {
-                      source: "calls",
-                      returnTo: localReturnTo,
-                      returnLabel: "Calls"
-                    })
-                  }
-                ]
-              : [])
-          ],
-          detail: call.frontDesk?.summary || call.aiSummary || call.summary || dispositionLabel(call),
-          isActive: selectedCallId === call.id,
-          onRowSelect: () => setSelectedCallId(call.id),
-          onRowFocus: () => setSelectedCallId(call.id),
-          rowAriaLabel: `${callerName(call)}. ${dispositionLabel(call)}.`
-        };
-      }),
-    [localReturnTo, selectedCallId, visibleCalls]
-  );
-  const callRiskItems = useMemo(
-    () => [
-      {
-        id: "needs-follow-up",
-        title: "Needs follow-up",
-        detail: `${visibleCalls.filter((call) => call.frontDesk?.followUpState === "needs_follow_up").length} calls require immediate follow-up.`,
-        level: "warning" as const
-      },
-      {
-        id: "missed-abandoned",
-        title: "Missed or abandoned",
-        detail: `${visibleCalls.filter((call) => call.outcome === "MISSED" || call.outcome === "ABANDONED").length} calls at callback risk.`,
-        level: "critical" as const
-      }
-    ],
-    [visibleCalls]
+  const selectedNeedsFollowUp = Boolean(selectedCall && selectedCall.frontDesk?.followUpState === "needs_follow_up");
+  const selectedUrgent = Boolean(
+    selectedCall &&
+      (selectedCall.frontDesk?.frontDeskPriority === "urgent" ||
+        selectedCall.outcome === "MISSED" ||
+        selectedCall.outcome === "ABANDONED")
   );
   const { data: entityState, loading: entityStateBusy, error: entityStateError, refresh: refreshEntityState } = useEntityAiState(
     selectedCall ? "call" : undefined,
@@ -507,7 +465,7 @@ export default function AppCallsPage() {
           <div className="flex items-center justify-between gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Call handling access</p>
-              <h1 className="text-3xl font-black text-slate-900">{callsAccess.label} not ready</h1>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{callsAccess.label} not ready</h1>
               <p className="text-sm text-slate-500">{callsAccess.reason}</p>
             </div>
             <StatusBadge kind="feature" state={callsAccess.status} size="sm" />
@@ -563,14 +521,13 @@ export default function AppCallsPage() {
       <CommandHeader
         eyebrow="AI Operations"
         title="Calls"
-        description="Review call outcomes, prioritize follow-up, and execute next actions with queue context."
+        description="Review call outcomes, disposition follow-up, and take the next call action."
         actions={
-          <Link
-            href={buildWorkflowHref("/app/calls?state=needs_follow_up", { source: "calls", returnTo: localReturnTo, returnLabel: "Calls" })}
-            className="inline-flex items-center rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            Review missed calls
-          </Link>
+          <Button asChild size="sm">
+            <Link href={buildWorkflowHref("/app/calls?state=needs_follow_up", { source: "calls", returnTo: localReturnTo, returnLabel: "Calls" })}>
+              Open follow-up calls
+            </Link>
+          </Button>
         }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
@@ -589,14 +546,15 @@ export default function AppCallsPage() {
           <section className="flex min-w-0 flex-[2] flex-col overflow-hidden border-r border-slate-200">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-lg font-bold text-slate-900">Reviewed Calls</h1>
+                <h1 className="text-lg font-bold text-slate-900">Call Log</h1>
                 <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
                   {stateFilters.map((filter) => (
                     <button
+                      type="button"
                       key={filter}
                       onClick={() => setStateFilter(filter)}
                       className={cn(
-                        "rounded-md px-3 py-1 text-xs font-bold transition-colors",
+                        "rounded-md px-3 py-1 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         stateFilter === filter ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                       )}
                     >
@@ -616,26 +574,76 @@ export default function AppCallsPage() {
                     className="h-8 w-52 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                 </div>
-                <button
-                  onClick={() => void refreshQueue()}
-                  className="flex h-8 items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
+                <Button size="sm" variant="outline" onClick={() => void refreshQueue()}>
                   {refreshing ? "Refreshing..." : "Refresh"}
-                </button>
+                </Button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loading ? (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading reviewed calls...</div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading call log...</div>
+              ) : error ? (
+                <StateCard variant="error" title="Call log unavailable" description={error} />
               ) : visibleCalls.length ? (
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-                  <ActionQueueTable title="Reviewed Calls" rows={callRows} />
-                  <RiskRailCard title="Call Risk" items={callRiskItems} />
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  {visibleCalls.map((call) => {
+                    const needsFollowUp = call.frontDesk?.followUpState === "needs_follow_up";
+                    const urgent =
+                      call.frontDesk?.frontDeskPriority === "urgent" || call.outcome === "MISSED" || call.outcome === "ABANDONED";
+                    const priorityClass = urgent
+                      ? "border-l-2 border-l-rose-400 bg-rose-50/30"
+                      : needsFollowUp
+                        ? "border-l-2 border-l-amber-400 bg-amber-50/30"
+                        : "";
+                    return (
+                      <button
+                        key={call.id}
+                        type="button"
+                        onClick={() => setSelectedCallId(call.id)}
+                        className={cn(
+                          "w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          selectedCallId === call.id ? "bg-primary/5" : "",
+                          priorityClass
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-semibold text-slate-900">{callerName(call)}</p>
+                              <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", dispositionTone(call))}>
+                                {dispositionLabel(call)}
+                              </span>
+                            </div>
+                            <p className="mt-1 truncate text-[11px] text-slate-600">{callSummarySnippet(call)}</p>
+                          </div>
+                          <span className="shrink-0 text-[10px] font-semibold text-slate-500">{formatCallDateTime(call.startedAt)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant="secondary" className="px-2 py-0.5 text-[10px] text-slate-600">
+                            {priorityLabel(call.frontDesk?.frontDeskPriority)}
+                          </Badge>
+                          <Badge variant="secondary" className="px-2 py-0.5 text-[10px] text-slate-600">
+                            {followUpLabel(call)}
+                          </Badge>
+                          {needsFollowUp ? (
+                            <Badge variant="secondary" className="border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">
+                              Follow-up needed
+                            </Badge>
+                          ) : null}
+                          {urgent ? (
+                            <Badge variant="secondary" className="border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700">
+                              Callback risk
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <QueueEmptyState
                   title="No calls match this filter"
-                  description="Try selecting All, or clear your search to load the full call queue."
+                  description="Try selecting All, or clear your search to load the full call log."
                 />
               )}
             </div>
@@ -657,12 +665,18 @@ export default function AppCallsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={cn("inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest", dispositionTone(selectedCall))}>
-                      {priorityLabel(selectedCall.frontDesk?.frontDeskPriority)}
+                    <span className={cn("inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]", dispositionTone(selectedCall))}>
+                      {dispositionLabel(selectedCall)}
+                    </span>
+                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+                      {followUpLabel(selectedCall)}
                     </span>
                     <button
+                      type="button"
+                      aria-label="Close selected call details"
+                      title="Close selected call details"
                       onClick={() => setSelectedCallId(null)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-200 hover:text-red-500"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-200 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -671,11 +685,97 @@ export default function AppCallsPage() {
 
                 <div className="flex-1 overflow-y-auto p-6">
                   <div className="space-y-6">
-                    <div className="px-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary</p>
-                    </div>
+                    <section className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500">Next call action</p>
+                          <p className="mt-1 text-xs text-slate-700">
+                            {selectedUrgent
+                              ? "Callback risk detected. Prioritize callback and route follow-up."
+                              : selectedNeedsFollowUp
+                                ? "This call needs follow-up. Choose the next disposition action."
+                                : "Call reviewed. Confirm the final disposition and next step."}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={selectedNeedsFollowUp ? "default" : "outline"}
+                            onClick={() => document.getElementById("call-callback-composer")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                          >
+                            Callback
+                          </Button>
+                          <Button asChild size="sm" variant="outline">
+                            <a href="#call-ai-workflow">Queue approval</a>
+                          </Button>
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={followUpHref}>Create follow-up</Link>
+                          </Button>
+                          {selectedCall.recoverySmsThreadId ? (
+                            <Button
+                              asChild
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Link
+                                href={buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(selectedCall.recoverySmsThreadId)}`, {
+                                  source: "calls",
+                                  returnTo: localReturnTo,
+                                  returnLabel: "Calls"
+                                })}
+                              >
+                                Open linked thread
+                              </Link>
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Disposition</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">{dispositionLabel(selectedCall)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Urgency</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">{priorityLabel(selectedCall.frontDesk?.frontDeskPriority)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Follow-up state</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">{followUpLabel(selectedCall)}</p>
+                      </div>
+                    </section>
+
+                    <section className="rounded-lg border border-slate-200 bg-white p-5">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h4 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Call transcript</h4>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{formatCallDateTime(selectedCall.startedAt)}</p>
+                      </div>
+                      <div className="space-y-4">
+                        {transcriptLines(selectedCall).length ? (
+                          transcriptLines(selectedCall).map((line, index) => {
+                            const speaker = line.includes(":") ? line.split(":")[0]?.trim() : index % 2 === 0 ? callerName(selectedCall) : "AI";
+                            const text = line.includes(":") ? line.slice(line.indexOf(":") + 1).trim() : line;
+                            const ai = speaker.toUpperCase() === "AI";
+                            return (
+                              <div key={`${speaker}-${index}`} className="flex gap-3">
+                                <span className={cn("mt-1 w-16 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em]", ai ? "text-primary" : "text-slate-400")}>
+                                  {speaker}:
+                                </span>
+                                <p className={cn("text-sm leading-relaxed", ai ? "text-slate-700" : "text-slate-600")}>{text}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-sm text-slate-500">No transcript available for this call.</p>
+                        )}
+                      </div>
+                    </section>
+
                     <RecommendedNextActionPanel
-                      title="Recommended Next Action"
+                      title="Call Decision Support"
                       source={source}
                       loading={entityStateBusy}
                       error={entityStateError}
@@ -689,21 +789,6 @@ export default function AppCallsPage() {
                       }}
                       refreshing={entityStateBusy}
                     />
-
-                    <SectionDisclosure title="Secondary Operational Context" storageKey="calls-secondary-context" defaultCollapsed>
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        {relatedContext ? (
-                          <RelatedContextCard
-                            title="Related Context"
-                            description="Linked records and nearby operational state for this call."
-                            stats={relatedContext.stats}
-                            links={relatedContext.links}
-                            flags={relatedContext.flags}
-                          />
-                        ) : null}
-                        <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
-                      </div>
-                    </SectionDisclosure>
 
                     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
@@ -741,7 +826,7 @@ export default function AppCallsPage() {
                       </div>
                     </div>
 
-                    <SectionDisclosure title="Deep Workflow Detail" storageKey="calls-deep-workflow-detail" defaultCollapsed>
+                    <SectionDisclosure title="Call workflow detail" storageKey="calls-deep-workflow-detail" defaultCollapsed>
                       <div id="call-ai-workflow">
                         <AiWorkflowActions
                           title="Front Desk Workflow"
@@ -789,7 +874,7 @@ export default function AppCallsPage() {
                         </div>
                       ) : null}
                       <div className="px-1">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep detail</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Timeline detail</p>
                       </div>
                       <EntityTimelineCard
                         entityType="call"
@@ -798,35 +883,25 @@ export default function AppCallsPage() {
                         loading={entityStateBusy}
                         error={entityStateError}
                       />
+                    </SectionDisclosure>
 
-                      <div>
-                        <h4 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Call Transcript</h4>
-                        <div className="space-y-4 px-1">
-                          {transcriptLines(selectedCall).length ? (
-                            transcriptLines(selectedCall).map((line, index) => {
-                              const speaker = line.includes(":") ? line.split(":")[0]?.trim() : index % 2 === 0 ? callerName(selectedCall) : "AI";
-                              const text = line.includes(":") ? line.slice(line.indexOf(":") + 1).trim() : line;
-                              const ai = speaker.toUpperCase() === "AI";
-                              return (
-                                <div key={`${speaker}-${index}`} className="flex gap-3">
-                                  <span className={cn("mt-1 w-16 shrink-0 text-[10px] font-bold uppercase", ai ? "text-primary" : "text-slate-400")}>
-                                    {speaker}:
-                                  </span>
-                                  <p className={cn("text-sm leading-relaxed", ai ? "text-slate-700" : "italic text-slate-600")}>
-                                    &ldquo;{text}&rdquo;
-                                  </p>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <p className="text-sm text-slate-500">No transcript available for this call.</p>
-                          )}
-                        </div>
+                    <SectionDisclosure title="Secondary call context" storageKey="calls-secondary-context" defaultCollapsed>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {relatedContext ? (
+                          <RelatedContextCard
+                            title="Related Context"
+                            description="Linked records and nearby operational state for this call."
+                            stats={relatedContext.stats}
+                            links={relatedContext.links}
+                            flags={relatedContext.flags}
+                          />
+                        ) : null}
+                        <RecentActivityCard timelineData={entityState} loading={entityStateBusy} error={entityStateError} />
                       </div>
                     </SectionDisclosure>
 
-                    <div className="border-t border-slate-200 pt-8">
-                      <h4 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">Quick Follow-up SMS</h4>
+                    <div id="call-callback-composer" className="border-t border-slate-200 pt-8">
+                      <h4 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Callback Draft</h4>
                       <div className="rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
                         <textarea
                           className="w-full resize-none border-none bg-transparent p-4 text-sm font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
@@ -835,9 +910,9 @@ export default function AppCallsPage() {
                         />
                         <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
                           <div className="flex gap-2 text-slate-400">
-                            <Smile className="h-4 w-4 cursor-pointer transition-colors hover:text-primary" />
-                            <Paperclip className="h-4 w-4 cursor-pointer transition-colors hover:text-primary" />
-                            <Clock className="h-4 w-4 cursor-pointer transition-colors hover:text-primary" />
+                            <Smile className="h-4 w-4" aria-hidden="true" />
+                            <Paperclip className="h-4 w-4" aria-hidden="true" />
+                            <Clock className="h-4 w-4" aria-hidden="true" />
                           </div>
                           <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
                             Send via callback approval workflow
@@ -885,7 +960,7 @@ export default function AppCallsPage() {
               <div className="p-8">
                 <QueueEmptyState
                   title="No Call Selected"
-                  description="Select a call from the queue to review summary, transcript, AI recommendations, and next actions."
+                  description="Select a call from the log to review disposition, transcript, and next actions."
                 />
               </div>
             )}

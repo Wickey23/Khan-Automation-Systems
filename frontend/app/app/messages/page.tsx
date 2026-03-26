@@ -111,6 +111,7 @@ export default function AppMessagesPage() {
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [savingStage, setSavingStage] = useState<PipelineStage | null>(null);
@@ -138,15 +139,17 @@ export default function AppMessagesPage() {
   useEffect(() => {
     if (!shouldShowMessages) {
       setThreads([]);
+      setError(null);
       setLoading(false);
       return;
     }
     let active = true;
     setLoading(true);
+    setError(null);
     void load()
-      .catch(() => {
+      .catch((loadError) => {
         if (!active) return;
-        setThreads([]);
+        setError(loadError instanceof Error ? loadError.message : "Failed to load message threads.");
       })
       .finally(() => {
         if (!active) return;
@@ -413,7 +416,7 @@ export default function AppMessagesPage() {
           <div className="flex items-center justify-between gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Messaging access</p>
-              <h1 className="text-3xl font-black text-slate-900">{smsAccess.label} unavailable</h1>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{smsAccess.label} unavailable</h1>
               <p className="text-sm text-slate-500">{smsAccess.reason}</p>
             </div>
             <StatusBadge kind="feature" state={smsAccess.status} size="sm" />
@@ -478,12 +481,11 @@ export default function AppMessagesPage() {
         title="Messages"
         description="Manage customer threads, approvals, and follow-up from the operator inbox."
         actions={
-          <Link
-            href={buildWorkflowHref("/app/messages?q=follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}
-            className="rounded-xl bg-on-surface text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95"
-          >
-            Open unresolved threads
-          </Link>
+          <Button asChild size="sm">
+            <Link href={buildWorkflowHref("/app/messages?q=follow-up", { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })}>
+              Open unresolved threads
+            </Link>
+          </Button>
         }
       />
       <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
@@ -538,6 +540,10 @@ export default function AppMessagesPage() {
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="px-6 py-8 text-sm text-slate-500">Loading conversations...</div>
+            ) : error ? (
+              <div className="p-4">
+                <StateCard variant="error" title="Inbox unavailable" description={error} />
+              </div>
             ) : filteredThreads.length ? (
               <div className="divide-y divide-slate-100 bg-white">
                 {filteredThreads.map((thread) => {
@@ -554,7 +560,7 @@ export default function AppMessagesPage() {
                       type="button"
                       onClick={() => setSelectedId(thread.id)}
                       className={cn(
-                        "w-full px-4 py-3 text-left transition-colors hover:bg-slate-50",
+                        "w-full px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         selectedId === thread.id ? "bg-primary/5" : ""
                         ,
                         priorityClass
@@ -626,8 +632,8 @@ export default function AppMessagesPage() {
                     />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black font-headline tracking-tighter text-on-surface">{displayName(selectedThread)}</h2>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">{threadType(selectedThread)} • {threadStatusLabel(selectedThread)}</p>
+                    <h2 className="text-lg font-semibold tracking-tight text-slate-900">{displayName(selectedThread)}</h2>
+                    <p className="text-[11px] text-slate-500">{threadType(selectedThread)} - {threadStatusLabel(selectedThread)}</p>
                   </div>
                 </div>
                 <div />
@@ -647,30 +653,20 @@ export default function AppMessagesPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
+                        variant={selectedNeedsReply ? "default" : "outline"}
                         onClick={() => document.getElementById("messages-composer")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                        className={cn(
-                          "rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
-                          selectedNeedsReply
-                            ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-                        )}
                       >
                         Reply now
-                      </button>
-                      <a
-                        href="#message-ai-workflow"
-                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-100"
-                      >
-                        Queue approval
-                      </a>
-                      <Link
-                        href={followUpHref}
-                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-100"
-                      >
-                        Create follow-up
-                      </Link>
+                      </Button>
+                      <Button asChild size="sm" variant="outline">
+                        <a href="#message-ai-workflow">Queue approval</a>
+                      </Button>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={followUpHref}>Create follow-up</Link>
+                      </Button>
                     </div>
                   </div>
                 </section>
@@ -847,13 +843,30 @@ export default function AppMessagesPage() {
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
                       <div className="flex items-center gap-2 text-slate-400">
-                        <button className="material-symbols-outlined text-[20px] hover:text-primary transition-colors">sentiment_satisfied</button>
-                        <button className="material-symbols-outlined text-[20px] hover:text-primary transition-colors">attach_file</button>
+                        <button
+                          type="button"
+                          aria-label="Insert emoji"
+                          title="Insert emoji"
+                          className="material-symbols-outlined text-[20px] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          sentiment_satisfied
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Attach file"
+                          title="Attach file"
+                          className="material-symbols-outlined text-[20px] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          attach_file
+                        </button>
                       </div>
                       <button
+                        type="button"
+                        aria-label="Send message"
+                        title="Send message"
                         onClick={() => void onSend()}
                         disabled={sending || !to.trim() || !body.trim()}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition-all hover:bg-slate-800 disabled:opacity-30 active:scale-95"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-30 active:scale-95"
                       >
                         <span className="material-symbols-outlined text-[18px]">send</span>
                       </button>
