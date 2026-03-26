@@ -2,7 +2,7 @@
 
 import { AudioLines, Phone, Radio, Search, Shield, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,14 @@ function buildAdminCallHref(callId: string) {
 }
 
 export default function AdminCallsPage() {
+  return (
+    <Suspense fallback={<StateCard variant="loading" />}>
+      <AdminCallsPageContent />
+    </Suspense>
+  );
+}
+
+function AdminCallsPageContent() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
   const [calls, setCalls] = useState<AdminCallRecord[]>([]);
