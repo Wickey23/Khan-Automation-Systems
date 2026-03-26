@@ -1,8 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { executeAiTool, fetchFollowUpQueue, getMe, updateAiTask, updateFollowUpQueueItem } from "@/lib/api";
+import { RefreshCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { FollowUpQueueItem } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
 import { CommandHeader } from "@/components/ops";
@@ -374,13 +376,13 @@ export default function FollowUpPage() {
       visibleQueue.map((item) => {
         const ownerState = ownershipState(item, meId);
         const ownerLabel =
-          ownerState === "mine" ? "You" : ownerState === "assigned_elsewhere" ? item.task?.assignedToUser?.email || "Assigned" : "Unassigned";
+          ownerState === "mine" ? "You" : ownerState === "assigned_elsewhere" ? item.task?.assignedToUser?.email?.split('@')[0] || "Assigned" : "Unassigned";
         const isOverdue = isItemOverdue(item);
         const risks = riskFlags(item, meId);
         const rowSeverity = isOverdue || risks.length ? "high" : item.task?.priority || "medium";
         const relatedEntityHref = queueEntityHref(item);
         const relatedApprovalsHref =
-          item.entityType && item.entityId
+          item.entityType && item.entityLength
             ? buildWorkflowHref(
                 "/app/approvals?status=PENDING",
                 { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" },
@@ -484,363 +486,245 @@ export default function FollowUpPage() {
   }, [pendingFocusUpdate, visibleQueue]);
 
   return (
-    <PageShell>
+    <div className="space-y-10 pb-12">
       <CommandHeader
         eyebrow="AI Operations"
         title="Follow-Up Queue"
         description="Operational follow-up items created by AI workflows and human actions."
         actions={
-          <QueueActionLink href={buildWorkflowHref("/app/follow-up?status=overdue", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}>
-            Open overdue follow-up
-          </QueueActionLink>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <QueueActionLink 
+              className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md"
+              href={buildWorkflowHref("/app/follow-up?status=overdue", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
+            >
+              Open overdue items
+            </QueueActionLink>
+          </div>
         }
       />
 
-      <SectionShell>
-        {queueUpdateNote ? (
-          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-            {queueUpdateNote}
-          </div>
-        ) : null}
-        <div className="mb-3">
-          <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-        </div>
-        <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {followUpSummaryStrip.map((metric) => (
-            <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              "all",
-              "at_risk",
-              "mine",
-              "unassigned",
-              "overdue"
-            ] as const
-          ).map((entry) => (
-            <button
-              key={entry}
-              type="button"
-              onClick={() => setFilter(entry)}
-              className={`rounded-lg border px-3 py-1 text-xs font-semibold ${filter === entry ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600"}`}
-            >
-              {followUpFilterLabels[entry]}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-            onClick={() => void loadQueue()}
-          >
-            Refresh
-          </button>
-        </div>
-        <SectionDisclosure title="Advanced controls and bulk tools" storageKey="follow-up-controls-shortcuts" defaultCollapsed className="mb-3">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {(
-              [
-                "overdue_mine",
-                "overdue_unassigned",
-                "today",
-                "soon",
-                "assigned"
-              ] as const
-            ).map((entry) => (
-              <button
-                key={entry}
-                type="button"
-                onClick={() => setFilter(entry)}
-                className={`rounded-lg border px-3 py-1 text-xs font-semibold ${filter === entry ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600"}`}
-              >
-                {followUpFilterLabels[entry]}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-              onClick={async () => {
-                await executeAiTool({ toolKey: "build_callback_queue", agentKey: "task_followup", entityType: "organization", input: { limit: 30 } });
-                await loadQueue();
-              }}
-            >
-              Build callback queue
-            </button>
-            {visibleQueue.length ? (
-              <>
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        {followUpSummaryStrip.map((metric) => (
+          <KpiCard 
+            key={metric.label} 
+            label={metric.label} 
+            value={String(metric.value)} 
+            detail={metric.note}
+            emphasis={metric.label.includes("Overdue") || metric.label.includes("Risk") ? "risk" : "default"}
+          />
+        ))}
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Main Content Area */}
+        <div className="lg:col-span-8 space-y-8 animate-fade-slide-up [animation-delay:100ms]">
+          {/* Controls and Filters */}
+          <div className="glass-card inner-glow rounded-3xl p-6 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    "all",
+                    "at_risk",
+                    "mine"
+                  ] as const
+                ).map((entry) => (
+                  <button
+                    key={entry}
+                    type="button"
+                    onClick={() => setFilter(entry)}
+                    className={cn(
+                      "px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all border",
+                      filter === entry 
+                        ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10" 
+                        : "bg-white text-slate-600 border-slate-100 hover:border-slate-300"
+                    )}
+                  >
+                    {followUpFilterLabels[entry]}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-                  onClick={() => setSelectedIds(visibleQueue.map((item) => item.id))}
+                  onClick={() => void loadQueue()}
+                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl"
+                  title="Refresh items"
                 >
-                  Select visible
+                  <RefreshCcw className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-                  disabled={!selectedIds.length}
-                  onClick={() => setSelectedIds([])}
-                >
-                  Clear selection
-                </button>
-              </>
-            ) : null}
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">All {ownershipSnapshot.all}</span>
-            <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">Mine {ownershipSnapshot.mine}</span>
-            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">Unassigned {ownershipSnapshot.unassigned}</span>
-            <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Overdue mine {ownershipSnapshot.overdueMine}</span>
-            <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">Overdue unassigned {ownershipSnapshot.overdueUnassigned}</span>
-            <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">At risk {ownershipSnapshot.atRisk}</span>
-          </div>
-          <QueueBulkActionBar
-            selectedCount={selectedIds.length}
-            onClear={() => setSelectedIds([])}
-            actions={[
-              { key: "bulk-done", label: bulkBusy ? "Working..." : "Mark done", disabled: bulkBusy, onClick: () => void runBulkAction("done") },
-              { key: "bulk-open", label: bulkBusy ? "Working..." : "Reopen", disabled: bulkBusy, onClick: () => void runBulkAction("open") },
-              {
-                key: "bulk-assign",
-                label: bulkBusy ? "Working..." : "Assign to me",
-                disabled: bulkBusy || !meId || !selectedItems.some((item) => item.task?.id),
-                onClick: () => void runBulkAction("assignMe")
-              },
-              {
-                key: "bulk-escalate",
-                label: bulkBusy ? "Working..." : "Escalate overdue",
-                tone: "warning",
-                disabled: bulkBusy || !selectedItems.some((item) => item.task?.id && isItemOverdue(item)),
-                onClick: () => void runBulkAction("escalate")
-              }
-            ]}
-          />
-          <QueueShortcutHint
-            summary="Shortcuts apply to the focused queue item."
-            items={[
-              { keys: "J / K", label: "Move focus" },
-              { keys: "Enter", label: "Open linked entity" },
-              { keys: "Alt+D", label: "Mark done / reopen" },
-              { keys: "Alt+A", label: "Assign to me (eligible)" },
-              { keys: "Alt+E", label: "Escalate overdue (eligible)" }
-            ]}
-          />
-        </SectionDisclosure>
-        {busy ? <QueueSurfaceStateCard kind="loading" message="Loading follow-up items..." /> : null}
-
-        {!busy && error ? <QueueSurfaceStateCard kind="error" message={error} /> : null}
-
-        {!busy && !error && visibleQueue.length === 0 ? (
-          <QueueSurfaceStateCard
-            kind="empty"
-            title={emptyStateCopy.title}
-            message={emptyStateCopy.message}
-            actionLabel={hasNarrowFilter ? "View all follow-up" : queue.length === 0 ? "Open Calls" : "Build callback queue"}
-            actionHref={!hasNarrowFilter && queue.length === 0 ? buildWorkflowHref("/app/calls", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }) : undefined}
-            onAction={() => {
-              if (hasNarrowFilter) {
-                setFilter("all");
-                return;
-              }
-              if (queue.length === 0) return;
-              void (async () => {
-                await executeAiTool({ toolKey: "build_callback_queue", agentKey: "task_followup", entityType: "organization", input: { limit: 30 } });
-                await loadQueue();
-              })();
-            }}
-          />
-        ) : null}
-
-        {!busy && !error && visibleQueue.length > 0 ? (
-          <>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-              <ActionQueueTable
-                title="Follow-Up Queue"
-                rows={followUpRows}
-                viewAllHref={buildWorkflowHref("/app/follow-up", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
-              />
-              <aside className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-                {previewItem ? (
-                  <>
-                    <section className="space-y-1 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected follow-up</p>
-                      <p className="text-sm font-semibold text-slate-900">{previewItem.task?.title || previewItem.reason}</p>
-                      <p className="text-xs text-slate-600">{previewItem.reason}</p>
-                    </section>
-                    <section className="space-y-1 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Owner and due context</p>
-                      <p className="text-xs text-slate-700">
-                        Owner: {previewItem.task?.assignedToUser?.email || "Unassigned"}
-                      </p>
-                      <p className="text-xs text-slate-700">Due: {dueLabel(previewItem.task?.dueAt)}</p>
-                    </section>
-                    <section className="space-y-1 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recommended next action</p>
-                      <p className="text-sm font-medium text-slate-900">
-                        {triage.data?.recommendation?.action || (previewItem.status === "OPEN" ? "Complete follow-up now" : "Reopen if unresolved")}
-                      </p>
-                    </section>
-                    <section className="space-y-2 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Related workflow context</p>
-                      <div className="flex flex-wrap gap-2">
-                        {previewItem.entityType && previewItem.entityId ? (
-                          <QueueActionLink
-                            size="sm"
-                            href={buildWorkflowHref(
-                              previewItem.entityType === "message_thread"
-                                ? `/app/messages?threadId=${encodeURIComponent(previewItem.entityId)}`
-                                : previewItem.entityType === "call"
-                                  ? `/app/calls?callId=${encodeURIComponent(previewItem.entityId)}`
-                                  : `/app/leads?leadId=${encodeURIComponent(previewItem.entityId)}`,
-                              { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }
-                            )}
-                          >
-                            Open entity
-                          </QueueActionLink>
-                        ) : null}
-                        <QueueActionButton
-                          size="sm"
-                          disabled={actionBusyId === previewItem.id}
-                          onClick={() => void runQueueAction(previewItem, previewItem.status === "OPEN" ? "done" : "open")}
-                        >
-                          {previewItem.status === "OPEN" ? "Mark done" : "Reopen"}
-                        </QueueActionButton>
-                      </div>
-                    </section>
-                    <section className="space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recent activity</p>
-                      <p className="text-xs text-slate-600">
-                        {triage.loading
-                          ? "Loading activity..."
-                          : triage.recentEvents.length
-                            ? triage.recentEvents
-                                .slice(0, 4)
-                                .map((event) => `${event.label} - ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
-                                .join(" | ")
-                            : "No recent events."}
-                      </p>
-                    </section>
-                  </>
-                ) : (
-                  <p className="text-sm text-slate-500">Select a follow-up item to load context.</p>
-                )}
-              </aside>
+              </div>
             </div>
-          {previewItem ? (
-            <SectionDisclosure title="Focused Follow-Up Diagnostics" storageKey="follow-up-focused-diagnostics" className="mt-4">
-            <QueueTriagePanel
-              title={previewItem.task?.title || previewItem.reason}
-              subtitle={previewItem.reason}
-              badges={[
-                { label: previewItem.status, tone: previewItem.status === "OPEN" ? "warning" : "success" },
-                { label: previewItem.task?.priority || "MEDIUM", tone: previewItem.task?.priority === "URGENT" ? "critical" : "default" },
-                ...(previewItem.task?.dueAt && new Date(previewItem.task.dueAt).getTime() < Date.now() ? [{ label: "overdue", tone: "critical" as const }] : [])
-              ]}
-                sections={[
-                { title: "Task / queue state", content: `Status ${previewItem.status}, assignee ${previewItem.task?.assignedToUser?.email || "unassigned"}` },
-                {
-                  title: "Ownership",
-                  content:
-                    ownershipState(previewItem, meId) === "mine"
-                      ? "Assigned to you."
-                      : ownershipState(previewItem, meId) === "unassigned"
-                        ? "No owner assigned yet."
-                        : `Assigned to ${previewItem.task?.assignedToUser?.email || "teammate"}.`
-                },
-                {
-                  title: "At risk signals",
-                  content: (() => {
-                    const flags = riskFlags(previewItem, meId);
-                    if (!flags.length) return "No at risk flags.";
-                    const labels = flags.map((flag) => {
-                      if (flag === "overdue_unassigned") return "Overdue and unassigned";
-                      if (flag === "overdue_assigned_stale") return "Overdue and assigned but stale";
-                      if (flag === "open_too_long") return "Open too long without movement";
-                      if (flag === "escalated_overdue") return "Escalated overdue item";
-                      return flag;
-                    });
-                    return labels.join(", ");
-                  })()
-                },
-                { title: "Due", content: previewItem.task?.dueAt ? new Date(previewItem.task.dueAt).toLocaleString() : "No due date" },
-                { title: "Linked entity", content: previewItem.entityType && previewItem.entityId ? `${previewItem.entityType} ${previewItem.entityId}` : "Not linked" },
-                {
-                  title: "Entity recommendation",
-                  content: triage.loading
-                    ? "Loading recommendation..."
-                    : triage.data?.recommendation?.action
-                      ? `${triage.data.recommendation.action}${triage.data.recommendation.priority ? ` (${triage.data.recommendation.priority})` : ""}`
-                      : "No recommendation available."
-                },
-                {
-                  title: "Attention / approvals",
-                  content: `${triage.data?.attention?.attentionLevel || "-"} / pending approvals ${(triage.data?.approvals || []).filter((item) => item.status === "PENDING").length}`
-                },
-                {
-                  title: "Recent activity",
-                  content: triage.loading
-                    ? "Loading activity..."
-                    : triage.recentEvents.length
-                      ? triage.recentEvents.map((event) => `${event.label} - ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`).join(" | ")
-                      : "No recent events."
-                },
-                ...(triage.error ? [{ title: "Enrichment", content: triage.error }] : [])
-              ]}
-              actions={
-                <>
-                  {previewItem.entityType && previewItem.entityId ? (
-                    <QueueActionLink
-                      href={buildWorkflowHref(
-                        previewItem.entityType === "message_thread"
-                          ? `/app/messages?threadId=${encodeURIComponent(previewItem.entityId)}`
-                          : previewItem.entityType === "call"
-                            ? `/app/calls?callId=${encodeURIComponent(previewItem.entityId)}`
-                            : `/app/leads?leadId=${encodeURIComponent(previewItem.entityId)}`,
-                        { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" }
+
+            <SectionDisclosure title="Advanced controls & bulk tools" storageKey="follow-up-controls-shortcuts" defaultCollapsed>
+              <div className="pt-4 space-y-6">
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      "unassigned",
+                      "overdue",
+                      "today",
+                      "soon",
+                      "assigned"
+                    ] as const
+                  ).map((entry) => (
+                    <button
+                      key={entry}
+                      type="button"
+                      onClick={() => setFilter(entry)}
+                      className={cn(
+                        "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border",
+                        filter === entry 
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" 
+                          : "bg-white border-slate-100 text-slate-500 hover:border-slate-200"
                       )}
                     >
-                      Open entity
-                    </QueueActionLink>
-                  ) : null}
-                  {previewItem.entityType && previewItem.entityId ? (
-                    <QueueActionLink
-                      href={buildWorkflowHref(
-                        "/app/approvals?status=PENDING",
-                        { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" },
-                        previewItem.entityType === "message_thread"
-                          ? { threadId: previewItem.entityId }
-                          : previewItem.entityType === "call"
-                            ? { callId: previewItem.entityId }
-                          : { leadId: previewItem.entityId }
-                      )}
-                    >
-                      Open approvals
-                    </QueueActionLink>
-                  ) : null}
-                  <QueueActionButton
-                    disabled={actionBusyId === previewItem.id}
-                    onClick={() => void runQueueAction(previewItem, previewItem.status === "OPEN" ? "done" : "open")}
-                  >
-                    {previewItem.status === "OPEN" ? "Mark done" : "Reopen"}
-                  </QueueActionButton>
-                  <QueueActionButton
-                    disabled={actionBusyId === previewItem.id || !previewItem.task?.id}
-                    onClick={() => void runQueueAction(previewItem, "assignMe")}
-                  >
-                    Assign to me
-                  </QueueActionButton>
-                  <ContextualShortcutHints items={previewShortcutHints} />
-                </>
-              }
-            />
+                      {followUpFilterLabels[entry]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  <span className="rounded-md border border-slate-100 bg-white/50 px-2 py-1 text-slate-400 font-bold uppercase tracking-tighter">Total {ownershipSnapshot.all}</span>
+                  <span className="rounded-md border border-amber-100 bg-amber-50/50 px-2 py-1 text-amber-600 font-bold uppercase tracking-tighter">At Risk {ownershipSnapshot.atRisk}</span>
+                </div>
+
+                <QueueBulkActionBar
+                  selectedCount={selectedIds.length}
+                  onClear={() => setSelectedIds([])}
+                  actions={[
+                    { key: "bulk-done", label: bulkBusy ? "Working..." : "Mark done", disabled: bulkBusy, onClick: () => void runBulkAction("done") },
+                    { key: "bulk-assign", label: bulkBusy ? "Working..." : "Assign to me", disabled: bulkBusy || !meId, onClick: () => void runBulkAction("assignMe") }
+                  ]}
+                />
+              </div>
             </SectionDisclosure>
+          </div>
+
+          {queueUpdateNote ? (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs font-bold text-emerald-700 animate-fade-slide-up">
+              {queueUpdateNote}
+            </div>
           ) : null}
-          </>
-        ) : null}
-      </SectionShell>
-    </PageShell>
+
+          {busy ? (
+            <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4 animate-pulse">
+                <RefreshCcw className="h-6 w-6 text-slate-300 animate-spin" />
+              </div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Loading follow-up queue...</p>
+            </div>
+          ) : error ? (
+            <QueueSurfaceStateCard kind="error" message={error} />
+          ) : visibleQueue.length === 0 ? (
+            <QueueSurfaceStateCard
+              kind="empty"
+              title={emptyStateCopy.title}
+              message={emptyStateCopy.message}
+              onAction={() => {
+                if (hasNarrowFilter) {
+                  setFilter("all");
+                  return;
+                }
+                void loadQueue();
+              }}
+            />
+          ) : (
+            <div className="glass-card inner-glow rounded-[2rem] overflow-hidden">
+              <ActionQueueTable
+                title="Follow-Up Management"
+                rows={followUpRows}
+                viewAllHref={buildWorkflowHref("/app/follow-up", { source: "follow-up", returnTo, returnLabel: "Follow-up Queue" })}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Focus / Sidebar Preview Panel */}
+        <aside className="lg:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
+          <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+              <span className="material-symbols-outlined text-[120px]">flag</span>
+            </div>
+            
+            {previewItem ? (
+              <div className="relative z-10 space-y-8">
+                <header>
+                  <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-2">Focused Item</p>
+                  <h4 className="text-xl font-black font-headline text-on-surface tracking-tight leading-tight uppercase line-clamp-2">{previewItem.task?.title || previewItem.reason}</h4>
+                  <p className="mt-1 text-xs font-semibold text-on-surface-variant/60">{previewItem.reason}</p>
+                </header>
+
+                <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100/50 space-y-3">
+                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Recommended Action</p>
+                  <p className="text-sm font-black text-on-surface leading-tight">
+                    {triage.data?.recommendation?.action || (previewItem.status === "OPEN" ? "Complete follow-up now" : "Reopen if unresolved")}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Ownership & Timing</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Owner</p>
+                      <p className="text-[11px] font-black text-slate-700">{previewItem.task?.assignedToUser?.email?.split('@')[0] || "Unassigned"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Due</p>
+                      <p className="text-[11px] font-black text-slate-700">{dueLabel(previewItem.task?.dueAt)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Actions</p>
+                  <div className="flex flex-wrap gap-2">
+                    <QueueActionButton
+                      size="sm"
+                      className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md"
+                      disabled={actionBusyId === previewItem.id}
+                      onClick={() => void runQueueAction(previewItem, previewItem.status === "OPEN" ? "done" : "open")}
+                    >
+                      {previewItem.status === "OPEN" ? "Mark resolved" : "Reopen item"}
+                    </QueueActionButton>
+                    
+                    {previewItem.entityType && previewItem.entityId ? (
+                      <QueueActionLink
+                        size="sm"
+                        className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all font-bold"
+                        href={buildWorkflowHref(queueEntityHref(previewItem), { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
+                      >
+                        Open entity
+                      </QueueActionLink>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-50">
+                  <ContextualShortcutHints items={previewShortcutHints} />
+                </div>
+              </div>
+            ) : (
+              <div className="h-40 flex items-center justify-center text-center">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-300">Select an item to<br />load context</p>
+              </div>
+            )}
+          </div>
+          
+          <SectionDisclosure title="Focused Diagnostics" storageKey="follow-up-focused-diagnostics" defaultCollapsed>
+            <div className="pt-4 space-y-4">
+              {previewItem ? (
+                <div className="space-y-3 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                  <div className="flex justify-between"><span>Status</span> <span className={cn("text-on-surface", previewItem.status === "OPEN" ? "text-amber-600" : "text-emerald-600")}>{previewItem.status}</span></div>
+                  <div className="flex justify-between"><span>Priority</span> <span className="text-on-surface">{previewItem.task?.priority || "MEDIUM"}</span></div>
+                  <div className="flex justify-between"><span>Latest event</span> <span className="text-on-surface text-right">{triage.recentEvents[0]?.label || "-"}</span></div>
+                </div>
+              ) : null}
+            </div>
+          </SectionDisclosure>
+        </aside>
+      </div>
+    </div>
   );
 }
-
-

@@ -113,17 +113,22 @@ async function ensureCsrfToken(path: string, init?: RequestInit) {
   if (isMutatingMethod(init?.method) && path !== "/api/auth/csrf-token") {
     csrfToken = readCookie("kas_csrf_token");
     if (!csrfToken && typeof window !== "undefined") {
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), 8000);
       try {
         const csrfResponse = await fetch(`${siteConfig.apiBase}/api/auth/csrf-token`, {
           method: "GET",
           credentials: "include",
-          cache: "no-store"
+          cache: "no-store",
+          signal: controller.signal
         });
+        clearTimeout(timeoutHandle);
         if (csrfResponse.ok) {
           const payload = (await csrfResponse.json()) as { data?: { csrfToken?: string } };
           csrfToken = String(payload?.data?.csrfToken || readCookie("kas_csrf_token") || "");
         }
       } catch {
+        clearTimeout(timeoutHandle);
         // Ignore; backend will reject with explicit CSRF error if still missing.
       }
     }

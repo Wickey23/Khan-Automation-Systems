@@ -24,9 +24,9 @@ const nextConfig = {
       "object-src 'none'",
       "frame-ancestors 'none'",
       "script-src 'self' 'unsafe-inline' https://js.stripe.com",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https://api.khansystems.com https://api.stripe.com https://js.stripe.com",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "upgrade-insecure-requests"

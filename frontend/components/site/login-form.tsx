@@ -50,6 +50,7 @@ export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
         router.push("/app");
       }
     } catch (error) {
+      console.error("[LoginForm] Login error:", error);
       showToast({
         title: "Login failed",
         description: error instanceof Error ? error.message : "Invalid credentials",
@@ -70,6 +71,7 @@ export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
         router.push("/app");
       }
     } catch (error) {
+      console.error("[LoginForm] OTP error:", error);
       showToast({
         title: "Verification failed",
         description: error instanceof Error ? error.message : "Invalid code.",
@@ -89,6 +91,7 @@ export function LoginForm({ defaultEmail = "" }: { defaultEmail?: string }) {
       setMaskedEmail(data.email);
       showToast({ title: "New code sent", description: "Check your email for the latest verification code." });
     } catch (error) {
+      console.error("[LoginForm] Resend OTP error:", error);
       showToast({
         title: "Resend failed",
         description: error instanceof Error ? error.message : "Try again.",

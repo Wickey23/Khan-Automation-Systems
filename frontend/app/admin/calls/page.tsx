@@ -1,6 +1,7 @@
 "use client";
 
 import { AudioLines, Phone, Radio, Search, Shield, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminGuard } from "@/components/dashboard/admin-guard";
 import { AdminTopTabs } from "@/components/admin/admin-top-tabs";
@@ -42,13 +43,18 @@ function humanize(value?: string | null) {
   return value.replaceAll("_", " ");
 }
 
+function buildAdminCallHref(callId: string) {
+  return `/admin/calls?callId=${encodeURIComponent(callId)}`;
+}
+
 export default function AdminCallsPage() {
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
   const [calls, setCalls] = useState<AdminCallRecord[]>([]);
   const [selectedCall, setSelectedCall] = useState<AdminCallDetail | null>(null);
   const [search, setSearch] = useState("");
   const [outcome, setOutcome] = useState("ALL");
-  const [deletePassword, setDeletePassword] = useState("123");
+  const [deletePassword, setDeletePassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
@@ -60,6 +66,7 @@ export default function AdminCallsPage() {
     if (outcome !== "ALL") params.set("outcome", outcome);
     return `?${params.toString()}`;
   }, [search, outcome]);
+  const selectedCallIdFromQuery = useMemo(() => searchParams.get("callId")?.trim() || "", [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -103,9 +110,27 @@ export default function AdminCallsPage() {
   }
 
   async function reloadCalls() {
-    const data = await fetchAdminCalls(query);
-    setCalls(data.calls);
+    try {
+      setLoading(true);
+      const data = await fetchAdminCalls(query);
+      setCalls(data.calls);
+    } catch (error) {
+      showToast({
+        title: "Failed to reload calls",
+        description: error instanceof Error ? error.message : "Request failed.",
+        variant: "error"
+      });
+    } finally {
+      setLoading(false);
+    }
   }
+
+  useEffect(() => {
+    if (!selectedCallIdFromQuery) return;
+    const alreadySelected = selectedCall?.id === selectedCallIdFromQuery || selectedCall?.providerCallId === selectedCallIdFromQuery;
+    if (alreadySelected || detailLoadingId === selectedCallIdFromQuery) return;
+    void loadCallDetail(selectedCallIdFromQuery);
+  }, [detailLoadingId, selectedCall?.id, selectedCall?.providerCallId, selectedCallIdFromQuery]);
 
   async function onDelete(call: AdminCallRecord) {
     if (!deletePassword.trim()) {
@@ -806,7 +831,7 @@ function FollowUpActionsSection({
       <p className="text-xs text-slate-500">Intervention status: {state.description}</p>
       <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-primary">
         {callId ? (
-          <Link href={`/admin/calls/${callId}`} className="underline-offset-4 hover:underline">
+          <Link href={buildAdminCallHref(callId)} className="underline-offset-4 hover:underline">
             View call audit
           </Link>
         ) : null}
@@ -1013,8 +1038,9 @@ function describeReviewCardState(status: CallReviewState["status"], reviewState?
   }
 }
 function InfoRow({ label, value, span }: { label: string; value: string | null | undefined; span?: number }) {
+  const spanClass = span === 2 ? "sm:col-span-2" : undefined;
   return (
-    <div className={span ? `sm:col-span-${span}` : undefined}>
+    <div className={spanClass}>
       <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
       <p className="text-sm text-slate-700">{value || "-"}</p>
     </div>

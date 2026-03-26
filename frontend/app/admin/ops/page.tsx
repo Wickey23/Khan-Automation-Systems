@@ -71,6 +71,10 @@ function getJobTypeLabel(type: string) {
   return type.replace(/[-_]/g, " ");
 }
 
+function buildAdminCallHref(callId: string) {
+  return `/admin/calls?callId=${encodeURIComponent(callId)}`;
+}
+
 function getSmsEventMeta(entry: AdminSmsAuditEntry) {
   const normalized = normalizeStatus(entry.eventType);
   if (normalized.includes("inbound")) return SMS_EVENT_META.inbound;
@@ -144,21 +148,21 @@ function QueueJobCard({
   const navigationAction =
     metadataNavigationAction && typeof metadataNavigationAction === "object"
       ? {
-          href: (metadataNavigationAction as Record<string, unknown>).href as string,
-          label: (metadataNavigationAction as Record<string, unknown>).label as string
-        }
+        href: (metadataNavigationAction as Record<string, unknown>).href as string,
+        label: (metadataNavigationAction as Record<string, unknown>).label as string
+      }
       : job.callId
-      ? { href: `/admin/calls/${job.callId}`, label: `Open call ${job.callId}` }
-      : job.providerCallId
-      ? { href: `/admin/calls/${job.providerCallId}`, label: `View provider ${job.providerCallId}` }
-      : null;
+        ? { href: buildAdminCallHref(job.callId), label: `Open call ${job.callId}` }
+        : job.providerCallId
+          ? { href: buildAdminCallHref(job.providerCallId), label: `View provider ${job.providerCallId}` }
+          : null;
   const metadataNextStepHint = metadataRecord?.nextStepHint;
   const nextStepHint =
     typeof metadataNextStepHint === "string"
       ? metadataNextStepHint
       : job.retryReason
-      ? job.retryReason
-      : bookingJobHint(job);
+        ? job.retryReason
+        : bookingJobHint(job);
 
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -177,9 +181,9 @@ function QueueJobCard({
         {job.nextAttemptAt ? <span>Next retry: {formatDate(job.nextAttemptAt)}</span> : null}
         {job.durationMs ? <span>Duration: {Math.round(job.durationMs)} ms</span> : null}
       </div>
-      {linkedCallLabel ? (
-        job.callId ? (
-          <Link className="text-xs font-semibold text-primary underline-offset-4 hover:underline" href={`/admin/calls/${job.callId}`}>
+        {linkedCallLabel ? (
+          job.callId ? (
+          <Link className="text-xs font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
             {linkedCallLabel}
           </Link>
         ) : (
@@ -256,7 +260,7 @@ function BookingFinalizerCard({ jobs, loading }: { jobs: AdminQueueJobRecord[]; 
                 </div>
                 <p className="mt-2 text-xs text-slate-600">{job.message || bookingJobHint(job)}</p>
                 {job.callId ? (
-                  <Link className="mt-2 inline-flex text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={`/admin/calls/${job.callId}`}>
+                  <Link className="mt-2 inline-flex text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
                     Open related call
                   </Link>
                 ) : null}
@@ -359,7 +363,7 @@ export default function AdminOpsPage() {
         ) : null}
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -524,7 +528,7 @@ export default function AdminOpsPage() {
                         <TableCell>
                           <p className="text-xs text-slate-600">{job.message || "No recent log message."}</p>
                           {job.callId ? (
-                            <Link className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={`/admin/calls/${job.callId}`}>
+                            <Link className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
                               View call
                             </Link>
                           ) : job.providerCallId ? (

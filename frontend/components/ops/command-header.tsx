@@ -14,13 +14,25 @@ export function CommandHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-6 rounded-[2rem] border p-8 glass-card inner-glow animate-fade-slide-up", className)}>
-      <div className="min-w-0 space-y-1">
-        <p className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-primary/60 ml-0.5">{eyebrow}</p>
-        <h1 className="text-3xl font-black font-headline tracking-tighter text-on-surface bg-gradient-to-br from-on-surface to-primary/40 bg-clip-text text-transparent">{title}</h1>
-        {description ? <p className="text-sm font-medium text-on-surface-variant/70 leading-relaxed max-w-2xl">{description}</p> : null}
+    <header className={cn("flex flex-col md:flex-row justify-between items-start md:items-end gap-6 animate-fade-slide-up mb-8", className)}>
+      <div className="space-y-1 min-w-0">
+        <p className="text-[11px] font-black font-label uppercase tracking-[0.2em] text-primary/70 mb-1 ml-0.5">
+          {eyebrow}
+        </p>
+        <h1 className="text-5xl font-black font-headline text-on-surface tracking-tighter leading-[0.9] bg-gradient-to-br from-on-surface via-on-surface to-primary/50 bg-clip-text text-transparent">
+          {title}
+        </h1>
+        {description ? (
+          <p className="mt-3 text-sm font-medium text-on-surface-variant/70 leading-relaxed max-w-2xl">
+            {description}
+          </p>
+        ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-3">{actions}</div> : null}
+      {actions ? (
+        <div className="flex items-center space-x-3 w-full md:w-auto shrink-0">
+          {actions}
+        </div>
+      ) : null}
     </header>
   );
 }

@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { RefreshCcw } from "lucide-react";
 import { approveAiAction, fetchAiApprovals, rejectAiAction, retryAiApprovalSend } from "@/lib/api";
 import type { ApprovalRequest } from "@/lib/types";
 import { PageShell, SectionShell } from "@/components/ui/page";
@@ -16,6 +17,7 @@ import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
 import { WorkflowReturnBanner } from "@/components/queue/workflow-return-banner";
 import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
+import { cn } from "@/lib/utils";
 
 type DraftEditState = {
   subject: string;
@@ -518,297 +520,277 @@ export default function ApprovalsPage() {
   }, [previewApproval]);
 
   return (
-    <PageShell>
+    <div className="space-y-10 pb-12">
       <CommandHeader
         eyebrow="AI Operations"
         title="Approval Queue"
         description="Operator decision desk for pending, aging, and at-risk approval actions."
-        actions={primaryCta}
+        actions={
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            {primaryCta}
+          </div>
+        }
       />
 
-      <SectionShell>
-        <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {approvalSummaryStrip.map((metric) => (
-            <KpiCard key={metric.label} label={metric.label} value={String(metric.value)} detail={metric.note} />
-          ))}
-        </div>
-        <div className="mb-2">
-          <WorkflowReturnBanner returnTo={returnTo} returnLabel={returnLabel} />
-        </div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {(
-            [
-              { key: "all", label: APPROVAL_FOCUS_LABELS.all },
-              { key: "needs_review", label: APPROVAL_FOCUS_LABELS.needs_review },
-              { key: "needs_retry", label: APPROVAL_FOCUS_LABELS.needs_retry }
-            ] as Array<{ key: ApprovalFocusFilter; label: string }>
-          ).map((entry) => (
-            <Link
-              key={entry.key}
-              href={buildWorkflowHref(
-                entry.key === "all"
-                  ? statusFilter
-                    ? `/app/approvals?status=${encodeURIComponent(statusFilter)}`
-                    : "/app/approvals"
-                  : statusFilter
-                    ? `/app/approvals?status=${encodeURIComponent(statusFilter)}&focus=${entry.key}`
-                    : `/app/approvals?focus=${entry.key}`,
-                { source, returnTo, returnLabel }
-              )}
-              className={`rounded-md border px-2 py-1 text-xs font-semibold ${
-                focusFilter === entry.key ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"
-              }`}
-            >
-              {entry.label}
-            </Link>
-          ))}
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600"
-          >
-            Refresh
-          </button>
-        </div>
-        <SectionDisclosure title="Advanced filters and shortcuts" storageKey="approvals-controls-shortcuts" defaultCollapsed className="mb-2">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {(["", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
-              <Link
-                key={status || "ALL"}
-                href={buildWorkflowHref(status ? `/app/approvals?status=${status}` : "/app/approvals", { source, returnTo, returnLabel })}
-                className={`rounded-md border px-2 py-1 text-xs font-semibold ${
-                  (status || "") === statusFilter ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"
-                }`}
-              >
-                {status ? formatApprovalStatusLabel(status) : "All statuses"}
-              </Link>
-            ))}
-            {(
-              [
-                { key: "in_delivery", label: APPROVAL_FOCUS_LABELS.in_delivery },
-                { key: "completed", label: APPROVAL_FOCUS_LABELS.completed }
-              ] as Array<{ key: ApprovalFocusFilter; label: string }>
-            ).map((entry) => (
-              <Link
-                key={entry.key}
-                href={buildWorkflowHref(
-                  statusFilter
-                    ? `/app/approvals?status=${encodeURIComponent(statusFilter)}&focus=${entry.key}`
-                    : `/app/approvals?focus=${entry.key}`,
-                  { source, returnTo, returnLabel }
-                )}
-                className={`rounded-md border px-2 py-1 text-xs font-semibold ${
-                  focusFilter === entry.key ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"
-                }`}
-              >
-                {entry.label}
-              </Link>
-            ))}
-          </div>
-          <QueueShortcutHint
-            summary="Use row focus to review and act faster."
-            items={[
-              { keys: "J / K", label: "Move focus" },
-              { keys: "Enter", label: "Open related entity" },
-              { keys: "Alt+S", label: "Approve & send" },
-              { keys: "Alt+O", label: "Approve only" },
-              { keys: "Alt+X", label: "Reject" },
-              { keys: "Alt+R", label: "Retry send (eligible)" }
-            ]}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        {approvalSummaryStrip.map((metric) => (
+          <KpiCard 
+            key={metric.label} 
+            label={metric.label} 
+            value={String(metric.value)} 
+            detail={metric.note}
+            emphasis={metric.label.includes("Retryable") || metric.label.includes("Aging") ? "risk" : "default"}
           />
-        </SectionDisclosure>
-      </SectionShell>
+        ))}
+      </section>
 
-      <SectionShell>
-        {queueUpdateNote ? (
-          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-            {queueUpdateNote}
-          </div>
-        ) : null}
-        {busy ? <QueueSurfaceStateCard kind="loading" message="Loading approval requests..." /> : null}
-
-        {!busy && error ? <QueueSurfaceStateCard kind="error" message={error} /> : null}
-
-        {!busy && !error && visibleApprovals.length === 0 ? (
-          <QueueSurfaceStateCard
-            kind="empty"
-            title={focusFilter === "needs_retry" ? "No retryable failures" : focusFilter === "needs_review" ? `No approvals ${OPERATIONAL_LABELS.needsReview.toLowerCase()}` : "Approval queue is clear"}
-            message={
-              focusFilter === "needs_retry"
-                ? "There are currently no failed retryable sends. This queue will repopulate when a delivery fails and can be retried."
-                : focusFilter === "needs_review"
-                  ? "No pending approvals right now. New approval-gated actions will appear here."
-                  : approvals.length === 0
-                    ? "No approval-gated actions have occurred yet. Generate your first draft from calls, leads, or messages to start this queue."
-                    : "No approvals match the current filter. Try broadening filters or return later."
-            }
-            actionLabel={
-              focusFilter !== "all" || Boolean(statusFilter)
-                ? "Reset approval filters"
-                : approvals.length === 0
-                  ? "Open Leads"
-                  : "Refresh queue"
-            }
-            actionHref={
-              focusFilter === "all" && !statusFilter && approvals.length === 0
-                ? buildWorkflowHref("/app/leads", { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })
-                : undefined
-            }
-            onAction={() => {
-              if (focusFilter !== "all" || Boolean(statusFilter)) {
-                router.replace("/app/approvals", { scroll: false });
-                return;
-              }
-              if (approvals.length === 0) return;
-              void load();
-            }}
-          />
-        ) : null}
-
-        {!busy && !error && visibleApprovals.length > 0 ? (
-          <>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-              <ActionQueueTable
-                title="Approval Queue"
-                rows={approvalRows}
-                viewAllHref={buildWorkflowHref("/app/approvals", { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })}
-              />
-              <aside className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-                {previewApproval ? (
-                  <>
-                    <section className="space-y-1 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected approval</p>
-                      <p className="text-sm font-semibold text-slate-900">{previewApproval.toolKey}</p>
-                      <p className="text-xs text-slate-600">{`${previewApproval.actionType}${previewApproval.entityType ? ` · ${previewApproval.entityType}` : ""}`}</p>
-                    </section>
-                    <section className="space-y-1 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recommended next action</p>
-                      <p className="text-sm font-medium text-slate-900">{approvalDecisionHint(previewApproval)}</p>
-                    </section>
-                    <section className="space-y-2 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Decision and safety context</p>
-                      <p className="text-xs text-slate-700">
-                        Delivery: {formatApprovalStatusLabel(previewApproval.deliveryStatus)}
-                        {previewApproval.deliveryProvider ? ` via ${previewApproval.deliveryProvider}` : ""}
-                      </p>
-                      <p className="text-xs text-slate-700">
-                        Retry count: {previewApproval.retryCount}
-                        {previewApproval.sentAt ? ` · sent ${new Date(previewApproval.sentAt).toLocaleString()}` : ""}
-                        {previewApproval.failedAt ? ` · failed ${new Date(previewApproval.failedAt).toLocaleString()}` : ""}
-                      </p>
-                      {triage.data?.recommendation?.blockedReasons?.length ? (
-                        <p className="text-xs text-slate-700">Blocked reasons: {triage.data.recommendation.blockedReasons.join(", ")}</p>
-                      ) : null}
-                    </section>
-                    <section className="space-y-2 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Workflow links</p>
-                      <div className="flex flex-wrap gap-2">
-                        {previewApproval.status === "PENDING" ? (
-                          <QueueActionButton
-                            size="sm"
-                            tone="primary"
-                            onClick={() => void decide(previewApproval.id, "approve", "SEND_NOW")}
-                            disabled={actionBusyId === previewApproval.id}
-                          >
-                            {actionBusyId === previewApproval.id ? "Approving..." : "Approve & send"}
-                          </QueueActionButton>
-                        ) : null}
-                        {previewApproval.status === "PENDING" ? (
-                          <QueueActionButton
-                            size="sm"
-                            onClick={() => void decide(previewApproval.id, "approve", "APPROVE_ONLY")}
-                            disabled={actionBusyId === previewApproval.id}
-                          >
-                            Approve only
-                          </QueueActionButton>
-                        ) : null}
-                        {previewApproval.status === "PENDING" ? (
-                          <QueueActionButton
-                            size="sm"
-                            tone="critical"
-                            onClick={() => void decide(previewApproval.id, "reject")}
-                            disabled={actionBusyId === previewApproval.id}
-                          >
-                            Reject
-                          </QueueActionButton>
-                        ) : null}
-                        {isNeedsRetry(previewApproval) ? (
-                          <QueueActionButton
-                            size="sm"
-                            tone="warning"
-                            onClick={() => void retrySend(previewApproval.id)}
-                            disabled={actionBusyId === previewApproval.id}
-                          >
-                            Retry send
-                          </QueueActionButton>
-                        ) : null}
-                        {entityHref(previewApproval) ? (
-                          <QueueActionLink
-                            size="sm"
-                            href={buildWorkflowHref(entityHref(previewApproval), {
-                              source: "approvals",
-                              returnTo: localReturnTo,
-                              returnLabel: "Approval Queue"
-                            })}
-                          >
-                            Open entity
-                          </QueueActionLink>
-                        ) : null}
-                      </div>
-                    </section>
-                    <section className="space-y-1 border-b border-slate-200 pb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Risk or failure flags</p>
-                      {previewRiskFlags.length ? (
-                        <ul className="space-y-1 text-xs text-slate-700">
-                          {previewRiskFlags.slice(0, 5).map((flag) => (
-                            <li key={flag}>• {flag}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-600">No active risk flags.</p>
-                      )}
-                    </section>
-                    <section className="space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recent activity</p>
-                      <p className="text-xs text-slate-600">
-                        {triage.loading
-                          ? "Loading activity..."
-                          : triage.recentEvents.length
-                            ? triage.recentEvents
-                                .slice(0, 4)
-                                .map((event) => `${event.label} · ${new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
-                                .join(" | ")
-                            : "No recent history."}
-                      </p>
-                    </section>
-                  </>
-                ) : (
-                  <p className="text-sm text-slate-500">Select an approval to review decision context.</p>
-                )}
-              </aside>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Main Content Area */}
+        <div className="lg:col-span-8 space-y-8 animate-fade-slide-up [animation-delay:100ms]">
+          {/* Controls and Filters */}
+          <div className="glass-card inner-glow rounded-3xl p-6 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { key: "all", label: APPROVAL_FOCUS_LABELS.all },
+                    { key: "needs_review", label: APPROVAL_FOCUS_LABELS.needs_review },
+                    { key: "needs_retry", label: APPROVAL_FOCUS_LABELS.needs_retry }
+                  ] as Array<{ key: ApprovalFocusFilter; label: string }>
+                ).map((entry) => (
+                  <Link
+                    key={entry.key}
+                    href={buildWorkflowHref(
+                      entry.key === "all"
+                        ? statusFilter
+                          ? `/app/approvals?status=${encodeURIComponent(statusFilter)}`
+                          : "/app/approvals"
+                        : statusFilter
+                          ? `/app/approvals?status=${encodeURIComponent(statusFilter)}&focus=${entry.key}`
+                          : `/app/approvals?focus=${entry.key}`,
+                      { source, returnTo, returnLabel }
+                    )}
+                    className={cn(
+                      "px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all border",
+                      focusFilter === entry.key 
+                        ? "bg-slate-100 text-slate-900 border-slate-200" 
+                        : "bg-white text-slate-400 border-slate-100 hover:border-slate-200 hover:text-slate-600"
+                    )}
+                  >
+                    {entry.label}
+                  </Link>
+                ))}
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl"
+                  title="Refresh items"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <SectionDisclosure title="Secondary Diagnostics and History" storageKey="approvals-focused-diagnostics" className="mt-4" defaultCollapsed>
-              {previewApproval ? (
-                <div className="space-y-3 text-sm text-slate-700">
-                  <p><span className="font-semibold text-slate-900">Request:</span> {previewApproval.inputSummary || "No summary provided."}</p>
-                  <p><span className="font-semibold text-slate-900">Reason:</span> {previewApproval.reason || "No additional reason."}</p>
-                  <p><span className="font-semibold text-slate-900">Related state:</span> {triage.loading
-                    ? "Loading entity context..."
-                    : triage.data?.recommendation?.action
-                      ? `${triage.data.recommendation.action}${triage.data.recommendation.priority ? ` (${triage.data.recommendation.priority})` : ""}`
-                      : "No recommendation context available."}</p>
-                  <p><span className="font-semibold text-slate-900">Attention / follow-up:</span> {`${triage.data?.attention?.attentionLevel || "-"} / open follow-up ${triage.data?.operationalMemory?.taskSnapshot.openFollowUpCount || 0}`}</p>
-                  {triage.error ? <p><span className="font-semibold text-slate-900">Enrichment:</span> {triage.error}</p> : null}
-                  <ContextualShortcutHints items={previewShortcutHints} />
+
+            <SectionDisclosure title="Advanced filters" storageKey="approvals-controls-shortcuts" defaultCollapsed>
+              <div className="pt-4 space-y-6">
+                <div className="flex flex-wrap gap-2">
+                  {(["", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
+                    <Link
+                      key={status || "ALL"}
+                      href={buildWorkflowHref(status ? `/app/approvals?status=${status}` : "/app/approvals", { source, returnTo, returnLabel })}
+                      className={cn(
+                        "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border",
+                        (status || "") === statusFilter 
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" 
+                          : "bg-white border-slate-100 text-slate-500 hover:border-slate-200"
+                      )}
+                    >
+                      {status ? formatApprovalStatusLabel(status) : "All statuses"}
+                    </Link>
+                  ))}
                 </div>
-              ) : (
-                <p className="text-sm text-slate-500">No focused approval.</p>
-              )}
+                <QueueShortcutHint
+                  summary="Row shortcuts"
+                  items={[
+                    { keys: "J / K", label: "Move focus" },
+                    { keys: "Enter", label: "Open entity" },
+                    { keys: "Alt+S", label: "Approve & send" },
+                    { keys: "Alt+O", label: "Approve only" },
+                    { keys: "Alt+X", label: "Reject" }
+                  ]}
+                />
+              </div>
             </SectionDisclosure>
-          </>
-        ) : null}
-      </SectionShell>
-    </PageShell>
+          </div>
+
+          {queueUpdateNote ? (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs font-bold text-emerald-700 animate-fade-slide-up">
+              {queueUpdateNote}
+            </div>
+          ) : null}
+
+          {busy ? (
+            <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4 animate-pulse">
+                <RefreshCcw className="h-6 w-6 text-slate-300 animate-spin" />
+              </div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Loading approvals...</p>
+            </div>
+          ) : error ? (
+            <QueueSurfaceStateCard kind="error" message={error} />
+          ) : visibleApprovals.length === 0 ? (
+            <QueueSurfaceStateCard
+              kind="empty"
+              title={focusFilter === "needs_retry" ? "No retryable failures" : focusFilter === "needs_review" ? `No approvals pending review` : "Approval queue is clear"}
+              message={
+                 focusFilter === "needs_retry"
+                   ? "There are currently no failed retryable sends. This queue will repopulate when a delivery fails and can be retried."
+                   : focusFilter === "needs_review"
+                     ? "No pending approvals right now. New approval-gated actions will appear here."
+                     : approvals.length === 0
+                       ? "No approval-gated actions have occurred yet."
+                       : "No approvals match the current filter."
+              }
+              onAction={() => {
+                if (focusFilter !== "all" || Boolean(statusFilter)) {
+                  router.replace("/app/approvals", { scroll: false });
+                  return;
+                }
+                void load();
+              }}
+            />
+          ) : (
+            <div className="glass-card inner-glow rounded-[2rem] overflow-hidden">
+              <ActionQueueTable
+                title="Approval Management"
+                rows={approvalRows}
+                viewAllHref={buildWorkflowHref("/app/approvals", { source: "approvals", returnTo, returnLabel: "Approval Queue" })}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Focus / Sidebar Preview Panel */}
+        <aside className="lg:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
+          <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+              <span className="material-symbols-outlined text-[120px]">assignment_turned_in</span>
+            </div>
+            
+            {previewApproval ? (
+              <div className="relative z-10 space-y-8">
+                <header>
+                  <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-2">Focused Approval</p>
+                  <h4 className="text-xl font-black font-headline text-on-surface tracking-tight leading-tight uppercase">{previewApproval.toolKey}</h4>
+                  <p className="mt-1 text-xs font-semibold text-on-surface-variant/60">{`${previewApproval.actionType}${previewApproval.entityType ? ` · ${previewApproval.entityType}` : ""}`}</p>
+                </header>
+
+                <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100/50 space-y-3">
+                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Operator Decision Hint</p>
+                  <p className="text-sm font-black text-on-surface leading-tight">
+                    {approvalDecisionHint(previewApproval)}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Workflow Actions</p>
+                  <div className="flex flex-wrap gap-2">
+                    {previewApproval.status === "PENDING" ? (
+                      <>
+                        <QueueActionButton
+                          size="sm"
+                          className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md"
+                          disabled={actionBusyId === previewApproval.id}
+                          onClick={() => void decide(previewApproval.id, "approve", "SEND_NOW")}
+                        >
+                          {actionBusyId === previewApproval.id ? "Working..." : "Approve & send"}
+                        </QueueActionButton>
+                        <QueueActionButton
+                          size="sm"
+                          className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
+                          disabled={actionBusyId === previewApproval.id}
+                          onClick={() => void decide(previewApproval.id, "approve", "APPROVE_ONLY")}
+                        >
+                          Approve only
+                        </QueueActionButton>
+                        <QueueActionButton
+                          size="sm"
+                          className="px-5 py-2.5 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all"
+                          disabled={actionBusyId === previewApproval.id}
+                          onClick={() => void decide(previewApproval.id, "reject")}
+                        >
+                          Reject
+                        </QueueActionButton>
+                      </>
+                    ) : null}
+                    
+                    {isNeedsRetry(previewApproval) ? (
+                      <QueueActionButton
+                        size="sm"
+                        className="px-5 py-2.5 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all"
+                        disabled={actionBusyId === previewApproval.id}
+                        onClick={() => void retrySend(previewApproval.id)}
+                      >
+                         Retry send
+                      </QueueActionButton>
+                    ) : null}
+
+                    {entityHref(previewApproval) ? (
+                      <QueueActionLink
+                        size="sm"
+                        className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
+                        href={buildWorkflowHref(entityHref(previewApproval), { source: "approvals", returnTo: localReturnTo, returnLabel: "Approval Queue" })}
+                      >
+                        Open entity
+                      </QueueActionLink>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Status Context</p>
+                  <div className="grid grid-cols-2 gap-4 text-[10px] font-bold text-slate-500 uppercase">
+                    <div className="space-y-1">
+                      <p>Delivery</p>
+                      <p className="text-on-surface">{formatApprovalStatusLabel(previewApproval.deliveryStatus)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p>Provider</p>
+                      <p className="text-on-surface">{previewApproval.deliveryProvider || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-40 flex items-center justify-center text-center">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-300">Select an approval to<br />load context</p>
+              </div>
+            )}
+          </div>
+          
+          <SectionDisclosure title="Secondary Diagnostics" storageKey="approvals-focused-diagnostics" defaultCollapsed>
+            <div className="pt-4 space-y-4">
+              {previewApproval ? (
+                <div className="space-y-3 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                  <div className="space-y-1">
+                    <p>Request Payload</p>
+                    <p className="text-on-surface normal-case font-medium line-clamp-3">{previewApproval.inputSummary || "No summary."}</p>
+                  </div>
+                  <div className="flex justify-between"><span>Retries</span> <span className="text-on-surface">{previewApproval.retryCount}</span></div>
+                  <div className="flex justify-between"><span>Latest event</span> <span className="text-on-surface text-right">{triage.recentEvents[0]?.label || "-"}</span></div>
+                  <div className="mt-4 pt-4 border-t border-slate-50">
+                    <ContextualShortcutHints items={previewShortcutHints} />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </SectionDisclosure>
+        </aside>
+      </div>
+    </div>
   );
 }
 
