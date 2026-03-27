@@ -490,7 +490,7 @@ export default function FollowUpPage() {
         actions={
           <div className="flex items-center gap-3 w-full md:w-auto">
             <QueueActionLink 
-              className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md"
+              className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl hover:bg-primary transition-all shadow-md"
               href={buildWorkflowHref("/app/follow-up?status=overdue_unassigned", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
             >
               Open overdue unassigned
@@ -531,7 +531,7 @@ export default function FollowUpPage() {
                     type="button"
                     onClick={() => setFilter(entry)}
                     className={cn(
-                      "px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all border",
+                      "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl transition-all border",
                       filter === entry 
                         ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10" 
                         : "bg-white text-slate-600 border-slate-100 hover:border-slate-300"
@@ -610,7 +610,7 @@ export default function FollowUpPage() {
               <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4 animate-pulse">
                 <RefreshCcw className="h-6 w-6 text-slate-300 animate-spin" />
               </div>
-              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Loading follow-up queue...</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Loading follow-up queue...</p>
             </div>
           ) : error ? (
             <QueueSurfaceStateCard kind="error" message={error} />
@@ -648,38 +648,38 @@ export default function FollowUpPage() {
             {previewItem ? (
               <div className="relative z-10 space-y-8">
                 <header>
-                  <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-2">Focused Item</p>
-                  <h4 className="text-xl font-black font-headline text-on-surface tracking-tight leading-tight uppercase line-clamp-2">{previewItem.task?.title || previewItem.reason}</h4>
+                  <p className="text-[10px] font-semibold text-primary/60 uppercase tracking-[0.12em] mb-2">Focused Item</p>
+                  <h4 className="text-xl font-semibold font-headline text-on-surface tracking-tight leading-tight uppercase line-clamp-2">{previewItem.task?.title || previewItem.reason}</h4>
                   <p className="mt-1 text-xs font-semibold text-on-surface-variant/60">{previewItem.reason}</p>
                 </header>
 
                 <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100/50 space-y-3">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Recommended Action</p>
-                  <p className="text-sm font-black text-on-surface leading-tight">
+                  <p className="text-[10px] font-semibold text-on-surface-variant/40 uppercase tracking-[0.12em]">Recommended Action</p>
+                  <p className="text-sm font-semibold text-on-surface leading-tight">
                     {triage.data?.recommendation?.action || (previewItem.status === "OPEN" ? "Complete follow-up now" : "Reopen if unresolved")}
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Ownership & Timing</p>
+                  <p className="text-[10px] font-semibold text-on-surface-variant/40 uppercase tracking-[0.12em]">Ownership & Timing</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Owner</p>
-                      <p className="text-[11px] font-black text-slate-700">{previewItem.task?.assignedToUser?.email?.split('@')[0] || "Unassigned"}</p>
+                      <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Owner</p>
+                      <p className="text-[11px] font-semibold text-slate-700">{previewItem.task?.assignedToUser?.email?.split('@')[0] || "Unassigned"}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Due</p>
-                      <p className="text-[11px] font-black text-slate-700">{dueLabel(previewItem.task?.dueAt)}</p>
+                      <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Due</p>
+                      <p className="text-[11px] font-semibold text-slate-700">{dueLabel(previewItem.task?.dueAt)}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Actions</p>
+                  <p className="text-[10px] font-semibold text-on-surface-variant/40 uppercase tracking-[0.12em]">Actions</p>
                   <div className="flex flex-wrap gap-2">
                     <QueueActionButton
                       size="sm"
-                      className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md"
+                      className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl hover:bg-primary transition-all shadow-md"
                       disabled={actionBusyId === previewItem.id}
                       onClick={() => void runQueueAction(previewItem, previewItem.status === "OPEN" ? "done" : "open")}
                     >
@@ -689,7 +689,7 @@ export default function FollowUpPage() {
                     {previewItem.entityType && previewItem.entityId ? (
                       <QueueActionLink
                         size="sm"
-                        className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all font-bold"
+                        className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl hover:bg-slate-200 transition-all font-bold"
                         href={buildWorkflowHref(queueEntityHref(previewItem), { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
                       >
                         Open entity
@@ -704,7 +704,7 @@ export default function FollowUpPage() {
               </div>
             ) : (
               <div className="h-40 flex items-center justify-center text-center">
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-300">Select an item to<br />load context</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">Select an item to<br />load context</p>
               </div>
             )}
           </div>
@@ -725,3 +725,5 @@ export default function FollowUpPage() {
     </div>
   );
 }
+
+

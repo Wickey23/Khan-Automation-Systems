@@ -917,13 +917,13 @@ export default function AppMessagesPage() {
               </div>
 
               <div className="space-y-5">
-                <h4 className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Related Activity</h4>
+                <h4 className="px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Related Activity</h4>
                 {selectedThread.latestAppointmentRequestId ? (
                   <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50 text-amber-600"><Calendar className="h-3 w-3" /></div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-900">Booking Request</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">Booking Request</span>
                       </div>
                     </div>
                     <p className="text-xs font-bold text-slate-700">Open booking queue</p>
@@ -935,7 +935,7 @@ export default function AppMessagesPage() {
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600"><PhoneCall className="h-3 w-3" /></div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-900">Recent Call</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">Recent Call</span>
                       </div>
                     </div>
                     <p className="text-xs font-bold text-slate-700">Open call queue</p>
@@ -988,5 +988,6 @@ export default function AppMessagesPage() {
     </div>
   );
 }
+
 
 

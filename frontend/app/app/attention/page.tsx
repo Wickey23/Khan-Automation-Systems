@@ -450,7 +450,7 @@ export default function AttentionPage() {
                     type="button"
                     onClick={() => setRiskFilter(entry.key)}
                     className={cn(
-                      "px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                       riskFilter === entry.key
                         ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10" 
                         : "bg-white text-slate-600 border-slate-100 hover:border-slate-300"
@@ -465,7 +465,7 @@ export default function AttentionPage() {
                 <select
                   value={ownershipFilter}
                   onChange={(event) => setOwnershipFilter(event.target.value as OwnershipFilter)}
-                  className="bg-slate-50 border-none text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+                  className="bg-slate-50 border-none text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
                 >
                   <option value="all">All owners</option>
                   <option value="unassigned">Unassigned</option>
@@ -494,7 +494,7 @@ export default function AttentionPage() {
                   <select
                     value={levelFilter}
                     onChange={(event) => setLevelFilter(event.target.value as AttentionLevel | "all")}
-                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-widest rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
+                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
                   >
                     <option value="all">All levels</option>
                     <option value="CRITICAL">Critical</option>
@@ -505,7 +505,7 @@ export default function AttentionPage() {
                   <select
                     value={blockedFilter}
                     onChange={(event) => setBlockedFilter(event.target.value as BlockedFilter)}
-                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-widest rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
+                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
                   >
                     <option value="all">Blocked + unblocked</option>
                     <option value="blocked">Blocked only</option>
@@ -514,7 +514,7 @@ export default function AttentionPage() {
                   <select
                     value={staleFilter}
                     onChange={(event) => setStaleFilter(event.target.value as StaleFilter)}
-                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-widest rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
+                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
                   >
                     <option value="all">Stale + active</option>
                     <option value="stale">Stale / unresolved</option>
@@ -546,7 +546,7 @@ export default function AttentionPage() {
               <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4 animate-pulse">
                 <RefreshCcw className="h-6 w-6 text-slate-300 animate-spin" />
               </div>
-              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Loading queue...</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Loading queue...</p>
             </div>
           ) : error ? (
             <QueueSurfaceStateCard kind="error" message={error} />
@@ -597,14 +597,14 @@ export default function AttentionPage() {
             {previewItem ? (
               <div className="relative z-10 space-y-8">
                 <header>
-                  <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-2">Focused Entity</p>
-                  <h4 className="text-xl font-black font-headline text-on-surface tracking-tight leading-tight">{previewItem.label}</h4>
+                  <p className="text-[10px] font-semibold text-primary/60 uppercase tracking-[0.12em] mb-2">Focused Entity</p>
+                  <h4 className="text-xl font-semibold font-headline text-on-surface tracking-tight leading-tight">{previewItem.label}</h4>
                   <p className="mt-1 text-xs font-semibold text-on-surface-variant/60">{previewItem.title}</p>
                 </header>
 
                 <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100/50 space-y-3">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Recommended Action</p>
-                  <p className="text-sm font-black text-on-surface leading-tight">
+                  <p className="text-[10px] font-semibold text-on-surface-variant/40 uppercase tracking-[0.12em]">Recommended Action</p>
+                  <p className="text-sm font-semibold text-on-surface leading-tight">
                     {triage.data?.recommendation?.action || previewItem.recommendedOwnerAction || "Review context and decide next action."}
                   </p>
                   <p className="text-xs font-medium text-on-surface-variant/70 italic leading-relaxed">
@@ -613,14 +613,14 @@ export default function AttentionPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Execute Workflow</p>
+                  <p className="text-[10px] font-semibold text-on-surface-variant/40 uppercase tracking-[0.12em]">Execute Workflow</p>
                   <div className="flex flex-wrap gap-2">
                     {previewActions.map((action) =>
                       action.retry ? (
                         <QueueActionButton
                           key={action.key}
                           size="sm"
-                          className="px-5 py-2.5 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all shadow-md shadow-amber-500/10"
+                          className="px-5 py-2.5 bg-amber-500 text-white text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl hover:bg-amber-600 transition-all shadow-md shadow-amber-500/10"
                           disabled={actionBusyId === previewItem.entityType + previewItem.entityId}
                           onClick={() => void onRetrySend(previewItem)}
                         >
@@ -631,7 +631,7 @@ export default function AttentionPage() {
                           key={action.key}
                           size="sm"
                           className={cn(
-                            "px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm",
+                            "px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl transition-all shadow-sm",
                             action.key === "pending-approval" || action.key === "overdue-follow-up"
                               ? "bg-slate-900 text-white hover:bg-primary"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -647,7 +647,7 @@ export default function AttentionPage() {
 
                 {previewRiskFlags.length > 0 && (
                   <div className="space-y-3 pt-4 border-t border-slate-100">
-                    <p className="text-[10px] font-black text-error uppercase tracking-widest">Risk Analysis</p>
+                    <p className="text-[10px] font-semibold text-error uppercase tracking-[0.12em]">Risk Analysis</p>
                     <ul className="space-y-2">
                        {previewRiskFlags.slice(0, 3).map((flag) => (
                          <li key={flag} className="flex items-center gap-2 text-xs font-bold text-on-surface-variant/80">
@@ -661,7 +661,7 @@ export default function AttentionPage() {
               </div>
             ) : (
               <div className="h-40 flex items-center justify-center text-center">
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-300">Select an item to<br />preview details</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">Select an item to<br />preview details</p>
               </div>
             )}
           </div>
@@ -685,4 +685,6 @@ export default function AttentionPage() {
     </div>
   );
 }
+
+
 

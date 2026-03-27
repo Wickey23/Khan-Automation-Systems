@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -678,7 +678,7 @@ export default function AppCallsPage() {
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">{callerName(selectedCall)}</h3>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         {dispositionLabel(selectedCall)} - {formatTime(selectedCall.startedAt)}
                       </p>
                     </div>
@@ -826,7 +826,7 @@ export default function AppCallsPage() {
                     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
                         <Phone className="h-4 w-4 text-primary" />
-                        <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">AI Summary</h4>
+                        <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">AI Summary</h4>
                       </div>
                       <p className="text-sm font-medium leading-relaxed text-slate-700">
                         {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "Structured summary is still pending for this call."}
@@ -996,4 +996,5 @@ export default function AppCallsPage() {
     </div>
   );
 }
+
 

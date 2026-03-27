@@ -400,8 +400,8 @@ export default function AppBillingPage() {
                 <Zap className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Current Plan</p>
-                <h2 className="mt-1 text-[2.1rem] font-black leading-none tracking-tight text-primary">{currentPlanCopy.title}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Current Plan</p>
+                <h2 className="mt-1 text-[2.1rem] font-semibold leading-none tracking-tight text-primary">{currentPlanCopy.title}</h2>
               </div>
             </div>
               <div className="flex flex-wrap gap-2">
@@ -425,7 +425,7 @@ export default function AppBillingPage() {
 
           <div className="grid gap-10 p-8 md:grid-cols-[1fr_0.95fr]">
             <div>
-              <h3 className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Plan Features</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Plan Features</h3>
               <ul className="mt-6 space-y-4">
                 {activeFeatures.map((feature) => (
                   <li key={feature} className="flex items-start gap-3 text-base font-medium text-slate-700">
@@ -440,7 +440,7 @@ export default function AppBillingPage() {
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Usage This Month</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Usage This Month</h3>
                 <div className="mt-5 space-y-5">
                   {usageRows.map((row) => (
                     <div key={row.label}>
@@ -474,17 +474,17 @@ export default function AppBillingPage() {
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 bg-slate-50/60 p-8">
-            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Payment Method</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-900">Payment Method</h3>
           </div>
           <div className="flex h-full flex-col justify-between p-8">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
               <div className="mb-8 flex items-center justify-between">
                 <CreditCard className="h-8 w-8 text-slate-400" />
-                <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
                   Default
                 </span>
               </div>
-              <p className="text-xl font-black tracking-[0.24em] text-slate-900">**** **** **** {maskedCustomerDigits}</p>
+              <p className="text-xl font-semibold tracking-[0.24em] text-slate-900">**** **** **** {maskedCustomerDigits}</p>
               <div className="mt-5 flex items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
@@ -549,7 +549,7 @@ export default function AppBillingPage() {
           <CardContent className="p-0">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <th className="px-6 py-4">Check</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Details</th>
@@ -829,6 +829,8 @@ export default function AppBillingPage() {
     </div>
   );
 }
+
+
 
 
 
