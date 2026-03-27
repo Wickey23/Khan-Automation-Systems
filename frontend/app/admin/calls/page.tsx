@@ -350,7 +350,7 @@ function FiltersToolbar({
   return (
     <div className="space-y-3">
       <div className="page-eyebrow text-xs text-slate-500">Filters</div>
-      <div className="grid gap-3 xl:grid-cols-[200px_minmax(0,1fr)_240px_auto]">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[200px_minmax(0,1fr)_240px_auto]">
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Outcome</label>
           <select
@@ -384,7 +384,7 @@ function FiltersToolbar({
             onChange={(event) => setDeletePassword(event.target.value)}
           />
         </div>
-        <Button variant="outline" className="items-center gap-2" onClick={() => void reloadCalls()}>
+        <Button variant="outline" className="items-center gap-2 md:justify-self-start" onClick={() => void reloadCalls()}>
           <Radio className="h-3.5 w-3.5 text-primary" />
           Review queue
         </Button>

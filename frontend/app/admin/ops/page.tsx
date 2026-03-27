@@ -365,7 +365,7 @@ export default function AdminOpsPage() {
         <div className="grid gap-3 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Queue summary</p>
                   <CardTitle>Webhook/job states</CardTitle>
@@ -396,7 +396,7 @@ export default function AdminOpsPage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Queue types</p>
                   <CardTitle>Job buckets</CardTitle>
@@ -425,7 +425,7 @@ export default function AdminOpsPage() {
         <div className="grid gap-3 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Stalled work</p>
                   <CardTitle>Stuck jobs</CardTitle>
@@ -450,7 +450,7 @@ export default function AdminOpsPage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Retry handling</p>
                   <CardTitle>Retrying / failed</CardTitle>
@@ -477,7 +477,7 @@ export default function AdminOpsPage() {
 
         <Card>
           <CardHeader className="flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Recent jobs</p>
                 <CardTitle>Webhook + booking activity</CardTitle>

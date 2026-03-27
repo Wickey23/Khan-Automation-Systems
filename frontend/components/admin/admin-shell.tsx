@@ -129,15 +129,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="sticky top-0 z-20 border-b border-white/60 bg-white/78 px-4 py-2.5 backdrop-blur-xl sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3">
-            <div className="relative w-full max-w-2xl">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="relative w-full max-w-xl lg:max-w-2xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 readOnly
                 value=""
                 placeholder="Search orgs, calls, messages, or events..."
-                className="h-10 w-full rounded-xl border border-slate-200/80 bg-white/90 py-2 pl-10 pr-4 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none placeholder:text-slate-500"
+                className="h-9 w-full rounded-xl border border-slate-200/80 bg-white/90 py-2 pl-10 pr-4 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none placeholder:text-slate-500"
               />
             </div>
 
