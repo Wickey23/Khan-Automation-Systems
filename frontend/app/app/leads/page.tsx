@@ -538,7 +538,7 @@ export default function AppLeadsPage() {
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: "Needs qualification",
+            label: "Qualify",
             value: filteredLeads.filter((lead) => {
               const stage = stageFromLead(lead);
               return stage === "NEW_LEAD" || stage === "QUOTED";
@@ -546,17 +546,17 @@ export default function AppLeadsPage() {
             note: "Early pipeline"
           },
           {
-            label: "Ready to schedule",
+            label: "Ready to Schedule",
             value: filteredLeads.filter((lead) => stageFromLead(lead) === "NEEDS_SCHEDULING").length,
             note: "Conversion moment"
           },
           {
-            label: "High priority",
+            label: "Priority",
             value: filteredLeads.filter((lead) => lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high").length,
             note: "Move first"
           },
           {
-            label: "Scheduled/closed",
+            label: "Scheduled & Closed",
             value: filteredLeads.filter((lead) => {
               const stage = stageFromLead(lead);
               return stage === "SCHEDULED" || stage === "COMPLETED";
@@ -564,9 +564,9 @@ export default function AppLeadsPage() {
             note: "Late pipeline"
           }
         ].map((metric) => (
-          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          <div key={metric.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
+            <p className="mt-0.5 text-xl font-semibold tracking-tight text-slate-900">{metric.value}</p>
             <p className="text-xs text-slate-500">{metric.note}</p>
           </div>
         ))}
@@ -634,7 +634,7 @@ export default function AppLeadsPage() {
                 }
               />
             ) : filteredLeads.length ? (
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   {topLead ? (
                     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
@@ -757,7 +757,7 @@ export default function AppLeadsPage() {
             )}
 
             {selectedLead && !loading ? (
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 lg:hidden">
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 xl:hidden">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-semibold text-slate-900">{leadName(selectedLead)}</p>
@@ -819,7 +819,7 @@ export default function AppLeadsPage() {
           </div>
         </div>
 
-        <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 lg:flex">
+        <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 xl:flex">
           {selectedLead ? (
             <>
               <div className="border-b border-slate-200 bg-white p-4">
