@@ -852,7 +852,7 @@ export default function AppSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <CommandHeader
         eyebrow="Administration"
         title="Settings"
@@ -920,7 +920,7 @@ export default function AppSettingsPage() {
       </SectionDisclosure>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-0 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid gap-0 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="border-b border-slate-200 bg-slate-50/60 p-5 xl:border-b-0 xl:border-r">
             <div className="space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Modules</p>
@@ -948,8 +948,8 @@ export default function AppSettingsPage() {
             </div>
           </aside>
 
-          <div id="settings-content-root" className="space-y-5 p-4">
-            <div className="sticky top-3 z-10 flex items-center justify-between rounded-md border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
+          <div id="settings-content-root" className="space-y-4 p-4">
+            <div className="sticky top-3 z-10 flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2">
               <div className="flex items-center gap-2 text-xs">
                 <span className="font-semibold text-slate-700">Status:</span>
                 <span
@@ -968,14 +968,14 @@ export default function AppSettingsPage() {
                 {saving ? "Saving..." : "Save settings"}
               </Button>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
                   <activeMenuItem.icon className="h-7 w-7" />
                 </div>
                 <div className="max-w-2xl">
                   <p className="page-eyebrow">Admin module</p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{activeMenuItem.label}</h2>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{activeMenuItem.label}</h2>
                   <p className="mt-2 text-sm text-slate-500">{activeSectionDescriptions[activeSection]}</p>
                 </div>
               </div>

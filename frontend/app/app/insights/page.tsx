@@ -214,7 +214,7 @@ export default function InsightsPage() {
   );
 
   return (
-    <PageShell className="space-y-5">
+    <PageShell className="space-y-4">
       <CommandHeader
         eyebrow="Insights"
         title="Analytical Overview"
@@ -257,14 +257,14 @@ export default function InsightsPage() {
                 </div>
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Total calls" value={summary.callsTotal} />
               <MetricCard label="Messages" value={summary.messagesTotal} />
               <MetricCard label="Pending approvals" value={summary.pendingApprovals} />
               <MetricCard label="Open follow-up" value={summary.openFollowUps} />
             </div>
             <SectionDisclosure title="Expanded trend snapshot" storageKey="insights-full-summary" className="mt-1" defaultCollapsed>
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <MetricCard label="Total calls" value={summary.callsTotal} />
                 <MetricCard label="Missed calls" value={summary.callsMissed} />
                 <MetricCard label="Messages" value={summary.messagesTotal} />
@@ -300,10 +300,10 @@ export default function InsightsPage() {
         ) : null}
 
         {!busyUsage && !usageError ? (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Change signals</p>
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <InsightMetricCard label="Approvals pending" value={usageMetrics.approvalsPending} detail="Actions currently waiting for review." />
                 <InsightMetricCard
                   label="Retryable send failures"
@@ -322,7 +322,7 @@ export default function InsightsPage() {
 
             <div>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Watch areas</p>
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <InsightMetricCard label="Approvals rejected" value={usageMetrics.approvalsRejected} detail="Rejections recorded during this period." />
                 <InsightMetricCard label="Retry failed" value={usageMetrics.retryFailed} detail="Retry attempts that still failed delivery." />
                 <InsightMetricCard
@@ -336,7 +336,7 @@ export default function InsightsPage() {
             </div>
 
             <SectionDisclosure title="Usage details" storageKey="insights-usage-breakdown" defaultCollapsed>
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <InsightMetricCard label="Approvals approved" value={usageMetrics.approvalsApproved} detail="Approved actions in this period." />
                 <InsightMetricCard label="Follow-up generated" value={usageMetrics.followUpWorkflowItems} detail="Follow-up items created from workflows." />
                 <InsightMetricCard label="Handoffs executed" value={usageMetrics.handoffExecuted} detail="Cross-workflow handoffs completed." />
