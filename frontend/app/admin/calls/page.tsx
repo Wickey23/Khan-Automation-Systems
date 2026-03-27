@@ -354,7 +354,7 @@ function FiltersToolbar({
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Outcome</label>
           <select
-            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
             value={outcome}
             onChange={(event) => setOutcome(event.target.value)}
           >
@@ -384,7 +384,7 @@ function FiltersToolbar({
             onChange={(event) => setDeletePassword(event.target.value)}
           />
         </div>
-        <Button variant="outline" className="items-center gap-2 md:justify-self-start" onClick={() => void reloadCalls()}>
+        <Button variant="outline" className="items-center gap-2 md:justify-self-start focus-visible:ring-sky-300" onClick={() => void reloadCalls()}>
           <Radio className="h-3.5 w-3.5 text-primary" />
           Review queue
         </Button>

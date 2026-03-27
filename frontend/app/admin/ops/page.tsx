@@ -183,7 +183,7 @@ function QueueJobCard({
       </div>
         {linkedCallLabel ? (
           job.callId ? (
-          <Link className="text-xs font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
+          <Link className="rounded-sm text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" href={buildAdminCallHref(job.callId)}>
             {linkedCallLabel}
           </Link>
         ) : (
@@ -260,7 +260,7 @@ function BookingFinalizerCard({ jobs, loading }: { jobs: AdminQueueJobRecord[]; 
                 </div>
                 <p className="mt-2 text-xs text-slate-600">{job.message || bookingJobHint(job)}</p>
                 {job.callId ? (
-                  <Link className="mt-2 inline-flex text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
+                  <Link className="mt-2 inline-flex rounded-sm text-[11px] font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" href={buildAdminCallHref(job.callId)}>
                     Open related call
                   </Link>
                 ) : null}
@@ -287,10 +287,10 @@ function BookingFinalizerCard({ jobs, loading }: { jobs: AdminQueueJobRecord[]; 
               description="Failures mean the call capture couldn't sync into the calendar or follow-up path. Inspect one of the call details or open calendar settings."
               action={
                 <div className="flex flex-wrap gap-2">
-                  <Link href="/app/appointments" className="text-xs font-semibold text-primary underline-offset-4 hover:underline">
+                  <Link href="/app/appointments" className="rounded-sm text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
                     Open booking triage
                   </Link>
-                  <Link href="/app/settings#settings-calendar" className="text-xs font-semibold text-primary underline-offset-4 hover:underline">
+                  <Link href="/app/settings#settings-calendar" className="rounded-sm text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
                     Open calendar settings
                   </Link>
                 </div>
