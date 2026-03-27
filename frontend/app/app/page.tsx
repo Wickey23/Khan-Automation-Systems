@@ -111,10 +111,10 @@ function QueueRow({
     <Link
       href={href}
       className={cn(
-        "group relative flex items-start justify-between gap-3 rounded-xl border px-3.5 py-2.5 transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-[0_14px_24px_-18px_rgba(15,23,42,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
+        "group relative flex items-start justify-between gap-3 rounded-lg border px-3.5 py-2.5 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
         priorityClasses,
-        spotlight ? "ring-2 ring-rose-200 shadow-[0_8px_18px_-10px_rgba(225,29,72,0.45)]" : "",
-        order === "primary" ? "shadow-[0_8px_16px_-14px_rgba(15,23,42,0.35)]" : "opacity-95"
+        spotlight ? "ring-1 ring-rose-200" : "",
+        order === "primary" ? "bg-white" : "opacity-95"
       )}
     >
       {priority === "critical" ? <span className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-rose-500" /> : null}
@@ -127,7 +127,7 @@ function QueueRow({
           <StatusBadge kind="generic" state={badgeState} label={statusLabel} size="xs" />
         </div>
         {description ? <p className="text-[11px] text-slate-600">{description}</p> : null}
-        {spotlight ? <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">Do first</p> : null}
+        {spotlight ? <p className="text-[10px] font-medium text-rose-700">Top priority</p> : null}
       </div>
       <div className="shrink-0 text-right">
         <p className={cn("text-base font-semibold leading-none", priority === "critical" ? "text-rose-700" : "text-slate-900")}>{volume}</p>
@@ -513,7 +513,7 @@ export default function AppOverviewPage() {
   );
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-3 pb-6">
       <CommandHeader
         eyebrow="Operator workspace"
         title="Operations command center"
@@ -552,7 +552,7 @@ export default function AppOverviewPage() {
         {kpiCards.map((card) => (
           <div
             key={card.key}
-            className="rounded-md border border-slate-200/90 bg-white/92 px-3 py-1.5 shadow-[0_10px_20px_-20px_rgba(15,23,42,0.65)] transition-all duration-150 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_28px_-20px_rgba(15,23,42,0.65)]"
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 transition-colors duration-150 hover:border-slate-300"
           >
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
             <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
@@ -562,11 +562,11 @@ export default function AppOverviewPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
-        <section className="xl:col-span-8 rounded-lg border border-slate-200/90 bg-white/94 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)]">
+        <section className="xl:col-span-8 rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Primary workflow</p>
-              <h2 className="text-lg font-semibold text-slate-950">Action queue</h2>
+              <h2 className="text-base font-semibold text-slate-950">Action queue</h2>
             </div>
             <div className="text-right">
               <StatusBadge kind="generic" state={blockedItems > 0 ? "warning" : "success"} label={blockedItems > 0 ? "Needs review" : "Stable"} size="xs" />
@@ -579,10 +579,10 @@ export default function AppOverviewPage() {
               <Link
                 href={topTask.href}
                 className={cn(
-                  "group block rounded-xl border px-4 py-3 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_16px_26px_-20px_rgba(15,23,42,0.62)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
+                  "group block rounded-lg border px-4 py-3 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                   topTask.priority === "critical"
-                    ? "border-rose-300 bg-rose-50/90 ring-2 ring-rose-200 shadow-[0_10px_18px_-12px_rgba(225,29,72,0.5)]"
-                    : "border-amber-300 bg-amber-50/75"
+                    ? "border-rose-300 bg-rose-50/70 ring-1 ring-rose-200"
+                    : "border-amber-300 bg-amber-50/60"
                 )}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -647,8 +647,8 @@ export default function AppOverviewPage() {
           </div>
         </section>
 
-        <aside className="space-y-4 xl:col-span-4">
-          <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.58)]">
+        <aside className="space-y-3 xl:col-span-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-950">Setup readiness</h3>
               <StatusBadge
@@ -680,7 +680,7 @@ export default function AppOverviewPage() {
             )}
           </section>
 
-          <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.58)]">
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
             <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
@@ -704,7 +704,7 @@ export default function AppOverviewPage() {
         </aside>
       </div>
 
-      <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)] sm:p-5">
+      <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activity</p>

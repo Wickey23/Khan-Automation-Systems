@@ -349,7 +349,7 @@ export default function AppBillingPage() {
     : { label: startingPlan ? "Starting..." : "Start Standard plan", onClick: () => void onStartPlan("starter"), disabled: startingPlan !== null };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <CommandHeader
         eyebrow="Billing"
         title="Subscription & Billing"
@@ -382,7 +382,7 @@ export default function AppBillingPage() {
           }
         ]}
       />
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {billingHighlights.map((item) => (
           <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
@@ -392,16 +392,16 @@ export default function AppBillingPage() {
         ))}
       </div>
 
-      <section className="grid gap-8 2xl:grid-cols-[minmax(0,2fr)_360px]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_340px] 2xl:grid-cols-[minmax(0,2fr)_360px]">
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50/60 p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/60 p-5">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Zap className="h-6 w-6" />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Current Plan</p>
-                <h2 className="mt-1 text-[2.1rem] font-semibold leading-none tracking-tight text-primary">{currentPlanCopy.title}</h2>
+                <h2 className="mt-1 text-3xl font-semibold leading-none tracking-tight text-primary">{currentPlanCopy.title}</h2>
               </div>
             </div>
               <div className="flex flex-wrap gap-2">
@@ -423,10 +423,10 @@ export default function AppBillingPage() {
             </div>
           </div>
 
-          <div className="grid gap-10 p-8 md:grid-cols-[1fr_0.95fr]">
+          <div className="grid gap-6 p-5 md:grid-cols-[1fr_0.95fr]">
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Plan Features</h3>
-              <ul className="mt-6 space-y-4">
+              <ul className="mt-4 space-y-3">
                 {activeFeatures.map((feature) => (
                   <li key={feature} className="flex items-start gap-3 text-base font-medium text-slate-700">
                     <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
@@ -438,10 +438,10 @@ export default function AppBillingPage() {
               </ul>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Usage This Month</h3>
-                <div className="mt-5 space-y-5">
+                <div className="mt-4 space-y-4">
                   {usageRows.map((row) => (
                     <div key={row.label}>
                       <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold">
@@ -457,7 +457,7 @@ export default function AppBillingPage() {
                   ))}
                 </div>
               </div>
-              <div className="border-t border-slate-100 pt-5">
+              <div className="border-t border-slate-100 pt-4">
                 <p className="text-sm text-slate-500">
                   Next billing date:{" "}
                   <span className="font-semibold text-slate-900">
@@ -473,19 +473,19 @@ export default function AppBillingPage() {
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-50/60 p-8">
+          <div className="border-b border-slate-200 bg-slate-50/60 p-5">
             <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-900">Payment Method</h3>
           </div>
-          <div className="flex h-full flex-col justify-between p-8">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
-              <div className="mb-8 flex items-center justify-between">
+          <div className="flex h-full flex-col justify-between p-5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-6 flex items-center justify-between">
                 <CreditCard className="h-8 w-8 text-slate-400" />
                 <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
                   Default
                 </span>
               </div>
               <p className="text-xl font-semibold tracking-[0.24em] text-slate-900">**** **** **** {maskedCustomerDigits}</p>
-              <div className="mt-5 flex items-end justify-between gap-4">
+              <div className="mt-4 flex items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
                   <p className="mt-2 text-sm font-semibold text-slate-700">
@@ -498,7 +498,7 @@ export default function AppBillingPage() {
               </div>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 space-y-2.5">
               <Button className="w-full" onClick={onOpenPortal} disabled={openingPortal || !hasRealSubscription}>
                 {openingPortal ? "Opening..." : "Manage in Stripe"}
               </Button>
@@ -538,7 +538,7 @@ export default function AppBillingPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
           <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 bg-white/80">
             <CardTitle>Billing operations</CardTitle>
