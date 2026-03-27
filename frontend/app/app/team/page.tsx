@@ -295,7 +295,7 @@ export default function TeamPage() {
           }
         ]}
       />
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
         <div className={`${frontDeskMetricCardClass()} text-sm`}>
           <p className="page-eyebrow">Seat usage</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight">{usedSeats}/{seats.allowedSeats}</p>
@@ -367,7 +367,7 @@ export default function TeamPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search members..."
-                className="w-80 rounded-xl border-slate-200 bg-slate-50 pl-10"
+                className="w-full max-w-[20rem] rounded-xl border-slate-200 bg-slate-50 pl-10"
               />
             </div>
             <div className="h-8 w-px bg-slate-200" />
@@ -381,7 +381,7 @@ export default function TeamPage() {
                   key={item.key}
                   type="button"
                   onClick={() => setView(item.key as typeof view)}
-                  className={`rounded-md px-4 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+                  className={`rounded-md px-4 py-1.5 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
                     view === item.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -408,7 +408,7 @@ export default function TeamPage() {
             ) : (
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     <th className="px-8 py-4">Member</th>
                     <th className="px-8 py-4">Role</th>
                     <th className="px-8 py-4">Status</th>
@@ -429,11 +429,11 @@ export default function TeamPage() {
                       <tr key={member.id} className="group hover:bg-slate-50 transition-colors">
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 font-bold text-primary shadow-sm">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 font-semibold text-primary shadow-sm">
                               {initials}
                             </div>
                             <div>
-                              <h4 className="text-sm font-bold text-slate-900">{email.split("@")[0]}</h4>
+                              <h4 className="text-sm font-semibold text-slate-900">{email.split("@")[0]}</h4>
                               <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                                 <Mail className="h-3 w-3" />
                                 {email}
@@ -446,7 +446,7 @@ export default function TeamPage() {
                             <Shield className="h-4 w-4 text-slate-400" />
                             {canManage ? (
                               <select
-                                className="h-8 rounded-md border bg-background px-2 text-xs font-bold"
+                                className="h-8 rounded-md border bg-background px-2 text-xs font-semibold"
                                 value={toRoleInput(member.role)}
                                 onChange={(event) => void onRoleChange(member, event.target.value as "admin" | "manager" | "viewer")}
                                 disabled={savingId === member.id || isSelf}
@@ -457,13 +457,13 @@ export default function TeamPage() {
                                 <option value="viewer">Viewer</option>
                               </select>
                             ) : (
-                              <span className="text-sm font-bold text-slate-700">{roleLabel}</span>
+                              <span className="text-sm font-semibold text-slate-700">{roleLabel}</span>
                             )}
                             <span className="text-[11px] text-slate-500">{ROLE_SUMMARY[member.role]}</span>
                           </div>
                         </td>
                         <td className="px-8 py-5">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isPending ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${isPending ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
                             {isPending ? <Clock3 className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
                             {isPending ? "Pending" : "Active"}
                           </span>

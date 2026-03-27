@@ -634,7 +634,7 @@ export default function AppLeadsPage() {
                 }
               />
             ) : filteredLeads.length ? (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_300px]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   {topLead ? (
                     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
@@ -667,9 +667,9 @@ export default function AppLeadsPage() {
                       </div>
                     </div>
                   ) : null}
-                  <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                    <h2 className="text-sm font-bold text-slate-900">Lead pipeline</h2>
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                    <h2 className="text-sm font-semibold text-slate-900">Lead pipeline</h2>
+                    <span className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 md:inline-flex">
                       Stage | Lead | Signal | Action
                     </span>
                   </div>
@@ -691,7 +691,7 @@ export default function AppLeadsPage() {
                           }
                         }}
                         className={cn(
-                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 md:grid-cols-[180px_minmax(0,1.4fr)_220px_170px]",
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 xl:grid-cols-[160px_minmax(0,1.3fr)_minmax(0,1fr)_150px]",
                           selectedLeadId === lead.id ? "bg-sky-50/60 ring-1 ring-inset ring-sky-200" : "",
                           priorityTone === "critical"
                             ? "border-l-2 border-l-rose-400 bg-rose-50/30"
@@ -701,7 +701,7 @@ export default function AppLeadsPage() {
                         )}
                       >
                         <div className="flex items-center gap-2">
-                          <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em]", stageTone(stage))}>
+                          <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]", stageTone(stage))}>
                             {stageLabel(stage)}
                           </span>
                           <span className="text-[10px] font-semibold text-slate-400">S{stageIndex + 1}</span>
@@ -819,7 +819,7 @@ export default function AppLeadsPage() {
           </div>
         </div>
 
-        <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 xl:flex">
+        <aside className="hidden w-[340px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 xl:flex 2xl:w-[380px]">
           {selectedLead ? (
             <>
               <div className="border-b border-slate-200 bg-white p-4">
@@ -833,11 +833,11 @@ export default function AppLeadsPage() {
                   Lead via {leadSource(selectedLead)} | {activityLabel(selectedLead)}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider", leadUrgency(selectedLead.frontDesk?.frontDeskPriority).bg, leadUrgency(selectedLead.frontDesk?.frontDeskPriority).color)}>
+                  <span className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider", leadUrgency(selectedLead.frontDesk?.frontDeskPriority).bg, leadUrgency(selectedLead.frontDesk?.frontDeskPriority).color)}>
                     <AlertCircle className="h-2.5 w-2.5" />
                     {leadUrgency(selectedLead.frontDesk?.frontDeskPriority).label} Urgency
                   </span>
-                  <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
                     <Tag className="h-2.5 w-2.5" />
                     {leadStatus(selectedLead)}
                   </span>

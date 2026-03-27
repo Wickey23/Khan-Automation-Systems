@@ -310,7 +310,7 @@ export default function AppAppointmentsPage() {
             <Inbox className="h-5 w-5 text-primary" />
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Front-Desk request queue</p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
             {tabs.map((tab) => (
               <button
                 key={tab}
@@ -331,7 +331,7 @@ export default function AppAppointmentsPage() {
         </div>
       </SectionShell>
 
-      <div className="flex flex-col gap-6 xl:flex-row">
+      <div className="flex flex-col gap-6 2xl:flex-row">
         <div className="flex-1">
           <SectionShell className="surface-panel">
             {loading ? (
@@ -354,7 +354,7 @@ export default function AppAppointmentsPage() {
             ) : filteredRequests.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
-                  <thead className="bg-white/80 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                  <thead className="bg-white/80 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                     <tr>
                       <th className="px-6 py-3">Patient / Source</th>
                       <th className="px-6 py-3">Service</th>
@@ -390,13 +390,13 @@ export default function AppAppointmentsPage() {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className={cn(
-                                "flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-bold shadow-sm",
+                                "flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-semibold shadow-sm",
                                 selected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
                               )}>
                                 {initials(request.customerName)}
                               </div>
                               <div>
-                                <div className="text-sm font-bold text-slate-900">{request.customerName}</div>
+                                <div className="text-sm font-semibold text-slate-900">{request.customerName}</div>
                                 <div className="mt-0.5 flex items-center gap-1.5">
                                   <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">{sourceLabel(request)}</span>
                                   {request.assignedUserLabel ? (
@@ -409,15 +409,15 @@ export default function AppAppointmentsPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-xs font-bold text-slate-700">{request.issueSummary}</td>
+                          <td className="px-6 py-4 text-xs font-semibold text-slate-700">{request.issueSummary}</td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-600">
+                            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
                               <Clock className="h-3.5 w-3.5 text-slate-400" />
                               {requestedTime(request)}
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em]", tone.bg, tone.color)}>
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em]", tone.bg, tone.color)}>
                               <AlertCircle className="h-2.5 w-2.5" />
                               {tone.label}
                             </span>
@@ -452,7 +452,7 @@ export default function AppAppointmentsPage() {
           </SectionShell>
         </div>
 
-        <aside className="w-full xl:w-[360px]">
+        <aside className="w-full 2xl:w-[360px]">
           {currentRequest ? (
             <SectionShell className="surface-panel space-y-4">
               <div className="flex items-center justify-between gap-4">
@@ -475,14 +475,14 @@ export default function AppAppointmentsPage() {
                   <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Workflow state</p>
-                      <p className="text-sm font-bold text-slate-900">{queueTab(currentRequest)}</p>
+                      <p className="text-sm font-semibold text-slate-900">{queueTab(currentRequest)}</p>
                     </div>
                     <StatusBadge kind="booking" state={currentRequest.status} size="xs" />
                   </div>
                   <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Calendar sync</p>
-                      <p className="text-sm font-bold text-slate-900">{currentRequest.appointmentId ? "Appointment created" : "Awaiting sync"}</p>
+                      <p className="text-sm font-semibold text-slate-900">{currentRequest.appointmentId ? "Appointment created" : "Awaiting sync"}</p>
                     </div>
                     <StatusBadge kind="booking" state={currentRequest.appointmentId ? "completed" : "processing"} size="xs" />
                   </div>
@@ -504,7 +504,7 @@ export default function AppAppointmentsPage() {
               ) : null}
 
               <div className="space-y-3">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Next steps</h4>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Next steps</h4>
                 <p className="text-sm text-slate-700">{pendingNextStep(currentRequest)}</p>
                 <div className="flex flex-wrap gap-2">
                   {currentRequest.callLogId ? (
@@ -527,14 +527,14 @@ export default function AppAppointmentsPage() {
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">AI context</h4>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">AI context</h4>
                 <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/5 p-4 text-sm text-slate-700">
                   <p>&ldquo;{note(currentRequest)}&rdquo;</p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Operator actions</h4>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Operator actions</h4>
                 {canWrite ? (
                   <div className="grid gap-3">
                     <button

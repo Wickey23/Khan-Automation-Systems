@@ -655,7 +655,7 @@ export default function AppActivationPage() {
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Incomplete</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{setupRequiredCount} step(s)</p>
@@ -714,7 +714,7 @@ export default function AppActivationPage() {
               : "These signals show what is working now and what still needs attention before live mode."
           }
         />
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           {confidenceSignals.map((signal) => (
             <div key={signal.label} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
@@ -782,7 +782,7 @@ export default function AppActivationPage() {
               </Button>
             }
           />
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-slate-900">Step 1: Call your number</p>
@@ -905,7 +905,7 @@ export default function AppActivationPage() {
           title="Feature readiness definitions"
           description="Availability here reflects real plan, org enablement, and setup readiness checks."
         />
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {featureCards.map((item) => (
             <div key={item.key} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">

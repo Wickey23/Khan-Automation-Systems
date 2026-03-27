@@ -382,7 +382,7 @@ export default function AppBillingPage() {
           }
         ]}
       />
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
         {billingHighlights.map((item) => (
           <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
@@ -392,7 +392,7 @@ export default function AppBillingPage() {
         ))}
       </div>
 
-      <section className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_360px]">
+      <section className="grid gap-8 2xl:grid-cols-[minmax(0,2fr)_360px]">
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50/60 p-8">
             <div className="flex items-center gap-4">
@@ -444,7 +444,7 @@ export default function AppBillingPage() {
                 <div className="mt-5 space-y-5">
                   {usageRows.map((row) => (
                     <div key={row.label}>
-                      <div className="mb-2 flex items-center justify-between gap-4 text-sm font-bold">
+                      <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold">
                         <span className="text-slate-600">{row.label}</span>
                         <span className="text-slate-950">
                           {row.current} / {row.total}
@@ -460,12 +460,12 @@ export default function AppBillingPage() {
               <div className="border-t border-slate-100 pt-5">
                 <p className="text-sm text-slate-500">
                   Next billing date:{" "}
-                  <span className="font-bold text-slate-900">
+                  <span className="font-semibold text-slate-900">
                     {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "Not scheduled"}
                   </span>
                 </p>
                 <p className="mt-2 text-sm text-slate-500">
-                  Status: <span className="font-bold text-slate-900">{subscription ? formatStatus(subscription.status) : "not active"}</span>
+                  Status: <span className="font-semibold text-slate-900">{subscription ? formatStatus(subscription.status) : "not active"}</span>
                 </p>
               </div>
             </div>
@@ -487,7 +487,7 @@ export default function AppBillingPage() {
               <p className="text-xl font-semibold tracking-[0.24em] text-slate-900">**** **** **** {maskedCustomerDigits}</p>
               <div className="mt-5 flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
                   <p className="mt-2 text-sm font-semibold text-slate-700">
                     {diagnostics?.summary.customerPortalReady ? "Stripe portal connected" : "Portal needs review"}
                   </p>
@@ -538,7 +538,7 @@ export default function AppBillingPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Card className={`${frontDeskWorkspaceCardClass("default")} overflow-hidden`}>
           <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 bg-white/80">
             <CardTitle>Billing operations</CardTitle>
@@ -582,7 +582,7 @@ export default function AppBillingPage() {
                   }
                 ].map((row) => (
                   <tr key={row.label} className="hover:bg-slate-50/60">
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{row.label}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-900">{row.label}</td>
                     <td className="px-6 py-4">
                       <Badge className={row.status === "Ready" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}>
                         {row.status}

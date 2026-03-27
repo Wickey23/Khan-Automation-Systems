@@ -372,7 +372,7 @@ export default function AppOnboardingPage() {
       />
 
       <Card className={frontDeskWorkspaceCardClass("hero")}>
-        <CardContent className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.1fr)_360px] xl:items-start">
+        <CardContent className="grid gap-6 p-6 2xl:grid-cols-[minmax(0,1.1fr)_360px] 2xl:items-start">
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="page-eyebrow">How setup works</p>
@@ -436,7 +436,7 @@ export default function AppOnboardingPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start">
         <div className="space-y-6">
           <Card className={frontDeskWorkspaceCardClass("default")}>
             <CardHeader className="pb-3">
@@ -525,7 +525,7 @@ export default function AppOnboardingPage() {
           </Card>
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-24">
+        <div className="space-y-6 2xl:sticky 2xl:top-24">
           <div className={`${frontDeskContextPanelClass()} space-y-4`}>
             <div className="space-y-1">
               <p className="page-eyebrow">Submit and review</p>

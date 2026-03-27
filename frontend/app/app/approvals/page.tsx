@@ -536,7 +536,7 @@ export default function ApprovalsPage() {
         }
       />
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-2 2xl:grid-cols-4 gap-6">
         {approvalSummaryStrip.map((metric) => (
           <KpiCard 
             key={metric.label} 
@@ -548,9 +548,9 @@ export default function ApprovalsPage() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
+        <div className="xl:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
           {/* Controls and Filters */}
           <div className="glass-card inner-glow rounded-2xl p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -607,7 +607,7 @@ export default function ApprovalsPage() {
                       key={status || "ALL"}
                       href={buildWorkflowHref(status ? `/app/approvals?status=${status}` : "/app/approvals", { source, returnTo, returnLabel })}
                       className={cn(
-                        "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border",
+                        "px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition-all border",
                         (status || "") === statusFilter 
                           ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" 
                           : "bg-white border-slate-100 text-slate-500 hover:border-slate-200"
@@ -679,7 +679,7 @@ export default function ApprovalsPage() {
         </div>
 
         {/* Focus / Sidebar Preview Panel */}
-        <aside className="lg:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
+        <aside className="xl:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
           <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
               <span className="material-symbols-outlined text-[120px]">assignment_turned_in</span>
@@ -760,7 +760,7 @@ export default function ApprovalsPage() {
 
                 <div className="space-y-3 pt-4 border-t border-slate-100">
                   <p className="text-[10px] font-semibold text-on-surface-variant/40 uppercase tracking-[0.12em]">Status Context</p>
-                  <div className="grid grid-cols-2 gap-4 text-[10px] font-bold text-slate-500 uppercase">
+                  <div className="grid grid-cols-2 gap-4 text-[10px] font-semibold text-slate-500 uppercase">
                     <div className="space-y-1">
                       <p>Delivery</p>
                       <p className="text-on-surface">{formatApprovalStatusLabel(previewApproval.deliveryStatus)}</p>
@@ -782,7 +782,7 @@ export default function ApprovalsPage() {
           <SectionDisclosure title="Secondary Diagnostics" storageKey="approvals-focused-diagnostics" defaultCollapsed>
             <div className="pt-4 space-y-4">
               {previewApproval ? (
-                <div className="space-y-3 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                <div className="space-y-3 text-[11px] font-semibold text-slate-500 uppercase tracking-tight">
                   <div className="space-y-1">
                     <p>Request Payload</p>
                     <p className="text-on-surface normal-case font-medium line-clamp-3">{previewApproval.inputSummary || "No approval summary available."}</p>

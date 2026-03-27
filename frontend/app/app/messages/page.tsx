@@ -526,7 +526,7 @@ export default function AppMessagesPage() {
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden">
-        <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40">
+        <div className="flex w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40 xl:w-80">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -550,7 +550,7 @@ export default function AppMessagesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search conversations..."
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-sky-300"
               />
             </div>
           </div>
@@ -643,8 +643,8 @@ export default function AppMessagesPage() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
           {selectedThread ? (
             <>
-              <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5">
-                <div className="flex items-center gap-4">
+              <header className="sticky top-0 z-10 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-5 py-2">
+                <div className="flex min-w-0 items-center gap-4">
                   <div className="relative">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 shadow-sm">
                       {avatar(selectedThread)}
@@ -665,7 +665,7 @@ export default function AppMessagesPage() {
                     <p className="text-[11px] text-slate-500">{threadType(selectedThread)} - {threadStatusLabel(selectedThread)}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2">
                   {selectedNeedsReply ? (
                     <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
                       Reply needed
@@ -911,7 +911,7 @@ export default function AppMessagesPage() {
           )}
         </div>
 
-        <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/40 xl:flex">
+        <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/40 2xl:flex">
           <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Conversation Context</h2>
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Secondary</span>

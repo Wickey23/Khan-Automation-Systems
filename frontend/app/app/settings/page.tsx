@@ -292,7 +292,7 @@ function WorkspaceAccessSection({
           </Link>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Feature access</h3>
           <div className="grid gap-3 md:grid-cols-2">
@@ -920,8 +920,8 @@ export default function AppSettingsPage() {
       </SectionDisclosure>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="border-b border-slate-200 bg-slate-50/60 p-5 lg:border-b-0 lg:border-r">
+        <div className="grid gap-0 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="border-b border-slate-200 bg-slate-50/60 p-5 xl:border-b-0 xl:border-r">
             <div className="space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Modules</p>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">Workspace settings</h2>

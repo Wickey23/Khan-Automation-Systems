@@ -59,6 +59,14 @@ function stateForAttention(level: string | null | undefined) {
   return "ready";
 }
 
+function normalizeBlockedReason(reason: string) {
+  const normalized = reason.trim().toLowerCase();
+  if (normalized === "ai ops is disabled." || normalized === "ai ops is disabled") {
+    return "AI workflow is currently unavailable for this workspace.";
+  }
+  return reason;
+}
+
 export function RecommendedNextActionPanel({
   title = "Recommended Next Action",
   source,
@@ -129,7 +137,7 @@ export function RecommendedNextActionPanel({
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Blocked reasons
               </p>
-              <p className="mt-1">{recommendation.blockedReasons.join(" | ")}</p>
+              <p className="mt-1">{recommendation.blockedReasons.map((reason) => normalizeBlockedReason(reason)).join(" | ")}</p>
             </div>
           ) : null}
 

@@ -499,7 +499,7 @@ export default function FollowUpPage() {
         }
       />
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-2 2xl:grid-cols-4 gap-6">
         {followUpSummaryStrip.map((metric) => (
           <KpiCard 
             key={metric.label} 
@@ -511,9 +511,9 @@ export default function FollowUpPage() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
+        <div className="xl:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
           {/* Controls and Filters */}
           <div className="glass-card inner-glow rounded-2xl p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -571,7 +571,7 @@ export default function FollowUpPage() {
                       type="button"
                       onClick={() => setFilter(entry)}
                       className={cn(
-                        "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border",
+                        "px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition-all border",
                         filter === entry 
                           ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" 
                           : "bg-white border-slate-100 text-slate-500 hover:border-slate-200"
@@ -583,8 +583,8 @@ export default function FollowUpPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-[11px]">
-                  <span className="rounded-md border border-slate-100 bg-white/50 px-2 py-1 text-slate-400 font-bold uppercase tracking-tighter">Total {ownershipSnapshot.all}</span>
-                  <span className="rounded-md border border-amber-100 bg-amber-50/50 px-2 py-1 text-amber-600 font-bold uppercase tracking-tighter">At Risk {ownershipSnapshot.atRisk}</span>
+                  <span className="rounded-md border border-slate-100 bg-white/50 px-2 py-1 text-slate-400 font-semibold uppercase tracking-tighter">Total {ownershipSnapshot.all}</span>
+                  <span className="rounded-md border border-amber-100 bg-amber-50/50 px-2 py-1 text-amber-600 font-semibold uppercase tracking-tighter">At Risk {ownershipSnapshot.atRisk}</span>
                 </div>
 
                 <QueueBulkActionBar
@@ -639,7 +639,7 @@ export default function FollowUpPage() {
         </div>
 
         {/* Focus / Sidebar Preview Panel */}
-        <aside className="lg:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
+        <aside className="xl:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
           <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
               <span className="material-symbols-outlined text-[120px]">flag</span>
@@ -689,7 +689,7 @@ export default function FollowUpPage() {
                     {previewItem.entityType && previewItem.entityId ? (
                       <QueueActionLink
                         size="sm"
-                        className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl hover:bg-slate-200 transition-all font-bold"
+                        className="px-5 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-xl hover:bg-slate-200 transition-all"
                         href={buildWorkflowHref(queueEntityHref(previewItem), { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
                       >
                         Open entity
@@ -712,7 +712,7 @@ export default function FollowUpPage() {
           <SectionDisclosure title="Focused Diagnostics" storageKey="follow-up-focused-diagnostics" defaultCollapsed>
             <div className="pt-4 space-y-4">
               {previewItem ? (
-                <div className="space-y-3 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                <div className="space-y-3 text-[11px] font-semibold text-slate-500 uppercase tracking-tight">
                   <div className="flex justify-between"><span>Status</span> <span className={cn("text-on-surface", previewItem.status === "OPEN" ? "text-amber-600" : "text-emerald-600")}>{previewItem.status}</span></div>
                   <div className="flex justify-between"><span>Priority</span> <span className="text-on-surface">{previewItem.task?.priority || "MEDIUM"}</span></div>
                   <div className="flex justify-between"><span>Latest event</span> <span className="text-on-surface text-right">{triage.recentEvents[0]?.label || "-"}</span></div>

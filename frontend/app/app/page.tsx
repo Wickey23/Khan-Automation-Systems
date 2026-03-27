@@ -130,7 +130,7 @@ function QueueRow({
         {spotlight ? <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">Do first</p> : null}
       </div>
       <div className="shrink-0 text-right">
-        <p className={cn("text-base font-bold leading-none", priority === "critical" ? "text-rose-700" : "text-slate-900")}>{volume}</p>
+        <p className={cn("text-base font-semibold leading-none", priority === "critical" ? "text-rose-700" : "text-slate-900")}>{volume}</p>
         <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 group-hover:text-slate-900">
           {ctaLabel}
           <ArrowRight className="h-3.5 w-3.5" />
@@ -561,12 +561,12 @@ export default function AppOverviewPage() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <section className="lg:col-span-8 rounded-lg border border-slate-200/90 bg-white/94 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <section className="xl:col-span-8 rounded-lg border border-slate-200/90 bg-white/94 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)]">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Primary workflow</p>
-              <h2 className="text-lg font-bold text-slate-950">Action queue</h2>
+              <h2 className="text-lg font-semibold text-slate-950">Action queue</h2>
             </div>
             <div className="text-right">
               <StatusBadge kind="generic" state={blockedItems > 0 ? "warning" : "success"} label={blockedItems > 0 ? "Needs review" : "Stable"} size="xs" />
@@ -645,7 +645,7 @@ export default function AppOverviewPage() {
           </div>
         </section>
 
-        <aside className="space-y-4 lg:col-span-4">
+        <aside className="space-y-4 xl:col-span-4">
           <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.58)]">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-950">Setup readiness</h3>
@@ -706,7 +706,7 @@ export default function AppOverviewPage() {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activity</p>
-            <h2 className="text-lg font-bold text-slate-950">Recent operations</h2>
+            <h2 className="text-lg font-semibold text-slate-950">Recent operations</h2>
           </div>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/app/insights">View full feed</Link>

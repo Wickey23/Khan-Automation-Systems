@@ -419,7 +419,7 @@ export default function AttentionPage() {
         }
       />
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-2 2xl:grid-cols-4 gap-6">
         {summaryStrip.map((metric) => (
           <KpiCard 
             key={metric.label} 
@@ -431,9 +431,9 @@ export default function AttentionPage() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
+        <div className="xl:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
           {/* Controls and Filters */}
           <div className="glass-card inner-glow rounded-2xl p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -494,7 +494,7 @@ export default function AttentionPage() {
                   <select
                     value={levelFilter}
                     onChange={(event) => setLevelFilter(event.target.value as AttentionLevel | "all")}
-                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
+                  className="bg-white border border-slate-100 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus-visible:ring-2 focus-visible:ring-sky-300 outline-none"
                   >
                     <option value="all">All levels</option>
                     <option value="CRITICAL">Critical</option>
@@ -505,7 +505,7 @@ export default function AttentionPage() {
                   <select
                     value={blockedFilter}
                     onChange={(event) => setBlockedFilter(event.target.value as BlockedFilter)}
-                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
+                  className="bg-white border border-slate-100 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus-visible:ring-2 focus-visible:ring-sky-300 outline-none"
                   >
                     <option value="all">Blocked + unblocked</option>
                     <option value="blocked">Blocked only</option>
@@ -514,7 +514,7 @@ export default function AttentionPage() {
                   <select
                     value={staleFilter}
                     onChange={(event) => setStaleFilter(event.target.value as StaleFilter)}
-                    className="bg-white border border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/10 outline-none"
+                  className="bg-white border border-slate-100 text-[10px] font-semibold uppercase tracking-[0.12em] rounded-lg px-3 py-1.5 focus-visible:ring-2 focus-visible:ring-sky-300 outline-none"
                   >
                     <option value="all">Stale + active</option>
                     <option value="stale">Stale / unresolved</option>
@@ -588,7 +588,7 @@ export default function AttentionPage() {
         </div>
 
         {/* Focus / Sidebar Preview Panel */}
-        <aside className="lg:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
+        <aside className="xl:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
           <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
               <span className="material-symbols-outlined text-[120px]">target</span>

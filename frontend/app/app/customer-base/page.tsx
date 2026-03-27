@@ -222,7 +222,7 @@ export default function CustomerBasePage() {
           ]}
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
           <div className={`${frontDeskMetricCardClass()} p-4`}>
             <p className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
               Total People
@@ -255,7 +255,7 @@ export default function CustomerBasePage() {
       </SectionShell>
 
       <SectionShell className="surface-panel space-y-4">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <Card className={frontDeskWorkspaceCardClass("subtle")}>
             <CardHeader className="pb-2">
               <CardTitle className="inline-flex items-center gap-1 text-base">
