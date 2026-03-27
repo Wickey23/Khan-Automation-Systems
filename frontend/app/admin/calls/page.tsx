@@ -26,7 +26,7 @@ type TimelineEntry = {
 };
 
 function formatDuration(seconds: number | null) {
-  if (!seconds || seconds <= 0) return "-";
+  if (!seconds || seconds <= 0) return "Unavailable";
   if (seconds < 60) return `${seconds}s`;
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -34,7 +34,7 @@ function formatDuration(seconds: number | null) {
 }
 
 function formatWhen(value: string | null | undefined) {
-  if (!value) return "-";
+  if (!value) return "Unavailable";
   return new Date(value).toLocaleString();
 }
 
@@ -1066,7 +1066,7 @@ function InfoRow({ label, value, span }: { label: string; value: string | null |
   return (
     <div className={spanClass}>
       <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className="text-sm text-slate-700">{value || "-"}</p>
+      <p className="text-sm text-slate-700">{value || "Unavailable"}</p>
     </div>
   );
 }
