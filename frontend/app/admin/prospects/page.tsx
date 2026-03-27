@@ -18,7 +18,7 @@ export default function AdminProspectsPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Legacy route"
@@ -40,3 +40,4 @@ export default function AdminProspectsPage() {
     </AdminGuard>
   );
 }
+

@@ -148,10 +148,10 @@ export default function AdminOutreachOverviewPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
 
-        <SectionShell className="surface-panel space-y-6">
+        <SectionShell className="surface-panel space-y-5">
           <PageHeader
             eyebrow="Internal growth"
             title="Outreach"
@@ -190,7 +190,7 @@ export default function AdminOutreachOverviewPage() {
           />
         </SectionShell>
 
-        <SectionShell className="surface-panel space-y-6">
+        <SectionShell className="surface-panel space-y-5">
           <SectionHeading
             title="Outreach metrics"
             description="High-level counts for current leads, lane health, and areas that need rapid attention."
@@ -216,7 +216,7 @@ export default function AdminOutreachOverviewPage() {
           )}
         </SectionShell>
 
-        <SectionShell className="surface-panel space-y-6">
+        <SectionShell className="surface-panel space-y-5">
           <SectionHeading title="Action needed now" description="Poor outcomes, replied leads, and dual-lane conflicts that require a decision." />
           {loading ? (
             <StateCard variant="loading" title="Assessing outreach health" description="Checking for failures and attention items." />
@@ -246,7 +246,7 @@ export default function AdminOutreachOverviewPage() {
           )}
         </SectionShell>
 
-        <SectionShell className="surface-panel space-y-6">
+        <SectionShell className="surface-panel space-y-5">
           <SectionHeading
             title="Operational read"
             description="Lane-level context showing whether the email lane, Caller AI lane, or lead handling needs intervention."
@@ -269,7 +269,7 @@ export default function AdminOutreachOverviewPage() {
           )}
         </SectionShell>
 
-        <SectionShell className="surface-panel space-y-6">
+        <SectionShell className="surface-panel space-y-5">
           <SectionHeading title="Recent activity" description="Email and Caller AI events with context, errors, and timestamps." />
           {loading ? (
             <StateCard variant="loading" title="Loading events" description="Fetching recent outreach activity." />
@@ -311,4 +311,5 @@ function humanize(value?: string | null) {
   if (!value) return "Unknown";
   return value.replaceAll("_", " ");
 }
+
 

@@ -45,7 +45,7 @@ export default function AdminRevenuePage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Revenue operations"
@@ -104,3 +104,4 @@ export default function AdminRevenuePage() {
     </AdminGuard>
   );
 }
+

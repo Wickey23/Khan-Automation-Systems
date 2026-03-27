@@ -55,7 +55,7 @@ export default function AdminEventsPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
 
         <PageHeader
@@ -144,3 +144,4 @@ export default function AdminEventsPage() {
     </AdminGuard>
   );
 }
+

@@ -239,7 +239,7 @@ function AdminCallsPageContent() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-4">
         <AdminTopTabs />
 
         <StatusSummaryHero stats={heroStats} />
@@ -267,7 +267,7 @@ function AdminCallsPageContent() {
           />
         </SectionShell>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_420px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_400px]">
           <CallListPanel
             calls={calls}
             loading={loading}
@@ -293,35 +293,35 @@ function AdminCallsPageContent() {
 
 function StatusSummaryHero({ stats }: { stats: { label: string; value: number; note: string }[] }) {
   return (
-    <SectionShell className="surface-panel space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <SectionShell className="surface-panel space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="page-eyebrow flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
             <Shield className="h-3.5 w-3.5" />
             Global control plane
           </p>
-          <h1 className="mt-2 text-[30px] font-black tracking-[-0.04em]">Global call review</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Global call review</h1>
+          <p className="mt-1 max-w-2xl text-xs text-slate-500">
             Review organization traffic, failed outcomes, transcript health, and extracted follow-up data from a single control surface.
           </p>
         </div>
-        <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="grid min-w-[220px] gap-2 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Active streams</p>
-            <p className="mt-1 text-2xl font-black text-white">{stats[3]?.value ?? 0}</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900">{stats[3]?.value ?? 0}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Failed review</p>
-            <p className="mt-1 text-2xl font-black text-rose-300">{stats[2]?.value ?? 0}</p>
+            <p className="mt-1 text-xl font-semibold text-rose-700">{stats[2]?.value ?? 0}</p>
           </div>
         </div>
       </div>
 
-      <div className="metric-grid">
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="metric-card">
+          <div key={stat.label} className="metric-card px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{stat.label}</p>
-            <p className="mt-2 text-2xl font-black tracking-[-0.03em] text-slate-950">{stat.value}</p>
+            <p className="mt-1 text-xl font-semibold tracking-tight text-slate-950">{stat.value}</p>
             <p className="mt-1 text-xs text-slate-500">{stat.note}</p>
           </div>
         ))}
@@ -348,13 +348,13 @@ function FiltersToolbar({
   reloadCalls: () => Promise<void>;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="page-eyebrow text-xs text-slate-500">Filters</div>
-      <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_260px_auto]">
+      <div className="grid gap-3 xl:grid-cols-[200px_minmax(0,1fr)_240px_auto]">
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Outcome</label>
           <select
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
             value={outcome}
             onChange={(event) => setOutcome(event.target.value)}
           >
@@ -421,8 +421,8 @@ function CallListPanel({
           </Button>
         }
       />
-      <div className="overflow-hidden rounded-[24px] border border-slate-200">
-        <div className="border-b border-slate-200 bg-slate-50 px-6 py-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+      <div className="overflow-hidden rounded-[20px] border border-slate-200">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
           Overview
         </div>
         <div className="overflow-x-auto">
@@ -1054,4 +1054,5 @@ function InfoRow({ label, value, span }: { label: string; value: string | null |
     </div>
   );
 }
+
 

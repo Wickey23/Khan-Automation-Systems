@@ -142,7 +142,7 @@ export default function AdminClientDetailPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <PageHeader
           eyebrow="Client workspace"
           title={client?.name || "Client detail"}

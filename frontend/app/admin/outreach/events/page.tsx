@@ -112,7 +112,7 @@ export default function AdminOutreachEventsPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
 
         <SectionShell className="surface-panel">
@@ -143,7 +143,7 @@ export default function AdminOutreachEventsPage() {
           />
         </SectionShell>
 
-        <SectionShell className="surface-panel space-y-6">
+        <SectionShell className="surface-panel space-y-5">
           <SectionHeading title="Event volume" description="Counts by channel and priority statuses for quick situational awareness." />
           {loading ? (
             <StateCard variant="loading" title="Loading events" />
@@ -360,4 +360,5 @@ function EventsListSection({
     </SectionShell>
   );
 }
+
 

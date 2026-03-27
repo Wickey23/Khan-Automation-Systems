@@ -41,7 +41,7 @@ export default function AdminLeadDetailPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Lead detail"

@@ -74,7 +74,7 @@ export default function AdminLeadsPage() {
   if (error) {
     return (
       <AdminGuard>
-        <PageShell className="space-y-6">
+        <PageShell className="space-y-5">
           <AdminTopTabs />
           <StateCard
             variant="error"
@@ -93,7 +93,7 @@ export default function AdminLeadsPage() {
 
   return (
     <AdminGuard>
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <AdminTopTabs />
 
       <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
@@ -178,3 +178,4 @@ export default function AdminLeadsPage() {
     </AdminGuard>
   );
 }
+

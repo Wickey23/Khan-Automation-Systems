@@ -67,7 +67,7 @@ export default function AdminSystemPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
 
         <PageHeader
@@ -237,3 +237,4 @@ export default function AdminSystemPage() {
     </AdminGuard>
   );
 }
+

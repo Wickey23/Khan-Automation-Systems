@@ -33,7 +33,7 @@ export default function AdminClientsPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Client workspaces"
@@ -82,3 +82,4 @@ export default function AdminClientsPage() {
     </AdminGuard>
   );
 }
+

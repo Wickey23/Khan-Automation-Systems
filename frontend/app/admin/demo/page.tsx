@@ -181,7 +181,7 @@ export default function AdminDemoPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Demo operations"
@@ -352,3 +352,4 @@ export default function AdminDemoPage() {
     </AdminGuard>
   );
 }
+

@@ -341,7 +341,7 @@ export default function AdminOpsPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-4">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Ops reliability"
@@ -362,12 +362,12 @@ export default function AdminOpsPage() {
           </div>
         ) : null}
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Queue summary</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Queue summary</p>
                   <CardTitle>Webhook/job states</CardTitle>
                 </div>
                 <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{queueData ? "Latest" : "Loading"}</span>
@@ -398,7 +398,7 @@ export default function AdminOpsPage() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Queue types</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Queue types</p>
                   <CardTitle>Job buckets</CardTitle>
                 </div>
               </div>
@@ -422,12 +422,12 @@ export default function AdminOpsPage() {
           </Card>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Stalled work</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Stalled work</p>
                   <CardTitle>Stuck jobs</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground">Threshold: 5m without completion</p>
@@ -452,7 +452,7 @@ export default function AdminOpsPage() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Retry handling</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Retry handling</p>
                   <CardTitle>Retrying / failed</CardTitle>
                 </div>
               </div>
@@ -475,11 +475,11 @@ export default function AdminOpsPage() {
 
         <BookingFinalizerCard jobs={queueData?.recentJobs || []} loading={loading} />
 
-        <Card className="mt-6">
+        <Card>
           <CardHeader className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Recent jobs</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Recent jobs</p>
                 <CardTitle>Webhook + booking activity</CardTitle>
               </div>
               <p className="text-xs text-muted-foreground">Limited to 25 records</p>
@@ -544,11 +544,11 @@ export default function AdminOpsPage() {
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">SMS audit</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">SMS audit</p>
                 <CardTitle>Global SMS lifecycle</CardTitle>
               </div>
             </div>
@@ -605,3 +605,4 @@ export default function AdminOpsPage() {
     </AdminGuard>
   );
 }
+

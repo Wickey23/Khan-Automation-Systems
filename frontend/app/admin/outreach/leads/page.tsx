@@ -578,7 +578,7 @@ export default function AdminOutreachLeadsPage() {
 
   return (
     <AdminGuard requireSuperAdmin>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="Internal growth"
@@ -915,3 +915,4 @@ export default function AdminOutreachLeadsPage() {
     </AdminGuard>
   );
 }
+

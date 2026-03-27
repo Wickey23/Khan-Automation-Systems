@@ -92,7 +92,7 @@ export default function AdminUsersPage() {
 
   return (
     <AdminGuard>
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <AdminTopTabs />
         <PageHeader
           eyebrow="User directory"
@@ -219,3 +219,4 @@ export default function AdminUsersPage() {
     </AdminGuard>
   );
 }
+

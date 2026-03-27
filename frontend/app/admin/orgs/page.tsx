@@ -292,3 +292,4 @@ export default function AdminOrgsPage() {
     </AdminGuard>
   );
 }
+
