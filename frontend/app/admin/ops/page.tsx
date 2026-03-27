@@ -555,7 +555,7 @@ export default function AdminOpsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading SMS events…</p>
+              <p className="text-sm text-muted-foreground">Loading SMS events...</p>
             ) : smsEmpty ? (
               <p className="text-sm text-muted-foreground">No SMS automation events captured yet.</p>
             ) : (
@@ -565,7 +565,7 @@ export default function AdminOpsPage() {
                     const key = `${row.eventType}:${row.status}`;
                     return (
                       <Badge key={key} variant="outline" className="border-slate-200 bg-white text-slate-600">
-                        {row.eventType} · {row.status} ({row.count})
+                        {row.eventType} - {row.status} ({row.count})
                       </Badge>
                     );
                   })}
@@ -583,8 +583,8 @@ export default function AdminOpsPage() {
                         </div>
                         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                           <span>{formatDate(entry.createdAt)}</span>
-                          <span>Thread: {entry.threadId || "—"}</span>
-                          <span>Message SID: {entry.messageSid || "—"}</span>
+                          <span>Thread: {entry.threadId || "-"}</span>
+                          <span>Message SID: {entry.messageSid || "-"}</span>
                           <span>From: {entry.fromNumber || "Unknown"}</span>
                           <span>To: {entry.toNumber || "Unknown"}</span>
                         </div>
