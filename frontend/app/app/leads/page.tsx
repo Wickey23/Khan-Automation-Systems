@@ -691,7 +691,7 @@ export default function AppLeadsPage() {
                           }
                         }}
                         className={cn(
-                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 2xl:grid-cols-[160px_minmax(0,1.3fr)_minmax(0,1fr)_150px]",
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 xl:grid-cols-[140px_minmax(0,1.2fr)_minmax(0,1fr)_130px] 2xl:grid-cols-[160px_minmax(0,1.3fr)_minmax(0,1fr)_150px]",
                           selectedLeadId === lead.id ? "bg-sky-50/60 ring-1 ring-inset ring-sky-200" : "",
                           priorityTone === "critical"
                             ? "border-l-2 border-l-rose-400 bg-rose-50/30"
@@ -821,7 +821,7 @@ export default function AppLeadsPage() {
           </div>
         </div>
 
-        <aside className="hidden w-[340px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/20 xl:flex 2xl:w-[380px]">
+        <aside className="hidden w-[300px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/20 xl:flex 2xl:w-[360px]">
           {selectedLead ? (
             <>
               <div className="border-b border-slate-200 bg-white p-4">
