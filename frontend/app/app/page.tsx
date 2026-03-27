@@ -513,7 +513,7 @@ export default function AppOverviewPage() {
   );
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-4 pb-6">
       <CommandHeader
         eyebrow="Operator workspace"
         title="Operations command center"
@@ -548,11 +548,11 @@ export default function AppOverviewPage() {
         />
       ) : null}
 
-      <section className={cn("grid gap-2", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
+      <section className={cn("grid gap-1.5", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
         {kpiCards.map((card) => (
           <div
             key={card.key}
-            className="rounded-md border border-slate-200/90 bg-white/92 px-3 py-2 shadow-[0_10px_20px_-20px_rgba(15,23,42,0.65)] transition-all duration-150 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_28px_-20px_rgba(15,23,42,0.65)]"
+            className="rounded-md border border-slate-200/90 bg-white/92 px-3 py-1.5 shadow-[0_10px_20px_-20px_rgba(15,23,42,0.65)] transition-all duration-150 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_28px_-20px_rgba(15,23,42,0.65)]"
           >
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
             <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
@@ -561,7 +561,7 @@ export default function AppOverviewPage() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
         <section className="xl:col-span-8 rounded-lg border border-slate-200/90 bg-white/94 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)]">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
             <div>
@@ -574,7 +574,7 @@ export default function AppOverviewPage() {
             </div>
           </div>
 
-          <div className="space-y-2 p-3 sm:p-4">
+          <div className="space-y-2 p-3">
             {topTask ? (
               <Link
                 href={topTask.href}
@@ -626,20 +626,22 @@ export default function AppOverviewPage() {
               </span>
             </div>
 
-            {queueRows.map((row, index) => (
-              <QueueRow
-                key={row.id}
-                title={row.title}
-                description={row.description}
-                href={row.href}
-                volume={row.volume}
-                priority={row.priority}
-                ctaLabel={row.ctaLabel}
-                statusLabel={row.statusLabel}
-                spotlight={index === 0 && (row.priority === "critical" || row.priority === "high")}
-                order={index === 0 || row.priority === "critical" ? "primary" : "secondary"}
-              />
-            ))}
+            <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1 xl:max-h-[470px]">
+              {queueRows.map((row, index) => (
+                <QueueRow
+                  key={row.id}
+                  title={row.title}
+                  description={row.description}
+                  href={row.href}
+                  volume={row.volume}
+                  priority={row.priority}
+                  ctaLabel={row.ctaLabel}
+                  statusLabel={row.statusLabel}
+                  spotlight={index === 0 && (row.priority === "critical" || row.priority === "high")}
+                  order={index === 0 || row.priority === "critical" ? "primary" : "secondary"}
+                />
+              ))}
+            </div>
 
             {loading ? <StateCard variant="loading" title="Refreshing queue" description="Loading latest action items." /> : null}
           </div>
