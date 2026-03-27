@@ -495,7 +495,7 @@ export default function AdminOpsPage() {
               <p className="text-sm text-muted-foreground">No recorded jobs for this tenant yet.</p>
             ) : (
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-white">
                   <TableRow>
                     <TableHead>Time</TableHead>
                     <TableHead>Status</TableHead>
@@ -559,7 +559,7 @@ export default function AdminOpsPage() {
             ) : smsEmpty ? (
               <p className="text-sm text-muted-foreground">No SMS automation events captured yet.</p>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-2.5">
                 <div className="flex flex-wrap gap-2">
                   {smsSummary.map((row) => {
                     const key = `${row.eventType}:${row.status}`;
@@ -574,7 +574,7 @@ export default function AdminOpsPage() {
                   {smsData!.recentEvents.map((entry) => {
                     const eventMeta = getSmsEventMeta(entry);
                     return (
-                      <div key={entry.id} className="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-white p-4">
+                      <div key={entry.id} className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-700">{formatSmsEventLabel(entry)}</p>
                           <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.2em]", eventMeta.classes)}>

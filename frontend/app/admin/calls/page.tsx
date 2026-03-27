@@ -427,20 +427,20 @@ function CallListPanel({
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-white text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+            <thead className="sticky top-0 z-10 bg-white text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
               <tr>
-                <th className="px-6 py-4">Call / org</th>
-                <th className="px-6 py-4">Numbers</th>
-                <th className="px-6 py-4">Summary</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Signals</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-4 py-3">Call / org</th>
+                <th className="px-4 py-3">Numbers</th>
+                <th className="px-4 py-3">Summary</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Signals</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {calls.map((call) => (
                 <tr key={call.id} className="bg-white transition-colors hover:bg-slate-50/80">
-                  <td className="px-6 py-4 align-top">
+                  <td className="px-4 py-3 align-top">
                     <button
                       type="button"
                       className="space-y-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
@@ -451,17 +451,17 @@ function CallListPanel({
                       <p className="text-xs text-slate-400">{formatWhen(call.startedAt)}</p>
                     </button>
                   </td>
-                  <td className="px-6 py-4 align-top">
+                  <td className="px-4 py-3 align-top">
                     <p className="font-mono text-xs text-slate-700">{call.fromNumber}</p>
                     <p className="mt-1 font-mono text-xs text-slate-500">{call.toNumber}</p>
                     {call.forwardedToNumber ? <p className="mt-1 font-mono text-xs text-slate-400">Fwd {call.forwardedToNumber}</p> : null}
                   </td>
-                  <td className="px-6 py-4 align-top">
+                  <td className="px-4 py-3 align-top">
                     <p className="max-w-[320px] text-sm leading-6 text-slate-700">
                       {call.aiSummary || call.summary || "No AI summary generated yet."}
                     </p>
                   </td>
-                  <td className="px-6 py-4 align-top">
+                  <td className="px-4 py-3 align-top">
                     <StatusBadge kind="call" state={call.outcome} label={humanize(call.outcome)} />
                     <div className="mt-2 text-xs text-slate-500">
                       <StatusBadge
@@ -473,7 +473,7 @@ function CallListPanel({
                     </div>
                     {call.missedReason ? <p className="mt-1 text-xs text-rose-600">{humanize(call.missedReason)}</p> : null}
                   </td>
-                  <td className="px-6 py-4 align-top">
+                  <td className="px-4 py-3 align-top">
                     <div className="space-y-1 text-xs text-slate-500">
                       <p>Duration {formatDuration(call.durationSec)}</p>
                       <p>{call.serviceRequest ? humanize(call.serviceRequest.status) : "No service request"}</p>
@@ -481,7 +481,7 @@ function CallListPanel({
                       <p>{call.recordingUrl ? "Recording ready" : "No recording"}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4 align-top text-right">
+                  <td className="px-4 py-3 align-top text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" disabled={detailLoadingId === call.id} onClick={() => void onView(call)}>
                         {detailLoadingId === call.id ? "Loading..." : "Inspect"}
