@@ -526,7 +526,7 @@ export default function AppMessagesPage() {
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden">
-        <div className="flex w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40 xl:w-80">
+        <div className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40 lg:w-72 xl:w-80">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">

@@ -558,8 +558,8 @@ export default function AppCallsPage() {
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden bg-white">
-        <div className="flex min-w-0 flex-1 overflow-hidden">
-          <section className="flex min-w-0 flex-[2] flex-col overflow-hidden border-r border-slate-200">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden xl:flex-row">
+          <section className="flex min-w-0 flex-1 flex-col overflow-hidden border-b border-slate-200 xl:flex-[2] xl:border-b-0 xl:border-r">
             <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 bg-white/90 px-4 py-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
                 <h1 className="text-lg font-semibold text-slate-900">Call Log</h1>
@@ -677,7 +677,7 @@ export default function AppCallsPage() {
             </div>
           </section>
 
-          <section className="flex min-w-0 flex-[1.5] flex-col overflow-hidden bg-slate-50/30">
+          <section className="flex min-w-0 min-h-[440px] flex-col overflow-hidden bg-slate-50/30 xl:min-h-0 xl:flex-[1.5]">
             {selectedCall ? (
               <>
                 <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
