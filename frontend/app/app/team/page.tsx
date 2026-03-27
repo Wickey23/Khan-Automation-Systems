@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock3, Mail, Plus, Search, Shield, Users } from "lucide-react";
+import { CheckCircle2, Clock3, Mail, Plus, Search, Shield } from "lucide-react";
 import {
   fetchTeamMembers,
   getBillingStatus,
@@ -511,35 +511,6 @@ export default function TeamPage() {
             )}
           </div>
 
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
-            <div className="flex items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Users className="h-7 w-7" />
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Total Members</p>
-                <p className="text-3xl font-extrabold text-slate-900">{members.length}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                <CheckCircle2 className="h-7 w-7" />
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Active Now</p>
-                <p className="text-3xl font-extrabold text-slate-900">{seats.activeMembers ?? activeCount}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
-                <Clock3 className="h-7 w-7" />
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Pending Invites</p>
-                <p className="text-3xl font-extrabold text-slate-900">{seats.pendingInvites ?? pendingCount}</p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -561,46 +532,6 @@ export default function TeamPage() {
           actions={[{ href: "/app/billing", label: "Open Billing" }]}
         />
       ) : null}
-
-      <Card className={`${frontDeskWorkspaceCardClass("default")} ${roleBlocked ? "opacity-60" : ""}`}>
-        <CardHeader className="pb-3">
-          <CardTitle>Seat usage</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className={`${frontDeskMetricCardClass()} text-sm`}>
-              <p className="page-eyebrow">Active members</p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.activeMembers ?? activeCount}</p>
-            </div>
-            <div className={`${frontDeskMetricCardClass()} text-sm`}>
-              <p className="page-eyebrow">Pending invites</p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.pendingInvites ?? 0}</p>
-            </div>
-            <div className={`${frontDeskMetricCardClass()} text-sm`}>
-              <p className="page-eyebrow">Allowed seats</p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight">{seats.allowedSeats}</p>
-            </div>
-            <div className={`${frontDeskMetricCardClass()} text-sm`}>
-              <p className="page-eyebrow">Used seats</p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight">{usedSeats}</p>
-            </div>
-          </div>
-          <div className="grid gap-2 text-sm md:grid-cols-3">
-            <div>Included seats: <span className="font-semibold">{seats.includedSeats}</span></div>
-            <div>Purchased seats: <span className="font-semibold">{seats.purchasedSeats}</span></div>
-            <div className="text-muted-foreground">Policy: {seats.seatPolicy}</div>
-          </div>
-          {seatsFull ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-              {seats.upgradeHint || "You have reached your seat limit. Add additional seats to invite more users."}
-              {" "}
-              <Link href="/app/billing" className="font-medium underline">
-                Manage seats in billing
-              </Link>
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
 
       {canManage && proEnabled && !roleBlocked ? (
         <Card className={frontDeskWorkspaceCardClass("default")}>

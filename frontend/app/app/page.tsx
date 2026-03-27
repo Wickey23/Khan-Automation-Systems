@@ -111,7 +111,7 @@ function QueueRow({
     <Link
       href={href}
       className={cn(
-        "group relative flex items-start justify-between gap-3 rounded-xl border px-3.5 py-2.5 transition-colors hover:bg-slate-50",
+        "group relative flex items-start justify-between gap-3 rounded-xl border px-3.5 py-2.5 transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-[0_14px_24px_-18px_rgba(15,23,42,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
         priorityClasses,
         spotlight ? "ring-2 ring-rose-200 shadow-[0_8px_18px_-10px_rgba(225,29,72,0.45)]" : "",
         order === "primary" ? "shadow-[0_8px_16px_-14px_rgba(15,23,42,0.35)]" : "opacity-95"
@@ -528,7 +528,10 @@ export default function AppOverviewPage() {
 
       <section className={cn("grid gap-2", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
         {kpiCards.map((card) => (
-          <div key={card.key} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+          <div
+            key={card.key}
+            className="rounded-md border border-slate-200/90 bg-white/92 px-3 py-2 shadow-[0_10px_20px_-20px_rgba(15,23,42,0.65)] transition-all duration-150 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_28px_-20px_rgba(15,23,42,0.65)]"
+          >
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
             <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
             <p className="mt-0.5 text-[11px] text-slate-500">{card.note}</p>
@@ -537,7 +540,7 @@ export default function AppOverviewPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <section className="lg:col-span-8 rounded-lg border border-slate-200 bg-white">
+        <section className="lg:col-span-8 rounded-lg border border-slate-200/90 bg-white/94 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)]">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Primary workflow</p>
@@ -554,7 +557,7 @@ export default function AppOverviewPage() {
               <Link
                 href={topTask.href}
                 className={cn(
-                  "group block rounded-xl border px-4 py-3",
+                  "group block rounded-xl border px-4 py-3 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_16px_26px_-20px_rgba(15,23,42,0.62)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                   topTask.priority === "critical"
                     ? "border-rose-300 bg-rose-50/90 ring-2 ring-rose-200 shadow-[0_10px_18px_-12px_rgba(225,29,72,0.5)]"
                     : "border-amber-300 bg-amber-50/75"
@@ -610,7 +613,7 @@ export default function AppOverviewPage() {
         </section>
 
         <aside className="space-y-4 lg:col-span-4">
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.58)]">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-950">Setup readiness</h3>
               <StatusBadge
@@ -626,7 +629,7 @@ export default function AppOverviewPage() {
                   <Link
                     key={item.key}
                     href={item.href}
-                    className="group block rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 transition-colors hover:bg-slate-100"
+                    className="group block rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 transition-all duration-150 hover:border-slate-300 hover:bg-slate-100 hover:shadow-[0_10px_18px_-16px_rgba(15,23,42,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                   >
                     <p className="text-[11px] font-semibold text-slate-800">{item.label}</p>
                     <p className="mt-0.5 text-[10px] text-slate-500">{truncateCopy(item.detail, 70)}</p>
@@ -642,7 +645,7 @@ export default function AppOverviewPage() {
             )}
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.58)]">
             <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
@@ -666,7 +669,7 @@ export default function AppOverviewPage() {
         </aside>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+      <section className="rounded-lg border border-slate-200/90 bg-white/94 p-4 shadow-[0_20px_42px_-34px_rgba(15,23,42,0.6)] sm:p-5">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activity</p>

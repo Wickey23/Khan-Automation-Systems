@@ -51,12 +51,12 @@ export function frontDeskOutcomeBadgeMeta(kind: "saved" | "booked" | "resolved")
 
 export function frontDeskCardClass(kind: "default" | "muted" | "focus" = "default") {
   if (kind === "focus") {
-    return "rounded-xl border border-sky-200 bg-white transition-colors duration-150 hover:border-sky-300";
+    return "rounded-xl border border-sky-200 bg-white/95 shadow-[0_14px_28px_-24px_rgba(14,116,214,0.55)] transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_32px_-24px_rgba(14,116,214,0.55)]";
   }
   if (kind === "muted") {
-    return "rounded-xl border border-slate-200 bg-slate-50 shadow-none transition-colors hover:border-slate-300 hover:bg-white";
+    return "rounded-xl border border-slate-200 bg-slate-50/92 shadow-none transition-all duration-150 hover:border-slate-300 hover:bg-white hover:shadow-[0_14px_26px_-24px_rgba(15,23,42,0.5)]";
   }
-  return "rounded-xl border border-slate-200 bg-white shadow-none transition-colors duration-150 hover:border-slate-300";
+  return "rounded-xl border border-slate-200 bg-white/95 shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_28px_-24px_rgba(15,23,42,0.52)]";
 }
 
 export function frontDeskContextPanelClass() {
@@ -98,16 +98,16 @@ export function frontDeskOutcomeSurfaceClass(kind: "active" | "saved" | "booked"
 
 export function frontDeskWorkspaceCardClass(kind: "default" | "hero" | "subtle" = "default") {
   if (kind === "hero") {
-    return "rounded-xl border border-slate-200 bg-white shadow-none";
+    return "rounded-xl border border-slate-200/90 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.06),transparent_58%),white] shadow-[0_18px_34px_-28px_rgba(15,23,42,0.58)]";
   }
   if (kind === "subtle") {
-    return "rounded-xl border border-slate-200 bg-slate-50 shadow-none";
+    return "rounded-xl border border-slate-200/90 bg-slate-50/92 shadow-none";
   }
-  return "rounded-xl border border-slate-200 bg-white shadow-none";
+  return "rounded-xl border border-slate-200/90 bg-white/95 shadow-[0_12px_26px_-24px_rgba(15,23,42,0.48)]";
 }
 
 export function frontDeskMetricCardClass() {
-  return "rounded-xl border border-slate-200 bg-white shadow-none";
+  return "rounded-xl border border-slate-200/90 bg-white/95 shadow-[0_12px_26px_-24px_rgba(15,23,42,0.48)]";
 }
 
 export function frontDeskActionStripClass() {

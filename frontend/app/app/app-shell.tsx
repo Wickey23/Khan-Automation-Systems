@@ -323,10 +323,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key={item.href}
         href={item.href}
         className={cn(
-          "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+          "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
           active
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            ? "bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-[0_10px_18px_-12px_rgba(14,116,214,0.72)]"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-0.5"
         )}
       >
         <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-white" : "text-slate-400 group-hover:text-slate-700")} />
@@ -343,13 +343,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="relative flex h-screen overflow-hidden bg-slate-100">
+        <div className="relative flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_48%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-sky-200/30 via-transparent to-blue-200/30" />
           {/* Sidebar */}
-          <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white lg:flex">
+          <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col overflow-hidden border-r border-slate-200/70 bg-white/85 backdrop-blur lg:flex">
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Brand */}
               <div className="flex items-center gap-2.5 border-b border-slate-200 px-4 py-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-[0_10px_18px_-10px_rgba(14,116,214,0.7)]">
                   <ConciergeBell className="h-4 w-4" />
                 </div>
                 <div>
@@ -390,9 +391,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </aside>
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Top bar */}
-            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6">
+            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200/80 bg-white/82 px-4 py-2.5 backdrop-blur-xl sm:px-6">
               <div className="flex flex-1 items-center gap-3">
                 <div className="relative w-full max-w-md">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -401,7 +402,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     readOnly
                     value=""
                     placeholder="Quick search..."
-                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-slate-300"
+                    className="h-8 w-full rounded-md border border-slate-200 bg-white/95 py-1.5 pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-sky-300"
                   />
                 </div>
               </div>
@@ -413,11 +414,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   {RELEASE_TAG}
                 </span>
-                <button className="relative rounded-md border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
+                <button
+                  aria-label="Notifications"
+                  className="relative rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 shadow-[0_10px_16px_-14px_rgba(15,23,42,0.5)] transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                >
                   <Bell className="h-4 w-4" />
                   <div className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
                 </button>
-                <button className="rounded-md border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition-colors hover:bg-white hover:text-slate-900">
+                <button
+                  aria-label="Help"
+                  className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 shadow-[0_10px_16px_-14px_rgba(15,23,42,0.5)] transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                >
                   <CircleHelp className="h-4 w-4" />
                 </button>
                 {/* Mobile nav shortcuts */}
@@ -446,11 +453,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             <main className="flex-1 overflow-y-auto">
               <div className="px-4 py-4 sm:px-6 lg:px-8">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
                   <p className="text-sm font-semibold text-slate-900">{pageLabel}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500" : "bg-amber-500")} />
+                      <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500" : "bg-amber-500")}>
+                        {workspaceLive ? <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/80" /> : null}
+                      </span>
                       {liveBadge.label}
                     </span>
                     <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
@@ -467,7 +476,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="app-banner app-banner-primary">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span>{modeBanner.text}</span>
-                        <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                        <Link href={modeBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-50">
                           {modeBanner.ctaLabel}
                         </Link>
                       </div>
@@ -477,7 +486,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div className={activationBanner.stage === "not_started" ? "app-banner app-banner-warning" : "app-banner app-banner-primary"}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span>{activationBanner.text}</span>
-                        <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                        <Link href={activationBanner.ctaHref} className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-50">
                           {activationBanner.ctaLabel}
                         </Link>
                       </div>
@@ -491,7 +500,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             ? `System proven live. First ${firstSuccess.type} interaction recorded on ${new Date(firstSuccess.at).toLocaleString()}.`
                             : "System ready and listening. Inbound calls, SMS automation, and booking workflows are operational."}
                         </span>
-                        <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800">
+                        <Link href="/app/calls" className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-50">
                           View live calls
                         </Link>
                       </div>

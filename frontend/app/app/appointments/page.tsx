@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Calendar,
@@ -117,6 +117,32 @@ export default function AppAppointmentsPage() {
     () => requests.filter((request) => request.status === "APPROVED").length,
     [requests]
   );
+  const loadAppointmentWorkspace = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [requestData, me, teamData] = await Promise.all([
+        fetchAppointmentRequests(),
+        getMe(),
+        fetchTeamMembers().catch(() => ({ members: [] as TeamMember[] }))
+      ]);
+      setRequests(requestData.requests || []);
+      setSelectedRequestId(highlightedRequestId || requestData.requests?.[0]?.id || "");
+      setCanWrite(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
+      const members = (teamData.members || [])
+        .filter((member) => member.status === "ACTIVE" && member.user?.id)
+        .map((member) => ({ id: member.user?.id || "", label: member.user?.email || member.invitedEmail }));
+      setAssignable(members);
+      setError(null);
+    } catch (loadError) {
+      setRequests([]);
+      setCanWrite(false);
+      setAssignable([]);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load booking requests.");
+    } finally {
+      setLoading(false);
+    }
+  }, [highlightedRequestId]);
 
   useEffect(() => {
     if (!shouldShowAppointments) {
@@ -125,25 +151,8 @@ export default function AppAppointmentsPage() {
       setLoading(false);
       return;
     }
-    setError(null);
-    void Promise.all([fetchAppointmentRequests(), getMe(), fetchTeamMembers().catch(() => ({ members: [] as TeamMember[] }))])
-      .then(([requestData, me, teamData]) => {
-        setRequests(requestData.requests || []);
-        setSelectedRequestId(highlightedRequestId || requestData.requests?.[0]?.id || "");
-        setCanWrite(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
-        const members = (teamData.members || [])
-          .filter((member) => member.status === "ACTIVE" && member.user?.id)
-          .map((member) => ({ id: member.user?.id || "", label: member.user?.email || member.invitedEmail }));
-        setAssignable(members);
-      })
-      .catch((loadError) => {
-        setRequests([]);
-        setCanWrite(false);
-        setAssignable([]);
-        setError(loadError instanceof Error ? loadError.message : "Failed to load booking requests.");
-      })
-      .finally(() => setLoading(false));
-  }, [highlightedRequestId, shouldShowAppointments]);
+    void loadAppointmentWorkspace();
+  }, [loadAppointmentWorkspace, shouldShowAppointments]);
 
   const filteredRequests = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -336,28 +345,7 @@ export default function AppAppointmentsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      setLoading(true);
-                      setError(null);
-                      void Promise.all([fetchAppointmentRequests(), getMe(), fetchTeamMembers().catch(() => ({ members: [] as TeamMember[] }))])
-                        .then(([requestData, me, teamData]) => {
-                          setRequests(requestData.requests || []);
-                          setSelectedRequestId(highlightedRequestId || requestData.requests?.[0]?.id || "");
-                          setCanWrite(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
-                          const members = (teamData.members || [])
-                            .filter((member) => member.status === "ACTIVE" && member.user?.id)
-                            .map((member) => ({ id: member.user?.id || "", label: member.user?.email || member.invitedEmail }));
-                          setAssignable(members);
-                          setError(null);
-                        })
-                        .catch((retryError) => {
-                          setRequests([]);
-                          setCanWrite(false);
-                          setAssignable([]);
-                          setError(retryError instanceof Error ? retryError.message : "Failed to load booking requests.");
-                        })
-                        .finally(() => setLoading(false));
-                    }}
+                    onClick={() => void loadAppointmentWorkspace()}
                   >
                     Retry
                   </Button>
