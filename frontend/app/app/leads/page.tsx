@@ -523,9 +523,9 @@ export default function AppLeadsPage() {
   return (
     <div className="space-y-4">
       <CommandHeader
-        eyebrow="AI Operations"
-        title="Leads"
-        description="Move leads through qualification stages, prioritize conversion-ready work, and keep ownership clear."
+        eyebrow="Pipeline Workspace"
+        title="Lead Pipeline"
+        description="Qualify inbound leads, prioritize conversion-ready work, and move each lead to the next stage."
         actions={
           <Button asChild size="sm">
             <Link href={buildWorkflowHref("/app/leads?q=needs+follow+up", { source: "leads", returnTo: localReturnTo, returnLabel: "Leads" })}>
@@ -589,7 +589,7 @@ export default function AppLeadsPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search leads..."
-                  className="h-8 w-72 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
+                  className="h-8 w-full max-w-[18rem] rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-72"
                 />
               </div>
             </div>
@@ -689,9 +689,7 @@ export default function AppLeadsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className={cn("truncate text-[11px] font-semibold", signal.tone)}>{signal.label}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-slate-500">
-                            {urgency.label} priority - {selectedForBatch ? "Batch selected" : leadSource(lead)}
-                          </p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{urgency.label} priority - {selectedForBatch ? "Batch selected" : leadSource(lead)}</p>
                         </div>
                         <div className="flex items-center justify-between gap-2 md:justify-end">
                           <Button
