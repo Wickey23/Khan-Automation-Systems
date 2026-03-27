@@ -572,7 +572,7 @@ export default function AppLeadsPage() {
         ))}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden bg-white">
+      <div className="flex min-h-[640px] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
             <div className="flex items-center gap-4">
@@ -613,7 +613,7 @@ export default function AppLeadsPage() {
                 description={error}
               />
             ) : filteredLeads.length ? (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   {topLead ? (
                     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
@@ -649,7 +649,7 @@ export default function AppLeadsPage() {
                   <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                     <h2 className="text-sm font-bold text-slate-900">Lead pipeline</h2>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Stage - Lead - Priority - Next action
+                      Stage - Lead - Priority - Action
                     </span>
                   </div>
                   <div className="divide-y divide-slate-100">
@@ -734,10 +734,71 @@ export default function AppLeadsPage() {
                 description="Try a broader term or clear the query to view the full lead pipeline."
               />
             )}
+
+            {selectedLead && !loading ? (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 lg:hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-900">{leadName(selectedLead)}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {stageLabel(stageFromLead(selectedLead))} - {leadSource(selectedLead)}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                      leadUrgency(selectedLead.frontDesk?.frontDeskPriority).bg,
+                      leadUrgency(selectedLead.frontDesk?.frontDeskPriority).color
+                    )}
+                  >
+                    {leadUrgency(selectedLead.frontDesk?.frontDeskPriority).label} priority
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-600">{leadSummary(selectedLead)}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {selectedLead.latestMessageThreadId ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        href={buildWorkflowHref(`/app/messages?threadId=${encodeURIComponent(selectedLead.latestMessageThreadId)}`, {
+                          source: "leads",
+                          returnTo: localReturnTo,
+                          returnLabel: "Leads"
+                        })}
+                      >
+                        Open inbox thread
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {selectedLead.latestAppointmentRequestId ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedLead.latestAppointmentRequestId)}`, {
+                          source: "leads",
+                          returnTo: localReturnTo,
+                          returnLabel: "Leads"
+                        })}
+                      >
+                        Open booking request
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {canEdit ? (
+                    <>
+                      <Button variant="outline" size="sm" disabled={savingStage === "NEEDS_SCHEDULING"} onClick={() => void setStage("NEEDS_SCHEDULING")}>
+                        Set scheduling
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={savingStage === "COMPLETED"} onClick={() => void setStage("COMPLETED")}>
+                        Mark completed
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <aside className="hidden w-96 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 lg:flex">
+        <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 lg:flex">
           {selectedLead ? (
             <>
               <div className="border-b border-slate-200 bg-white p-4">

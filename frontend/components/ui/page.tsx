@@ -19,11 +19,11 @@ export function PageHeader({
     <div className={cn("page-header", className)}>
       <div className="page-header-copy">
         {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
-        <div className="space-y-2">
-          <h1 className="max-w-3xl text-[30px] font-black leading-[1.02] tracking-[-0.04em] text-slate-950 sm:text-[40px]">
+        <div className="space-y-1.5">
+          <h1 className="max-w-3xl text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-950 sm:text-[28px]">
             {title}
           </h1>
-          {description ? <p className="max-w-2xl text-[14px] leading-6 text-slate-500">{description}</p> : null}
+          {description ? <p className="max-w-2xl text-sm leading-6 text-slate-500">{description}</p> : null}
         </div>
       </div>
       {actions ? <div className="page-header-actions self-start md:self-end">{actions}</div> : null}
@@ -46,11 +46,11 @@ export function SectionHeading({
 }) {
   return (
     <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
-        <div className="space-y-1.5">
-          <h2 className="text-[24px] font-black tracking-[-0.03em] text-slate-950 sm:text-[30px]">{title}</h2>
-          {description ? <p className="max-w-2xl text-[14px] leading-6 text-slate-500">{description}</p> : null}
+        <div className="space-y-1">
+          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-slate-950 sm:text-[24px]">{title}</h2>
+          {description ? <p className="max-w-2xl text-sm leading-6 text-slate-500">{description}</p> : null}
         </div>
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}

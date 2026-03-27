@@ -222,11 +222,11 @@ body {
   }
 
   .page-shell {
-    @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8;
   }
 
   .section-shell {
-    @apply py-8 sm:py-12;
+    @apply py-4 sm:py-5;
   }
 
   .surface-panel {
@@ -239,15 +239,15 @@ body {
   }
 
   .page-eyebrow {
-    @apply inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-700;
+    @apply inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700;
   }
 
   .page-header {
-    @apply flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between;
+    @apply flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between;
   }
 
   .page-header-copy {
-    @apply max-w-3xl space-y-1;
+    @apply max-w-3xl space-y-0.5;
   }
 
   .page-header-actions {
@@ -255,7 +255,7 @@ body {
   }
 
   .metric-grid {
-    @apply grid gap-3 md:grid-cols-2 xl:grid-cols-4;
+    @apply grid gap-2.5 md:grid-cols-2 xl:grid-cols-4;
   }
 
   .metric-card {
@@ -287,7 +287,7 @@ body {
   }
 
   .app-main-shell {
-    @apply min-w-0 space-y-4 rounded-lg border border-slate-200 bg-white p-4;
+    @apply min-w-0 space-y-3 rounded-lg border border-slate-200 bg-white p-4;
   }
 
   .app-banner {

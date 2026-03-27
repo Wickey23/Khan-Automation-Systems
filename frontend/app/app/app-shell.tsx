@@ -306,6 +306,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [accessSummary]);
   const hasWorkspaceNotice = Boolean(modeBanner || activationBanner || accessWarning || (!modeBanner && workspaceLive));
+  const showWorkflowFlow = pathname === "/app" || pathname.startsWith("/app/activation") || pathname.startsWith("/app/settings");
+  const showWorkspaceNotices = hasWorkspaceNotice && (pathname === "/app" || Boolean(modeBanner || activationBanner || accessWarning));
   const workflowSteps = useMemo(() => {
     return workflowSequence
       .map((href) => navItems.find((item) => item.href === href) || null)
@@ -390,13 +392,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="relative flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_48%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-sky-200/30 via-transparent to-blue-200/30" />
+        <div className="relative flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.1),transparent_52%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-sky-200/25 via-transparent to-blue-200/25" />
           {/* Sidebar */}
-          <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col overflow-hidden border-r border-slate-200/70 bg-white/85 backdrop-blur lg:flex">
+          <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col overflow-hidden border-r border-slate-200/70 bg-white/88 backdrop-blur lg:flex">
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Brand */}
-              <div className="flex items-center gap-2.5 border-b border-slate-200 px-4 py-3">
+              <div className="flex items-center gap-2.5 border-b border-slate-200 px-3.5 py-3">
                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-[0_10px_18px_-10px_rgba(14,116,214,0.7)]">
                   <ConciergeBell className="h-4 w-4" />
                 </div>
@@ -411,7 +413,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Sidebar Footer */}
-            <div className="border-t border-slate-200 px-2 py-2 space-y-1">
+            <div className="space-y-1 border-t border-slate-200 px-2 py-2">
               <Link
                 href="/app/appointments"
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
@@ -440,7 +442,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Top bar */}
-            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200/80 bg-white/82 px-4 py-2.5 backdrop-blur-xl sm:px-6">
+            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200/80 bg-white/88 px-4 py-2 backdrop-blur-xl sm:px-6">
               <div className="flex flex-1 items-center gap-3">
                 <div className="relative w-full max-w-md">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -449,7 +451,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     readOnly
                     value=""
                     placeholder="Quick search..."
-                    className="h-8 w-full rounded-md border border-slate-200 bg-white/95 py-1.5 pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-sky-300"
+                    className="h-8 w-full rounded-md border border-slate-200 bg-white py-1.5 pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-sky-300"
                   />
                 </div>
               </div>
@@ -499,8 +501,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </header>
 
             <main className="flex-1 overflow-y-auto">
-              <div className="space-y-3 px-4 py-3 sm:px-6 lg:px-8">
-                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white/94 px-3 py-2 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
+              <div className="space-y-2.5 px-4 py-3 sm:px-6 lg:px-8">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-3 py-2 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]">
                   <p className="text-sm font-semibold text-slate-900">{pageLabel}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
@@ -516,7 +518,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </span>
                   </div>
                 </div>
-                <SectionDisclosure title="Workflow flow" storageKey="shell-workflow-flow" defaultCollapsed className="border-slate-200/90 bg-white/94 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
+                {showWorkflowFlow ? (
+                <SectionDisclosure title="Workflow flow" storageKey="shell-workflow-flow" defaultCollapsed className="border-slate-200/90 bg-white shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-slate-600">Use this to move screen-to-screen without losing context.</p>
@@ -562,9 +565,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                   </div>
                 </SectionDisclosure>
+                ) : null}
 
-                {hasWorkspaceNotice ? (
-                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="border-slate-200/90 bg-white/94 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
+                {showWorkspaceNotices ? (
+                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="border-slate-200/90 bg-white shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]">
                   {modeBanner ? (
                     <div className="app-banner app-banner-primary">
                       <div className="flex flex-wrap items-center justify-between gap-2">
