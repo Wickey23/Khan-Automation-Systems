@@ -362,7 +362,7 @@ export default function AdminOpsPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-2.5 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -383,9 +383,9 @@ export default function AdminOpsPage() {
               ) : (
                 <div className="grid gap-3 md:grid-cols-3">
                   {queueData!.summary.map((row) => (
-                    <div key={row.status} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div key={row.status} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
                       <p className="text-xs uppercase tracking-[0.12em] text-slate-500">{row.label}</p>
-                      <p className="mt-1 text-3xl font-bold">{row.count}</p>
+                      <p className="mt-1 text-2xl font-semibold">{row.count}</p>
                       <p className="text-xs text-muted-foreground">Jobs</p>
                     </div>
                   ))}
@@ -411,7 +411,7 @@ export default function AdminOpsPage() {
               ) : (
                 <div className="grid gap-2">
                   {queueData!.typeSummary.map((row) => (
-                    <div key={row.type} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                    <div key={row.type} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm">
                       <span className="font-medium">{row.type.replace(/-/g, " ")}</span>
                       <span className="text-slate-500">{row.count}</span>
                     </div>
@@ -422,7 +422,7 @@ export default function AdminOpsPage() {
           </Card>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-2.5 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -439,7 +439,7 @@ export default function AdminOpsPage() {
               ) : stuckEmpty ? (
                 <p className="text-sm text-muted-foreground">No stuck jobs. Processing is keeping up.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {queueData!.stuckJobs.map((job) => (
                     <QueueJobCard key={job.id} job={job} onRetrySuccess={() => void loadData()} />
                   ))}
@@ -463,7 +463,7 @@ export default function AdminOpsPage() {
               ) : retryEmpty ? (
                 <p className="text-sm text-muted-foreground">No failed jobs pending retry.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {queueData!.retryingJobs.map((job) => (
                     <QueueJobCard key={job.id} job={job} onRetrySuccess={() => void loadData()} />
                   ))}
@@ -476,7 +476,7 @@ export default function AdminOpsPage() {
         <BookingFinalizerCard jobs={queueData?.recentJobs || []} loading={loading} />
 
         <Card>
-          <CardHeader className="flex flex-col gap-1">
+          <CardHeader className="flex flex-col gap-1 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Recent jobs</p>
@@ -509,7 +509,7 @@ export default function AdminOpsPage() {
                     const meta = getStatusMeta(job.status);
                     return (
                       <TableRow key={job.id}>
-                        <TableCell className="text-xs text-muted-foreground">{formatDate(job.createdAt)}</TableCell>
+                        <TableCell className="py-2.5 text-xs text-muted-foreground">{formatDate(job.createdAt)}</TableCell>
                         <TableCell>
                           <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]", meta.classes)}>
                             {meta.label}
@@ -570,11 +570,11 @@ export default function AdminOpsPage() {
                     );
                   })}
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {smsData!.recentEvents.map((entry) => {
                     const eventMeta = getSmsEventMeta(entry);
                     return (
-                      <div key={entry.id} className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3">
+                      <div key={entry.id} className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2.5">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-700">{formatSmsEventLabel(entry)}</p>
                           <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]", eventMeta.classes)}>
