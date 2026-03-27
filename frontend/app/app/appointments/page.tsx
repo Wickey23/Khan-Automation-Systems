@@ -331,7 +331,7 @@ export default function AppAppointmentsPage() {
         </div>
       </SectionShell>
 
-      <div className="flex flex-col gap-6 2xl:flex-row">
+      <div className="flex flex-col gap-4 xl:flex-row">
         <div className="flex-1">
           <SectionShell className="surface-panel">
             {loading ? (
@@ -361,7 +361,7 @@ export default function AppAppointmentsPage() {
                       <th className="px-6 py-3 text-center">Requested Time</th>
                       <th className="px-6 py-3">Urgency</th>
                       <th className="px-6 py-3 text-right">Status</th>
-                      <th className="px-6 py-3 text-right">Thread</th>
+                      <th className="hidden px-6 py-3 text-right xl:table-cell">Thread</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-sm text-slate-700">
@@ -425,7 +425,7 @@ export default function AppAppointmentsPage() {
                           <td className="px-6 py-4 text-right">
                             <StatusBadge kind="booking" state={request.status} label={queueTab(request)} size="xs" />
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="hidden px-6 py-4 text-right xl:table-cell">
                             {request.latestMessageThreadId ? (
                               <Link
                                 href={`/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`}
@@ -452,7 +452,7 @@ export default function AppAppointmentsPage() {
           </SectionShell>
         </div>
 
-        <aside className="w-full 2xl:w-[360px]">
+        <aside className="w-full xl:w-[340px] 2xl:w-[360px]">
           {currentRequest ? (
             <SectionShell className="surface-panel space-y-4">
               <div className="flex items-center justify-between gap-4">

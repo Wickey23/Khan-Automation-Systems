@@ -180,7 +180,7 @@ export default function AppAnalyticsPage() {
           ]}
         />
 
-        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,420px)] 2xl:items-start">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,380px)] xl:items-start">
           <Card className={frontDeskWorkspaceCardClass("hero")}>
             <CardContent className="space-y-4 p-6 sm:p-7">
               <div>
@@ -277,7 +277,7 @@ export default function AppAnalyticsPage() {
             {range === "7d" ? "7-day window" : "30-day window"}
           </p>
         </div>
-        <div className={`grid gap-4 sm:grid-cols-2 2xl:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
+        <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 ${!isPro ? "opacity-60" : ""}`}>
           {metricCards.map((item) => (
             <Card key={item.label} className={frontDeskMetricCardClass()}>
               <CardContent className="p-5">
@@ -300,7 +300,7 @@ export default function AppAnalyticsPage() {
       ) : null}
 
       {!isViewer ? (
-      <div className={`grid gap-4 2xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,360px)] ${!isPro ? "opacity-60" : ""}`}>
+      <div className={`grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,340px)] ${!isPro ? "opacity-60" : ""}`}>
         <Card className={frontDeskWorkspaceCardClass("default")}>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
