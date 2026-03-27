@@ -923,7 +923,7 @@ export default function AppSettingsPage() {
         <div className="grid gap-0 xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="border-b border-slate-200 bg-slate-50/60 p-5 xl:border-b-0 xl:border-r">
             <div className="space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Modules</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Modules</p>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">Workspace settings</h2>
               <p className="text-sm text-slate-500">Each module controls one configuration area.</p>
             </div>

@@ -115,7 +115,7 @@ function leadUrgency(priority?: FrontDeskPriority) {
 }
 
 function leadSummary(lead: Lead) {
-  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "Summary unavailable.";
+  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "Summary pending.";
 }
 
 function leadSource(lead: Lead) {

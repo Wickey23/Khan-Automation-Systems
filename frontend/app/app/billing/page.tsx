@@ -474,20 +474,20 @@ export default function AppBillingPage() {
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 bg-slate-50/60 p-5">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-900">Payment Method</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Payment Method</h3>
           </div>
           <div className="flex h-full flex-col justify-between p-5">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-6 flex items-center justify-between">
                 <CreditCard className="h-8 w-8 text-slate-400" />
-                <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
+                <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
                   Default
                 </span>
               </div>
               <p className="text-xl font-semibold tracking-[0.24em] text-slate-900">**** **** **** {maskedCustomerDigits}</p>
               <div className="mt-4 flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Billing Access</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Billing Access</p>
                   <p className="mt-2 text-sm font-semibold text-slate-700">
                     {diagnostics?.summary.customerPortalReady ? "Stripe portal connected" : "Portal needs review"}
                   </p>

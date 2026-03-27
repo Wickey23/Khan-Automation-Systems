@@ -639,7 +639,7 @@ export default function AppActivationPage() {
       <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Activation progress</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activation progress</p>
             <p className="mt-1 text-sm text-slate-600">
               {completedCount} of {steps.length} steps complete. {remainingCount} remaining.
             </p>
@@ -684,7 +684,7 @@ export default function AppActivationPage() {
         />
         {!workspaceLive ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Next steps</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Next steps</p>
             <div className="mt-2 space-y-2">
               {nextSetupSteps.length ? (
                 nextSetupSteps.map((step) => (
@@ -718,7 +718,7 @@ export default function AppActivationPage() {
           {confidenceSignals.map((signal) => (
             <div key={signal.label} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{signal.label}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{signal.label}</p>
                 <StatusBadge kind="feature" state={signal.status} size="xs" />
               </div>
               <p className="mt-2 text-sm text-slate-700">{signal.detail}</p>
@@ -876,7 +876,7 @@ export default function AppActivationPage() {
             <div key={step.id} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Step {index + 1}
                   </p>
                   <h3 className="text-base font-semibold text-slate-900">{step.label}</h3>
@@ -910,7 +910,7 @@ export default function AppActivationPage() {
             <div key={item.key} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{item.state.label}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{item.state.label}</p>
                   <p className="text-sm text-slate-700">{item.state.reason}</p>
                 </div>
                 <StatusBadge kind="feature" state={item.state.status} label={formatStatus(item.state.status)} size="xs" />
@@ -934,7 +934,7 @@ export default function AppActivationPage() {
       <SectionShell className="surface-panel border border-slate-200 bg-slate-50">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Rollout checkpoint</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Rollout checkpoint</p>
             <p className="text-sm text-slate-600">
               When all steps are ready, ops approval and live activation can proceed without hidden blockers.
             </p>

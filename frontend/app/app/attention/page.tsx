@@ -410,7 +410,7 @@ export default function AttentionPage() {
         actions={
           <div className="flex items-center gap-3 w-full md:w-auto">
             <QueueActionLink 
-              className="flex-1 md:flex-none px-6 py-2.5 bg-white/50 backdrop-blur-sm border border-slate-200/40 text-on-surface font-semibold text-xs rounded-xl transition-all hover:bg-white/80 hover:shadow-sm"
+              className="flex-1 md:flex-none rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-xs font-semibold text-on-surface transition-colors hover:bg-slate-50"
               href={buildWorkflowHref("/app/attention?risk=critical_unowned", { source: "attention", returnTo, returnLabel: "Needs Attention" })}
             >
               Open unassigned critical
