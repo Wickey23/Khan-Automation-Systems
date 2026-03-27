@@ -552,7 +552,7 @@ export default function ApprovalsPage() {
         {/* Main Content Area */}
         <div className="xl:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
           {/* Controls and Filters */}
-          <div className="glass-card inner-glow rounded-2xl p-4 space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap gap-2">
                 {(
@@ -638,7 +638,7 @@ export default function ApprovalsPage() {
           ) : null}
 
           {busy ? (
-            <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+            <div className="rounded-2xl border border-slate-200 bg-white p-10 flex flex-col items-center justify-center text-center">
               <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mb-4 animate-pulse">
                 <RefreshCcw className="h-6 w-6 text-slate-300 animate-spin" />
               </div>
@@ -668,7 +668,7 @@ export default function ApprovalsPage() {
               }}
             />
           ) : (
-            <div className="glass-card inner-glow rounded-[2rem] overflow-hidden">
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
               <ActionQueueTable
                 title="Approval Management"
                 rows={approvalRows}
