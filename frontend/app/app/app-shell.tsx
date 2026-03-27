@@ -306,7 +306,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [accessSummary]);
   const hasWorkspaceNotice = Boolean(modeBanner || activationBanner || accessWarning || (!modeBanner && workspaceLive));
-  const showWorkflowFlow = pathname === "/app" || pathname.startsWith("/app/activation") || pathname.startsWith("/app/settings");
+  const showWorkflowFlow = pathname.startsWith("/app/activation") || pathname.startsWith("/app/settings");
   const showWorkspaceNotices = hasWorkspaceNotice && (pathname === "/app" || Boolean(modeBanner || activationBanner || accessWarning));
   const workflowSteps = useMemo(() => {
     return workflowSequence
