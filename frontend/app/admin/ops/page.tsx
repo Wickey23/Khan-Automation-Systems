@@ -353,17 +353,24 @@ export default function AdminOpsPage() {
           title="Operations control plane"
           description="Webhook, queue, and SMS health across tenants. Stuck jobs and failed messages are surfaced for immediate intervention."
           actions={
-            <Button variant="outline" onClick={() => void loadData()} disabled={loading}>
+            <Button variant="outline" onClick={() => void loadData()} disabled={loading} aria-busy={loading}>
               <RotateCw className={cn("mr-2 h-4 w-4 transition-transform", loading ? "animate-spin" : "")} />
-              Refresh
+              {loading ? "Refreshing..." : "Refresh"}
             </Button>
           }
         />
 
         {error ? (
           <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 shadow-sm">
-            <p className="font-semibold">Unable to load operations data.</p>
-            <p className="text-xs">{error}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">Unable to load operations data.</p>
+                <p className="text-xs">{error}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => void loadData()} disabled={loading}>
+                Retry
+              </Button>
+            </div>
           </div>
         ) : null}
 
