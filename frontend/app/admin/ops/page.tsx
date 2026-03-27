@@ -497,10 +497,10 @@ export default function AdminOpsPage() {
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-white">
                   <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Queue</TableHead>
-                    <TableHead>Attempts</TableHead>
+                    <TableHead className="w-[170px]">Time</TableHead>
+                    <TableHead className="w-[160px]">Status</TableHead>
+                    <TableHead className="w-[210px]">Queue</TableHead>
+                    <TableHead className="w-[110px]">Attempts</TableHead>
                     <TableHead>Message</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -526,7 +526,7 @@ export default function AdminOpsPage() {
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <p className="text-xs text-slate-600">{job.message || "No recent log message."}</p>
+                          <p className="line-clamp-2 text-xs text-slate-600">{job.message || "No recent log message."}</p>
                           {job.callId ? (
                             <Link className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
                               View call
