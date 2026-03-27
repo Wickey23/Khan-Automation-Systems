@@ -649,7 +649,7 @@ export default function AppLeadsPage() {
                   <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                     <h2 className="text-sm font-bold text-slate-900">Lead pipeline</h2>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Stage - Lead - Priority - Action
+                      Stage | Lead | Signal | Action
                     </span>
                   </div>
                   <div className="divide-y divide-slate-100">
@@ -669,7 +669,7 @@ export default function AppLeadsPage() {
                         }}
                         className={cn(
                           "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:grid-cols-[180px_minmax(0,1.4fr)_220px_170px]",
-                          selectedLeadId === lead.id ? "bg-primary/5" : "",
+                          selectedLeadId === lead.id ? "bg-sky-50/60 ring-1 ring-inset ring-sky-200" : "",
                           priorityTone === "critical"
                             ? "border-l-2 border-l-rose-400 bg-rose-50/30"
                             : highlight
@@ -689,7 +689,7 @@ export default function AppLeadsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className={cn("truncate text-[11px] font-semibold", signal.tone)}>{signal.label}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{urgency.label} priority - {selectedForBatch ? "Batch selected" : leadSource(lead)}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{urgency.label} priority | {selectedForBatch ? "Batch selected" : leadSource(lead)}</p>
                         </div>
                         <div className="flex items-center justify-between gap-2 md:justify-end">
                           <Button
