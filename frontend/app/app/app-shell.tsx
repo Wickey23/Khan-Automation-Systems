@@ -76,6 +76,23 @@ const navFeatureAccess: Record<string, AccessFeatureKey | undefined> = {
   "/app/appointments": "appointments"
 };
 
+const workflowSequence = [
+  "/app/activation",
+  "/app/settings",
+  "/app",
+  "/app/attention",
+  "/app/approvals",
+  "/app/follow-up",
+  "/app/leads",
+  "/app/messages",
+  "/app/calls",
+  "/app/appointments",
+  "/app/insights",
+  "/app/analytics",
+  "/app/team",
+  "/app/billing"
+] as const;
+
 function hasRequiredPlan(currentPlan: PlanTier, requiredPlan?: "STARTER" | "PRO") {
   if (!requiredPlan) return true;
   if (!currentPlan) return false;
@@ -289,6 +306,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [accessSummary]);
   const hasWorkspaceNotice = Boolean(modeBanner || activationBanner || accessWarning || (!modeBanner && workspaceLive));
+  const workflowSteps = useMemo(() => {
+    return workflowSequence
+      .map((href) => navItems.find((item) => item.href === href) || null)
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .map((item) => {
+        const featureKey = navFeatureAccess[item.href];
+        const featureStatus = featureKey ? accessSummary?.features[featureKey] : undefined;
+        const lockedByFeature = Boolean(featureStatus && featureStatus.status !== "ready");
+        const locked =
+          !hasRequiredPlan(currentPlan, item.requiredPlan) ||
+          !hasRequiredRole(currentRole, item.requiredRoles) ||
+          !hasRequiredFeature(features, item.requiredFeature) ||
+          lockedByFeature;
+        return {
+          href: item.href,
+          label: item.label,
+          locked
+        };
+      });
+  }, [accessSummary, currentPlan, currentRole, features]);
+  const activeWorkflowIndex = useMemo(() => {
+    return workflowSteps.findIndex((step) => pathname === step.href || (step.href !== "/app" && pathname.startsWith(`${step.href}/`)));
+  }, [pathname, workflowSteps]);
+  const nextWorkflowStep = useMemo(() => {
+    if (activeWorkflowIndex < 0) return workflowSteps.find((step) => !step.locked) || null;
+    for (let i = activeWorkflowIndex + 1; i < workflowSteps.length; i += 1) {
+      if (!workflowSteps[i].locked) return workflowSteps[i];
+    }
+    return null;
+  }, [activeWorkflowIndex, workflowSteps]);
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
     const Icon = item.icon;
@@ -467,6 +514,50 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} ready`
                         : "checking"}
                     </span>
+                  </div>
+                </div>
+                <div className="mb-3 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Workflow flow</p>
+                    {nextWorkflowStep ? (
+                      <Link
+                        href={nextWorkflowStep.href}
+                        className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100"
+                      >
+                        Next: {nextWorkflowStep.label}
+                      </Link>
+                    ) : (
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Flow complete</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {workflowSteps.map((step, index) => {
+                      const active = index === activeWorkflowIndex;
+                      if (step.locked) {
+                        return (
+                          <span
+                            key={step.href}
+                            className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400"
+                          >
+                            {step.label}
+                          </span>
+                        );
+                      }
+                      return (
+                        <Link
+                          key={step.href}
+                          href={step.href}
+                          className={cn(
+                            "inline-flex items-center rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
+                            active
+                              ? "border-sky-300 bg-sky-100 text-sky-800"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                          )}
+                        >
+                          {step.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
 
