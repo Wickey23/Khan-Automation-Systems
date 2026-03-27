@@ -160,6 +160,7 @@ export default function AppOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviewRefreshNote, setReviewRefreshNote] = useState<string | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -190,6 +191,7 @@ export default function AppOverviewPage() {
         accessSummary: profile?.access || null
       });
       setError(null);
+      setLastLoadedAt(new Date());
     } catch {
       setError("Unable to load dashboard data. Try refreshing in a moment.");
     }
@@ -401,7 +403,6 @@ export default function AppOverviewPage() {
       [
         { key: "action", label: "Action queue", value: loading ? "-" : String(actionQueueTotal), note: "Items to review", show: true, emphasize: false },
         { key: "blocked", label: "Blocked", value: loading ? "-" : String(blockedItems), note: "Needs owner now", show: blockedItems > 0, emphasize: blockedItems > 0 },
-        { key: "approvals", label: "Approvals", value: loading ? "-" : String(state.approvals.length), note: "Pending review", show: state.approvals.length > 0, emphasize: false },
         {
           key: "retry",
           label: "Retry failures",
@@ -416,7 +417,6 @@ export default function AppOverviewPage() {
       loading,
       actionQueueTotal,
       blockedItems,
-      state.approvals.length,
       reviewTodaySnapshot.failedRetryableSends,
       meanTriageTime
     ]
@@ -503,13 +503,21 @@ export default function AppOverviewPage() {
     topPendingApproval,
     state.approvals.length
   ]);
+  const queuePriorityCounts = useMemo(
+    () => ({
+      critical: queueRows.filter((row) => row.priority === "critical").reduce((sum, row) => sum + row.volume, 0),
+      high: queueRows.filter((row) => row.priority === "high").reduce((sum, row) => sum + row.volume, 0),
+      normal: queueRows.filter((row) => row.priority === "normal").reduce((sum, row) => sum + row.volume, 0)
+    }),
+    [queueRows]
+  );
 
   return (
     <div className="space-y-6 pb-8">
       <CommandHeader
         eyebrow="Operator workspace"
-        title="Action queue control"
-        description="What needs action now, what is blocked, and what to open next."
+        title="Operations command center"
+        description="Prioritize work, clear blockers, and move the next task forward."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={loading}>
@@ -522,7 +530,10 @@ export default function AppOverviewPage() {
           </div>
         }
       />
-      {reviewRefreshNote ? <p className="text-xs text-sky-700">{reviewRefreshNote}</p> : null}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+        {lastLoadedAt ? <p>Updated {lastLoadedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p> : null}
+        {reviewRefreshNote ? <p className="text-sky-700">{reviewRefreshNote}</p> : null}
+      </div>
 
       {error ? <StateCard variant="error" title="Dashboard data unavailable" description={error} /> : null}
 
@@ -592,6 +603,17 @@ export default function AppOverviewPage() {
             <p className="px-1 text-[11px] text-slate-500">
               {clearedBuckets} of 3 queues clear - {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
             </p>
+            <div className="flex flex-wrap items-center gap-1.5 px-1">
+              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+                Critical {queuePriorityCounts.critical}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                High {queuePriorityCounts.high}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+                Normal {queuePriorityCounts.normal}
+              </span>
+            </div>
 
             {queueRows.map((row, index) => (
               <QueueRow
@@ -649,19 +671,19 @@ export default function AppOverviewPage() {
             <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Needs review - triage</span>
+                <span className="text-[11px] text-slate-600">Needs review</span>
                 <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Retry failures - recover</span>
+                <span className="text-[11px] text-slate-600">Retry failures</span>
                 <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Critical/high - monitor</span>
+                <span className="text-[11px] text-slate-600">Critical or high</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Throughput - today</span>
+                <span className="text-[11px] text-slate-600">Throughput today</span>
                 <span className="text-base font-semibold text-slate-900">{activeThroughput}</span>
               </div>
             </div>
@@ -680,7 +702,7 @@ export default function AppOverviewPage() {
           </Button>
         </div>
         <OperationsFeedList
-          events={state.operations.slice(0, 8)}
+          events={state.operations.slice(0, 6)}
           loading={loading}
           emptyMessage="No recent operations for this workspace."
           source="dashboard"
