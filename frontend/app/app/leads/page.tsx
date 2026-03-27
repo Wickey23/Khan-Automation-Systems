@@ -680,6 +680,8 @@ export default function AppLeadsPage() {
                         role="button"
                         tabIndex={0}
                         aria-pressed={selectedLeadId === lead.id}
+                        aria-current={selectedLeadId === lead.id ? "true" : undefined}
+                        aria-label={`Open lead ${leadName(lead)} at stage ${stageLabel(stage)}`}
                         onClick={() => setSelectedLeadId(lead.id)}
                         onKeyDown={(event) => {
                           if (event.currentTarget !== event.target) return;
@@ -689,7 +691,7 @@ export default function AppLeadsPage() {
                           }
                         }}
                         className={cn(
-                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:grid-cols-[180px_minmax(0,1.4fr)_220px_170px]",
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 md:grid-cols-[180px_minmax(0,1.4fr)_220px_170px]",
                           selectedLeadId === lead.id ? "bg-sky-50/60 ring-1 ring-inset ring-sky-200" : "",
                           priorityTone === "critical"
                             ? "border-l-2 border-l-rose-400 bg-rose-50/30"
