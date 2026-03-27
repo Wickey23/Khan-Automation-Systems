@@ -824,12 +824,12 @@ export default function AppLeadsPage() {
             <>
               <div className="border-b border-slate-200 bg-white p-4">
                 <div className="mb-6 flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-xl font-extrabold text-primary shadow-sm">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-xl font-semibold text-primary shadow-sm">
                     {initials(leadName(selectedLead))}
                   </div>
                 </div>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-900">{leadName(selectedLead)}</h2>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <h2 className="text-xl font-semibold tracking-tight text-slate-900">{leadName(selectedLead)}</h2>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                   Lead via {leadSource(selectedLead)} | {activityLabel(selectedLead)}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -881,7 +881,7 @@ export default function AppLeadsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Conversion Context</h4>
+                    <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Conversion Context</h4>
                   </div>
                   <p className="text-sm font-medium italic leading-relaxed text-slate-700">&ldquo;{leadSummary(selectedLead)}&rdquo;</p>
                 </div>
@@ -941,7 +941,7 @@ export default function AppLeadsPage() {
                   />
 
                   <div>
-                    <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Lead Details</h3>
+                    <h3 className="mb-4 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Lead Details</h3>
                     <div className="space-y-4 px-1">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Phone className="h-3.5 w-3.5" /></div>
@@ -969,7 +969,7 @@ export default function AppLeadsPage() {
                 </SectionDisclosure>
 
                 <div className="border-t border-slate-200 pt-4">
-                  <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Primary Action</h3>
+                  <h3 className="mb-4 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Primary Action</h3>
                   <div className="space-y-3">
                     <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                       Use <span className="font-semibold">Recommended Next Action</span> and <span className="font-semibold">Lead Ops Workflow</span> above to progress this lead.
