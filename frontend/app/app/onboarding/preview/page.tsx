@@ -55,7 +55,7 @@ export default function AppOnboardingPreviewPage() {
       />
 
       <SectionShell className="surface-panel space-y-4">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           <div className={`${frontDeskMetricCardClass()} px-4 py-3`}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Package version</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{configPackage?.version || "-"}</p>

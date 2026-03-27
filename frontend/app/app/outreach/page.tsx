@@ -41,7 +41,7 @@ export default function AppOutreachPage() {
         actions={
           <Link
             href="/app/leads"
-            className="inline-flex items-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
           >
             Open Lead Queue
             <ArrowRight className="h-4 w-4" />
@@ -82,10 +82,10 @@ export default function AppOutreachPage() {
           description="Outreach activates per-org after reliability and monitoring checks pass."
           action={
             <div className="flex gap-2">
-              <Link href="/app/calls" className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <Link href="/app/calls" className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
                 Call Queue
               </Link>
-              <Link href="/app/messages" className="inline-flex items-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">
+              <Link href="/app/messages" className="inline-flex items-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
                 Inbox
                 <Mail className="h-4 w-4" />
               </Link>
