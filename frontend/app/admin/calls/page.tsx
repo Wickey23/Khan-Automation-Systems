@@ -441,7 +441,11 @@ function CallListPanel({
               {calls.map((call) => (
                 <tr key={call.id} className="bg-white transition-colors hover:bg-slate-50/80">
                   <td className="px-6 py-4 align-top">
-                    <button type="button" className="space-y-1 text-left" onClick={() => void onView(call)}>
+                    <button
+                      type="button"
+                      className="space-y-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                      onClick={() => void onView(call)}
+                    >
                       <p className="text-sm font-bold text-slate-950">{call.providerCallId || call.id}</p>
                       <p className="text-xs text-slate-500">{call.organization?.name || "Unknown organization"}</p>
                       <p className="text-xs text-slate-400">{formatWhen(call.startedAt)}</p>
