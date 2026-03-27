@@ -395,7 +395,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="relative flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.1),transparent_52%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-sky-200/25 via-transparent to-blue-200/25" />
           {/* Sidebar */}
-          <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col overflow-hidden border-r border-slate-200/70 bg-white/88 backdrop-blur lg:flex">
+          <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white lg:flex">
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Brand */}
               <div className="flex items-center gap-2.5 border-b border-slate-200 px-3.5 py-3">
@@ -442,7 +442,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Top bar */}
-            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200/80 bg-white/88 px-4 py-2 backdrop-blur-xl sm:px-6">
+            <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2 sm:px-6">
               <div className="flex flex-1 items-center gap-3">
                 <div className="relative w-full max-w-md">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
