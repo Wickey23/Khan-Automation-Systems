@@ -137,16 +137,22 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 readOnly
                 value=""
                 placeholder="Search orgs, calls, messages, or events..."
-                className="h-9 w-full rounded-xl border border-slate-200/80 bg-white/90 py-2 pl-10 pr-4 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none placeholder:text-slate-500"
+                className="h-9 w-full rounded-xl border border-slate-200/80 bg-white/90 py-2 pl-10 pr-4 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-sky-300"
               />
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <button className="relative rounded-xl border border-slate-200/80 bg-white/90 p-2 text-slate-600 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.4)] transition-colors hover:bg-slate-100 hover:text-sky-700">
+              <button
+                aria-label="Open notifications"
+                className="relative rounded-xl border border-slate-200/80 bg-white/90 p-2 text-slate-600 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.4)] transition-colors hover:bg-slate-100 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+              >
                 <Bell className="h-5 w-5" />
                 <div className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
               </button>
-              <button className="rounded-xl border border-slate-200/80 bg-white/90 p-2 text-slate-600 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.4)] transition-colors hover:bg-slate-100 hover:text-sky-700">
+              <button
+                aria-label="Open messages"
+                className="rounded-xl border border-slate-200/80 bg-white/90 p-2 text-slate-600 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.4)] transition-colors hover:bg-slate-100 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+              >
                 <MessageSquare className="h-5 w-5" />
               </button>
               <div className="hidden h-8 w-px bg-slate-200 sm:block" />
