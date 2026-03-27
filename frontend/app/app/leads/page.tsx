@@ -108,10 +108,10 @@ function leadStatus(lead: Lead) {
 }
 
 function leadUrgency(priority?: FrontDeskPriority) {
-  if (priority === "urgent") return { label: "High", color: "text-red-600", bg: "bg-red-50" };
-  if (priority === "high") return { label: "Medium", color: "text-amber-600", bg: "bg-amber-50" };
-  if (priority === "normal") return { label: "Medium", color: "text-amber-600", bg: "bg-amber-50" };
-  return { label: "Low", color: "text-slate-600", bg: "bg-slate-50" };
+  if (priority === "urgent") return { label: "Critical", color: "text-red-600", bg: "bg-red-50" };
+  if (priority === "high") return { label: "High", color: "text-amber-700", bg: "bg-amber-50" };
+  if (priority === "normal") return { label: "Normal", color: "text-slate-700", bg: "bg-slate-50" };
+  return { label: "Normal", color: "text-slate-700", bg: "bg-slate-50" };
 }
 
 function leadSummary(lead: Lead) {
