@@ -296,7 +296,7 @@ function StatusSummaryHero({ stats }: { stats: { label: string; value: number; n
     <SectionShell className="surface-panel space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="page-eyebrow flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+          <p className="page-eyebrow flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
             <Shield className="h-3.5 w-3.5" />
             Global control plane
           </p>
@@ -307,11 +307,11 @@ function StatusSummaryHero({ stats }: { stats: { label: string; value: number; n
         </div>
         <div className="grid min-w-[220px] gap-2 sm:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Active streams</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Active streams</p>
             <p className="mt-1 text-xl font-semibold text-slate-900">{stats[3]?.value ?? 0}</p>
           </div>
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Failed review</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Failed review</p>
             <p className="mt-1 text-xl font-semibold text-rose-700">{stats[2]?.value ?? 0}</p>
           </div>
         </div>
@@ -320,7 +320,7 @@ function StatusSummaryHero({ stats }: { stats: { label: string; value: number; n
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.label} className="metric-card px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{stat.label}</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{stat.label}</p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-slate-950">{stat.value}</p>
             <p className="mt-1 text-xs text-slate-500">{stat.note}</p>
           </div>
@@ -352,7 +352,7 @@ function FiltersToolbar({
       <div className="page-eyebrow text-xs text-slate-500">Filters</div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[200px_minmax(0,1fr)_240px_auto]">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Outcome</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Outcome</label>
           <select
             className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm"
             value={outcome}
@@ -376,7 +376,7 @@ function FiltersToolbar({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Delete password</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Delete password</label>
           <Input
             type="password"
             placeholder="Delete password"
@@ -422,12 +422,12 @@ function CallListPanel({
         }
       />
       <div className="overflow-hidden rounded-[20px] border border-slate-200">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
           Overview
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-white text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+            <thead className="sticky top-0 z-10 bg-white text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
               <tr>
                 <th className="w-[220px] px-4 py-3">Call / org</th>
                 <th className="w-[170px] px-4 py-3">Numbers</th>
@@ -587,7 +587,7 @@ function InvestigationPane({
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">AI summary</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">AI summary</p>
           <p className="text-sm leading-6 text-slate-700">{selectedCall.aiSummary || selectedCall.summary || "-"}</p>
           <p className="text-xs text-slate-500">Generated {formatWhen(selectedCall.aiSummaryGeneratedAt)}</p>
         </div>
@@ -595,7 +595,7 @@ function InvestigationPane({
         {selectedCall.serviceRequest ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Service request</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Service request</p>
               <StatusBadge kind="feature" state={selectedCall.serviceRequest.status} label={humanize(selectedCall.serviceRequest.status)} size="xs" />
             </div>
             <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
@@ -611,7 +611,7 @@ function InvestigationPane({
 
         {selectedCall.lead ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Extracted lead</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Extracted lead</p>
             <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
               <InfoRow label="Lead" value={selectedCall.lead.name || "-"} />
               <InfoRow label="Phone" value={selectedCall.lead.phone || "-"} />
@@ -644,7 +644,7 @@ function InvestigationPane({
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Media & recording</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Media & recording</p>
             <StatusBadge
               kind="job"
               state={selectedCall.recordingUrl ? "recording_ready" : "recording_missing"}
@@ -690,7 +690,7 @@ function TranscriptSection({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Transcript sessions</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Transcript sessions</p>
         <span className="text-xs text-slate-500">{normalizedSessions.length} session(s)</span>
       </div>
       {normalizedSessions.length ? (
@@ -757,7 +757,7 @@ function AuditTimelineSection({ entries }: { entries: TimelineEntry[] }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Audit timeline</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Audit timeline</p>
         <span className="text-xs text-slate-500">{entries.length} entries</span>
       </div>
       {entries.length ? (
@@ -821,7 +821,7 @@ function FollowUpActionsSection({
     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Booking finalizer</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Booking finalizer</p>
           <p className="text-xs text-slate-500">Safe retry controls for booking follow-up jobs.</p>
         </div>
         <StatusBadge
@@ -991,7 +991,7 @@ function ReviewStateSection({
     <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Review attention</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Review attention</p>
           <p className="text-sm text-slate-700">Flag calls that need human follow-up before automation continues.</p>
         </div>
         <StatusBadge kind="feature" state={badgeState} label={badgeLabel} size="xs" />
@@ -1053,7 +1053,7 @@ function InfoRow({ label, value, span }: { label: string; value: string | null |
   const spanClass = span === 2 ? "sm:col-span-2" : undefined;
   return (
     <div className={spanClass}>
-      <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</p>
       <p className="text-sm text-slate-700">{value || "-"}</p>
     </div>
   );

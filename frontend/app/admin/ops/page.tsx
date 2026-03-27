@@ -169,9 +169,9 @@ function QueueJobCard({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold leading-none text-slate-600">{getJobTypeLabel(job.type)}</p>
-          <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{job.queue || "Queue"}</p>
+          <p className="text-xs tracking-[0.12em] uppercase text-muted-foreground">{job.queue || "Queue"}</p>
         </div>
-        <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.2em]", statusMeta.classes)}>
+        <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]", statusMeta.classes)}>
           {statusMeta.label}
         </span>
       </div>
@@ -233,7 +233,7 @@ function BookingFinalizerCard({ jobs, loading }: { jobs: AdminQueueJobRecord[]; 
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Booking automation</p>
+            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Booking automation</p>
             <CardTitle>Finalizer watch</CardTitle>
           </div>
           <p className="text-xs text-muted-foreground">{bookingJobs.length ? `${bookingJobs.length} recent` : "No recent runs"}</p>
@@ -367,10 +367,10 @@ export default function AdminOpsPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Queue summary</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Queue summary</p>
                   <CardTitle>Webhook/job states</CardTitle>
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{queueData ? "Latest" : "Loading"}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{queueData ? "Latest" : "Loading"}</span>
               </div>
             </CardHeader>
             <CardContent>
@@ -384,7 +384,7 @@ export default function AdminOpsPage() {
                 <div className="grid gap-3 md:grid-cols-3">
                   {queueData!.summary.map((row) => (
                     <div key={row.status} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{row.label}</p>
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">{row.label}</p>
                       <p className="mt-1 text-3xl font-bold">{row.count}</p>
                       <p className="text-xs text-muted-foreground">Jobs</p>
                     </div>
@@ -398,7 +398,7 @@ export default function AdminOpsPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Queue types</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Queue types</p>
                   <CardTitle>Job buckets</CardTitle>
                 </div>
               </div>
@@ -427,7 +427,7 @@ export default function AdminOpsPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Stalled work</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Stalled work</p>
                   <CardTitle>Stuck jobs</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground">Threshold: 5m without completion</p>
@@ -452,7 +452,7 @@ export default function AdminOpsPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Retry handling</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Retry handling</p>
                   <CardTitle>Retrying / failed</CardTitle>
                 </div>
               </div>
@@ -479,7 +479,7 @@ export default function AdminOpsPage() {
           <CardHeader className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Recent jobs</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Recent jobs</p>
                 <CardTitle>Webhook + booking activity</CardTitle>
               </div>
               <p className="text-xs text-muted-foreground">Limited to 25 records</p>
@@ -511,7 +511,7 @@ export default function AdminOpsPage() {
                       <TableRow key={job.id}>
                         <TableCell className="text-xs text-muted-foreground">{formatDate(job.createdAt)}</TableCell>
                         <TableCell>
-                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.2em]", meta.classes)}>
+                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]", meta.classes)}>
                             {meta.label}
                           </span>
                         </TableCell>
@@ -548,7 +548,7 @@ export default function AdminOpsPage() {
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">SMS audit</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">SMS audit</p>
                 <CardTitle>Global SMS lifecycle</CardTitle>
               </div>
             </div>
@@ -577,7 +577,7 @@ export default function AdminOpsPage() {
                       <div key={entry.id} className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-700">{formatSmsEventLabel(entry)}</p>
-                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.2em]", eventMeta.classes)}>
+                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]", eventMeta.classes)}>
                             {eventMeta.label}
                           </span>
                         </div>
@@ -591,7 +591,7 @@ export default function AdminOpsPage() {
                         <div className="text-xs text-slate-600">
                           <p>{entry.bodySnippet || "No message snippet available."}</p>
                           {entry.errorText ? <p className="text-rose-600">Error: {entry.errorText}</p> : null}
-                          {entry.automation ? <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Automation: {entry.automation}</p> : null}
+                          {entry.automation ? <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Automation: {entry.automation}</p> : null}
                         </div>
                       </div>
                     );
