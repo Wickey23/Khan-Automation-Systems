@@ -40,21 +40,21 @@ export function SectionDisclosure({
   const label = useMemo(() => (collapsed ? "Show details" : "Hide details"), [collapsed]);
 
   return (
-    <section className={cn("rounded-2xl border glass-card inner-glow group overflow-hidden transition-all duration-300", className)}>
+    <section className={cn("group overflow-hidden rounded-lg border border-slate-200 bg-white transition-all duration-200", className)}>
       <button
         type="button"
         onClick={() => setCollapsed((current) => !current)}
-        className="flex w-full items-center justify-between gap-6 px-6 py-4 text-left transition-all hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+        className="flex w-full items-center justify-between gap-4 px-3 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
       >
-        <span className="text-[10px] font-black font-label uppercase tracking-[0.2em] text-on-surface-variant/60">{title}</span>
-        <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</span>
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
           {label}
-          <div className={cn("flex items-center justify-center w-6 h-6 rounded-lg bg-primary/5 transition-transform duration-300", collapsed ? "" : "rotate-180")}>
+          <div className={cn("flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white transition-transform duration-200", collapsed ? "" : "rotate-180")}>
             <ChevronDown className="h-4 w-4" />
           </div>
         </span>
       </button>
-      {!collapsed ? <div className="border-t border-outline-variant/5 p-6 animate-fade-slide-up duration-200">{children}</div> : null}
+      {!collapsed ? <div className="animate-fade-slide-up border-t border-slate-200 p-3 duration-200">{children}</div> : null}
     </section>
   );
 }

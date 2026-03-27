@@ -499,8 +499,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </header>
 
             <main className="flex-1 overflow-y-auto">
-              <div className="px-4 py-4 sm:px-6 lg:px-8">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
+              <div className="space-y-3 px-4 py-3 sm:px-6 lg:px-8">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white/94 px-3 py-2 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
                   <p className="text-sm font-semibold text-slate-900">{pageLabel}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
@@ -516,53 +516,55 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </span>
                   </div>
                 </div>
-                <div className="mb-3 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Workflow flow</p>
-                    {nextWorkflowStep ? (
-                      <Link
-                        href={nextWorkflowStep.href}
-                        className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100"
-                      >
-                        Next: {nextWorkflowStep.label}
-                      </Link>
-                    ) : (
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Flow complete</span>
-                    )}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {workflowSteps.map((step, index) => {
-                      const active = index === activeWorkflowIndex;
-                      if (step.locked) {
+                <SectionDisclosure title="Workflow flow" storageKey="shell-workflow-flow" defaultCollapsed className="border-slate-200/90 bg-white/94 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-slate-600">Use this to move screen-to-screen without losing context.</p>
+                      {nextWorkflowStep ? (
+                        <Link
+                          href={nextWorkflowStep.href}
+                          className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100"
+                        >
+                          Next: {nextWorkflowStep.label}
+                        </Link>
+                      ) : (
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Flow complete</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {workflowSteps.map((step, index) => {
+                        const active = index === activeWorkflowIndex;
+                        if (step.locked) {
+                          return (
+                            <span
+                              key={step.href}
+                              className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400"
+                            >
+                              {step.label}
+                            </span>
+                          );
+                        }
                         return (
-                          <span
+                          <Link
                             key={step.href}
-                            className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400"
+                            href={step.href}
+                            className={cn(
+                              "inline-flex items-center rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
+                              active
+                                ? "border-sky-300 bg-sky-100 text-sky-800"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                            )}
                           >
                             {step.label}
-                          </span>
+                          </Link>
                         );
-                      }
-                      return (
-                        <Link
-                          key={step.href}
-                          href={step.href}
-                          className={cn(
-                            "inline-flex items-center rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
-                            active
-                              ? "border-sky-300 bg-sky-100 text-sky-800"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                          )}
-                        >
-                          {step.label}
-                        </Link>
-                      );
-                    })}
+                      })}
+                    </div>
                   </div>
-                </div>
+                </SectionDisclosure>
 
                 {hasWorkspaceNotice ? (
-                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="mb-3">
+                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="border-slate-200/90 bg-white/94 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)] backdrop-blur">
                   {modeBanner ? (
                     <div className="app-banner app-banner-primary">
                       <div className="flex flex-wrap items-center justify-between gap-2">
