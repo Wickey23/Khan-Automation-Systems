@@ -374,7 +374,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         className={cn(
           "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
           active
-            ? "bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-[0_10px_18px_-12px_rgba(14,116,214,0.72)]"
+            ? "bg-slate-900 text-white"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-0.5"
         )}
       >
@@ -392,19 +392,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return ClientGuard({
     children: (
       <AccessSummaryProvider value={accessSummary}>
-        <div className="relative flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.1),transparent_52%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-sky-200/25 via-transparent to-blue-200/25" />
+        <div className="relative flex h-screen overflow-hidden bg-slate-50">
           {/* Sidebar */}
           <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white lg:flex">
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Brand */}
               <div className="flex items-center gap-2.5 border-b border-slate-200 px-3.5 py-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-[0_10px_18px_-10px_rgba(14,116,214,0.7)]">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white">
                   <ConciergeBell className="h-4 w-4" />
                 </div>
                 <div>
                   <p className="text-sm font-bold leading-none tracking-tight text-slate-900">Front Desk OS</p>
-                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Operational Console</p>
+                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">Operational console</p>
                 </div>
               </div>
 
@@ -465,14 +464,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
                 <button
                   aria-label="Notifications"
-                  className="relative rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 shadow-[0_10px_16px_-14px_rgba(15,23,42,0.5)] transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                  className="relative rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                 >
                   <Bell className="h-4 w-4" />
                   <div className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
                 </button>
                 <button
                   aria-label="Help"
-                  className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 shadow-[0_10px_16px_-14px_rgba(15,23,42,0.5)] transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                  className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                 >
                   <CircleHelp className="h-4 w-4" />
                 </button>
@@ -502,12 +501,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             <main className="flex-1 overflow-y-auto">
               <div className="space-y-2.5 px-4 py-3 sm:px-6 lg:px-8">
-                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-3 py-2 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-3 py-2">
                   <p className="text-sm font-semibold text-slate-900">{pageLabel}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
                       <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500" : "bg-amber-500")}>
-                        {workspaceLive ? <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/80" /> : null}
+                        {workspaceLive ? <span className="absolute inset-0 rounded-full bg-emerald-400/50" /> : null}
                       </span>
                       {liveBadge.label}
                     </span>
@@ -519,7 +518,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
                 {showWorkflowFlow ? (
-                <SectionDisclosure title="Workflow flow" storageKey="shell-workflow-flow" defaultCollapsed className="border-slate-200/90 bg-white shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]">
+                <SectionDisclosure title="Workflow flow" storageKey="shell-workflow-flow" defaultCollapsed className="border-slate-200/90 bg-white">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-slate-600">Use this to move screen-to-screen without losing context.</p>
@@ -568,7 +567,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 ) : null}
 
                 {showWorkspaceNotices ? (
-                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="border-slate-200/90 bg-white shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]">
+                <SectionDisclosure title="Workspace notices" storageKey="shell-workspace-notices" defaultCollapsed className="border-slate-200/90 bg-white">
                   {modeBanner ? (
                     <div className="app-banner app-banner-primary">
                       <div className="flex flex-wrap items-center justify-between gap-2">
