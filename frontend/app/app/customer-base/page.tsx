@@ -184,10 +184,10 @@ export default function CustomerBasePage() {
             imports.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/app/leads" className="rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium shadow-[0_10px_22px_rgba(15,23,42,0.05)] transition hover:bg-slate-50">
+            <Link href="/app/leads" className="rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium shadow-[0_10px_22px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
               Open Leads (Standard)
             </Link>
-            <Link href="/app/billing" className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-[0_12px_24px_rgba(15,23,42,0.12)]">
+            <Link href="/app/billing" className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-[0_12px_24px_rgba(15,23,42,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
               Upgrade to Pro
             </Link>
           </div>
@@ -335,7 +335,7 @@ export default function CustomerBasePage() {
               {filtered.map((customer) => (
                 <div key={customer.phoneNumber} className={`${frontDeskWorkspaceCardClass("subtle")} p-4`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold">{customer.displayName || "Unknown contact"}</p>
+                    <p className="font-semibold">{customer.displayName || "Contact unavailable"}</p>
                     <p className="text-xs text-muted-foreground">{customer.phoneNumber}</p>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">

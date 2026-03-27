@@ -265,7 +265,7 @@ export default function AppAppointmentsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search requests..."
-                className="h-10 w-64 rounded-xl border border-slate-200 bg-white px-4 text-xs outline-none focus:border-primary"
+                className="h-10 w-64 rounded-xl border border-slate-200 bg-white px-4 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-sky-300"
               />
             </div>
           }
@@ -308,7 +308,7 @@ export default function AppAppointmentsPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Inbox className="h-5 w-5 text-primary" />
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Front-Desk request queue</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Front-Desk request queue</p>
           </div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
             {tabs.map((tab) => (
@@ -398,11 +398,11 @@ export default function AppAppointmentsPage() {
                               <div>
                                 <div className="text-sm font-semibold text-slate-900">{request.customerName}</div>
                                 <div className="mt-0.5 flex items-center gap-1.5">
-                                  <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">{sourceLabel(request)}</span>
+                                  <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">{sourceLabel(request)}</span>
                                   {request.assignedUserLabel ? (
                                     <>
                                       <div className="h-1 w-1 rounded-full bg-slate-300" />
-                                      <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">{request.assignedUserLabel}</span>
+                                      <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">{request.assignedUserLabel}</span>
                                     </>
                                   ) : null}
                                 </div>
@@ -540,7 +540,7 @@ export default function AppAppointmentsPage() {
                     <button
                       onClick={() => void handleApprove(currentRequest)}
                       disabled={savingId === currentRequest.id}
-                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-lg shadow-primary/20 hover:bg-primary/90"
+                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-lg shadow-primary/20 hover:bg-primary/90"
                     >
                       <CheckCircle2 className="h-4.5 w-4.5" />
                       Approve request
@@ -548,14 +548,14 @@ export default function AppAppointmentsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <Link
                         href="/app/settings#settings-calendar"
-                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
                       >
                         <Calendar className="h-4 w-4" />
                         Calendar settings
                       </Link>
                       <Link
                         href={currentRequest.latestMessageThreadId ? `/app/messages?threadId=${encodeURIComponent(currentRequest.latestMessageThreadId)}` : "/app/messages"}
-                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
                       >
                         <MessageSquare className="h-4 w-4" />
                         Open thread
@@ -563,7 +563,7 @@ export default function AppAppointmentsPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Assign</p>
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Assign</p>
                         <select
                           value={assignedDraft[currentRequest.id] || ""}
                           onChange={(event) => setAssignedDraft((current) => ({ ...current, [currentRequest.id]: event.target.value }))}
@@ -581,7 +581,7 @@ export default function AppAppointmentsPage() {
                       <button
                         onClick={() => void handleDeny(currentRequest)}
                         disabled={savingId === currentRequest.id}
-                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50"
                       >
                         <XCircle className="h-4 w-4" />
                         Reject

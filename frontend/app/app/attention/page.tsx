@@ -410,7 +410,7 @@ export default function AttentionPage() {
         actions={
           <div className="flex items-center gap-3 w-full md:w-auto">
             <QueueActionLink 
-              className="flex-1 md:flex-none px-6 py-2.5 bg-white/50 backdrop-blur-sm border border-slate-200/40 text-on-surface font-bold text-xs rounded-xl transition-all hover:bg-white/80 hover:shadow-sm"
+              className="flex-1 md:flex-none px-6 py-2.5 bg-white/50 backdrop-blur-sm border border-slate-200/40 text-on-surface font-semibold text-xs rounded-xl transition-all hover:bg-white/80 hover:shadow-sm"
               href={buildWorkflowHref("/app/attention?risk=critical_unowned", { source: "attention", returnTo, returnLabel: "Needs Attention" })}
             >
               Open unassigned critical
@@ -465,7 +465,7 @@ export default function AttentionPage() {
                 <select
                   value={ownershipFilter}
                   onChange={(event) => setOwnershipFilter(event.target.value as OwnershipFilter)}
-                  className="bg-slate-50 border-none text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+                  className="bg-slate-50 border-none text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl px-4 py-2 focus-visible:ring-2 focus-visible:ring-sky-300 outline-none cursor-pointer"
                 >
                   <option value="all">All owners</option>
                   <option value="unassigned">Unassigned</option>
@@ -536,7 +536,7 @@ export default function AttentionPage() {
           </div>
 
           {queueUpdateNote ? (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs font-bold text-emerald-700 animate-fade-slide-up">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs font-semibold text-emerald-700 animate-fade-slide-up">
               {queueUpdateNote}
             </div>
           ) : null}
@@ -650,7 +650,7 @@ export default function AttentionPage() {
                     <p className="text-[10px] font-semibold text-error uppercase tracking-[0.12em]">Risk Analysis</p>
                     <ul className="space-y-2">
                        {previewRiskFlags.slice(0, 3).map((flag) => (
-                         <li key={flag} className="flex items-center gap-2 text-xs font-bold text-on-surface-variant/80">
+                         <li key={flag} className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant/80">
                            <span className="w-1 h-1 rounded-full bg-error" />
                            {flag}
                          </li>
@@ -669,7 +669,7 @@ export default function AttentionPage() {
           <SectionDisclosure title="Secondary Diagnostics" storageKey="attention-focused-diagnostics" defaultCollapsed>
             <div className="pt-4 space-y-4">
               {previewItem ? (
-                <div className="space-y-3 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                <div className="space-y-3 text-[11px] font-semibold text-slate-500 uppercase tracking-tight">
                   <div className="flex justify-between"><span>Top reasons</span> <span className="text-on-surface">{previewItem.topReasons.join(", ") || "-"}</span></div>
                   <div className="flex justify-between"><span>Delivery status</span> <span className="text-on-surface">{triage.data?.approvals?.[0]?.deliveryStatus || "-"}</span></div>
                   <div className="flex justify-between"><span>Follow-up load</span> <span className="text-on-surface">{previewItem.followUpContext.openCount} items</span></div>
