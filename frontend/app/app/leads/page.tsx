@@ -917,44 +917,6 @@ export default function AppLeadsPage() {
                     error={entityStateError}
                   />
 
-                <SectionDisclosure title="Data import tools (optional)" storageKey="leads-bulk-import-utils" defaultCollapsed>
-                    <div className="rounded-lg border border-slate-200 bg-white p-4">
-                      <p className="text-xs font-semibold text-slate-900">CSV import preview</p>
-                      <textarea
-                        value={csvInput}
-                        onChange={(event) => setCsvInput(event.target.value)}
-                        placeholder="name,email,phone,business"
-                        className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                      />
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
-                            setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
-                          }}
-                        >
-                          Preview
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={async () => {
-                            await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
-                            const data = await fetchOrgLeads();
-                            setLeads(data.leads || []);
-                            await refreshEntityState();
-                          }}
-                        >
-                          Import
-                        </Button>
-                      </div>
-                      {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
-                    </div>
-                  </SectionDisclosure>
-
                   <div>
                     <h3 className="mb-4 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Lead Details</h3>
                     <div className="space-y-4 px-1">
@@ -1024,6 +986,43 @@ export default function AppLeadsPage() {
         </aside>
       </div>
       </div>
+      <SectionDisclosure title="Data import tools (optional)" storageKey="leads-bulk-import-utils" defaultCollapsed>
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold text-slate-900">CSV import preview</p>
+          <textarea
+            value={csvInput}
+            onChange={(event) => setCsvInput(event.target.value)}
+            placeholder="name,email,phone,business"
+            className="mt-2 h-24 w-full rounded-xl border border-slate-200 p-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          />
+          <div className="mt-2 flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                const response = await executeAiTool({ toolKey: "preview_import", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                setImportPreview({ totalRows: Number(response.output?.totalRows || 0), headers: (response.output?.headers as string[]) || [] });
+              }}
+            >
+              Preview
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={async () => {
+                await executeAiTool({ toolKey: "import_leads", agentKey: "lead_ops", input: { csv: csvInput }, entityType: "organization" });
+                const data = await fetchOrgLeads();
+                setLeads(data.leads || []);
+                await refreshEntityState();
+              }}
+            >
+              Import
+            </Button>
+          </div>
+          {importPreview ? <p className="mt-2 text-xs text-slate-600">Rows: {importPreview.totalRows}, headers: {importPreview.headers.join(", ")}</p> : null}
+        </div>
+      </SectionDisclosure>
       <SectionDisclosure title="Ask AI Assistance" storageKey="leads-ask-ai" defaultCollapsed>
         <AskAiInline page="leads" entityType={selectedLead ? "lead" : undefined} entityId={selectedLead?.id} defaultAgentKey="lead_ops" />
       </SectionDisclosure>
