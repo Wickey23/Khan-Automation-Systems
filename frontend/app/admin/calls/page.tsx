@@ -429,12 +429,12 @@ function CallListPanel({
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-white text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
               <tr>
-                <th className="px-4 py-3">Call / org</th>
-                <th className="px-4 py-3">Numbers</th>
-                <th className="px-4 py-3">Summary</th>
+                <th className="w-[220px] px-4 py-3">Call / org</th>
+                <th className="w-[170px] px-4 py-3">Numbers</th>
+                <th className="min-w-[260px] px-4 py-3">Summary</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Signals</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="w-[170px] px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -457,7 +457,7 @@ function CallListPanel({
                     {call.forwardedToNumber ? <p className="mt-1 font-mono text-xs text-slate-400">Fwd {call.forwardedToNumber}</p> : null}
                   </td>
                   <td className="px-4 py-3 align-top">
-                    <p className="max-w-[320px] text-sm leading-6 text-slate-700">
+                    <p className="line-clamp-3 max-w-[360px] text-sm leading-6 text-slate-700">
                       {call.aiSummary || call.summary || "No AI summary generated yet."}
                     </p>
                   </td>
@@ -482,7 +482,7 @@ function CallListPanel({
                     </div>
                   </td>
                   <td className="px-4 py-3 align-top text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1.5">
                       <Button size="sm" variant="outline" disabled={detailLoadingId === call.id} onClick={() => void onView(call)}>
                         {detailLoadingId === call.id ? "Loading..." : "Inspect"}
                       </Button>
