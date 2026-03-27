@@ -295,11 +295,11 @@ export default function FollowUpPage() {
       };
     }
     return {
-      title: queue.length === 0 ? "No follow-up activity yet" : "No follow-up work queued",
+      title: queue.length === 0 ? "Execution queue clear" : "No work in this execution slice",
       message:
         queue.length === 0
-          ? "No tasks have been created yet. Start with calls, leads, or messages and run the first workflow to generate follow-up items."
-          : "No tasks need follow-up right now. New items appear as calls, messages, and lead workflows create tasks."
+          ? "No open follow-up tasks are pending right now. New tasks will appear as workflows generate execution work."
+          : "No items match this execution filter right now."
     };
   }, [filter, hasNarrowFilter, queue.length]);
 
@@ -375,7 +375,7 @@ export default function FollowUpPage() {
           ownerState === "mine" ? "You" : ownerState === "assigned_elsewhere" ? item.task?.assignedToUser?.email?.split('@')[0] || "Assigned" : "Unassigned";
         const isOverdue = isItemOverdue(item);
         const risks = riskFlags(item, meId);
-        const rowSeverity = isOverdue || risks.length ? "high" : item.task?.priority || "medium";
+        const rowSeverity = isOverdue && ownerState === "unassigned" ? "critical" : isOverdue || risks.length ? "high" : item.task?.priority || "medium";
         const relatedEntityHref = queueEntityHref(item);
         const relatedApprovalsHref =
           item.entityType && item.entityId
@@ -399,7 +399,7 @@ export default function FollowUpPage() {
           ageLabel: ageFromDate(item.createdAt),
           severity: priorityToSeverity(rowSeverity),
           status: statusToOperatorState(item.status === "OPEN" ? (isOverdue ? "in_progress" : "pending") : "done"),
-          primaryActionLabel: item.status === "OPEN" ? "Mark done" : "Reopen",
+          primaryActionLabel: item.status === "OPEN" ? "Complete now" : "Reopen task",
           onPrimaryAction: () => void runQueueAction(item, item.status === "OPEN" ? "done" : "open"),
           primaryActionDisabled: actionBusyId === item.id,
           secondaryActions: [
@@ -415,7 +415,7 @@ export default function FollowUpPage() {
             ...(item.task?.id && ownerState !== "mine" ? [{ label: "Assign to me", onClick: () => void runQueueAction(item, "assignMe") }] : []),
             ...(item.task?.id && isOverdue ? [{ label: "Escalate overdue", onClick: () => void runQueueAction(item, "escalate") }] : [])
           ],
-          detail: item.reason,
+          detail: `${ownerState === "unassigned" ? "Needs owner. " : ""}${item.reason}`,
           isActive: previewQueueItemId === item.id,
           onRowSelect: () => setPreviewQueueItemId(item.id),
           onRowFocus: () => setPreviewQueueItemId(item.id),
@@ -427,10 +427,10 @@ export default function FollowUpPage() {
 
   const followUpSummaryStrip = useMemo(
     () => [
-      { label: "Open items", value: visibleQueue.filter((item) => item.status === "OPEN").length, note: "Active commitments" },
+      { label: "Ready to complete", value: visibleQueue.filter((item) => item.status === "OPEN").length, note: "Open execution items" },
       { label: "Overdue", value: visibleQueue.filter((item) => isItemOverdue(item) && item.status === "OPEN").length, note: "Needs immediate action" },
       { label: "Unassigned overdue", value: ownershipSnapshot.overdueUnassigned, note: "Ownership risk" },
-      { label: "Mine overdue", value: ownershipSnapshot.overdueMine, note: "Your urgent load" }
+      { label: "Mine overdue", value: ownershipSnapshot.overdueMine, note: "Your urgent workload" }
     ],
     [ownershipSnapshot.overdueMine, ownershipSnapshot.overdueUnassigned, visibleQueue]
   );
@@ -485,15 +485,15 @@ export default function FollowUpPage() {
     <div className="space-y-10 pb-12">
       <CommandHeader
         eyebrow="AI Operations"
-        title="Follow-Up Queue"
-        description="Operational follow-up items created by AI workflows and human actions."
+        title="Execution Queue"
+        description="Complete open work, resolve overdue items, and close ownership gaps."
         actions={
           <div className="flex items-center gap-3 w-full md:w-auto">
             <QueueActionLink 
               className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary transition-all shadow-md"
-              href={buildWorkflowHref("/app/follow-up?status=overdue", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
+              href={buildWorkflowHref("/app/follow-up?status=overdue_unassigned", { source: "follow-up", returnTo: localReturnTo, returnLabel: "Follow-up Queue" })}
             >
-              Open overdue items
+              Open overdue unassigned
             </QueueActionLink>
           </div>
         }
@@ -521,7 +521,8 @@ export default function FollowUpPage() {
                 {(
                   [
                     "all",
-                    "at_risk",
+                    "overdue",
+                    "unassigned",
                     "mine"
                   ] as const
                 ).map((entry) => (
@@ -682,7 +683,7 @@ export default function FollowUpPage() {
                       disabled={actionBusyId === previewItem.id}
                       onClick={() => void runQueueAction(previewItem, previewItem.status === "OPEN" ? "done" : "open")}
                     >
-                      {previewItem.status === "OPEN" ? "Mark resolved" : "Reopen item"}
+                      {previewItem.status === "OPEN" ? "Complete now" : "Reopen task"}
                     </QueueActionButton>
                     
                     {previewItem.entityType && previewItem.entityId ? (

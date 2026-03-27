@@ -82,6 +82,14 @@ function approvalDecisionHint(approval: ApprovalRequest) {
   return "No immediate action required.";
 }
 
+function approvalConsequence(approval: ApprovalRequest) {
+  if (approval.status === "PENDING") return "Requested action will not execute until a decision is made.";
+  if (isNeedsRetry(approval)) return "Customer-facing delivery remains failed until retried.";
+  if (approval.status === "APPROVED" && approval.deliveryStatus === "FAILED") return "Delivery failed and may require manual recovery.";
+  if (isInDelivery(approval)) return "Action is in flight. Monitor completion state.";
+  return "No immediate operator risk.";
+}
+
 function parseDraft(approval: ApprovalRequest): DraftEditState {
   let parsed: Record<string, unknown> = {};
   try {
@@ -308,6 +316,18 @@ export default function ApprovalsPage() {
     () =>
       visibleApprovals.map((approval) => {
         const state = toApprovalRowStatus(approval);
+        const agingPending = approval.status === "PENDING" && Date.now() - new Date(approval.createdAt).getTime() >= 2 * 60 * 60 * 1000;
+        const decisionState =
+          approval.status === "PENDING" ? "Decision required" : isNeedsRetry(approval) ? "Retry required" : "Decision recorded";
+        const dueState =
+          approval.status === "PENDING"
+            ? agingPending
+              ? "Aging > 2h"
+              : "Review now"
+            : isNeedsRetry(approval)
+              ? "Retry now"
+              : "No pending action";
+        const severityTone = isNeedsRetry(approval) || agingPending ? "high" : state.tone;
         const primaryActionLabel =
           approval.status === "PENDING"
             ? "Approve & send"
@@ -318,11 +338,11 @@ export default function ApprovalsPage() {
                 : "Open approval";
         return {
           id: approval.id,
-          item: approval.toolKey,
-          owner: approval.status === "PENDING" ? "Pending review" : "Operator reviewed",
-          due: approval.status === "PENDING" ? "Now" : new Date(approval.updatedAt).toLocaleString(),
+          item: `${approval.actionType.replaceAll("_", " ").toLowerCase()} - ${approval.toolKey}`,
+          owner: decisionState,
+          due: dueState,
           ageLabel: ageFromDate(approval.createdAt),
-          severity: priorityToSeverity(state.tone),
+          severity: priorityToSeverity(severityTone),
           status: statusToOperatorState(state.label),
           onPrimaryAction:
             approval.status === "PENDING"
@@ -369,7 +389,7 @@ export default function ApprovalsPage() {
               })
             }
           ],
-          detail: approvalDecisionHint(approval),
+          detail: `${approvalDecisionHint(approval)} ${approvalConsequence(approval)}`,
           isActive: previewApprovalId === approval.id,
           onRowSelect: () => setPreviewApprovalId(approval.id),
           onRowFocus: () => setPreviewApprovalId(approval.id),
@@ -507,8 +527,8 @@ export default function ApprovalsPage() {
     <div className="space-y-10 pb-12">
       <CommandHeader
         eyebrow="AI Operations"
-        title="Approval Queue"
-        description="Operator decision desk for pending, aging, and at-risk approval actions."
+        title="Decision Desk"
+        description="Approve, reject, and retry with clear consequence context for every request."
         actions={
           <div className="flex items-center gap-3 w-full md:w-auto">
             {primaryCta}
@@ -570,8 +590,9 @@ export default function ApprovalsPage() {
                 <button
                   type="button"
                   onClick={() => void load()}
-                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl"
+                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   title="Refresh items"
+                  aria-label="Refresh approvals"
                 >
                   <RefreshCcw className="h-4 w-4" />
                 </button>
@@ -633,10 +654,10 @@ export default function ApprovalsPage() {
                  focusFilter === "needs_retry"
                    ? "There are currently no failed retryable sends. This queue will repopulate when a delivery fails and can be retried."
                    : focusFilter === "needs_review"
-                     ? "No pending approvals right now. New approval-gated actions will appear here."
+                     ? "Nothing is waiting on a decision right now. New gated actions will appear here."
                      : approvals.length === 0
-                       ? "No approval-gated actions have occurred yet."
-                       : "No approvals match the current filter."
+                       ? "No decision-gated actions have occurred yet."
+                       : "No approvals match this decision view."
               }
               onAction={() => {
                 if (focusFilter !== "all" || Boolean(statusFilter)) {
@@ -669,13 +690,16 @@ export default function ApprovalsPage() {
                 <header>
                   <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-2">Focused Approval</p>
                   <h4 className="text-xl font-black font-headline text-on-surface tracking-tight leading-tight uppercase">{previewApproval.toolKey}</h4>
-                  <p className="mt-1 text-xs font-semibold text-on-surface-variant/60">{`${previewApproval.actionType}${previewApproval.entityType ? ` · ${previewApproval.entityType}` : ""}`}</p>
+                  <p className="mt-1 text-xs font-semibold text-on-surface-variant/60">{`${previewApproval.actionType}${previewApproval.entityType ? ` - ${previewApproval.entityType}` : ""}`}</p>
                 </header>
 
                 <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100/50 space-y-3">
                   <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Operator Decision Hint</p>
                   <p className="text-sm font-black text-on-surface leading-tight">
                     {approvalDecisionHint(previewApproval)}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-600">
+                    {approvalConsequence(previewApproval)}
                   </p>
                 </div>
 
@@ -743,7 +767,7 @@ export default function ApprovalsPage() {
                     </div>
                     <div className="space-y-1">
                       <p>Provider</p>
-                      <p className="text-on-surface">{previewApproval.deliveryProvider || "N/A"}</p>
+                      <p className="text-on-surface">{previewApproval.deliveryProvider || "Not available"}</p>
                     </div>
                   </div>
                 </div>
@@ -761,7 +785,7 @@ export default function ApprovalsPage() {
                 <div className="space-y-3 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
                   <div className="space-y-1">
                     <p>Request Payload</p>
-                    <p className="text-on-surface normal-case font-medium line-clamp-3">{previewApproval.inputSummary || "No summary."}</p>
+                    <p className="text-on-surface normal-case font-medium line-clamp-3">{previewApproval.inputSummary || "No approval summary available."}</p>
                   </div>
                   <div className="flex justify-between"><span>Retries</span> <span className="text-on-surface">{previewApproval.retryCount}</span></div>
                   <div className="flex justify-between"><span>Latest event</span> <span className="text-on-surface text-right">{triage.recentEvents[0]?.label || "-"}</span></div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, CreditCard, Download, Plus, Zap } from "lucide-react";
+import { Check, CreditCard, Plus, Zap } from "lucide-react";
 import {
   createPlanChangeSession,
   createStripeCheckoutSession,
@@ -344,17 +344,25 @@ export default function AppBillingPage() {
       detail: showDemoCard ? "Guided demo consumption." : "Stripe customer self-service access."
     }
   ];
+  const primaryBillingCta = hasRealSubscription
+    ? { label: openingPortal ? "Opening..." : "Open billing portal", onClick: onOpenPortal, disabled: openingPortal }
+    : { label: startingPlan ? "Starting..." : "Start Standard plan", onClick: () => void onStartPlan("starter"), disabled: startingPlan !== null };
 
   return (
     <div className="space-y-6">
       <CommandHeader
         eyebrow="Billing"
-        title="Billing"
-        description="Manage your subscription, payment method, invoices, and billing diagnostics."
+        title="Subscription & Billing"
+        description="See plan status, billing health, and the next action to keep this workspace active."
         actions={
-          <Badge className={statusStyles(subscription?.status)}>
-            {subscription ? `Status: ${formatStatus(subscription.status)}` : "No active subscription"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={statusStyles(subscription?.status)}>
+              {subscription ? `Status: ${formatStatus(subscription.status)}` : "No active subscription"}
+            </Badge>
+            <Button size="sm" onClick={primaryBillingCta.onClick} disabled={primaryBillingCta.disabled}>
+              {primaryBillingCta.label}
+            </Button>
+          </div>
         }
       />
 
@@ -396,12 +404,7 @@ export default function AppBillingPage() {
                 <h2 className="mt-1 text-[2.1rem] font-black leading-none tracking-tight text-primary">{currentPlanCopy.title}</h2>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {hasRealSubscription ? (
-                <Button variant="outline" onClick={onOpenPortal} disabled={openingPortal}>
-                  {openingPortal ? "Opening..." : "Open Portal"}
-                </Button>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
               {isActiveSubscription && subscription?.plan === "STARTER" ? (
                 <Button variant="outline" onClick={() => void onChangePlan("pro")} disabled={changingPlan !== null}>
                   {changingPlan === "pro" ? "Upgrading..." : "Change Plan"}
@@ -587,10 +590,32 @@ export default function AppBillingPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{row.detail}</td>
                     <td className="px-6 py-4 text-right">
-                      <button className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
-                        {row.action}
-                        <Download className="h-4 w-4" />
-                      </button>
+                      {row.label === "Customer Portal" ? (
+                        <Button size="sm" variant="outline" onClick={onOpenPortal} disabled={!hasRealSubscription || openingPortal}>
+                          {openingPortal ? "Opening..." : row.action}
+                        </Button>
+                      ) : row.label === "Plan Change" ? (
+                        isActiveSubscription ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onChangePlan(subscription?.plan === "PRO" ? "starter" : "pro")}
+                            disabled={changingPlan !== null}
+                          >
+                            {changingPlan ? "Working..." : row.action}
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => void onStartPlan("starter")} disabled={startingPlan !== null}>
+                            {startingPlan ? "Starting..." : row.action}
+                          </Button>
+                        )
+                      ) : hasRealSubscription ? (
+                        <span className="text-sm text-slate-500">Managed</span>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => void onStartPlan("starter")} disabled={startingPlan !== null}>
+                          {startingPlan ? "Starting..." : row.action}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}

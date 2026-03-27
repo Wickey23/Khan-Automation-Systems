@@ -95,7 +95,7 @@ function initials(value: string) {
 }
 
 function leadName(lead: Lead) {
-  return String(lead.name || lead.phone || lead.email || "Unknown lead").trim();
+  return String(lead.name || lead.phone || lead.email || "Lead record").trim();
 }
 
 function leadStatus(lead: Lead) {
@@ -255,6 +255,7 @@ export default function AppLeadsPage() {
         const highPriority = lead.frontDesk?.frontDeskPriority === "urgent" || lead.frontDesk?.frontDeskPriority === "high";
         const highlight =
           highPriority || stage === "NEEDS_SCHEDULING" || (stage === "SCHEDULED" && lead.frontDesk?.state !== "closed");
+        const priorityTone = lead.frontDesk?.frontDeskPriority === "urgent" ? "critical" : highPriority ? "high" : "normal";
         return {
           lead,
           stage,
@@ -262,7 +263,8 @@ export default function AppLeadsPage() {
           urgency,
           signal,
           selectedForBatch,
-          highlight
+          highlight,
+          priorityTone
         };
       }),
     [filteredLeads, selectedLeadIds]
@@ -619,6 +621,15 @@ export default function AppLeadsPage() {
                       <div className="mt-1 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                                leadUrgency(topLead.lead.frontDesk?.frontDeskPriority).bg,
+                                leadUrgency(topLead.lead.frontDesk?.frontDeskPriority).color
+                              )}
+                            >
+                              {leadUrgency(topLead.lead.frontDesk?.frontDeskPriority).label} priority
+                            </span>
                             <p className="truncate text-sm font-semibold text-slate-900">{leadName(topLead.lead)}</p>
                             <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", stageTone(topLead.stage))}>
                               {stageLabel(topLead.stage)}
@@ -638,11 +649,11 @@ export default function AppLeadsPage() {
                   <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                     <h2 className="text-sm font-bold text-slate-900">Lead pipeline</h2>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Name · Stage · Signal · Next action
+                      Stage - Lead - Priority - Next action
                     </span>
                   </div>
                   <div className="divide-y divide-slate-100">
-                    {pipelineRows.map(({ lead, stage, stageIndex, urgency, signal, selectedForBatch, highlight }) => (
+                    {pipelineRows.map(({ lead, stage, stageIndex, urgency, signal, selectedForBatch, highlight, priorityTone }) => (
                       <div
                         key={lead.id}
                         role="button"
@@ -657,15 +668,15 @@ export default function AppLeadsPage() {
                           }
                         }}
                         className={cn(
-                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:grid-cols-[minmax(0,1.4fr)_170px_220px_170px]",
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:grid-cols-[180px_minmax(0,1.4fr)_220px_170px]",
                           selectedLeadId === lead.id ? "bg-primary/5" : "",
-                          highlight ? "border-l-2 border-l-amber-300 bg-amber-50/20" : ""
+                          priorityTone === "critical"
+                            ? "border-l-2 border-l-rose-400 bg-rose-50/30"
+                            : highlight
+                              ? "border-l-2 border-l-amber-300 bg-amber-50/20"
+                              : ""
                         )}
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{leadName(lead)}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{lead.phone || lead.email || "No contact provided"}</p>
-                        </div>
                         <div className="flex items-center gap-2">
                           <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em]", stageTone(stage))}>
                             {stageLabel(stage)}
@@ -673,10 +684,13 @@ export default function AppLeadsPage() {
                           <span className="text-[10px] font-semibold text-slate-400">S{stageIndex + 1}</span>
                         </div>
                         <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{leadName(lead)}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{lead.phone || lead.email || "Contact details pending"}</p>
+                        </div>
+                        <div className="min-w-0">
                           <p className={cn("truncate text-[11px] font-semibold", signal.tone)}>{signal.label}</p>
                           <p className="mt-0.5 truncate text-[11px] text-slate-500">
-                            {urgency.label} urgency · {leadSource(lead)}
-                            {selectedForBatch ? " · Batch selected" : ""}
+                            {urgency.label} priority - {selectedForBatch ? "Batch selected" : leadSource(lead)}
                           </p>
                         </div>
                         <div className="flex items-center justify-between gap-2 md:justify-end">
@@ -723,7 +737,7 @@ export default function AppLeadsPage() {
           </div>
         </div>
 
-        <aside className="hidden w-96 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 xl:flex">
+        <aside className="hidden w-96 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 lg:flex">
           {selectedLead ? (
             <>
               <div className="border-b border-slate-200 bg-white p-6">
@@ -824,7 +838,7 @@ export default function AppLeadsPage() {
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
                     <p className="font-semibold text-slate-900">Lead score and reasoning</p>
-                    <p className="mt-1">Score: {leadAiState.score ?? "n/a"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
+                    <p className="mt-1">Score: {leadAiState.score ?? "Not available"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
                     {leadAiState.callPrep?.length ? (
                       <ul className="mt-2 list-disc space-y-1 pl-5">
                         {leadAiState.callPrep.map((item) => (
@@ -844,7 +858,7 @@ export default function AppLeadsPage() {
                     error={entityStateError}
                   />
 
-                  <SectionDisclosure title="Bulk import utilities" storageKey="leads-bulk-import-utils" defaultCollapsed>
+                <SectionDisclosure title="Data import tools (optional)" storageKey="leads-bulk-import-utils" defaultCollapsed>
                     <div className="rounded-lg border border-slate-200 bg-white p-4">
                       <p className="text-xs font-semibold text-slate-900">CSV import preview</p>
                       <textarea
@@ -889,14 +903,14 @@ export default function AppLeadsPage() {
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Phone className="h-3.5 w-3.5" /></div>
                         <div>
                           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Phone</p>
-                          <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "N/A"}</p>
+                          <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "Not available"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Mail className="h-3.5 w-3.5" /></div>
                         <div>
                           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</p>
-                          <p className="text-xs font-bold text-slate-900">{selectedLead.email || "N/A"}</p>
+                          <p className="text-xs font-bold text-slate-900">{selectedLead.email || "Not available"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

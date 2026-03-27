@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientGateCard, ClientStatusGrid } from "@/components/ui/client-module";
 import { InfoHint } from "@/components/ui/info-hint";
 import { PageHelpFab, PageShell, SectionShell } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 import { subscriptionStatusLabel } from "@/lib/client-status-language";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
@@ -30,6 +31,8 @@ export default function AppAnalyticsPage() {
   const [range, setRange] = useState<"7d" | "30d">("7d");
   const [data, setData] = useState<OrgAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [isPro, setIsPro] = useState(false);
   const [role, setRole] = useState<"CLIENT" | "CLIENT_STAFF" | "CLIENT_ADMIN" | "ADMIN" | "SUPER_ADMIN" | null>(null);
 
@@ -61,10 +64,12 @@ export default function AppAnalyticsPage() {
       .then((analytics) => {
         if (!active) return;
         setData(analytics);
+        setLoadError(null);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!active) return;
         setData(null);
+        setLoadError(error instanceof Error ? error.message : "Analytics data unavailable.");
       })
       .finally(() => {
         if (!active) return;
@@ -73,7 +78,7 @@ export default function AppAnalyticsPage() {
     return () => {
       active = false;
     };
-  }, [range]);
+  }, [range, reloadTick]);
 
   const kpis = useMemo(() => data?.kpis, [data]);
   const isViewer = role === "CLIENT";
@@ -98,13 +103,14 @@ export default function AppAnalyticsPage() {
     },
     { label: "Known Customer Rate", hint: "Percent of newly created leads that are not still using placeholder names.", value: kpis ? pct(Math.max(0, 1 - kpis.unknownNameRate)) : "-" }
   ];
+  const retryLoad = () => setReloadTick((current) => current + 1);
 
   return (
     <PageShell className="space-y-6">
       <CommandHeader
         eyebrow="Operational Intelligence"
-        title="Performance"
-        description="Measure whether front-desk operations are converting into leads, follow-up outcomes, and booked work."
+        title="Analytics Reports"
+        description="Review reporting detail, performance trends, and data availability for this workspace."
         actions={
           <div className="inline-flex rounded-2xl border bg-white p-1 shadow-sm">
             {(["7d", "30d"] as const).map((option) => (
@@ -130,6 +136,23 @@ export default function AppAnalyticsPage() {
         ]}
       />
 
+      {loadError ? (
+        <SectionShell className="surface-panel">
+          <StateCard
+            variant="error"
+            title="Reporting data unavailable"
+            description={loadError}
+            action={
+              <Button size="sm" variant="outline" onClick={retryLoad}>
+                Retry report load
+              </Button>
+            }
+          />
+        </SectionShell>
+      ) : null}
+
+      {loadError ? null : (
+      <>
       <SectionShell className="surface-panel space-y-5">
         <ClientStatusGrid
           items={[
@@ -236,8 +259,8 @@ export default function AppAnalyticsPage() {
 
       {!isPro ? (
         <ClientGateCard
-          title="Advanced reporting is locked on the current plan."
-          description={`Upgrade when you want broader KPI reporting, deeper trend visibility, and stronger operational review tools. Current access: ${subscriptionStatusLabel(isPro ? "active" : "not_active")}.`}
+          title="Advanced reports are locked on the current plan."
+          description={`Core reporting remains visible. Upgrade to unlock expanded reporting detail and full analytics coverage. Current access: ${subscriptionStatusLabel(isPro ? "active" : "not_active")}.`}
           badgeLabel="Locked"
           badgeTone="warning"
           actions={[{ href: "/app/billing", label: "Open Billing" }]}
@@ -373,6 +396,8 @@ export default function AppAnalyticsPage() {
         </CardContent>
       </Card>
       ) : null}
+      </>
+      )}
     </PageShell>
   );
 }

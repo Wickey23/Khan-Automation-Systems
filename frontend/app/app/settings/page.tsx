@@ -391,6 +391,7 @@ export default function AppSettingsPage() {
   const [notifications, setNotifications] = useState<OrgNotification[]>([]);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
   const [canManageCalendar, setCanManageCalendar] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [featureFlags, setFeatureFlags] = useState({
     calendarOauthEnabled: false,
     notificationsEnabled: false,
@@ -420,6 +421,7 @@ export default function AppSettingsPage() {
   }, [saving, savedStateFingerprint, stateFingerprint]);
 
   useEffect(() => {
+    setLoadError(null);
     void Promise.all([
       fetchOrgSettings(),
       fetchOrgKnowledgeFiles(),
@@ -527,6 +529,7 @@ export default function AppSettingsPage() {
           description: error instanceof Error ? error.message : "Try again.",
           variant: "error"
         });
+        setLoadError(error instanceof Error ? error.message : "Failed to load settings.");
         setAccessSummary(null);
       });
   }, [showToast]);
@@ -855,6 +858,19 @@ export default function AppSettingsPage() {
         title="Settings"
         description="Configure identity, routing, hours, calendar, alerts, security, and knowledge."
       />
+
+      {loadError ? (
+        <StateCard
+          variant="error"
+          title="Settings data unavailable"
+          description={loadError}
+          action={
+            <Button type="button" variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Reload page
+            </Button>
+          }
+        />
+      ) : null}
 
       <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -36,7 +36,7 @@ import { CommandHeader, SectionDisclosure } from "@/components/ops";
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
 function displayName(thread: OrgMessageThread) {
-  return String(thread.contactName || thread.lead?.name || thread.contactPhone || "Unknown contact").trim();
+  return String(thread.contactName || thread.lead?.name || thread.contactPhone || "Contact record").trim();
 }
 
 function avatar(thread: OrgMessageThread) {
@@ -80,6 +80,14 @@ function threadStatusLabel(thread: OrgMessageThread) {
   return "Away";
 }
 
+function threadPriorityRank(thread: OrgMessageThread) {
+  const needsReply = (thread.frontDesk?.state || thread.lead?.frontDesk?.state) === "needs_follow_up";
+  const urgent = threadType(thread) === "Emergency";
+  if (urgent && needsReply) return 3;
+  if (urgent || needsReply) return 2;
+  return 1;
+}
+
 function formatActivityTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString([], {
@@ -112,6 +120,7 @@ export default function AppMessagesPage() {
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [savingStage, setSavingStage] = useState<PipelineStage | null>(null);
@@ -172,13 +181,19 @@ export default function AppMessagesPage() {
 
   const filteredThreads = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return threads.filter((thread) => {
-      if (!term) return true;
-      return [displayName(thread), thread.contactPhone, threadPreview(thread), threadType(thread)]
-        .join(" ")
-        .toLowerCase()
-        .includes(term);
-    });
+    return threads
+      .filter((thread) => {
+        if (!term) return true;
+        return [displayName(thread), thread.contactPhone, threadPreview(thread), threadType(thread)]
+          .join(" ")
+          .toLowerCase()
+          .includes(term);
+      })
+      .sort((a, b) => {
+        const priorityDelta = threadPriorityRank(b) - threadPriorityRank(a);
+        if (priorityDelta !== 0) return priorityDelta;
+        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+      });
   }, [search, threads]);
 
   const selectedThread =
@@ -227,11 +242,14 @@ export default function AppMessagesPage() {
   async function onSend() {
     if (!selectedThread || !to.trim() || !body.trim()) return;
     setSending(true);
+    setSendError(null);
     try {
       await sendOrgMessage({ to: to.trim(), body: body.trim(), leadId: selectedThread.leadId || undefined });
       setBody("");
       await load();
       await refreshEntityState();
+    } catch (sendFailure) {
+      setSendError(sendFailure instanceof Error ? sendFailure.message : "Message failed to send. Please try again.");
     } finally {
       setSending(false);
     }
@@ -636,7 +654,18 @@ export default function AppMessagesPage() {
                     <p className="text-[11px] text-slate-500">{threadType(selectedThread)} - {threadStatusLabel(selectedThread)}</p>
                   </div>
                 </div>
-                <div />
+                <div className="flex items-center gap-2">
+                  {selectedNeedsReply ? (
+                    <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                      Reply needed
+                    </span>
+                  ) : null}
+                  {selectedUrgent ? (
+                    <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+                      Urgent
+                    </span>
+                  ) : null}
+                </div>
               </header>
 
               <div className="flex-1 space-y-6 overflow-y-auto bg-white p-6">
@@ -805,7 +834,7 @@ export default function AppMessagesPage() {
                   </SectionDisclosure>
                   <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
                     <p className="font-semibold text-slate-900">Thread AI state</p>
-                    <p className="mt-1">Classification: {threadAiState.classification || "n/a"}</p>
+                    <p className="mt-1">Classification: {threadAiState.classification || "Not available"}</p>
                     <p>Opt-out: {threadAiState.optOut ? "Detected" : "Not detected"}</p>
                     <p>Next action: {threadAiState.nextAction || "Run route/action tool"}</p>
                     {threadAiState.replyDraft ? <p className="mt-1">Draft: {threadAiState.replyDraft}</p> : null}
@@ -842,24 +871,7 @@ export default function AppMessagesPage() {
                       rows={1}
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <button
-                          type="button"
-                          aria-label="Insert emoji"
-                          title="Insert emoji"
-                          className="material-symbols-outlined text-[20px] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                        >
-                          sentiment_satisfied
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Attach file"
-                          title="Attach file"
-                          className="material-symbols-outlined text-[20px] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                        >
-                          attach_file
-                        </button>
-                      </div>
+                      <div />
                       <button
                         type="button"
                         aria-label="Send message"
@@ -871,6 +883,9 @@ export default function AppMessagesPage() {
                         <span className="material-symbols-outlined text-[18px]">send</span>
                       </button>
                     </div>
+                    {sendError ? (
+                      <p className="px-3 pb-2 text-xs font-medium text-red-600">{sendError}</p>
+                    ) : null}
                   </div>
                 </div>
               </footer>

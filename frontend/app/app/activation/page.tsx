@@ -328,9 +328,14 @@ export default function AppActivationPage() {
     [steps]
   );
   const nextSetupSteps = useMemo(
-    () => steps.filter((step) => step.status !== "ready").slice(0, 3),
+    () =>
+      steps
+        .filter((step) => step.status !== "ready")
+        .sort((a, b) => STATUS_PRIORITY[b.status] - STATUS_PRIORITY[a.status])
+        .slice(0, 3),
     [steps]
   );
+  const primaryNextStep = useMemo(() => nextSetupSteps[0] || null, [nextSetupSteps]);
 
   const isWorkspaceReady = flowStatus === "ready" && remainingCount === 0;
   const workspaceLive = isWorkspaceReady && isCoreFeatureReady(access);
@@ -616,12 +621,18 @@ export default function AppActivationPage() {
     <PageShell className="space-y-6">
       <CommandHeader
         eyebrow="Guided activation"
-        title={organization?.name ? `${organization.name} activation` : "Activation control center"}
-        description="Readiness-first control board for moving from setup into safe live operations."
+        title={organization?.name ? `${organization.name} activation` : "Activation board"}
+        description="Complete remaining readiness steps in order and unblock live operations."
         actions={
-          <Link href="/app/onboarding">
-            <Button variant="outline">Edit onboarding package</Button>
-          </Link>
+          primaryNextStep ? (
+            <Link href={primaryNextStep.ctaHref}>
+              <Button>{primaryNextStep.ctaLabel}</Button>
+            </Link>
+          ) : (
+            <Link href="/app/onboarding">
+              <Button variant="outline">Edit onboarding package</Button>
+            </Link>
+          )
         }
       />
 
@@ -678,8 +689,12 @@ export default function AppActivationPage() {
               {nextSetupSteps.length ? (
                 nextSetupSteps.map((step) => (
                   <Link key={step.id} href={step.ctaHref} className="block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
-                    <p className="text-sm font-semibold text-slate-900">{step.label}</p>
-                    <p className="text-xs text-slate-600">{step.summary}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{step.label}</p>
+                      <StatusBadge kind="feature" state={step.status} size="xs" label={step.completionLabel} />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-600">{step.summary}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-700">{step.ctaLabel}</p>
                   </Link>
                 ))
               ) : (

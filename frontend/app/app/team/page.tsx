@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock3, Filter, Mail, MoreVertical, Plus, Search, Shield, Users } from "lucide-react";
+import { CheckCircle2, Clock3, Mail, Plus, Search, Shield, Users } from "lucide-react";
 import {
   fetchTeamMembers,
   getBillingStatus,
@@ -21,6 +21,7 @@ import { ClientGateCard } from "@/components/ui/client-module";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHelpFab } from "@/components/ui/page";
+import { StateCard } from "@/components/ui/state-card";
 import { frontDeskEmptyStateClass, frontDeskLoadingCardClass, frontDeskMetricCardClass, frontDeskSkeletonLineClass, frontDeskWorkspaceCardClass } from "@/lib/front-desk-ui";
 
 function toRoleInput(role: TeamMember["role"]): "admin" | "manager" | "viewer" {
@@ -33,6 +34,12 @@ function formatDate(value: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString();
 }
+
+const ROLE_SUMMARY: Record<"ADMIN" | "MANAGER" | "VIEWER", string> = {
+  ADMIN: "Workspace admin access",
+  MANAGER: "Operator actions + routing",
+  VIEWER: "Read-only visibility"
+};
 
 export default function TeamPage() {
   const { showToast } = useToast();
@@ -57,9 +64,11 @@ export default function TeamPage() {
   const [roleBlocked, setRoleBlocked] = useState(false);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"all" | "admins" | "operators">("all");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [me, billing] = await Promise.all([getMe(), getBillingStatus()]);
       setCurrentUserId(me.user.userId || null);
@@ -126,6 +135,7 @@ export default function TeamPage() {
         description: message || "Try again.",
         variant: "error"
       });
+      setLoadError(message || "Failed to load team members.");
       setMembers([]);
       setCurrentUserId(null);
       setProEnabled(false);
@@ -256,6 +266,19 @@ export default function TeamPage() {
         }
       />
 
+      {loadError ? (
+        <StateCard
+          variant="error"
+          title="Team data unavailable"
+          description={loadError}
+          action={
+            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
+
       <PageHelpFab
         items={[
           {
@@ -295,6 +318,33 @@ export default function TeamPage() {
         </div>
       </div>
 
+      <Card className={frontDeskWorkspaceCardClass("default")}>
+        <CardHeader className="pb-3">
+          <CardTitle>Team structure</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="page-eyebrow">Seat capacity</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {usedSeats}/{seats.allowedSeats} seats used
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              {seatsFull ? (seats.upgradeHint || "Seat limit reached. Add seats in billing.") : "You can invite more members."}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="page-eyebrow">Admin coverage</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{adminCount} admin seats</p>
+            <p className="mt-1 text-xs text-slate-600">Admins can invite, remove, and change roles.</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="page-eyebrow">Invite state</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{pendingCount} pending invite{pendingCount === 1 ? "" : "s"}</p>
+            <p className="mt-1 text-xs text-slate-600">Pending invites consume seats until accepted or removed.</p>
+          </div>
+        </CardContent>
+      </Card>
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-6">
           <div>
@@ -331,7 +381,7 @@ export default function TeamPage() {
                   key={item.key}
                   type="button"
                   onClick={() => setView(item.key as typeof view)}
-                  className={`rounded-md px-4 py-1.5 text-xs font-bold ${
+                  className={`rounded-md px-4 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                     view === item.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -340,9 +390,9 @@ export default function TeamPage() {
               ))}
             </div>
           </div>
-          <button type="button" className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:text-primary">
-            <Filter className="h-4 w-4" />
-          </button>
+          <span className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500">
+            {visibleMembers.length} member{visibleMembers.length === 1 ? "" : "s"} shown
+          </span>
         </div>
 
         <div className="p-8">
@@ -409,6 +459,7 @@ export default function TeamPage() {
                             ) : (
                               <span className="text-sm font-bold text-slate-700">{roleLabel}</span>
                             )}
+                            <span className="text-[11px] text-slate-500">{ROLE_SUMMARY[member.role]}</span>
                           </div>
                         </td>
                         <td className="px-8 py-5">
@@ -438,9 +489,6 @@ export default function TeamPage() {
                                   Remove
                                 </Button>
                               )}
-                              <button type="button" className="rounded-lg p-2 text-slate-400 transition hover:bg-primary/5 hover:text-primary">
-                                <MoreVertical className="h-4 w-4" />
-                              </button>
                             </div>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>

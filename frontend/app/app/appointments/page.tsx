@@ -25,7 +25,7 @@ import { useAccessSummary } from "@/context/access-summary";
 import type { AppointmentRequest, TeamMember } from "@/lib/types";
 import { CommandHeader } from "@/components/ops";
 import { Button } from "@/components/ui/button";
-import { PageShell, SectionHeading, SectionShell, WorkflowHint } from "@/components/ui/page";
+import { PageShell, SectionHeading, SectionShell } from "@/components/ui/page";
 import { StateCard } from "@/components/ui/state-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
@@ -100,17 +100,32 @@ export default function AppAppointmentsPage() {
   const [selectedRequestId, setSelectedRequestId] = useState<string>("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [canWrite, setCanWrite] = useState(false);
   const [assignable, setAssignable] = useState<Array<{ id: string; label: string }>>([]);
   const [assignedDraft, setAssignedDraft] = useState<Record<string, string>>({});
+  const bookingReadinessCheck = useMemo(
+    () => (accessSummary?.readinessChecklist || []).find((check) => check.key === "bookingSetup") || null,
+    [accessSummary]
+  );
+  const pendingReviewCount = useMemo(
+    () => requests.filter((request) => request.status === "PENDING_REVIEW").length,
+    [requests]
+  );
+  const readyToBookCount = useMemo(
+    () => requests.filter((request) => request.status === "APPROVED").length,
+    [requests]
+  );
 
   useEffect(() => {
     if (!shouldShowAppointments) {
       setRequests([]);
+      setError(null);
       setLoading(false);
       return;
     }
+    setError(null);
     void Promise.all([fetchAppointmentRequests(), getMe(), fetchTeamMembers().catch(() => ({ members: [] as TeamMember[] }))])
       .then(([requestData, me, teamData]) => {
         setRequests(requestData.requests || []);
@@ -121,10 +136,11 @@ export default function AppAppointmentsPage() {
           .map((member) => ({ id: member.user?.id || "", label: member.user?.email || member.invitedEmail }));
         setAssignable(members);
       })
-      .catch(() => {
+      .catch((loadError) => {
         setRequests([]);
         setCanWrite(false);
         setAssignable([]);
+        setError(loadError instanceof Error ? loadError.message : "Failed to load booking requests.");
       })
       .finally(() => setLoading(false));
   }, [highlightedRequestId, shouldShowAppointments]);
@@ -232,7 +248,7 @@ export default function AppAppointmentsPage() {
         <CommandHeader
           eyebrow="Booking operations"
           title="Booking triage"
-          description="Handle appointment requests, expose failure states, and escalate reviews without leaving one calm workspace."
+          description="Confirm booking readiness, work request states, and resolve blockers to move requests to scheduled."
           actions={
             <div className="flex items-center">
               <input
@@ -245,14 +261,38 @@ export default function AppAppointmentsPage() {
             </div>
           }
         />
-        <WorkflowHint
-          title="How booking works"
-          items={[
-            { label: "Review first", text: "Pending review requests need an operator to assess the captured summary before routing to the calendar." },
-            { label: "Finalizer phase", text: "Approved items trigger the booking finalizer that syncs slots, creates appointments, and records the workflow." },
-            { label: "Failure guard", text: "Denied, requires review, or failed sync states now surface clear guidance and call links for manual follow-up." }
-          ]}
-        />
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Booking availability</p>
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-900">
+                {appointmentsAccess?.status === "ready" || !appointmentsAccess ? "Ready" : "Setup required"}
+              </p>
+              <StatusBadge kind="feature" state={appointmentsAccess?.status || "ready"} size="xs" />
+            </div>
+            <p className="mt-1 text-xs text-slate-600">
+              {appointmentsAccess?.status === "ready" || !appointmentsAccess
+                ? "Booking path is available in this workspace."
+                : appointmentsAccess.reason}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Calendar readiness</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {bookingReadinessCheck?.status === "ready" ? "Configured" : "Needs setup"}
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              {bookingReadinessCheck?.description || "Connect booking settings and lead-time rules in settings."}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Requests needing action</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {pendingReviewCount} review / {readyToBookCount} ready
+            </p>
+            <p className="mt-1 text-xs text-slate-600">Start with pending review, then move approved requests to booking.</p>
+          </div>
+        </div>
       </SectionShell>
 
       <SectionShell className="surface-panel space-y-4">
@@ -287,6 +327,42 @@ export default function AppAppointmentsPage() {
           <SectionShell className="surface-panel">
             {loading ? (
               <StateCard variant="loading" title="Loading booking requests" description="Refreshing the queue." />
+            ) : error ? (
+              <StateCard
+                variant="error"
+                title="Booking requests unavailable"
+                description={error}
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setLoading(true);
+                      setError(null);
+                      void Promise.all([fetchAppointmentRequests(), getMe(), fetchTeamMembers().catch(() => ({ members: [] as TeamMember[] }))])
+                        .then(([requestData, me, teamData]) => {
+                          setRequests(requestData.requests || []);
+                          setSelectedRequestId(highlightedRequestId || requestData.requests?.[0]?.id || "");
+                          setCanWrite(["CLIENT_STAFF", "CLIENT_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(me.user.role));
+                          const members = (teamData.members || [])
+                            .filter((member) => member.status === "ACTIVE" && member.user?.id)
+                            .map((member) => ({ id: member.user?.id || "", label: member.user?.email || member.invitedEmail }));
+                          setAssignable(members);
+                          setError(null);
+                        })
+                        .catch((retryError) => {
+                          setRequests([]);
+                          setCanWrite(false);
+                          setAssignable([]);
+                          setError(retryError instanceof Error ? retryError.message : "Failed to load booking requests.");
+                        })
+                        .finally(() => setLoading(false));
+                    }}
+                  >
+                    Retry
+                  </Button>
+                }
+              />
             ) : filteredRequests.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
@@ -297,7 +373,7 @@ export default function AppAppointmentsPage() {
                       <th className="px-6 py-3 text-center">Requested Time</th>
                       <th className="px-6 py-3">Urgency</th>
                       <th className="px-6 py-3 text-right">Status</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
+                      <th className="px-6 py-3 text-right">Thread</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-sm text-slate-700">
@@ -307,8 +383,21 @@ export default function AppAppointmentsPage() {
                       return (
                         <tr
                           key={request.id}
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={selected}
                           onClick={() => setSelectedRequestId(request.id)}
-                          className={cn("group cursor-pointer transition-colors hover:bg-slate-50", selected && "bg-primary/5")}
+                          onKeyDown={(event) => {
+                            if (event.currentTarget !== event.target) return;
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedRequestId(request.id);
+                            }
+                          }}
+                          className={cn(
+                            "group cursor-pointer transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            selected && "bg-primary/5"
+                          )}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -349,11 +438,16 @@ export default function AppAppointmentsPage() {
                             <StatusBadge kind="booking" state={request.status} label={queueTab(request)} size="xs" />
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2 opacity-0 transition-all group-hover:opacity-100">
-                              <button className="rounded-lg border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-white hover:text-primary shadow-sm">
-                                <MessageSquare className="h-4 w-4" />
-                              </button>
-                            </div>
+                            {request.latestMessageThreadId ? (
+                              <Link
+                                href={`/app/messages?threadId=${encodeURIComponent(request.latestMessageThreadId)}`}
+                                className="text-xs font-semibold text-primary underline-offset-4 hover:underline"
+                              >
+                                Open thread
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-slate-400">No thread</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -426,7 +520,7 @@ export default function AppAppointmentsPage() {
                 <p className="text-sm text-slate-700">{pendingNextStep(currentRequest)}</p>
                 <div className="flex flex-wrap gap-2">
                   {currentRequest.callLogId ? (
-                    <Link href={`/admin/calls/${currentRequest.callLogId}`} className="text-xs font-semibold text-primary underline-offset-4 hover:underline">
+                    <Link href={`/app/calls?callId=${encodeURIComponent(currentRequest.callLogId)}`} className="text-xs font-semibold text-primary underline-offset-4 hover:underline">
                       Open call details
                     </Link>
                   ) : null}
@@ -461,19 +555,22 @@ export default function AppAppointmentsPage() {
                       className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-primary/20 hover:bg-primary/90"
                     >
                       <CheckCircle2 className="h-4.5 w-4.5" />
-                      Approve & Schedule
+                      Approve request
                     </button>
                     <div className="grid grid-cols-2 gap-3">
-                      <button className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50">
+                      <Link
+                        href="/app/settings#settings-calendar"
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+                      >
                         <Calendar className="h-4 w-4" />
-                        Reschedule
-                      </button>
+                        Calendar settings
+                      </Link>
                       <Link
                         href={currentRequest.latestMessageThreadId ? `/app/messages?threadId=${encodeURIComponent(currentRequest.latestMessageThreadId)}` : "/app/messages"}
                         className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50"
                       >
                         <MessageSquare className="h-4 w-4" />
-                        Send SMS
+                        Open thread
                       </Link>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -502,10 +599,9 @@ export default function AppAppointmentsPage() {
                         Reject
                       </button>
                     </div>
-                    <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-900 bg-slate-900 py-3 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-slate-800">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Finalize & Close request
-                    </button>
+                    <p className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      Finalize and close happens after a confirmed appointment is created in the booking workflow.
+                    </p>
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500">This account has read-only access to booking actions.</p>

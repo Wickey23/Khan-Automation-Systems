@@ -13,6 +13,7 @@ import { useQueueTriageEnrichment } from "@/lib/hooks/use-queue-triage-enrichmen
 import { markDailyReviewDirty } from "@/lib/review-loop";
 import { useOperationalShortcuts } from "@/lib/hooks/use-operational-shortcuts";
 import { resolvePostActionFocus } from "@/lib/queue-focus";
+import { Button } from "@/components/ui/button";
 import { ActionQueueTable, KpiCard, SectionDisclosure, ageFromDate, priorityToSeverity, statusToOperatorState } from "@/components/ops";
 
 type AttentionLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -126,11 +127,11 @@ export default function AttentionPage() {
       };
     }
     return {
-      title: items.length === 0 ? "No attention activity yet" : "Nothing urgent right now",
+      title: items.length === 0 ? "Risk queue clear" : "No active risk in this view",
       message:
         items.length === 0
-          ? "This workspace has not generated attention items yet. Start from calls, leads, or messages to create operational activity."
-          : "The attention queue is currently clear. Continue monitoring calls, leads, and messages as activity comes in."
+          ? "No unresolved risk is active right now. New risk events will appear here as operations run."
+          : "Critical and high-risk triage is currently healthy. Continue monitoring for new ownership gaps."
     };
   }, [hasNarrowFilter, items.length, levelFilter, riskFilter]);
 
@@ -279,9 +280,13 @@ export default function AttentionPage() {
         const actions = quickActions(item, { returnTo });
         const primary = actions.find((action) => !action.retry && action.href) || actions.find((action) => action.retry) || null;
         const secondaries = actions.filter((action) => action !== primary);
+        const isCritical = item.attentionLevel === "CRITICAL";
+        const isUnassigned = owner?.state !== "mine" && owner?.state !== "assigned_elsewhere";
+        const ownershipSignal = isUnassigned ? "Unassigned" : owner?.state === "mine" ? "Assigned to you" : "Assigned";
+        const riskSignal = isCritical ? "Critical" : item.attentionLevel === "HIGH" ? "High risk" : "Watch";
         return {
           id: `${item.entityType}:${item.entityId}`,
-          item: item.label,
+          item: `${riskSignal} - ${item.label}`,
           owner:
             owner?.state === "mine"
               ? "You"
@@ -300,7 +305,7 @@ export default function AttentionPage() {
             label: action.label,
             href: action.href || buildWorkflowHref(item.entityHref, { source: "attention", returnTo, returnLabel: "Needs Attention" })
           })),
-          detail: item.recommendedOwnerAction || item.topReasons[0] || "Review context and decide next step.",
+          detail: `${ownershipSignal}. ${item.recommendedOwnerAction || item.topReasons[0] || "Review context and decide next step."}`,
           isActive: previewKey === `${item.entityType}:${item.entityId}`,
           onRowSelect: () => setPreviewKey(`${item.entityType}:${item.entityId}`),
           onRowFocus: () => setPreviewKey(`${item.entityType}:${item.entityId}`),
@@ -370,16 +375,17 @@ export default function AttentionPage() {
 
   const summaryStrip = useMemo(() => {
     const unresolved = visibleItems.filter((item) => item.unresolved).length;
+    const critical = visibleItems.filter((item) => item.attentionLevel === "CRITICAL").length;
     const criticalHigh = visibleItems.filter((item) => item.attentionLevel === "CRITICAL" || item.attentionLevel === "HIGH").length;
     const blocked = visibleItems.filter((item) => item.blocked).length;
     const unassignedHighRisk = visibleItems.filter((item) =>
       attentionRiskSignals(item, ownershipByEntity[`${item.entityType}:${item.entityId}`]).includes("high_or_critical_unowned")
     ).length;
     return [
-      { label: "Queue items", value: visibleItems.length, note: "Current triage scope" },
-      { label: "Unresolved", value: unresolved, note: "Needs active handling" },
+      { label: "Critical", value: critical, note: "Immediate intervention" },
       { label: "Critical/high", value: criticalHigh, note: "Priority exposure" },
-      { label: "Unassigned risk", value: unassignedHighRisk + blocked, note: "Ownership or block risk" }
+      { label: "Unassigned risk", value: unassignedHighRisk + blocked, note: "Ownership gaps" },
+      { label: "Unresolved", value: unresolved, note: "Still open" }
     ];
   }, [ownershipByEntity, visibleItems]);
 
@@ -399,15 +405,15 @@ export default function AttentionPage() {
     <div className="space-y-10 pb-12">
       <CommandHeader
         eyebrow="AI Operations"
-        title="Needs Attention"
-        description="Live triage queue for unresolved operational risk across calls, leads, and messages."
+        title="Risk Triage Desk"
+        description="Prioritize critical risk, close ownership gaps, and intervene before issues spread."
         actions={
           <div className="flex items-center gap-3 w-full md:w-auto">
             <QueueActionLink 
               className="flex-1 md:flex-none px-6 py-2.5 bg-white/50 backdrop-blur-sm border border-slate-200/40 text-on-surface font-bold text-xs rounded-xl transition-all hover:bg-white/80 hover:shadow-sm"
-              href={buildWorkflowHref("/app/follow-up?status=at_risk", { source: "attention", returnTo, returnLabel: "Needs Attention" })}
+              href={buildWorkflowHref("/app/attention?risk=critical_unowned", { source: "attention", returnTo, returnLabel: "Needs Attention" })}
             >
-              Open At-Risk Follow-Up
+              Open unassigned critical
             </QueueActionLink>
           </div>
         }
@@ -432,45 +438,53 @@ export default function AttentionPage() {
           <div className="glass-card inner-glow rounded-3xl p-6 space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap gap-2">
-                {(["all", "CRITICAL", "HIGH"] as const).map((entry) => (
+                {(
+                  [
+                    { key: "all", label: "All risk" },
+                    { key: "critical_unowned", label: "Critical unowned" },
+                    { key: "at_risk", label: "At risk" }
+                  ] as const
+                ).map((entry) => (
                   <button
-                    key={entry}
+                    key={entry.key}
                     type="button"
-                    onClick={() => setLevelFilter(entry)}
+                    onClick={() => setRiskFilter(entry.key)}
                     className={cn(
-                      "px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all border",
-                      levelFilter === entry 
+                      "px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      riskFilter === entry.key
                         ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10" 
                         : "bg-white text-slate-600 border-slate-100 hover:border-slate-300"
                     )}
                   >
-                    {entry}
+                    {entry.label}
                   </button>
                 ))}
               </div>
               
               <div className="flex items-center gap-3">
                 <select
-                  value={entityFilter}
-                  onChange={(event) => setEntityFilter(event.target.value as EntityTypeFilter)}
+                  value={ownershipFilter}
+                  onChange={(event) => setOwnershipFilter(event.target.value as OwnershipFilter)}
                   className="bg-slate-50 border-none text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
                 >
-                  <option value="all">All entities</option>
-                  <option value="call">Calls</option>
-                  <option value="lead">Leads</option>
-                  <option value="message_thread">Messages</option>
+                  <option value="all">All owners</option>
+                  <option value="unassigned">Unassigned</option>
+                  <option value="mine">Assigned to me</option>
                 </select>
                 
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={async () => {
                     await Promise.all([loadAttention(), loadOwnershipContext()]);
                   }}
-                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl"
+                  className="h-8 w-8 p-0"
                   title="Refresh items"
+                  aria-label="Refresh attention items"
                 >
                   <RefreshCcw className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             </div>
 

@@ -60,6 +60,15 @@ function truncateCopy(value: string, max = 72) {
   return value.length > max ? `${value.slice(0, max - 1)}...` : value;
 }
 
+function readinessFixHref(checkKey: string) {
+  if (checkKey === "businessProfile") return "/app/onboarding";
+  if (checkKey === "phoneRouting" || checkKey === "transferRouting") return "/app/settings#settings-telephony";
+  if (checkKey === "smsProvisioning") return "/app/settings#settings-ai-identity";
+  if (checkKey === "bookingSetup") return "/app/settings#settings-calendar";
+  if (checkKey === "opsApproval") return "/app/onboarding/preview";
+  return "/app/activation";
+}
+
 function QueueRow({
   title,
   description,
@@ -296,6 +305,105 @@ export default function AppOverviewPage() {
   const followUpPriority: "critical" | "high" | "normal" =
     atRiskSnapshot.overdueUnassigned > 0 ? "critical" : atRiskSnapshot.staleAssigned > 0 ? "high" : "normal";
   const followUpQueueTotal = overdueFollowUps.length + atRiskSnapshot.staleAssigned;
+  const queueRows = useMemo(
+    () =>
+      [
+        {
+          id: "attention",
+          title: "Needs attention",
+          description: attentionPreview || "Critical and high-priority exceptions.",
+          href: attentionHref,
+          volume: attentionItems.length,
+          priority: attentionPriority,
+          ctaLabel: "Open queue",
+          statusLabel: attentionItems.length > 0 ? "Review required" : "Clear"
+        },
+        {
+          id: "follow-up",
+          title: "Follow-up at risk",
+          description: followUpPreview || "Overdue and stale follow-up tasks.",
+          href: followUpHref,
+          volume: followUpQueueTotal,
+          priority: followUpPriority,
+          ctaLabel: "Open follow-up",
+          statusLabel: followUpQueueTotal > 0 ? "At risk" : "Clear"
+        },
+        {
+          id: "approvals",
+          title: "Approval requests",
+          description: approvalsPreview || "Pending decisions.",
+          href: approvalsHref,
+          volume: state.approvals.length,
+          priority: approvalsPriority,
+          ctaLabel: "Review approvals",
+          statusLabel: state.approvals.length > 0 ? "Pending" : "Clear"
+        }
+      ].sort((a, b) => {
+        const rank = { critical: 3, high: 2, normal: 1 };
+        const rankDelta = rank[b.priority] - rank[a.priority];
+        if (rankDelta !== 0) return rankDelta;
+        return b.volume - a.volume;
+      }),
+    [
+      attentionPreview,
+      attentionHref,
+      attentionItems.length,
+      attentionPriority,
+      followUpPreview,
+      followUpHref,
+      followUpQueueTotal,
+      followUpPriority,
+      approvalsPreview,
+      approvalsHref,
+      state.approvals.length,
+      approvalsPriority
+    ]
+  );
+  const readinessOpenItems = useMemo(() => {
+    const openChecks = (state.accessSummary?.readinessChecklist || [])
+      .filter((check) => check.status !== "ready")
+      .map((check) => ({
+        key: check.key,
+        label: check.label,
+        detail: check.description,
+        href: readinessFixHref(check.key)
+      }));
+    const onboardingComplete = ["SUBMITTED", "REVIEWED", "APPROVED"].includes(state.onboardingStatus || "");
+    if (!onboardingComplete) {
+      openChecks.unshift({
+        key: "businessProfile",
+        label: "Business profile basics",
+        detail: "Complete onboarding package details before go-live.",
+        href: "/app/onboarding"
+      });
+    }
+    return openChecks.slice(0, 4);
+  }, [state.accessSummary, state.onboardingStatus]);
+  const kpiCards = useMemo(
+    () =>
+      [
+        { key: "action", label: "Action queue", value: loading ? "-" : String(actionQueueTotal), note: "Items to review", show: true, emphasize: false },
+        { key: "blocked", label: "Blocked", value: loading ? "-" : String(blockedItems), note: "Needs owner now", show: blockedItems > 0, emphasize: blockedItems > 0 },
+        { key: "approvals", label: "Approvals", value: loading ? "-" : String(state.approvals.length), note: "Pending review", show: state.approvals.length > 0, emphasize: false },
+        {
+          key: "retry",
+          label: "Retry failures",
+          value: loading ? "-" : String(reviewTodaySnapshot.failedRetryableSends),
+          note: "Needs recovery",
+          show: reviewTodaySnapshot.failedRetryableSends > 0,
+          emphasize: reviewTodaySnapshot.failedRetryableSends > 0
+        },
+        { key: "eta", label: "Triage ETA", value: loading ? "-" : meanTriageTime, note: "Estimated clear time", show: true, emphasize: false }
+      ].filter((card) => card.show),
+    [
+      loading,
+      actionQueueTotal,
+      blockedItems,
+      state.approvals.length,
+      reviewTodaySnapshot.failedRetryableSends,
+      meanTriageTime
+    ]
+  );
   const attentionPreview = useMemo(() => {
     const item = attentionItems[0];
     if (!item) return "";
@@ -418,27 +526,14 @@ export default function AppOverviewPage() {
 
       {error ? <StateCard variant="error" title="Dashboard data unavailable" description={error} /> : null}
 
-      <section className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Action now</p>
-          <p className="mt-0.5 text-xl font-semibold text-slate-950">{loading ? "-" : actionQueueTotal}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">Open queue items</p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Blocked</p>
-          <p className={cn("mt-0.5 text-xl font-semibold", blockedItems > 0 ? "text-rose-700" : "text-slate-950")}>{loading ? "-" : blockedItems}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">Needs owner now</p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Approvals</p>
-          <p className="mt-0.5 text-xl font-semibold text-slate-950">{loading ? "-" : state.approvals.length}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">Pending review</p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Triage ETA</p>
-          <p className="mt-0.5 text-xl font-semibold text-slate-950">{loading ? "-" : meanTriageTime}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">Estimated clear time</p>
-        </div>
+      <section className={cn("grid gap-2", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
+        {kpiCards.map((card) => (
+          <div key={card.key} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
+            <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{card.note}</p>
+          </div>
+        ))}
       </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -492,43 +587,23 @@ export default function AppOverviewPage() {
             )}
 
             <p className="px-1 text-[11px] text-slate-500">
-              {clearedBuckets} of 3 queues clear · {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
+              {clearedBuckets} of 3 queues clear - {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
             </p>
 
-            <QueueRow
-              title="Needs attention"
-              description={attentionPreview || "Critical and high-priority exceptions."}
-              href={attentionHref}
-              volume={attentionItems.length}
-              priority={attentionPriority}
-              ctaLabel="Open queue"
-              statusLabel={attentionItems.length > 0 ? "Review required" : "Clear"}
-              spotlight={attentionPriority === "critical"}
-              order={attentionPriority === "critical" ? "primary" : "secondary"}
-            />
-
-            <QueueRow
-              title="Approval requests"
-              description={approvalsPreview || "Pending decisions."}
-              href={approvalsHref}
-              volume={state.approvals.length}
-              priority={approvalsPriority}
-              ctaLabel="Review approvals"
-              statusLabel={state.approvals.length > 0 ? "Pending" : "Clear"}
-              order={approvalsPriority === "high" ? "primary" : "secondary"}
-            />
-
-            <QueueRow
-              title="Follow-up at risk"
-              description={followUpPreview || "Overdue and stale follow-up tasks."}
-              href={followUpHref}
-              volume={followUpQueueTotal}
-              priority={followUpPriority}
-              ctaLabel="Open follow-up"
-              statusLabel={followUpQueueTotal > 0 ? "At risk" : "Clear"}
-              spotlight={followUpPriority === "critical"}
-              order={followUpPriority === "critical" ? "primary" : "secondary"}
-            />
+            {queueRows.map((row, index) => (
+              <QueueRow
+                key={row.id}
+                title={row.title}
+                description={row.description}
+                href={row.href}
+                volume={row.volume}
+                priority={row.priority}
+                ctaLabel={row.ctaLabel}
+                statusLabel={row.statusLabel}
+                spotlight={index === 0 && (row.priority === "critical" || row.priority === "high")}
+                order={index === 0 || row.priority === "critical" ? "primary" : "secondary"}
+              />
+            ))}
 
             {loading ? <StateCard variant="loading" title="Refreshing queue" description="Loading latest action items." /> : null}
           </div>
@@ -536,52 +611,54 @@ export default function AppOverviewPage() {
 
         <aside className="space-y-4 lg:col-span-4">
           <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-950">At risk</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-slate-950">Setup readiness</h3>
               <StatusBadge
                 kind="generic"
-                state={atRiskSnapshot.criticalUnownedAttention > 0 ? "failed" : blockedItems > 0 ? "warning" : "success"}
-                label={atRiskSnapshot.criticalUnownedAttention > 0 ? "Critical" : blockedItems > 0 ? "Watch" : "Healthy"}
+                state={readinessOpenItems.length ? "warning" : "success"}
+                label={readinessOpenItems.length ? `${readinessOpenItems.length} incomplete` : "Ready"}
                 size="xs"
               />
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Critical unowned · assign</span>
-                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalUnownedAttention}</span>
+            {readinessOpenItems.length ? (
+              <div className="mt-2 space-y-2">
+                {readinessOpenItems.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    className="group block rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 transition-colors hover:bg-slate-100"
+                  >
+                    <p className="text-[11px] font-semibold text-slate-800">{item.label}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500">{truncateCopy(item.detail, 70)}</p>
+                    <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 group-hover:text-slate-900">
+                      Fix now
+                      <ArrowRight className="h-3 w-3" />
+                    </p>
+                  </Link>
+                ))}
               </div>
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Overdue unassigned · assign</span>
-                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.overdueUnassigned}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Stale assigned · follow up</span>
-                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.staleAssigned}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Aging approvals · review soon</span>
-                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.pendingApprovalsAging}</span>
-              </div>
-            </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-600">Core setup is complete. Activation blockers are cleared.</p>
+            )}
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Needs review · triage</span>
+                <span className="text-[11px] text-slate-600">Needs review - triage</span>
                 <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Retry failures · recover</span>
+                <span className="text-[11px] text-slate-600">Retry failures - recover</span>
                 <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Critical/high · monitor</span>
+                <span className="text-[11px] text-slate-600">Critical/high - monitor</span>
                 <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
               </div>
               <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Throughput · today</span>
+                <span className="text-[11px] text-slate-600">Throughput - today</span>
                 <span className="text-base font-semibold text-slate-900">{activeThroughput}</span>
               </div>
             </div>
