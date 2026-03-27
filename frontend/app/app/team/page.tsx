@@ -295,7 +295,7 @@ export default function TeamPage() {
           }
         ]}
       />
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
         <div className={`${frontDeskMetricCardClass()} text-sm`}>
           <p className="page-eyebrow">Seat usage</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight">{usedSeats}/{seats.allowedSeats}</p>
@@ -346,9 +346,9 @@ export default function TeamPage() {
       </Card>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-4">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Team Management</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Team Management</h2>
             <p className="mt-1 text-sm text-slate-500">Manage your team members, roles, and permissions.</p>
           </div>
           {canManage && proEnabled && !roleBlocked ? (
@@ -359,7 +359,7 @@ export default function TeamPage() {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-3">
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -395,7 +395,7 @@ export default function TeamPage() {
           </span>
         </div>
 
-        <div className="p-8">
+        <div className="p-6">
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             {loading ? (
               <div className={frontDeskLoadingCardClass()}>
@@ -409,11 +409,11 @@ export default function TeamPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    <th className="px-8 py-4">Member</th>
-                    <th className="px-8 py-4">Role</th>
-                    <th className="px-8 py-4">Status</th>
-                    <th className="px-8 py-4">Last Active</th>
-                    <th className="px-8 py-4 text-right">Actions</th>
+                    <th className="px-6 py-3">Member</th>
+                    <th className="px-6 py-3">Role</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3">Last Active</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -427,7 +427,7 @@ export default function TeamPage() {
 
                     return (
                       <tr key={member.id} className="group hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-5">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-4">
                             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 font-semibold text-primary shadow-sm">
                               {initials}
@@ -441,7 +441,7 @@ export default function TeamPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 py-5">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <Shield className="h-4 w-4 text-slate-400" />
                             {canManage ? (
@@ -462,19 +462,19 @@ export default function TeamPage() {
                             <span className="text-[11px] text-slate-500">{ROLE_SUMMARY[member.role]}</span>
                           </div>
                         </td>
-                        <td className="px-8 py-5">
+                        <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${isPending ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
                             {isPending ? <Clock3 className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
                             {isPending ? "Pending" : "Active"}
                           </span>
                         </td>
-                        <td className="px-8 py-5">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
                             <Clock3 className="h-4 w-4" />
                             {formatDate(member.acceptedAt || member.invitedAt)}
                           </div>
                         </td>
-                        <td className="px-8 py-5 text-right">
+                        <td className="px-6 py-4 text-right">
                           {canManage && proEnabled ? (
                             <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                               {isPending ? (
@@ -499,7 +499,7 @@ export default function TeamPage() {
                   })}
                   {!visibleMembers.length ? (
                     <tr>
-                      <td className="px-8 py-8" colSpan={5}>
+                      <td className="px-6 py-7" colSpan={5}>
                         <div className={frontDeskEmptyStateClass()}>
                           No matching team members yet. Invited teammates and active operators will appear here once the office starts sharing access.
                         </div>

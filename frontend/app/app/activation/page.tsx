@@ -618,7 +618,7 @@ export default function AppActivationPage() {
   }
 
   return (
-    <PageShell className="space-y-5">
+    <PageShell className="space-y-4">
       <CommandHeader
         eyebrow="Guided activation"
         title={organization?.name ? `${organization.name} activation` : "Activation board"}
@@ -636,7 +636,7 @@ export default function AppActivationPage() {
         }
       />
 
-      <SectionShell className="surface-panel space-y-5 border border-slate-200 bg-white">
+      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Activation progress</p>
@@ -705,7 +705,7 @@ export default function AppActivationPage() {
         ) : null}
       </SectionShell>
 
-      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
+      <SectionShell className="surface-panel space-y-3 border border-slate-200 bg-white">
         <SectionHeading
           title={workspaceLive ? "Go-live confidence" : "Go-live readiness"}
           description={
@@ -771,7 +771,7 @@ export default function AppActivationPage() {
       </SectionShell>
 
       {workspaceLive ? (
-        <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
+        <SectionShell className="surface-panel space-y-3 border border-slate-200 bg-white">
           <SectionHeading
             title="Test your system"
             description="Run these first-use checks to confirm live calls, messaging, and booking behavior in production."
@@ -866,7 +866,7 @@ export default function AppActivationPage() {
         </SectionShell>
       ) : null}
 
-      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
+      <SectionShell className="surface-panel space-y-3 border border-slate-200 bg-white">
         <SectionHeading
           title="Ordered activation path"
           description="Each step maps directly to your readiness model and points to the correct configuration surface."
@@ -900,7 +900,7 @@ export default function AppActivationPage() {
         </div>
       </SectionShell>
 
-      <SectionShell className="surface-panel space-y-4 border border-slate-200 bg-white">
+      <SectionShell className="surface-panel space-y-3 border border-slate-200 bg-white">
         <SectionHeading
           title="Feature readiness definitions"
           description="Availability here reflects real plan, org enablement, and setup readiness checks."
