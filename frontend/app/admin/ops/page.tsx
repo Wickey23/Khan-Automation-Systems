@@ -32,7 +32,7 @@ const STATUS_META: Record<string, StatusMeta> = {
   processing: { label: "Processing", classes: "border-amber-200 bg-amber-50 text-amber-700" },
   queued: { label: "Queued", classes: "border-slate-200 bg-slate-50 text-slate-700" },
   failed: { label: "Failed", classes: "border-rose-200 bg-rose-50 text-rose-700" },
-  unknown: { label: "Unknown", classes: "border-slate-200 bg-slate-50 text-slate-700" }
+  unknown: { label: "Unavailable", classes: "border-slate-200 bg-slate-50 text-slate-700" }
 };
 
 const SMS_EVENT_META: Record<string, StatusMeta> = {
@@ -108,6 +108,15 @@ function summarizeBookingJobs(jobs: AdminQueueJobRecord[]) {
   return { bookingJobs, hasFailures: failed.length > 0 };
 }
 
+function parseNavigationAction(value: unknown): { href: string; label: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const href = typeof candidate.href === "string" ? candidate.href.trim() : "";
+  const label = typeof candidate.label === "string" ? candidate.label.trim() : "";
+  if (!href || !label) return null;
+  return { href, label };
+}
+
 function QueueJobCard({
   job,
   onRetrySuccess
@@ -144,18 +153,14 @@ function QueueJobCard({
 
   const retryButtonLabel = job.retryMode === "stuck" ? "Restart job" : "Retry job";
   const metadataRecord = job.metadata && typeof job.metadata === "object" ? (job.metadata as Record<string, unknown>) : null;
-  const metadataNavigationAction = metadataRecord?.navigationAction;
-  const navigationAction =
-    metadataNavigationAction && typeof metadataNavigationAction === "object"
-      ? {
-        href: (metadataNavigationAction as Record<string, unknown>).href as string,
-        label: (metadataNavigationAction as Record<string, unknown>).label as string
-      }
-      : job.callId
-        ? { href: buildAdminCallHref(job.callId), label: `Open call ${job.callId}` }
-        : job.providerCallId
-          ? { href: buildAdminCallHref(job.providerCallId), label: `View provider ${job.providerCallId}` }
-          : null;
+  const metadataNavigationAction = parseNavigationAction(metadataRecord?.navigationAction);
+  const navigationAction = metadataNavigationAction
+    ? metadataNavigationAction
+    : job.callId
+      ? { href: buildAdminCallHref(job.callId), label: `Open call ${job.callId}` }
+      : job.providerCallId
+        ? { href: buildAdminCallHref(job.providerCallId), label: `View provider ${job.providerCallId}` }
+        : null;
   const metadataNextStepHint = metadataRecord?.nextStepHint;
   const nextStepHint =
     typeof metadataNextStepHint === "string"
