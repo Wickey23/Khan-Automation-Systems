@@ -115,7 +115,7 @@ function leadUrgency(priority?: FrontDeskPriority) {
 }
 
 function leadSummary(lead: Lead) {
-  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "No lead summary available yet.";
+  return lead.frontDesk?.summary || lead.serviceRequested || lead.message || "Summary unavailable.";
 }
 
 function leadSource(lead: Lead) {
@@ -828,7 +828,7 @@ export default function AppLeadsPage() {
                 </div>
                 <h2 className="text-xl font-extrabold tracking-tight text-slate-900">{leadName(selectedLead)}</h2>
                 <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                  Lead via {leadSource(selectedLead)} - {activityLabel(selectedLead)}
+                  Lead via {leadSource(selectedLead)} | {activityLabel(selectedLead)}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <span className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider", leadUrgency(selectedLead.frontDesk?.frontDeskPriority).bg, leadUrgency(selectedLead.frontDesk?.frontDeskPriority).color)}>
@@ -918,7 +918,7 @@ export default function AppLeadsPage() {
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
                     <p className="font-semibold text-slate-900">Lead score and reasoning</p>
-                    <p className="mt-1">Score: {leadAiState.score ?? "Not available"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
+                    <p className="mt-1">Score: {leadAiState.score ?? "Unavailable"} {leadAiState.scoreReason ? `- ${leadAiState.scoreReason}` : ""}</p>
                     {leadAiState.callPrep?.length ? (
                       <ul className="mt-2 list-disc space-y-1 pl-5">
                         {leadAiState.callPrep.map((item) => (
@@ -945,14 +945,14 @@ export default function AppLeadsPage() {
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Phone className="h-3.5 w-3.5" /></div>
                         <div>
                           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Phone</p>
-                          <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "Not available"}</p>
+                          <p className="text-xs font-bold text-slate-900">{selectedLead.phone || "Unavailable"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-400 shadow-sm"><Mail className="h-3.5 w-3.5" /></div>
                         <div>
                           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</p>
-                          <p className="text-xs font-bold text-slate-900">{selectedLead.email || "Not available"}</p>
+                          <p className="text-xs font-bold text-slate-900">{selectedLead.email || "Unavailable"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
