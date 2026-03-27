@@ -634,7 +634,7 @@ export default function AppLeadsPage() {
                 }
               />
             ) : filteredLeads.length ? (
-              <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="space-y-4">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   {topLead ? (
                     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
@@ -691,7 +691,7 @@ export default function AppLeadsPage() {
                           }
                         }}
                         className={cn(
-                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 xl:grid-cols-[160px_minmax(0,1.3fr)_minmax(0,1fr)_150px]",
+                          "grid cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 2xl:grid-cols-[160px_minmax(0,1.3fr)_minmax(0,1fr)_150px]",
                           selectedLeadId === lead.id ? "bg-sky-50/60 ring-1 ring-inset ring-sky-200" : "",
                           priorityTone === "critical"
                             ? "border-l-2 border-l-rose-400 bg-rose-50/30"
@@ -747,7 +747,9 @@ export default function AppLeadsPage() {
                     ))}
                   </div>
                 </section>
-                <RiskRailCard title="Lead Risk" items={leadRiskItems} />
+                <div className="xl:hidden">
+                  <RiskRailCard title="Lead risk" items={leadRiskItems} />
+                </div>
               </div>
             ) : (
               <QueueEmptyState
@@ -845,6 +847,7 @@ export default function AppLeadsPage() {
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
+                <RiskRailCard title="Lead risk" items={leadRiskItems} />
                 <div className="px-1">
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Qualification</p>
                 </div>
