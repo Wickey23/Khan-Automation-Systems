@@ -249,7 +249,7 @@ function AdminCallsPageContent() {
           title="Review outcomes, transcripts, and follow-up readiness"
           description="Filter live traffic, inspect the selected call, and confirm next actions for service requests, recordings, and review states."
           actions={
-            <Button variant="outline" onClick={() => void reloadCalls()}>
+            <Button variant="outline" onClick={() => void reloadCalls()} disabled={loading} aria-busy={loading}>
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
           }
@@ -264,6 +264,7 @@ function AdminCallsPageContent() {
             deletePassword={deletePassword}
             setDeletePassword={setDeletePassword}
             reloadCalls={reloadCalls}
+            loading={loading}
           />
         </SectionShell>
 
@@ -276,6 +277,7 @@ function AdminCallsPageContent() {
             onView={onView}
             onDelete={onDelete}
             reloadCalls={reloadCalls}
+            isRefreshing={loading}
           />
 
           <InvestigationPane
@@ -337,7 +339,8 @@ function FiltersToolbar({
   setSearch,
   deletePassword,
   setDeletePassword,
-  reloadCalls
+  reloadCalls,
+  loading
 }: {
   outcome: string;
   setOutcome: (value: string) => void;
@@ -346,6 +349,7 @@ function FiltersToolbar({
   deletePassword: string;
   setDeletePassword: (value: string) => void;
   reloadCalls: () => Promise<void>;
+  loading: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -384,9 +388,15 @@ function FiltersToolbar({
             onChange={(event) => setDeletePassword(event.target.value)}
           />
         </div>
-        <Button variant="outline" className="items-center gap-2 md:justify-self-start focus-visible:ring-sky-300" onClick={() => void reloadCalls()}>
+        <Button
+          variant="outline"
+          className="items-center gap-2 md:justify-self-start focus-visible:ring-sky-300"
+          onClick={() => void reloadCalls()}
+          disabled={loading}
+          aria-busy={loading}
+        >
           <Radio className="h-3.5 w-3.5 text-primary" />
-          Refresh results
+          {loading ? "Refreshing..." : "Refresh results"}
         </Button>
       </div>
     </div>
@@ -400,7 +410,8 @@ function CallListPanel({
   deletingId,
   onView,
   onDelete,
-  reloadCalls
+  reloadCalls,
+  isRefreshing
 }: {
   calls: AdminCallRecord[];
   loading: boolean;
@@ -409,6 +420,7 @@ function CallListPanel({
   onView: (call: AdminCallRecord) => Promise<void>;
   onDelete: (call: AdminCallRecord) => Promise<void>;
   reloadCalls: () => Promise<void>;
+  isRefreshing: boolean;
 }) {
   return (
     <SectionShell className="surface-panel">
@@ -416,8 +428,8 @@ function CallListPanel({
         title="Call log"
         description="Scan callers, outcomes, urgency signals, and summaries before opening the detail pane."
         actions={
-          <Button variant="ghost" size="sm" onClick={() => void reloadCalls()}>
-            Refresh list
+          <Button variant="ghost" size="sm" onClick={() => void reloadCalls()} disabled={isRefreshing} aria-busy={isRefreshing}>
+            {isRefreshing ? "Refreshing..." : "Refresh list"}
           </Button>
         }
       />
