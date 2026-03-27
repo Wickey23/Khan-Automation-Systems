@@ -516,8 +516,8 @@ export default function AppOverviewPage() {
     <div className="space-y-3 pb-6">
       <CommandHeader
         eyebrow="Operator workspace"
-        title="Operations command center"
-        description="Prioritize work, clear blockers, and move the next task forward."
+        title="Operations"
+        description="Prioritize work, clear blockers, and move the next task."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={loading}>
@@ -546,182 +546,184 @@ export default function AppOverviewPage() {
             </Button>
           }
         />
-      ) : null}
-
-      <section className={cn("grid gap-1.5", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
-        {kpiCards.map((card) => (
-          <div
-            key={card.key}
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 transition-colors duration-150 hover:border-slate-300"
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
-            <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
-            <p className="mt-0.5 text-[11px] text-slate-500">{card.note}</p>
-          </div>
-        ))}
-      </section>
-
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
-        <section className="xl:col-span-8 rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Primary workflow</p>
-              <h2 className="text-base font-semibold text-slate-950">Action queue</h2>
-            </div>
-            <div className="text-right">
-              <StatusBadge kind="generic" state={blockedItems > 0 ? "warning" : "success"} label={blockedItems > 0 ? "Needs review" : "Stable"} size="xs" />
-              <p className="mt-1 text-[10px] text-slate-500">{clearedBuckets} of 3 queues clear</p>
-            </div>
-          </div>
-
-          <div className="space-y-2 p-3">
-            {topTask ? (
-              <Link
-                href={topTask.href}
-                className={cn(
-                  "group block rounded-lg border px-4 py-3 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
-                  topTask.priority === "critical"
-                    ? "border-rose-300 bg-rose-50/70 ring-1 ring-rose-200"
-                    : "border-amber-300 bg-amber-50/60"
-                )}
+      ) : (
+        <>
+          <section className={cn("grid gap-1.5", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
+            {kpiCards.map((card) => (
+              <div
+                key={card.key}
+                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 transition-colors duration-150 hover:border-slate-300"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Top task</p>
-                  <span className={cn(
-                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
-                    topTask.priority === "critical"
-                      ? "border-rose-300 bg-rose-100 text-rose-800"
-                      : "border-amber-300 bg-amber-100 text-amber-800"
-                  )}>
-                    {topTask.priority}
-                  </span>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
+                <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">{card.note}</p>
+              </div>
+            ))}
+          </section>
+
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+            <section className="xl:col-span-8 rounded-lg border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Primary workflow</p>
+                  <h2 className="text-base font-semibold text-slate-950">Action queue</h2>
                 </div>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{topTask.title}</p>
-                <p className="mt-1 text-[11px] text-slate-600">{topTask.detail}</p>
-                <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 group-hover:text-slate-900">
-                  {topTask.cta}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </p>
-              </Link>
-            ) : (
-              <StateCard
-                variant="empty"
-                title="Queue clear"
-                description="No urgent queue tasks are pending right now."
-              />
-            )}
+                <div className="text-right">
+                  <StatusBadge kind="generic" state={blockedItems > 0 ? "warning" : "success"} label={blockedItems > 0 ? "Needs review" : "Stable"} size="xs" />
+                  <p className="mt-1 text-[10px] text-slate-500">{clearedBuckets} of 3 queues clear</p>
+                </div>
+              </div>
 
-            <p className="px-1 text-[11px] text-slate-500">
-              {clearedBuckets} of 3 queues clear - {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5 px-1">
-              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">
-                Critical {queuePriorityCounts.critical}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
-                High {queuePriorityCounts.high}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
-                Normal {queuePriorityCounts.normal}
-              </span>
-            </div>
-
-            <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1 xl:max-h-[470px]">
-              {queueRows.map((row, index) => (
-                <QueueRow
-                  key={row.id}
-                  title={row.title}
-                  description={row.description}
-                  href={row.href}
-                  volume={row.volume}
-                  priority={row.priority}
-                  ctaLabel={row.ctaLabel}
-                  statusLabel={row.statusLabel}
-                  spotlight={index === 0 && (row.priority === "critical" || row.priority === "high")}
-                  order={index === 0 || row.priority === "critical" ? "primary" : "secondary"}
-                />
-              ))}
-            </div>
-
-            {loading ? <StateCard variant="loading" title="Refreshing queue" description="Loading latest action items." /> : null}
-          </div>
-        </section>
-
-        <aside className="space-y-3 xl:col-span-4">
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-950">Setup readiness</h3>
-              <StatusBadge
-                kind="generic"
-                state={readinessOpenItems.length ? "warning" : "success"}
-                label={readinessOpenItems.length ? `${readinessOpenItems.length} incomplete` : "Ready"}
-                size="xs"
-              />
-            </div>
-            {readinessOpenItems.length ? (
-              <div className="mt-2 space-y-2">
-                {readinessOpenItems.map((item) => (
+              <div className="space-y-2 p-3">
+                {topTask ? (
                   <Link
-                    key={item.key}
-                    href={item.href}
-                    className="group block rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 transition-all duration-150 hover:border-slate-300 hover:bg-slate-100 hover:shadow-[0_10px_18px_-16px_rgba(15,23,42,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                    href={topTask.href}
+                    className={cn(
+                      "group block rounded-lg border px-4 py-3 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
+                      topTask.priority === "critical"
+                        ? "border-rose-300 bg-rose-50/70 ring-1 ring-rose-200"
+                        : "border-amber-300 bg-amber-50/60"
+                    )}
                   >
-                    <p className="text-[11px] font-semibold text-slate-800">{item.label}</p>
-                    <p className="mt-0.5 text-[10px] text-slate-500">{truncateCopy(item.detail, 70)}</p>
-                    <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 group-hover:text-slate-900">
-                      Fix now
-                      <ArrowRight className="h-3 w-3" />
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Top task</p>
+                      <span className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                        topTask.priority === "critical"
+                          ? "border-rose-300 bg-rose-100 text-rose-800"
+                          : "border-amber-300 bg-amber-100 text-amber-800"
+                      )}>
+                        {topTask.priority}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{topTask.title}</p>
+                    <p className="mt-1 text-[11px] text-slate-600">{topTask.detail}</p>
+                    <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 group-hover:text-slate-900">
+                      {topTask.cta}
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </p>
                   </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-xs text-slate-600">Core setup is complete. Activation blockers are cleared.</p>
-            )}
-          </section>
+                ) : (
+                  <StateCard
+                    variant="empty"
+                    title="Queue clear"
+                    description="No urgent queue tasks are pending right now."
+                  />
+                )}
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
-            <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Needs review</span>
-                <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Retry failures</span>
-                <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Critical or high</span>
-                <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                <span className="text-[11px] text-slate-600">Throughput today</span>
-                <span className="text-base font-semibold text-slate-900">{activeThroughput}</span>
-              </div>
-            </div>
-          </section>
-        </aside>
-      </div>
+                <p className="px-1 text-[11px] text-slate-500">
+                  {clearedBuckets} of 3 queues clear - {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 px-1">
+                  <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+                    Critical {queuePriorityCounts.critical}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                    High {queuePriorityCounts.high}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+                    Normal {queuePriorityCounts.normal}
+                  </span>
+                </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activity</p>
-            <h2 className="text-lg font-semibold text-slate-950">Recent operations</h2>
+                <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1 xl:max-h-[470px]">
+                  {queueRows.map((row, index) => (
+                    <QueueRow
+                      key={row.id}
+                      title={row.title}
+                      description={row.description}
+                      href={row.href}
+                      volume={row.volume}
+                      priority={row.priority}
+                      ctaLabel={row.ctaLabel}
+                      statusLabel={row.statusLabel}
+                      spotlight={index === 0 && (row.priority === "critical" || row.priority === "high")}
+                      order={index === 0 || row.priority === "critical" ? "primary" : "secondary"}
+                    />
+                  ))}
+                </div>
+
+                {loading ? <StateCard variant="loading" title="Refreshing queue" description="Loading latest action items." /> : null}
+              </div>
+            </section>
+
+            <aside className="space-y-3 xl:col-span-4">
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-slate-950">Setup readiness</h3>
+                  <StatusBadge
+                    kind="generic"
+                    state={readinessOpenItems.length ? "warning" : "success"}
+                    label={readinessOpenItems.length ? `${readinessOpenItems.length} incomplete` : "Ready"}
+                    size="xs"
+                  />
+                </div>
+                {readinessOpenItems.length ? (
+                  <div className="mt-2 space-y-2">
+                    {readinessOpenItems.map((item) => (
+                      <Link
+                        key={item.key}
+                        href={item.href}
+                        className="group block rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 transition-all duration-150 hover:border-slate-300 hover:bg-slate-100 hover:shadow-[0_10px_18px_-16px_rgba(15,23,42,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                      >
+                        <p className="text-[11px] font-semibold text-slate-800">{item.label}</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">{truncateCopy(item.detail, 70)}</p>
+                        <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 group-hover:text-slate-900">
+                          Fix now
+                          <ArrowRight className="h-3 w-3" />
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-600">Core setup is complete. Activation blockers are cleared.</p>
+                )}
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-slate-950">Today watch</h3>
+                <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
+                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <span className="text-[11px] text-slate-600">Needs review</span>
+                    <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.needsReviewTodayCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <span className="text-[11px] text-slate-600">Retry failures</span>
+                    <span className="text-base font-semibold text-slate-900">{reviewTodaySnapshot.failedRetryableSends}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <span className="text-[11px] text-slate-600">Critical or high</span>
+                    <span className="text-base font-semibold text-slate-900">{atRiskSnapshot.criticalHighAttention}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <span className="text-[11px] text-slate-600">Throughput today</span>
+                    <span className="text-base font-semibold text-slate-900">{activeThroughput}</span>
+                  </div>
+                </div>
+              </section>
+            </aside>
           </div>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/app/insights">View full feed</Link>
-          </Button>
-        </div>
-        <OperationsFeedList
-          events={state.operations.slice(0, 6)}
-          loading={loading}
-          emptyMessage="No recent operations for this workspace."
-          source="dashboard"
-          returnLabel="Dashboard"
-        />
-      </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activity</p>
+                <h2 className="text-lg font-semibold text-slate-950">Recent operations</h2>
+              </div>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/app/insights">View full feed</Link>
+              </Button>
+            </div>
+            <OperationsFeedList
+              events={state.operations.slice(0, 6)}
+              loading={loading}
+              emptyMessage="No recent operations for this workspace."
+              source="dashboard"
+              returnLabel="Dashboard"
+            />
+          </section>
+        </>
+      )}
     </div>
   );
 }
