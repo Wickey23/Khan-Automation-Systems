@@ -52,7 +52,7 @@ function normalizeStatus(value?: string) {
 }
 
 function humanize(value?: string) {
-  if (!value) return "Unknown";
+  if (!value) return "Unavailable";
   return value
     .replace(/_/g, " ")
     .split(" ")
@@ -175,7 +175,7 @@ function QueueJobCard({
           {statusMeta.label}
         </span>
       </div>
-      <p className="text-xs text-muted-foreground">Created {job.createdAt ? formatDate(job.createdAt) : "unknown time"}</p>
+      <p className="text-xs text-muted-foreground">Created {job.createdAt ? formatDate(job.createdAt) : "Time unavailable"}</p>
       <div className="flex flex-wrap gap-2 text-xs text-slate-600">
         <span>Attempts: {job.attempts ?? 0}</span>
         {job.nextAttemptAt ? <span>Next retry: {formatDate(job.nextAttemptAt)}</span> : null}
@@ -253,7 +253,7 @@ function BookingFinalizerCard({ jobs, loading }: { jobs: AdminQueueJobRecord[]; 
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{getJobTypeLabel(job.type)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(job.createdAt)} · Attempts {job.attempts ?? 0}
+                      {formatDate(job.createdAt)} - Attempts {job.attempts ?? 0}
                     </p>
                   </div>
                   <StatusBadge kind="booking" state={job.status} label={humanize(job.status)} size="xs" />
@@ -583,8 +583,8 @@ export default function AdminOpsPage() {
                         </div>
                         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                           <span>{formatDate(entry.createdAt)}</span>
-                          <span>Thread: {entry.threadId || "-"}</span>
-                          <span>Message SID: {entry.messageSid || "-"}</span>
+                          <span>Thread: {entry.threadId || "Unavailable"}</span>
+                          <span>Message SID: {entry.messageSid || "Unavailable"}</span>
                           <span>From: {entry.fromNumber || "Unavailable"}</span>
                           <span>To: {entry.toNumber || "Unavailable"}</span>
                         </div>
