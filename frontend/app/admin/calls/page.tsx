@@ -564,13 +564,13 @@ function InvestigationPane({
   }
 
   return (
-    <SectionShell className="surface-panel space-y-5">
+    <SectionShell className="surface-panel space-y-4">
       <SectionHeading
         title="Investigation pane"
         description="Inspect the selected call for AI summaries, service requests, transcripts, recordings, and audit events."
       />
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-950">{selectedCall.providerCallId || selectedCall.id}</p>
@@ -578,7 +578,7 @@ function InvestigationPane({
             </div>
             <StatusBadge kind="call" state={selectedCall.outcome} label={humanize(selectedCall.outcome)} />
           </div>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <div className="mt-3 grid gap-2.5 text-sm sm:grid-cols-2">
             <InfoRow label="From" value={selectedCall.fromNumber} />
             <InfoRow label="To" value={selectedCall.toNumber} />
             <InfoRow label="Started" value={formatWhen(selectedCall.startedAt)} />
@@ -586,19 +586,19 @@ function InvestigationPane({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">AI summary</p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">AI summary</p>
           <p className="text-sm leading-6 text-slate-700">{selectedCall.aiSummary || selectedCall.summary || "-"}</p>
           <p className="text-xs text-slate-500">Generated {formatWhen(selectedCall.aiSummaryGeneratedAt)}</p>
         </div>
 
         {selectedCall.serviceRequest ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Service request</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Service request</p>
               <StatusBadge kind="feature" state={selectedCall.serviceRequest.status} label={humanize(selectedCall.serviceRequest.status)} size="xs" />
             </div>
-            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            <div className="mt-2.5 grid gap-2.5 text-sm sm:grid-cols-2">
               <InfoRow label="Status" value={humanize(selectedCall.serviceRequest.status)} />
               <InfoRow label="Urgency" value={selectedCall.serviceRequest.urgency || "-"} />
               <InfoRow label="Customer" value={selectedCall.serviceRequest.customerName || "-"} />
@@ -610,9 +610,9 @@ function InvestigationPane({
         ) : null}
 
         {selectedCall.lead ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Extracted lead</p>
-            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Extracted lead</p>
+            <div className="mt-2.5 grid gap-2.5 text-sm sm:grid-cols-2">
               <InfoRow label="Lead" value={selectedCall.lead.name || "-"} />
               <InfoRow label="Phone" value={selectedCall.lead.phone || "-"} />
               <InfoRow label="Service" value={selectedCall.lead.serviceRequested || "-"} />
@@ -642,9 +642,9 @@ function InvestigationPane({
           assembled={selectedCall.transcript}
         />
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Media & recording</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Media & recording</p>
             <StatusBadge
               kind="job"
               state={selectedCall.recordingUrl ? "recording_ready" : "recording_missing"}
@@ -688,13 +688,13 @@ function TranscriptSection({
 }) {
   const normalizedSessions = sessions || [];
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Transcript sessions</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Transcript sessions</p>
         <span className="text-xs text-slate-500">{normalizedSessions.length} session(s)</span>
       </div>
       {normalizedSessions.length ? (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {normalizedSessions.map((session) => {
             const firstSegment = session.segments[0];
             const lastSegment = session.segments[session.segments.length - 1];
@@ -755,9 +755,9 @@ function TranscriptSection({
 
 function AuditTimelineSection({ entries }: { entries: TimelineEntry[] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Audit timeline</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Audit timeline</p>
         <span className="text-xs text-slate-500">{entries.length} entries</span>
       </div>
       {entries.length ? (
