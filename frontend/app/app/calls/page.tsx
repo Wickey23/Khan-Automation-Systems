@@ -560,7 +560,7 @@ export default function AppCallsPage() {
       <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden xl:flex-row">
           <section className="flex min-w-0 flex-1 flex-col overflow-hidden border-b border-slate-200 xl:flex-[2] xl:border-b-0 xl:border-r">
-            <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 bg-white/90 px-4 py-2">
+            <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
                 <h1 className="text-lg font-semibold text-slate-900">Call Log</h1>
                 <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1">
@@ -677,16 +677,16 @@ export default function AppCallsPage() {
             </div>
           </section>
 
-          <section className="flex min-w-0 min-h-[440px] flex-col overflow-hidden bg-slate-50/30 xl:min-h-0 xl:flex-[1.5]">
+          <section className="flex min-w-0 min-h-[440px] flex-col overflow-hidden bg-slate-50/20 xl:min-h-0 xl:flex-[1.5]">
             {selectedCall ? (
               <>
                 <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
                       {initials(callerName(selectedCall))}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">{callerName(selectedCall)}</h3>
+                      <h3 className="text-sm font-semibold text-slate-900">{callerName(selectedCall)}</h3>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                         {dispositionLabel(selectedCall)} - {formatTime(selectedCall.startedAt)}
                       </p>
@@ -713,10 +713,10 @@ export default function AppCallsPage() {
 
                 <div className="flex-1 overflow-y-auto p-4">
                   <div className="space-y-4">
-                    <section className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
+                    <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-semibold tracking-[0.08em] text-slate-500">Next call action</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Next call action</p>
                           <p className="mt-1 text-xs text-slate-700">
                             {selectedUrgent
                               ? "Callback risk detected. Prioritize callback and route follow-up."
@@ -792,8 +792,8 @@ export default function AppCallsPage() {
 
                     <section className="rounded-lg border border-slate-200 bg-white p-5">
                       <div className="mb-4 flex items-center justify-between">
-                        <h4 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Call transcript</h4>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{formatCallDateTime(selectedCall.startedAt)}</p>
+                        <h4 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Call transcript</h4>
+                        <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">{formatCallDateTime(selectedCall.startedAt)}</p>
                       </div>
                       <div className="space-y-4">
                         {transcriptLines(selectedCall).length ? (
@@ -832,7 +832,7 @@ export default function AppCallsPage() {
                       refreshing={entityStateBusy}
                     />
 
-                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-lg border border-slate-200 bg-white p-5">
                       <div className="mb-3 flex items-center gap-2">
                         <Phone className="h-4 w-4 text-primary" />
                         <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">AI Summary</h4>
@@ -843,11 +843,11 @@ export default function AppCallsPage() {
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Service Type</p>
-                          <p className="text-xs font-bold text-slate-900">{selectedCall.frontDesk?.serviceRequested || dispositionLabel(selectedCall)}</p>
+                          <p className="text-xs font-semibold text-slate-900">{selectedCall.frontDesk?.serviceRequested || dispositionLabel(selectedCall)}</p>
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Preferred Date</p>
-                          <p className="text-xs font-bold text-slate-900">
+                          <p className="text-xs font-semibold text-slate-900">
                             {selectedCall.frontDesk?.appointmentRequested ? "Appointment requested" : "Not captured"}
                           </p>
                         </div>
@@ -855,15 +855,15 @@ export default function AppCallsPage() {
                       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Intent</p>
-                          <p className="text-xs font-bold text-slate-900">{callAiState.intent || "Classification pending"}</p>
+                          <p className="text-xs font-semibold text-slate-900">{callAiState.intent || "Classification pending"}</p>
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Urgency</p>
-                          <p className="text-xs font-bold text-slate-900">{callAiState.urgency || "Detection pending"}</p>
+                          <p className="text-xs font-semibold text-slate-900">{callAiState.urgency || "Detection pending"}</p>
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next action</p>
-                          <p className="text-xs font-bold text-slate-900">{callAiState.action || "Suggestion pending"}</p>
+                          <p className="text-xs font-semibold text-slate-900">{callAiState.action || "Suggestion pending"}</p>
                         </div>
                       </div>
                     </div>

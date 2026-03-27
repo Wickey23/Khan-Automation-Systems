@@ -524,7 +524,7 @@ export default function AppMessagesPage() {
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden">
         <div className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40 lg:w-72 xl:w-80">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
@@ -533,7 +533,7 @@ export default function AppMessagesPage() {
                 <Inbox className="h-4 w-4" />
               </div>
               <div>
-                <h1 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Messaging</h1>
+                <h1 className="text-xs font-semibold text-slate-600">Inbox</h1>
                 <p className="text-sm font-semibold text-slate-900">Inbox</p>
               </div>
             </div>
@@ -646,7 +646,7 @@ export default function AppMessagesPage() {
               <header className="sticky top-0 z-10 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-5 py-2">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="relative">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500">
                       {avatar(selectedThread)}
                     </div>
                     <div
@@ -680,10 +680,10 @@ export default function AppMessagesPage() {
               </header>
 
               <div className="flex-1 space-y-4 overflow-y-auto bg-white p-4">
-                <section className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
+                <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Next communication action</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Next communication action</p>
                       <p className="mt-1 text-xs text-slate-600">
                         {selectedUrgent
                           ? "Urgent thread. Respond quickly and route follow-up if needed."
@@ -713,7 +713,7 @@ export default function AppMessagesPage() {
 
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Message timeline</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Message timeline</p>
                     <p className="text-[10px] text-slate-500">{selectedThread.messages.length} messages</p>
                   </div>
                   {[...selectedThread.messages].map((message, index, allMessages) => {
@@ -911,10 +911,10 @@ export default function AppMessagesPage() {
           )}
         </div>
 
-        <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/40 2xl:flex">
+        <aside className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 2xl:flex">
           <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Conversation Context</h2>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Secondary</span>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Conversation context</h2>
+            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">Secondary</span>
           </header>
 
           {selectedThread ? (
@@ -923,14 +923,14 @@ export default function AppMessagesPage() {
                 <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-2xl font-semibold text-primary shadow-inner">
                   {avatar(selectedThread)}
                 </div>
-                <h3 className="text-lg font-bold tracking-tight text-slate-900">{displayName(selectedThread)}</h3>
+                <h3 className="text-lg font-semibold tracking-tight text-slate-900">{displayName(selectedThread)}</h3>
                 <p className="mt-1 text-xs font-medium text-slate-500">{selectedThread.contactPhone}</p>
               </div>
 
               <div className="space-y-4">
                 <h4 className="px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Related Activity</h4>
                 {selectedThread.latestAppointmentRequestId ? (
-                  <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
+                  <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50 text-amber-600"><Calendar className="h-3 w-3" /></div>
@@ -942,7 +942,7 @@ export default function AppMessagesPage() {
                   </Link>
                 ) : null}
                 {selectedThread.latestCallId ? (
-                  <Link href={buildWorkflowHref(`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
+                  <Link href={buildWorkflowHref(`/app/calls?callId=${encodeURIComponent(selectedThread.latestCallId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600"><PhoneCall className="h-3 w-3" /></div>
