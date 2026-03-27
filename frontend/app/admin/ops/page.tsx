@@ -511,7 +511,7 @@ export default function AdminOpsPage() {
                       <TableRow key={job.id}>
                         <TableCell className="text-xs text-muted-foreground">{formatDate(job.createdAt)}</TableCell>
                         <TableCell>
-                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]", meta.classes)}>
+                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]", meta.classes)}>
                             {meta.label}
                           </span>
                         </TableCell>
@@ -526,7 +526,7 @@ export default function AdminOpsPage() {
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <p className="line-clamp-2 text-xs text-slate-600">{job.message || "No recent log detail."}</p>
+                          <p className="line-clamp-2 break-words text-xs text-slate-600">{job.message || "No recent log detail."}</p>
                           {job.callId ? (
                             <Link className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
                               View call
@@ -577,7 +577,7 @@ export default function AdminOpsPage() {
                       <div key={entry.id} className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-700">{formatSmsEventLabel(entry)}</p>
-                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]", eventMeta.classes)}>
+                          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]", eventMeta.classes)}>
                             {eventMeta.label}
                           </span>
                         </div>

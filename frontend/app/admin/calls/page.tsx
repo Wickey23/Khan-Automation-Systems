@@ -422,12 +422,12 @@ function CallListPanel({
         }
       />
       <div className="overflow-hidden rounded-[20px] border border-slate-200">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
           Overview
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-white text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+            <thead className="sticky top-0 z-10 bg-white text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               <tr>
                 <th className="w-[220px] px-4 py-3">Call / org</th>
                 <th className="w-[170px] px-4 py-3">Numbers</th>
@@ -452,9 +452,9 @@ function CallListPanel({
                     </button>
                   </td>
                   <td className="px-4 py-3 align-top">
-                    <p className="font-mono text-xs text-slate-700">{call.fromNumber}</p>
-                    <p className="mt-1 font-mono text-xs text-slate-500">{call.toNumber}</p>
-                    {call.forwardedToNumber ? <p className="mt-1 font-mono text-xs text-slate-400">Fwd {call.forwardedToNumber}</p> : null}
+                    <p className="font-mono text-xs text-slate-700 break-all">{call.fromNumber}</p>
+                    <p className="mt-1 font-mono text-xs text-slate-500 break-all">{call.toNumber}</p>
+                    {call.forwardedToNumber ? <p className="mt-1 font-mono text-xs text-slate-400 break-all">Fwd {call.forwardedToNumber}</p> : null}
                   </td>
                   <td className="px-4 py-3 align-top">
                     <p className="line-clamp-3 max-w-[360px] text-sm leading-6 text-slate-700">
