@@ -305,6 +305,23 @@ export default function AppOverviewPage() {
   const followUpPriority: "critical" | "high" | "normal" =
     atRiskSnapshot.overdueUnassigned > 0 ? "critical" : atRiskSnapshot.staleAssigned > 0 ? "high" : "normal";
   const followUpQueueTotal = overdueFollowUps.length + atRiskSnapshot.staleAssigned;
+  const attentionPreview = useMemo(() => {
+    const item = attentionItems[0];
+    if (!item) return "";
+    const reason = item.topReasons[0] || item.recommendedOwnerAction || "Needs owner action.";
+    return truncateCopy(`${item.title}: ${reason}`);
+  }, [attentionItems]);
+  const approvalsPreview = useMemo(() => {
+    if (!topPendingApproval) return "";
+    const summary = topPendingApproval.inputSummary || topPendingApproval.reason || `${topPendingApproval.actionType} via ${topPendingApproval.toolKey}`;
+    return truncateCopy(summary);
+  }, [topPendingApproval]);
+  const followUpPreview = useMemo(() => {
+    const task = topOverdueFollowUp?.task;
+    if (!task) return "";
+    const owner = task.assignedToUser?.email?.split("@")[0] || (task.assignedToUserId ? "assigned" : "unassigned");
+    return truncateCopy(`${task.title} (${owner})`);
+  }, [topOverdueFollowUp]);
   const queueRows = useMemo(
     () =>
       [
@@ -404,23 +421,6 @@ export default function AppOverviewPage() {
       meanTriageTime
     ]
   );
-  const attentionPreview = useMemo(() => {
-    const item = attentionItems[0];
-    if (!item) return "";
-    const reason = item.topReasons[0] || item.recommendedOwnerAction || "Needs owner action.";
-    return truncateCopy(`${item.title}: ${reason}`);
-  }, [attentionItems]);
-  const approvalsPreview = useMemo(() => {
-    if (!topPendingApproval) return "";
-    const summary = topPendingApproval.inputSummary || topPendingApproval.reason || `${topPendingApproval.actionType} via ${topPendingApproval.toolKey}`;
-    return truncateCopy(summary);
-  }, [topPendingApproval]);
-  const followUpPreview = useMemo(() => {
-    const task = topOverdueFollowUp?.task;
-    if (!task) return "";
-    const owner = task.assignedToUser?.email?.split("@")[0] || (task.assignedToUserId ? "assigned" : "unassigned");
-    return truncateCopy(`${task.title} (${owner})`);
-  }, [topOverdueFollowUp]);
   const clearedBuckets =
     Number(attentionItems.length === 0) +
     Number(state.approvals.length === 0) +
