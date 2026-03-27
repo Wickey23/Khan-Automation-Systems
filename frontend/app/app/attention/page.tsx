@@ -431,11 +431,11 @@ export default function AttentionPage() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-8 animate-fade-slide-up [animation-delay:100ms]">
+        <div className="lg:col-span-8 space-y-5 animate-fade-slide-up [animation-delay:100ms]">
           {/* Controls and Filters */}
-          <div className="glass-card inner-glow rounded-3xl p-6 space-y-6">
+          <div className="glass-card inner-glow rounded-2xl p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap gap-2">
                 {(
@@ -489,7 +489,7 @@ export default function AttentionPage() {
             </div>
 
             <SectionDisclosure title="Advanced filters and shortcuts" storageKey="attention-controls-shortcuts" defaultCollapsed>
-              <div className="pt-4 space-y-6">
+              <div className="pt-3 space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   <select
                     value={levelFilter}
@@ -589,13 +589,13 @@ export default function AttentionPage() {
 
         {/* Focus / Sidebar Preview Panel */}
         <aside className="lg:col-span-4 space-y-6 animate-fade-slide-up [animation-delay:200ms]">
-          <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm relative overflow-hidden group">
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
               <span className="material-symbols-outlined text-[120px]">target</span>
             </div>
             
             {previewItem ? (
-              <div className="relative z-10 space-y-8">
+              <div className="relative z-10 space-y-5">
                 <header>
                   <p className="text-[10px] font-semibold text-primary/60 uppercase tracking-[0.12em] mb-2">Focused Entity</p>
                   <h4 className="text-xl font-semibold font-headline text-on-surface tracking-tight leading-tight">{previewItem.label}</h4>
@@ -685,6 +685,8 @@ export default function AttentionPage() {
     </div>
   );
 }
+
+
 
 
 

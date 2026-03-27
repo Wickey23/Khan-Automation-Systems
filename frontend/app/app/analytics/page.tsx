@@ -106,7 +106,7 @@ export default function AppAnalyticsPage() {
   const retryLoad = () => setReloadTick((current) => current + 1);
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <CommandHeader
         eyebrow="Operational Intelligence"
         title="Analytics Reports"
@@ -153,7 +153,7 @@ export default function AppAnalyticsPage() {
 
       {loadError ? null : (
       <>
-      <SectionShell className="surface-panel space-y-5">
+      <SectionShell className="surface-panel space-y-4">
         <ClientStatusGrid
           items={[
             {
@@ -401,6 +401,7 @@ export default function AppAnalyticsPage() {
     </PageShell>
   );
 }
+
 
 
 

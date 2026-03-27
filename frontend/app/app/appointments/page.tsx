@@ -220,7 +220,7 @@ export default function AppAppointmentsPage() {
     const actionHref = appointmentsAccess.status === "blocked" ? "/app/billing" : "/app/settings#settings-calendar";
     const actionLabel = appointmentsAccess.status === "blocked" ? "Open billing" : "Open calendar settings";
     return (
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <SectionShell className="surface-panel space-y-4">
           <div className="flex items-center justify-between gap-6">
             <div>
@@ -246,7 +246,7 @@ export default function AppAppointmentsPage() {
   }
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <AskAiInline
         page="appointments"
         entityType={currentRequest ? "appointment" : undefined}
@@ -454,7 +454,7 @@ export default function AppAppointmentsPage() {
 
         <aside className="w-full xl:w-[360px]">
           {currentRequest ? (
-            <SectionShell className="surface-panel space-y-6">
+            <SectionShell className="surface-panel space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-extrabold text-primary">
@@ -607,4 +607,5 @@ export default function AppAppointmentsPage() {
     </PageShell>
   );
 }
+
 

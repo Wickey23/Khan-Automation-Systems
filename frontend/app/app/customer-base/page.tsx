@@ -142,7 +142,7 @@ export default function CustomerBasePage() {
   }, [customers, query]);
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <PageHeader
         eyebrow="Customer memory"
         title="Customer Memory"
@@ -196,7 +196,7 @@ export default function CustomerBasePage() {
 
       {canAccess === false ? null : (
         <>
-      <SectionShell className="surface-panel space-y-5">
+      <SectionShell className="surface-panel space-y-4">
         <ClientStatusGrid
           items={[
             {
@@ -366,5 +366,6 @@ export default function CustomerBasePage() {
     </PageShell>
   );
 }
+
 
 

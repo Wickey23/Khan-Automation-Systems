@@ -521,7 +521,7 @@ export default function AppLeadsPage() {
   ]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <CommandHeader
         eyebrow="AI Operations"
         title="Leads"
@@ -572,7 +572,7 @@ export default function AppLeadsPage() {
         ))}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden bg-white">
+      <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
             <div className="flex items-center gap-4">
@@ -740,7 +740,7 @@ export default function AppLeadsPage() {
         <aside className="hidden w-96 shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/30 lg:flex">
           {selectedLead ? (
             <>
-              <div className="border-b border-slate-200 bg-white p-6">
+              <div className="border-b border-slate-200 bg-white p-4">
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-xl font-extrabold text-primary shadow-sm">
                     {initials(leadName(selectedLead))}
@@ -762,7 +762,7 @@ export default function AppLeadsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-6 overflow-y-auto p-6">
+              <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <div className="px-1">
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Qualification</p>
                 </div>
@@ -971,6 +971,9 @@ export default function AppLeadsPage() {
     </div>
   );
 }
+
+
+
 
 
 

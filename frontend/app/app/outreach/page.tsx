@@ -33,7 +33,7 @@ const rolloutChecks = [
 
 export default function AppOutreachPage() {
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <CommandHeader
         eyebrow="Outreach"
         title="Outreach (Limited Release)"
@@ -96,5 +96,6 @@ export default function AppOutreachPage() {
     </PageShell>
   );
 }
+
 
 

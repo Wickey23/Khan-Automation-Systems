@@ -214,7 +214,7 @@ export default function InsightsPage() {
   );
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <CommandHeader
         eyebrow="Insights"
         title="Analytical Overview"
@@ -411,4 +411,5 @@ export default function InsightsPage() {
     </PageShell>
   );
 }
+
 

@@ -586,7 +586,7 @@ export default function AppActivationPage() {
 
   if (loading) {
     return (
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <SectionShell className="surface-panel">
           <StateCard
             variant="loading"
@@ -600,7 +600,7 @@ export default function AppActivationPage() {
 
   if (error) {
     return (
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <SectionShell className="surface-panel">
           <StateCard
             variant="error"
@@ -618,7 +618,7 @@ export default function AppActivationPage() {
   }
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <CommandHeader
         eyebrow="Guided activation"
         title={organization?.name ? `${organization.name} activation` : "Activation board"}
@@ -950,5 +950,6 @@ export default function AppActivationPage() {
     </PageShell>
   );
 }
+
 
 

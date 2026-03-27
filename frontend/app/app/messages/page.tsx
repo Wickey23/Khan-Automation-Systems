@@ -429,7 +429,7 @@ export default function AppMessagesPage() {
     const actionHref = smsAccess.status === "blocked" ? "/app/billing" : "/app/settings#settings-telephony";
     const actionLabel = smsAccess.status === "blocked" ? "Open billing" : "Open telephony settings";
     return (
-      <PageShell className="space-y-6">
+      <PageShell className="space-y-5">
         <SectionShell className="surface-panel space-y-4">
           <div className="flex items-center justify-between gap-6">
             <div>
@@ -493,7 +493,7 @@ export default function AppMessagesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <CommandHeader
         eyebrow="AI Operations"
         title="Messages"
@@ -525,7 +525,7 @@ export default function AppMessagesPage() {
         ))}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex min-h-[calc(100vh-15rem)] overflow-hidden">
+      <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden">
         <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
             <div className="flex items-center gap-3">
@@ -632,7 +632,7 @@ export default function AppMessagesPage() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
           {selectedThread ? (
             <>
-              <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
+              <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5">
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 shadow-sm">
@@ -668,7 +668,7 @@ export default function AppMessagesPage() {
                 </div>
               </header>
 
-              <div className="flex-1 space-y-6 overflow-y-auto bg-white p-6">
+              <div className="flex-1 space-y-4 overflow-y-auto bg-white p-4">
                 <section className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -907,7 +907,7 @@ export default function AppMessagesPage() {
           </header>
 
           {selectedThread ? (
-            <div className="flex-1 space-y-8 overflow-y-auto p-6">
+            <div className="flex-1 space-y-5 overflow-y-auto p-4">
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-2xl font-extrabold text-primary shadow-inner">
                   {avatar(selectedThread)}
@@ -916,7 +916,7 @@ export default function AppMessagesPage() {
                 <p className="mt-1 text-xs font-medium text-slate-500">{selectedThread.contactPhone}</p>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <h4 className="px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Related Activity</h4>
                 {selectedThread.latestAppointmentRequestId ? (
                   <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
@@ -988,6 +988,9 @@ export default function AppMessagesPage() {
     </div>
   );
 }
+
+
+
 
 
 

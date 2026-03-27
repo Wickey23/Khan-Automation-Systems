@@ -36,7 +36,7 @@ export default function AppOnboardingPreviewPage() {
   }
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="space-y-5">
       <PageHeader
         eyebrow="Setup package"
         title="Build Sheet Preview"
@@ -104,4 +104,5 @@ export default function AppOnboardingPreviewPage() {
     </PageShell>
   );
 }
+
 

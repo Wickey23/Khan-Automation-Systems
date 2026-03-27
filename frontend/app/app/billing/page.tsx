@@ -349,7 +349,7 @@ export default function AppBillingPage() {
     : { label: startingPlan ? "Starting..." : "Start Standard plan", onClick: () => void onStartPlan("starter"), disabled: startingPlan !== null };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <CommandHeader
         eyebrow="Billing"
         title="Subscription & Billing"
@@ -438,7 +438,7 @@ export default function AppBillingPage() {
               </ul>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Usage This Month</h3>
                 <div className="mt-5 space-y-5">
@@ -829,6 +829,8 @@ export default function AppBillingPage() {
     </div>
   );
 }
+
+
 
 
 

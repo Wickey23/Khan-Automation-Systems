@@ -254,7 +254,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <CommandHeader
         eyebrow="People and permissions"
         title="Team & Routing"
@@ -577,6 +577,8 @@ export default function TeamPage() {
     </div>
   );
 }
+
+
 
 
 

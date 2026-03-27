@@ -282,7 +282,7 @@ function WorkspaceAccessSection({
   }
 
   return (
-    <SectionShell className="surface-panel space-y-6">
+    <SectionShell className="surface-panel space-y-4">
       <SectionHeading
         title="Workspace readiness"
         description="Understand which features are gated, what needs configuration, and where you are approved."
@@ -948,7 +948,7 @@ export default function AppSettingsPage() {
             </div>
           </aside>
 
-          <div id="settings-content-root" className="space-y-6 p-6">
+          <div id="settings-content-root" className="space-y-5 p-4">
             <div className="sticky top-3 z-10 flex items-center justify-between rounded-md border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
               <div className="flex items-center gap-2 text-xs">
                 <span className="font-semibold text-slate-700">Status:</span>
@@ -1938,6 +1938,8 @@ export default function AppSettingsPage() {
     </div>
   );
 }
+
+
 
 
 
