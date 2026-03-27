@@ -605,12 +605,33 @@ export default function AppLeadsPage() {
 
           <div className="flex-1 overflow-y-auto p-4">
             {loading ? (
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading leads...</div>
+              <StateCard variant="loading" title="Loading lead pipeline" description="Fetching the latest lead activity and stages." />
             ) : error ? (
               <StateCard
                 variant="error"
                 title="Lead pipeline unavailable"
                 description={error}
+                action={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        const data = await fetchOrgLeads();
+                        setLeads(data.leads || []);
+                        setSelectedLeadId((current) => current || data.leads?.[0]?.id || "");
+                      } catch (loadError) {
+                        setError(loadError instanceof Error ? loadError.message : "Failed to load leads.");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    Retry
+                  </Button>
+                }
               />
             ) : filteredLeads.length ? (
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -685,7 +706,7 @@ export default function AppLeadsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-900">{leadName(lead)}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{lead.phone || lead.email || "Contact details pending"}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{lead.phone || lead.email || "Contact unavailable"}</p>
                         </div>
                         <div className="min-w-0">
                           <p className={cn("truncate text-[11px] font-semibold", signal.tone)}>{signal.label}</p>
