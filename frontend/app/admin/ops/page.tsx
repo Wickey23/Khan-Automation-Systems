@@ -407,7 +407,7 @@ export default function AdminOpsPage() {
               {loading ? (
                 <p className="text-sm text-muted-foreground">Loading job types...</p>
               ) : typeSummaryEmpty ? (
-                <p className="text-sm text-muted-foreground">No job type data captured yet.</p>
+                <p className="text-sm text-muted-foreground">No job type data recorded yet.</p>
               ) : (
                 <div className="grid gap-2">
                   {queueData!.typeSummary.map((row) => (
@@ -492,7 +492,7 @@ export default function AdminOpsPage() {
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading recent jobs…</p>
             ) : recentJobsEmpty ? (
-              <p className="text-sm text-muted-foreground">No recorded jobs for this tenant yet.</p>
+              <p className="text-sm text-muted-foreground">No recent jobs recorded for this tenant.</p>
             ) : (
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-white">
@@ -526,7 +526,7 @@ export default function AdminOpsPage() {
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          <p className="line-clamp-2 text-xs text-slate-600">{job.message || "No recent log message."}</p>
+                          <p className="line-clamp-2 text-xs text-slate-600">{job.message || "No recent log detail."}</p>
                           {job.callId ? (
                             <Link className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline" href={buildAdminCallHref(job.callId)}>
                               View call
@@ -585,11 +585,11 @@ export default function AdminOpsPage() {
                           <span>{formatDate(entry.createdAt)}</span>
                           <span>Thread: {entry.threadId || "-"}</span>
                           <span>Message SID: {entry.messageSid || "-"}</span>
-                          <span>From: {entry.fromNumber || "Unknown"}</span>
-                          <span>To: {entry.toNumber || "Unknown"}</span>
+                          <span>From: {entry.fromNumber || "Unavailable"}</span>
+                          <span>To: {entry.toNumber || "Unavailable"}</span>
                         </div>
                         <div className="text-xs text-slate-600">
-                          <p>{entry.bodySnippet || "No snippet provided."}</p>
+                          <p>{entry.bodySnippet || "No message snippet available."}</p>
                           {entry.errorText ? <p className="text-rose-600">Error: {entry.errorText}</p> : null}
                           {entry.automation ? <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Automation: {entry.automation}</p> : null}
                         </div>

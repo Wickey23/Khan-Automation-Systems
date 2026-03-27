@@ -447,7 +447,7 @@ function CallListPanel({
                       onClick={() => void onView(call)}
                     >
                       <p className="text-sm font-bold text-slate-950">{call.providerCallId || call.id}</p>
-                      <p className="text-xs text-slate-500">{call.organization?.name || "Unknown organization"}</p>
+                      <p className="text-xs text-slate-500">{call.organization?.name || "Organization unavailable"}</p>
                       <p className="text-xs text-slate-400">{formatWhen(call.startedAt)}</p>
                     </button>
                   </td>
@@ -458,7 +458,7 @@ function CallListPanel({
                   </td>
                   <td className="px-4 py-3 align-top">
                     <p className="line-clamp-3 max-w-[360px] text-sm leading-6 text-slate-700">
-                      {call.aiSummary || call.summary || "No AI summary generated yet."}
+                      {call.aiSummary || call.summary || "Summary pending."}
                     </p>
                   </td>
                   <td className="px-4 py-3 align-top">
@@ -574,7 +574,7 @@ function InvestigationPane({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-950">{selectedCall.providerCallId || selectedCall.id}</p>
-              <p className="mt-1 text-xs text-slate-500">{selectedCall.organization?.name || "Unknown organization"}</p>
+              <p className="mt-1 text-xs text-slate-500">{selectedCall.organization?.name || "Organization unavailable"}</p>
             </div>
             <StatusBadge kind="call" state={selectedCall.outcome} label={humanize(selectedCall.outcome)} />
           </div>
@@ -668,7 +668,7 @@ function InvestigationPane({
                 Open recording
               </a>
             ) : (
-              <StateCard variant="empty" title="Recording missing" description="No recording URL available for this call." />
+              <StateCard variant="empty" title="Recording missing" description="Recording is not available for this call." />
             )}
           </div>
         </div>
