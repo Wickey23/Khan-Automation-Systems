@@ -348,7 +348,7 @@ export default function TeamPage() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 py-6">
           <div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Team Management</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Team Management</h2>
             <p className="mt-1 text-sm text-slate-500">Manage your team members, roles, and permissions.</p>
           </div>
           {canManage && proEnabled && !roleBlocked ? (
@@ -381,7 +381,7 @@ export default function TeamPage() {
                   key={item.key}
                   type="button"
                   onClick={() => setView(item.key as typeof view)}
-                  className={`rounded-md px-4 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                  className={`rounded-md px-4 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
                     view === item.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                   }`}
                 >

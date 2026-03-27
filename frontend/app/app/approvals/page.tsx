@@ -590,7 +590,7 @@ export default function ApprovalsPage() {
                 <button
                   type="button"
                   onClick={() => void load()}
-                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  className="p-2 bg-slate-50 text-slate-400 hover:text-primary transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                   title="Refresh items"
                   aria-label="Refresh approvals"
                 >

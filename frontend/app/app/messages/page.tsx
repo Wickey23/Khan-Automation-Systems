@@ -36,7 +36,7 @@ import { CommandHeader, SectionDisclosure } from "@/components/ops";
 type PipelineStage = "NEEDS_SCHEDULING" | "SCHEDULED" | "COMPLETED";
 
 function displayName(thread: OrgMessageThread) {
-  return String(thread.contactName || thread.lead?.name || thread.contactPhone || "Contact record").trim();
+  return String(thread.contactName || thread.lead?.name || thread.contactPhone || "Contact unavailable").trim();
 }
 
 function avatar(thread: OrgMessageThread) {
@@ -53,7 +53,7 @@ function latestMessage(thread: OrgMessageThread) {
 }
 
 function threadPreview(thread: OrgMessageThread) {
-  return latestMessage(thread)?.body || thread.frontDesk?.summary || thread.lead?.frontDesk?.summary || "No message preview yet.";
+  return latestMessage(thread)?.body || thread.frontDesk?.summary || thread.lead?.frontDesk?.summary || "No recent message preview.";
 }
 
 function threadType(thread: OrgMessageThread) {
@@ -89,7 +89,7 @@ function threadPriorityRank(thread: OrgMessageThread) {
 }
 
 function formatActivityTime(value?: string | null) {
-  if (!value) return "-";
+  if (!value) return "Unavailable";
   return new Date(value).toLocaleString([], {
     month: "short",
     day: "numeric",
@@ -557,10 +557,21 @@ export default function AppMessagesPage() {
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="px-6 py-8 text-sm text-slate-500">Loading conversations...</div>
+              <div className="p-4">
+                <StateCard variant="loading" title="Loading conversations" description="Fetching inbox threads and latest activity." />
+              </div>
             ) : error ? (
               <div className="p-4">
-                <StateCard variant="error" title="Inbox unavailable" description={error} />
+                <StateCard
+                  variant="error"
+                  title="Inbox unavailable"
+                  description={error}
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => void load()}>
+                      Retry
+                    </Button>
+                  }
+                />
               </div>
             ) : filteredThreads.length ? (
               <div className="divide-y divide-slate-100 bg-white">
@@ -578,7 +589,7 @@ export default function AppMessagesPage() {
                       type="button"
                       onClick={() => setSelectedId(thread.id)}
                       className={cn(
-                        "w-full px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        "w-full px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                         selectedId === thread.id ? "bg-primary/5" : ""
                         ,
                         priorityClass
@@ -834,7 +845,7 @@ export default function AppMessagesPage() {
                   </SectionDisclosure>
                   <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700">
                     <p className="font-semibold text-slate-900">Thread AI state</p>
-                    <p className="mt-1">Classification: {threadAiState.classification || "Not available"}</p>
+                    <p className="mt-1">Classification: {threadAiState.classification || "Unavailable"}</p>
                     <p>Opt-out: {threadAiState.optOut ? "Detected" : "Not detected"}</p>
                     <p>Next action: {threadAiState.nextAction || "Run route/action tool"}</p>
                     {threadAiState.replyDraft ? <p className="mt-1">Draft: {threadAiState.replyDraft}</p> : null}
@@ -878,7 +889,7 @@ export default function AppMessagesPage() {
                         title="Send message"
                         onClick={() => void onSend()}
                         disabled={sending || !to.trim() || !body.trim()}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-30 active:scale-95"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 disabled:opacity-30 active:scale-95"
                       >
                         <span className="material-symbols-outlined text-[18px]">send</span>
                       </button>
@@ -909,7 +920,7 @@ export default function AppMessagesPage() {
           {selectedThread ? (
             <div className="flex-1 space-y-5 overflow-y-auto p-4">
               <div className="text-center">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-2xl font-extrabold text-primary shadow-inner">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-2xl font-semibold text-primary shadow-inner">
                   {avatar(selectedThread)}
                 </div>
                 <h3 className="text-lg font-bold tracking-tight text-slate-900">{displayName(selectedThread)}</h3>
@@ -917,13 +928,13 @@ export default function AppMessagesPage() {
               </div>
 
               <div className="space-y-4">
-                <h4 className="px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Related Activity</h4>
+                <h4 className="px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Related Activity</h4>
                 {selectedThread.latestAppointmentRequestId ? (
                   <Link href={buildWorkflowHref(`/app/appointments?requestId=${encodeURIComponent(selectedThread.latestAppointmentRequestId)}`, { source: "messages", returnTo: localReturnTo, returnLabel: "Messages" })} className="group block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-primary">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50 text-amber-600"><Calendar className="h-3 w-3" /></div>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">Booking Request</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-900">Booking Request</span>
                       </div>
                     </div>
                     <p className="text-xs font-bold text-slate-700">Open booking queue</p>
@@ -935,7 +946,7 @@ export default function AppMessagesPage() {
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600"><PhoneCall className="h-3 w-3" /></div>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">Recent Call</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-900">Recent Call</span>
                       </div>
                     </div>
                     <p className="text-xs font-bold text-slate-700">Open call queue</p>

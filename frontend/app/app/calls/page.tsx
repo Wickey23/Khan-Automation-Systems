@@ -570,7 +570,7 @@ export default function AppCallsPage() {
                       key={filter}
                       onClick={() => setStateFilter(filter)}
                       className={cn(
-                        "rounded-md px-3 py-1 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        "rounded-md px-3 py-1 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                         stateFilter === filter ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                       )}
                     >
@@ -587,7 +587,7 @@ export default function AppCallsPage() {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search calls..."
-                    className="h-8 w-52 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="h-8 w-52 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-sky-300"
                   />
                 </div>
                 <Button size="sm" variant="outline" onClick={() => void refreshQueue()}>
@@ -600,9 +600,18 @@ export default function AppCallsPage() {
                 <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{refreshError}</p>
               ) : null}
               {loading ? (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500">Loading call log...</div>
+                <StateCard variant="loading" title="Loading call log" description="Fetching recent calls and disposition signals." />
               ) : error ? (
-                <StateCard variant="error" title="Call log unavailable" description={error} />
+                <StateCard
+                  variant="error"
+                  title="Call log unavailable"
+                  description={error}
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => void loadCalls(query)}>
+                      Retry
+                    </Button>
+                  }
+                />
               ) : visibleCalls.length ? (
                 <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                   {visibleCalls.map((call) => {
@@ -620,7 +629,7 @@ export default function AppCallsPage() {
                         type="button"
                         onClick={() => setSelectedCallId(call.id)}
                         className={cn(
-                          "w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          "w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                           selectedCallId === call.id ? "bg-primary/5" : "",
                           priorityClass
                         )}
@@ -678,7 +687,7 @@ export default function AppCallsPage() {
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">{callerName(selectedCall)}</h3>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                         {dispositionLabel(selectedCall)} - {formatTime(selectedCall.startedAt)}
                       </p>
                     </div>
@@ -695,7 +704,7 @@ export default function AppCallsPage() {
                       aria-label="Close selected call details"
                       title="Close selected call details"
                       onClick={() => setSelectedCallId(null)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-200 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-200 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -826,18 +835,18 @@ export default function AppCallsPage() {
                     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
                         <Phone className="h-4 w-4 text-primary" />
-                        <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">AI Summary</h4>
+                        <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">AI Summary</h4>
                       </div>
                       <p className="text-sm font-medium leading-relaxed text-slate-700">
                         {selectedCall.frontDesk?.summary || selectedCall.aiSummary || selectedCall.summary || "Structured summary is still pending for this call."}
                       </p>
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Service Type</p>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Service Type</p>
                           <p className="text-xs font-bold text-slate-900">{selectedCall.frontDesk?.serviceRequested || dispositionLabel(selectedCall)}</p>
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Preferred Date</p>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Preferred Date</p>
                           <p className="text-xs font-bold text-slate-900">
                             {selectedCall.frontDesk?.appointmentRequested ? "Appointment requested" : "Not captured"}
                           </p>
@@ -845,15 +854,15 @@ export default function AppCallsPage() {
                       </div>
                       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Intent</p>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Intent</p>
                           <p className="text-xs font-bold text-slate-900">{callAiState.intent || "Classification pending"}</p>
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Urgency</p>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Urgency</p>
                           <p className="text-xs font-bold text-slate-900">{callAiState.urgency || "Detection pending"}</p>
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Next action</p>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next action</p>
                           <p className="text-xs font-bold text-slate-900">{callAiState.action || "Suggestion pending"}</p>
                         </div>
                       </div>

@@ -383,7 +383,7 @@ export default function AppAppointmentsPage() {
                             }
                           }}
                           className={cn(
-                            "group cursor-pointer transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            "group cursor-pointer transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                             selected && "bg-primary/5"
                           )}
                         >
@@ -457,12 +457,12 @@ export default function AppAppointmentsPage() {
             <SectionShell className="surface-panel space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-extrabold text-primary">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-semibold text-primary">
                     {initials(currentRequest.customerName)}
                   </div>
                   <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-400">{sourceLabel(currentRequest)}</p>
-                    <h3 className="text-xl font-extrabold text-slate-900">{currentRequest.customerName}</h3>
+                    <h3 className="text-xl font-semibold text-slate-900">{currentRequest.customerName}</h3>
                     <p className="text-xs uppercase tracking-[0.12em] text-slate-400">ID: #{currentRequest.id.slice(0, 8)}</p>
                   </div>
                 </div>

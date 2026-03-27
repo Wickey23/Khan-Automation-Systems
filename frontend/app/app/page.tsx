@@ -535,7 +535,18 @@ export default function AppOverviewPage() {
         {reviewRefreshNote ? <p className="text-sky-700">{reviewRefreshNote}</p> : null}
       </div>
 
-      {error ? <StateCard variant="error" title="Dashboard data unavailable" description={error} /> : null}
+      {error ? (
+        <StateCard
+          variant="error"
+          title="Dashboard data unavailable"
+          description={error}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={loading}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
 
       <section className={cn("grid gap-2", kpiCards.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3")}>
         {kpiCards.map((card) => (

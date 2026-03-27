@@ -589,7 +589,7 @@ export default function AppLeadsPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search leads..."
-                  className="h-8 w-full max-w-[18rem] rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-72"
+                  className="h-8 w-full max-w-[18rem] rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-sky-300 sm:w-72"
                 />
               </div>
             </div>
@@ -639,7 +639,7 @@ export default function AppLeadsPage() {
                   {topLead ? (
                     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Top lead</p>
-                      <div className="mt-1 flex items-center justify-between gap-3">
+                      <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span
@@ -658,7 +658,7 @@ export default function AppLeadsPage() {
                           </div>
                           <p className="truncate text-[11px] text-slate-600">{topLead.signal.label}</p>
                         </div>
-                        <Button asChild size="sm" variant="outline" className="shrink-0">
+                        <Button asChild size="sm" variant="outline" className="shrink-0 self-start sm:self-auto">
                           <Link href={topLead.href} onClick={() => setSelectedLeadId(topLead.lead.id)}>
                             {topLead.ctaLabel}
                             <ArrowRight className="h-3 w-3" />
@@ -714,18 +714,18 @@ export default function AppLeadsPage() {
                           <p className={cn("truncate text-[11px] font-semibold", signal.tone)}>{signal.label}</p>
                           <p className="mt-0.5 truncate text-[11px] text-slate-500">{urgency.label} priority | {selectedForBatch ? "Batch selected" : leadSource(lead)}</p>
                         </div>
-                        <div className="flex items-center justify-between gap-2 md:justify-end">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-7"
+                            className="h-7 px-2.5"
                             onClick={(event) => {
                               event.stopPropagation();
                               setSelectedLeadId(lead.id);
                             }}
                           >
-                            {leadRecommendedAction(lead)}
+                            <span className="max-w-[96px] truncate">{leadRecommendedAction(lead)}</span>
                             <ArrowRight className="h-3 w-3" />
                           </Button>
                           <Button

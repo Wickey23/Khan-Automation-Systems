@@ -450,7 +450,7 @@ export default function AttentionPage() {
                     type="button"
                     onClick={() => setRiskFilter(entry.key)}
                     className={cn(
-                      "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] rounded-xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                       riskFilter === entry.key
                         ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10" 
                         : "bg-white text-slate-600 border-slate-100 hover:border-slate-300"
