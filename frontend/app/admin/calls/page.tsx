@@ -39,7 +39,7 @@ function formatWhen(value: string | null | undefined) {
 }
 
 function humanize(value?: string | null) {
-  if (!value) return "Unknown";
+  if (!value) return "Unavailable";
   return value.replaceAll("_", " ");
 }
 
@@ -246,8 +246,8 @@ function AdminCallsPageContent() {
 
         <PageHeader
           eyebrow="Call diagnostics"
-          title="Investigate outcomes, recordings, and transcript sessions"
-          description="Use the filters to isolate failure patterns, then inspect the selected call for summary quality, media-stream health, and extracted lead or service-request data."
+          title="Review outcomes, transcripts, and follow-up readiness"
+          description="Filter live traffic, inspect the selected call, and confirm next actions for service requests, recordings, and review states."
           actions={
             <Button variant="outline" onClick={() => void reloadCalls()}>
               {loading ? "Refreshing..." : "Refresh"}
@@ -386,7 +386,7 @@ function FiltersToolbar({
         </div>
         <Button variant="outline" className="items-center gap-2 md:justify-self-start focus-visible:ring-sky-300" onClick={() => void reloadCalls()}>
           <Radio className="h-3.5 w-3.5 text-primary" />
-          Review queue
+          Refresh results
         </Button>
       </div>
     </div>
@@ -413,8 +413,8 @@ function CallListPanel({
   return (
     <SectionShell className="surface-panel">
       <SectionHeading
-        title="Call investigations"
-        description="Review failure patterns, queue signals, and call health before digging into the detail pane."
+        title="Call log"
+        description="Scan callers, outcomes, urgency signals, and summaries before opening the detail pane."
         actions={
           <Button variant="ghost" size="sm" onClick={() => void reloadCalls()}>
             Refresh list
@@ -430,10 +430,10 @@ function CallListPanel({
             <thead className="sticky top-0 z-10 bg-white text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               <tr>
                 <th className="w-[220px] px-4 py-3">Call / org</th>
-                <th className="w-[170px] px-4 py-3">Numbers</th>
+                <th className="w-[170px] px-4 py-3">Caller numbers</th>
                 <th className="min-w-[260px] px-4 py-3">Summary</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Signals</th>
+                <th className="px-4 py-3">Outcome</th>
+                <th className="px-4 py-3">Urgency signals</th>
                 <th className="w-[170px] px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -588,7 +588,7 @@ function InvestigationPane({
 
         <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">AI summary</p>
-          <p className="text-sm leading-6 text-slate-700">{selectedCall.aiSummary || selectedCall.summary || "-"}</p>
+          <p className="text-sm leading-6 text-slate-700">{selectedCall.aiSummary || selectedCall.summary || "Summary pending."}</p>
           <p className="text-xs text-slate-500">Generated {formatWhen(selectedCall.aiSummaryGeneratedAt)}</p>
         </div>
 
@@ -600,11 +600,11 @@ function InvestigationPane({
             </div>
             <div className="mt-2.5 grid gap-2.5 text-sm sm:grid-cols-2">
               <InfoRow label="Status" value={humanize(selectedCall.serviceRequest.status)} />
-              <InfoRow label="Urgency" value={selectedCall.serviceRequest.urgency || "-"} />
-              <InfoRow label="Customer" value={selectedCall.serviceRequest.customerName || "-"} />
+              <InfoRow label="Urgency" value={selectedCall.serviceRequest.urgency || "Unavailable"} />
+              <InfoRow label="Customer" value={selectedCall.serviceRequest.customerName || "Unavailable"} />
               <InfoRow label="Phone" value={selectedCall.serviceRequest.phone} />
-              <InfoRow label="Address" value={selectedCall.serviceRequest.serviceAddress || "-"} span={2} />
-              <InfoRow label="Notes" value={selectedCall.serviceRequest.notes || "-"} span={2} />
+              <InfoRow label="Address" value={selectedCall.serviceRequest.serviceAddress || "Unavailable"} span={2} />
+              <InfoRow label="Notes" value={selectedCall.serviceRequest.notes || "Unavailable"} span={2} />
             </div>
           </div>
         ) : null}
@@ -613,11 +613,11 @@ function InvestigationPane({
           <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Extracted lead</p>
             <div className="mt-2.5 grid gap-2.5 text-sm sm:grid-cols-2">
-              <InfoRow label="Lead" value={selectedCall.lead.name || "-"} />
-              <InfoRow label="Phone" value={selectedCall.lead.phone || "-"} />
-              <InfoRow label="Service" value={selectedCall.lead.serviceRequested || "-"} />
-              <InfoRow label="Urgency" value={selectedCall.lead.urgency || "-"} />
-              <InfoRow label="Notes" value={selectedCall.lead.notes || "-"} span={2} />
+              <InfoRow label="Lead" value={selectedCall.lead.name || "Unavailable"} />
+              <InfoRow label="Phone" value={selectedCall.lead.phone || "Unavailable"} />
+              <InfoRow label="Service" value={selectedCall.lead.serviceRequested || "Unavailable"} />
+              <InfoRow label="Urgency" value={selectedCall.lead.urgency || "Unavailable"} />
+              <InfoRow label="Notes" value={selectedCall.lead.notes || "Unavailable"} span={2} />
             </div>
           </div>
         ) : null}
