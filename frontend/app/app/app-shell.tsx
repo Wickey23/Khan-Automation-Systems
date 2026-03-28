@@ -500,9 +500,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </header>
 
             <main className="flex-1 overflow-y-auto">
-              <div className="space-y-2.5 px-4 py-3 sm:px-6 lg:px-8">
-                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-3 py-2">
-                  <p className="text-sm font-semibold text-slate-900">{pageLabel}</p>
+              <div className="space-y-2 px-4 py-3 sm:px-6 lg:px-8">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200/90 bg-white px-3 py-2">
+                  <p className="text-[15px] font-semibold text-slate-900">{pageLabel}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
                       <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500" : "bg-amber-500")}>

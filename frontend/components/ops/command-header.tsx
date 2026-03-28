@@ -14,16 +14,16 @@ export function CommandHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between animate-fade-slide-up mb-4", className)}>
-      <div className="min-w-0 space-y-1">
-        <p className="ml-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+    <header className={cn("mb-3 flex flex-col gap-2.5 md:flex-row md:items-end md:justify-between animate-fade-slide-up", className)}>
+      <div className="min-w-0 space-y-0.5">
+        <p className="ml-0.5 text-[11px] font-semibold tracking-[0.08em] text-slate-500">
           {eyebrow}
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-2xl text-sm text-slate-600">
+          <p className="max-w-2xl text-sm leading-relaxed text-slate-600">
             {description}
           </p>
         ) : null}

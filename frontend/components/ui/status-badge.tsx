@@ -18,14 +18,14 @@ const VARIANT_META: Record<
   StatusVariant,
   { classes: string; icon: LucideIcon; labelSuffix?: string }
 > = {
-  success: { classes: "border-emerald-300/80 bg-emerald-50/90 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: CheckCircle2 },
-  warning: { classes: "border-amber-300/80 bg-amber-50/90 text-amber-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: ShieldCheck },
-  danger: { classes: "border-rose-300/80 bg-rose-50/90 text-rose-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: AlertTriangle },
-  processing: { classes: "border-slate-300/80 bg-slate-100/90 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: Loader2 },
-  neutral: { classes: "border-slate-300/80 bg-slate-100/90 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: Info },
-  locked: { classes: "border-slate-400/70 bg-slate-100/95 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: Lock },
-  info: { classes: "border-sky-300/80 bg-sky-50/90 text-sky-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: ShieldCheck },
-  refresh: { classes: "border-indigo-300/80 bg-indigo-50/90 text-indigo-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]", icon: RefreshCw }
+  success: { classes: "border-emerald-300 bg-emerald-50 text-emerald-800", icon: CheckCircle2 },
+  warning: { classes: "border-amber-300 bg-amber-50 text-amber-800", icon: ShieldCheck },
+  danger: { classes: "border-rose-300 bg-rose-50 text-rose-800", icon: AlertTriangle },
+  processing: { classes: "border-slate-300 bg-slate-100 text-slate-700", icon: Loader2 },
+  neutral: { classes: "border-slate-300 bg-slate-100 text-slate-700", icon: Info },
+  locked: { classes: "border-slate-400 bg-slate-100 text-slate-600", icon: Lock },
+  info: { classes: "border-sky-300 bg-sky-50 text-sky-800", icon: ShieldCheck },
+  refresh: { classes: "border-indigo-300 bg-indigo-50 text-indigo-800", icon: RefreshCw }
 };
 
 const KIND_OVERRIDES: Record<StatusKind, Record<string, StatusVariant>> = {
@@ -151,9 +151,9 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-[0.02em]",
         meta.classes,
-        size === "xs" ? "gap-1 px-2.5 py-0.5 text-[10px]" : ""
+        size === "xs" ? "gap-1 px-2 py-0.5 text-[10px]" : ""
       )}
     >
       <IconComponent className={cn("h-3.5 w-3.5", variant === "processing" || variant === "refresh" ? "animate-spin" : "")} />
