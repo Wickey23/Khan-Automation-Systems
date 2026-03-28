@@ -457,7 +457,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
               <div className="flex items-center gap-2">
                 <span
-                  className="hidden rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:inline-flex"
+                  className="hidden rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.02em] text-slate-500 sm:inline-flex"
                   title={`Frontend release ${RELEASE_TAG}`}
                 >
                   {RELEASE_TAG}
@@ -488,7 +488,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="hidden items-center gap-2 sm:flex">
                   <div className="text-right">
                     <p className="text-xs font-semibold leading-none text-slate-900">Workspace</p>
-                    <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    <p className="mt-0.5 text-[10px] font-semibold tracking-[0.02em] text-slate-400">
                       {currentRole?.replaceAll("_", " ") || "Manager"}
                     </p>
                   </div>
@@ -504,13 +504,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200/90 bg-white px-3 py-2">
                   <p className="text-[15px] font-semibold text-slate-900">{pageLabel}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", liveBadge.classes)}>
+                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em]", liveBadge.classes)}>
                       <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", workspaceLive ? "bg-emerald-500" : "bg-amber-500")}>
                         {workspaceLive ? <span className="absolute inset-0 rounded-full bg-emerald-400/50" /> : null}
                       </span>
                       {liveBadge.label}
                     </span>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em] text-slate-600">
                       {readinessSnapshot.totalFeatures > 0
                         ? `${readinessSnapshot.readyFeatures}/${readinessSnapshot.totalFeatures} ready`
                         : "checking"}
