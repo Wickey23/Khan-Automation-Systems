@@ -572,9 +572,9 @@ export default function AppLeadsPage() {
         ))}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex min-h-[640px] overflow-hidden bg-white">
+      <div className="flex min-h-[580px] overflow-hidden bg-white">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6">
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-4">
             <div className="flex items-center gap-4">
               <h1 className="text-lg font-semibold text-slate-900">Lead Pipeline</h1>
               <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
@@ -603,7 +603,7 @@ export default function AppLeadsPage() {
             </div>
           ) : null}
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3">
             {loading ? (
               <StateCard variant="loading" title="Loading lead pipeline" description="Fetching the latest lead activity and stages." />
             ) : error ? (
@@ -824,7 +824,7 @@ export default function AppLeadsPage() {
         <aside className="hidden w-[300px] shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-slate-50/20 xl:flex 2xl:w-[360px]">
           {selectedLead ? (
             <>
-              <div className="border-b border-slate-200 bg-white p-4">
+              <div className="border-b border-slate-200 bg-white p-3.5">
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-xl font-semibold text-primary">
                     {initials(leadName(selectedLead))}
@@ -846,7 +846,7 @@ export default function AppLeadsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              <div className="flex-1 space-y-3.5 overflow-y-auto p-3.5">
                 <RiskRailCard title="Lead risk" items={leadRiskItems} />
                 <div className="px-1">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">Qualification</p>

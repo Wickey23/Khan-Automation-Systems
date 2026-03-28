@@ -525,9 +525,9 @@ export default function AppMessagesPage() {
         ))}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex min-h-[calc(100vh-17.5rem)] overflow-hidden">
+      <div className="flex min-h-[calc(100vh-19rem)] overflow-hidden">
         <div className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50/40 lg:w-72 xl:w-80">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+          <header className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Inbox className="h-4 w-4" />
@@ -679,7 +679,7 @@ export default function AppMessagesPage() {
                 </div>
               </header>
 
-              <div className="flex-1 space-y-4 overflow-y-auto bg-white p-4">
+              <div className="flex-1 space-y-3.5 overflow-y-auto bg-white p-3.5">
                 <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -711,7 +711,7 @@ export default function AppMessagesPage() {
                   </div>
                 </section>
 
-                <section className="space-y-4">
+                <section className="space-y-3.5">
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-500">Message timeline</p>
                     <p className="text-[10px] text-slate-500">{selectedThread.messages.length} messages</p>
@@ -918,7 +918,7 @@ export default function AppMessagesPage() {
           </header>
 
           {selectedThread ? (
-            <div className="flex-1 space-y-5 overflow-y-auto p-4">
+            <div className="flex-1 space-y-4 overflow-y-auto p-3.5">
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-2xl font-semibold text-primary shadow-inner">
                   {avatar(selectedThread)}

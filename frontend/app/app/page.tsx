@@ -513,7 +513,7 @@ export default function AppOverviewPage() {
   );
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="space-y-2.5 pb-6">
       <CommandHeader
         eyebrow="Operator workspace"
         title="Operations"
@@ -563,7 +563,7 @@ export default function AppOverviewPage() {
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
             <section className="xl:col-span-8 rounded-lg border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5 sm:px-5">
                 <div>
                   <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-500">Primary workflow</p>
                   <h2 className="text-base font-semibold text-slate-950">Action queue</h2>
@@ -574,7 +574,7 @@ export default function AppOverviewPage() {
                 </div>
               </div>
 
-              <div className="space-y-2 p-3">
+              <div className="space-y-2 p-2.5">
                 {topTask ? (
                   <Link
                     href={topTask.href}
