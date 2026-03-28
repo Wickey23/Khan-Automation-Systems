@@ -638,13 +638,13 @@ export default function AppLeadsPage() {
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   {topLead ? (
                     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Top lead</p>
+                      <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-500">Top lead</p>
                       <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span
                               className={cn(
-                                "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                                "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em]",
                                 leadUrgency(topLead.lead.frontDesk?.frontDeskPriority).bg,
                                 leadUrgency(topLead.lead.frontDesk?.frontDeskPriority).color
                               )}
@@ -652,7 +652,7 @@ export default function AppLeadsPage() {
                               {leadUrgency(topLead.lead.frontDesk?.frontDeskPriority).label} priority
                             </span>
                             <p className="truncate text-sm font-semibold text-slate-900">{leadName(topLead.lead)}</p>
-                            <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", stageTone(topLead.stage))}>
+                            <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em]", stageTone(topLead.stage))}>
                               {stageLabel(topLead.stage)}
                             </span>
                           </div>
@@ -669,7 +669,7 @@ export default function AppLeadsPage() {
                   ) : null}
                   <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
                     <h2 className="text-sm font-semibold text-slate-900">Lead pipeline</h2>
-                    <span className="hidden text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500 md:inline-flex">
+                    <span className="hidden text-[11px] font-semibold tracking-[0.04em] text-slate-500 md:inline-flex">
                       Stage | Lead | Signal | Action
                     </span>
                   </div>
@@ -701,7 +701,7 @@ export default function AppLeadsPage() {
                         )}
                       >
                         <div className="flex items-center gap-2">
-                          <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]", stageTone(stage))}>
+                          <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[0.02em]", stageTone(stage))}>
                             {stageLabel(stage)}
                           </span>
                           <span className="text-[10px] font-semibold text-slate-400">S{stageIndex + 1}</span>

@@ -121,7 +121,7 @@ function QueueRow({
       <div className="min-w-0 space-y-0.5">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-slate-900">{title}</p>
-          <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", priorityPillClasses)}>
+          <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em]", priorityPillClasses)}>
             {priorityLabel}
           </span>
           <StatusBadge kind="generic" state={badgeState} label={statusLabel} size="xs" />
@@ -554,7 +554,7 @@ export default function AppOverviewPage() {
                 key={card.key}
                 className="rounded-md border border-slate-200 bg-white px-3 py-1.5 transition-colors duration-150 hover:border-slate-300"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{card.label}</p>
+                <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-500">{card.label}</p>
                 <p className={cn("mt-0.5 text-xl font-semibold", card.emphasize ? "text-rose-700" : "text-slate-950")}>{card.value}</p>
                 <p className="mt-0.5 text-[11px] text-slate-500">{card.note}</p>
               </div>
@@ -565,7 +565,7 @@ export default function AppOverviewPage() {
             <section className="xl:col-span-8 rounded-lg border border-slate-200 bg-white">
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Primary workflow</p>
+                  <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-500">Primary workflow</p>
                   <h2 className="text-base font-semibold text-slate-950">Action queue</h2>
                 </div>
                 <div className="text-right">
@@ -586,9 +586,9 @@ export default function AppOverviewPage() {
                     )}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Top task</p>
+                      <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-600">Top task</p>
                       <span className={cn(
-                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em]",
                         topTask.priority === "critical"
                           ? "border-rose-300 bg-rose-100 text-rose-800"
                           : "border-amber-300 bg-amber-100 text-amber-800"
@@ -615,13 +615,13 @@ export default function AppOverviewPage() {
                   {clearedBuckets} of 3 queues clear - {actionQueueTotal} task{actionQueueTotal === 1 ? "" : "s"} remaining
                 </p>
                 <div className="flex flex-wrap items-center gap-1.5 px-1">
-                  <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+                  <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em] text-rose-700">
                     Critical {queuePriorityCounts.critical}
                   </span>
-                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em] text-amber-700">
                     High {queuePriorityCounts.high}
                   </span>
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em] text-slate-700">
                     Normal {queuePriorityCounts.normal}
                   </span>
                 </div>
@@ -707,7 +707,7 @@ export default function AppOverviewPage() {
           <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Activity</p>
+                <p className="text-[11px] font-semibold tracking-[0.04em] text-slate-500">Activity</p>
                 <h2 className="text-lg font-semibold text-slate-950">Recent operations</h2>
               </div>
               <Button variant="ghost" size="sm" asChild>
